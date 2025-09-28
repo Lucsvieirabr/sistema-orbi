@@ -11,4 +11,4 @@ supabase stop
 
 echo "✅ Ambiente parado com sucesso!"
 echo ""
-echo "💡 Para iniciar novamente: ./scripts/start-dev.sh"
+echo "💡 Para iniciar novamente: npm run dev:local"

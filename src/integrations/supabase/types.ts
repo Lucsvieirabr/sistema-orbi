@@ -253,7 +253,13 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      vw_account_current_balance: {
+        Row: {
+          account_id: string
+          user_id: string
+          current_balance: number
+        }
+      }
     }
     Functions: {
       [_ in never]: never

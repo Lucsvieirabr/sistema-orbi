@@ -12,7 +12,6 @@ import {
   LogOut,
   PieChart
 } from "lucide-react";
-import orbiLogo from "@/assets/orbi-logo.png";
 import { useToast } from "@/hooks/use-toast";
 
 interface DashboardProps {
@@ -71,52 +70,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Navigation Bar */}
-      <header className="bg-card border-b border-border shadow-sm">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <img src={orbiLogo} alt="Orbi" className="h-8 w-8" />
-            <h1 className="text-xl font-bold text-primary">Orbi</h1>
-          </div>
-          
-          <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setShowMobileMenu(!showMobileMenu)}
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            
-            <div className="hidden md:flex items-center gap-2">
-              <Button variant="ghost" size="icon">
-                <User className="h-5 w-5" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleLogout}>
-                <LogOut className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {/* Mobile Menu */}
-      {showMobileMenu && (
-        <div className="md:hidden bg-card border-b border-border p-4">
-          <div className="flex flex-col gap-2">
-            <Button variant="ghost" className="justify-start">
-              <User className="h-4 w-4 mr-2" />
-              Perfil
-            </Button>
-            <Button variant="ghost" className="justify-start" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Sair
-            </Button>
-          </div>
-        </div>
-      )}
-
       <main className="container mx-auto p-4 space-y-6">
         {/* Summary Cards */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
