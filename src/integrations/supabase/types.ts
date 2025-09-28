@@ -177,6 +177,7 @@ export type Database = {
           credit_card_id: string | null
           category_id: string | null
           family_member_id: string | null
+          related_transaction_id: string | null
           created_at: string
         }
         Insert: {
@@ -194,6 +195,7 @@ export type Database = {
           credit_card_id?: string | null
           category_id?: string | null
           family_member_id?: string | null
+          related_transaction_id?: string | null
           created_at?: string
         }
         Update: {
@@ -211,6 +213,7 @@ export type Database = {
           credit_card_id?: string | null
           category_id?: string | null
           family_member_id?: string | null
+          related_transaction_id?: string | null
           created_at?: string
         }
         Relationships: [

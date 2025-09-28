@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Banknote, List } from "lucide-react";
+import { LayoutDashboard, Wallet, Banknote, List, CreditCard, Users } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -17,6 +17,8 @@ const menuItems: SidebarItem[] = [
   { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
   { title: "Transações", icon: Banknote, path: "/sistema/transactions" },
   { title: "Categorias", icon: List, path: "/sistema/categories" },
+  { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
+  { title: "Família", icon: Users, path: "/sistema/family-members" },
 ];
 
 export function AppSidebar() {

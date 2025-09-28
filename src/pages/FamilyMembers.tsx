@@ -5,50 +5,50 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useCategories } from "@/hooks/use-categories";
+import { useFamilyMembers } from "@/hooks/use-family-members";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { LayoutGrid, List, Plus, Users } from "lucide-react";
 
-export default function Categories() {
+export default function FamilyMembers() {
   const queryClient = useQueryClient();
-  const { categories, createCategory, updateCategory, deleteCategory, isLoading } = useCategories();
+  const { familyMembers, createFamilyMember, updateFamilyMember, deleteFamilyMember, isLoading } = useFamilyMembers();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
 
   useEffect(() => {
-    const v = (localStorage.getItem("categories:view") as "list" | "cards") || "list";
+    const v = (localStorage.getItem("family_members:view") as "list" | "cards") || "list";
     setView(v);
   }, []);
 
   const onChangeView = (val: string) => {
     const v = (val as "list" | "cards") || "list";
     setView(v);
-    localStorage.setItem("categories:view", v);
+    localStorage.setItem("family_members:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Categoria" : "Nova Categoria"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar Membro" : "Novo Membro"), [editingId]);
 
   const onSubmit = async () => {
     if (!name.trim()) return;
     const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
     try {
       if (editingId) {
-        await updateCategory(editingId, { name });
+        await updateFamilyMember(editingId, { name });
       } else {
-        await createCategory({ name });
+        await createFamilyMember({ name });
       }
-      t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
-    } catch (e) {
-      t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+      t.update({ title: "Sucesso", description: "Membro salvo", duration: 2000 });
+    } catch (e: any) {
+      t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
     }
     setOpen(false);
     setName("");
     setEditingId(null);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    queryClient.invalidateQueries({ queryKey: ["family_members"] });
   };
 
   const onEdit = (id: string, currentName: string) => {
@@ -58,16 +58,21 @@ export default function Categories() {
   };
 
   const onDelete = async (id: string) => {
-    // Replace with a custom confirmation dialog in real app
-    await deleteCategory(id);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    const t = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
+    try {
+      await deleteFamilyMember(id);
+      t.update({ title: "Sucesso", description: "Membro excluído", duration: 2000 });
+    } catch (e: any) {
+      t.update({ title: "Erro", description: e.message || "Não foi possível excluir", duration: 3000, variant: "destructive" as any });
+    }
+    queryClient.invalidateQueries({ queryKey: ["family_members"] });
   };
 
   return (
     <div className="space-y-4 mt-2">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>Categorias</CardTitle>
+          <CardTitle>Membros da Família</CardTitle>
           <Dialog open={open} onOpenChange={setOpen}>
             <div className="flex items-center gap-2">
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
@@ -90,8 +95,8 @@ export default function Categories() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                  <Label htmlFor="name">Nome do Membro</Label>
+                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
                 </div>
               </div>
               <DialogFooter>
@@ -109,20 +114,25 @@ export default function Categories() {
             </div>
           ) : view === "cards" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {categories.length === 0 ? (
+              {familyMembers.length === 0 ? (
                 <div className="col-span-full rounded-lg border bg-card p-6 text-center text-muted-foreground">
                   <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <List className="h-5 w-5" />
+                    <Users className="h-5 w-5" />
                   </div>
-                  Nenhuma categoria cadastrada
+                  Nenhum membro cadastrado
                 </div>
-              ) : categories.map((c) => (
-                <div key={c.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
+              ) : familyMembers.map((member) => (
+                <div key={member.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{c.name}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-4 w-4 text-primary" />
+                      </div>
+                      <span className="font-medium">{member.name}</span>
+                    </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => onEdit(c.id, c.name)}>Editar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(c.id)}>Excluir</Button>
+                      <Button variant="outline" size="sm" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
+                      <Button variant="destructive" size="sm" onClick={() => onDelete(member.id)}>Excluir</Button>
                     </div>
                   </div>
                 </div>
@@ -130,19 +140,24 @@ export default function Categories() {
             </div>
           ) : (
             <div className="divide-y divide-border rounded-md bg-card/40">
-              {categories.length === 0 ? (
+              {familyMembers.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <List className="h-5 w-5" />
+                    <Users className="h-5 w-5" />
                   </div>
-                  Nenhuma categoria cadastrada
+                  Nenhum membro cadastrado
                 </div>
-              ) : categories.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
-                  <span className="font-medium">{c.name}</span>
+              ) : familyMembers.map((member) => (
+                <div key={member.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <Users className="h-4 w-4 text-primary" />
+                    </div>
+                    <span className="font-medium">{member.name}</span>
+                  </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => onEdit(c.id, c.name)}>Editar</Button>
-                    <Button variant="destructive" onClick={() => onDelete(c.id)}>Excluir</Button>
+                    <Button variant="outline" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
+                    <Button variant="destructive" onClick={() => onDelete(member.id)}>Excluir</Button>
                   </div>
                 </div>
               ))}
@@ -153,5 +168,3 @@ export default function Categories() {
     </div>
   );
 }
-
-

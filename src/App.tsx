@@ -13,6 +13,7 @@ import Categories from "@/pages/Categories";
 import Accounts from "@/pages/Accounts";
 import Transactions from "@/pages/Transactions";
 import Cards from "@/pages/Cards";
+import FamilyMembers from "@/pages/FamilyMembers";
 import Settings from "@/pages/Settings";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -72,6 +73,7 @@ const App = () => {
                 <Route path="accounts" element={<Accounts />} />
                 <Route path="transactions" element={<Transactions />} />
                 <Route path="cards" element={<Cards />} />
+                <Route path="family-members" element={<FamilyMembers />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 

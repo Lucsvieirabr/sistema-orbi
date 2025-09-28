@@ -22,7 +22,7 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
       <AppSidebar />
       <SidebarInset>
         <div className="p-4">
-          <AppHeader title="Orbi" onLogout={handleLogout} />
+          <AppHeader title="Orbi" subtitle="Sua visão financeira" onLogout={handleLogout} />
           <Outlet />
         </div>
         {/* Mobile FAB for new transaction */}
