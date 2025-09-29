@@ -2,6 +2,7 @@ import { Search, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { SearchPopover } from "./SearchPopover";
 
 interface HeaderProps {
   title: string;
@@ -20,10 +21,7 @@ export function AppHeader({ title, subtitle, onLogout, className, rightSlot }: H
       </div>
 
       <div className="flex items-center gap-4">
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input placeholder="Buscar..." className="w-80 pl-10 transition-smooth focus:ring-primary" />
-        </div>
+        <SearchPopover />
         {rightSlot}
         <Button variant="ghost" size="sm" onClick={onLogout} className="gap-2">
           <LogOut className="h-4 w-4" />

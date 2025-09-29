@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useCreditCards } from "@/hooks/use-credit-cards";
 import { useAccounts } from "@/hooks/use-accounts";
@@ -192,19 +193,19 @@ export default function Cards() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
-                  <Select value={connectedAccountId} onValueChange={setConnectedAccountId}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione uma conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="none">Nenhuma conta</SelectItem>
-                      {accountsWithBalance.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name} - {formatCurrency(account.current_balance ?? 0)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="accounts"
+                    value={connectedAccountId}
+                    onValueChange={setConnectedAccountId}
+                    placeholder="Selecione uma conta"
+                  >
+                    <SelectItem value="none">Nenhuma conta</SelectItem>
+                    {accountsWithBalance.map((account) => (
+                      <SelectItem key={account.id} value={account.id}>
+                        {account.name} - {formatCurrency(account.current_balance ?? 0)}
+                      </SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
               </div>
               <DialogFooter>

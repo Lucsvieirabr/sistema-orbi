@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -31,7 +32,8 @@ import {
   Plus,
   CreditCard,
   User,
-  Edit
+  Edit,
+  Trash2
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -59,6 +61,7 @@ export default function MonthlyStatement() {
   const [toAccountId, setToAccountId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
   const [editScope, setEditScope] = useState<'current' | 'future'>('current');
+  const [showMonthSelector, setShowMonthSelector] = useState(false);
 
   // Hooks
   const { categories } = useCategories();
@@ -310,6 +313,9 @@ export default function MonthlyStatement() {
         if (payload.is_fixed) {
           // Para transações fixas, gerar 12 meses futuros
           await createFixedTransactionSeries(payload);
+        } else if (payload.installments && payload.installments > 1) {
+          // Para transações parceladas, criar todas as parcelas
+          await createInstallmentSeries(payload);
         } else {
           // Transação única
           const { error } = await supabase.from("transactions").insert({
@@ -324,11 +330,9 @@ export default function MonthlyStatement() {
             credit_card_id: payload.credit_card_id,
             family_member_id: payload.family_member_id,
             is_fixed: payload.is_fixed,
-            ...(payload.installments && payload.installments > 1 ? {
-              installments: payload.installments,
-              installment_number: 1,
-              series_id: null,
-            } : {}),
+            installments: null,
+            installment_number: null,
+            series_id: null,
             status: 'PAID', // Transação única é sempre paga no momento da criação
           });
           if (error) throw error;
@@ -509,6 +513,62 @@ export default function MonthlyStatement() {
     }
   };
 
+  const createInstallmentSeries = async (payload: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Gerar um series_id único para as parcelas
+      const seriesId = crypto.randomUUID();
+
+      // Data inicial
+      const startDate = new Date(payload.date);
+
+      // Criar array de transações para todas as parcelas
+      const transactionsToInsert = [];
+
+      for (let i = 0; i < payload.installments; i++) {
+        const transactionDate = new Date(startDate);
+        transactionDate.setMonth(transactionDate.getMonth() + i);
+
+        // Formatar data como YYYY-MM-DD
+        const formattedDate = transactionDate.toISOString().slice(0, 10);
+
+        transactionsToInsert.push({
+          user_id: user.id,
+          type: payload.type,
+          account_id: payload.account_id,
+          category_id: payload.category_id,
+          value: payload.value, // Valor da parcela (já calculado anteriormente)
+          description: payload.description,
+          date: formattedDate,
+          payment_method: payload.payment_method,
+          credit_card_id: payload.credit_card_id,
+          family_member_id: payload.family_member_id,
+          is_fixed: false,
+          installments: payload.installments,
+          installment_number: i + 1, // Começar com parcela 1
+          series_id: seriesId,
+          status: i === 0 ? 'PAID' : 'PENDING', // Primeira parcela como PAID, outras como PENDING
+        });
+      }
+
+      // Inserir todas as transações
+      const { error } = await supabase.from("transactions").insert(transactionsToInsert);
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: `${payload.installments} parcelas criadas`, duration: 2000 });
+    } catch (error: any) {
+      console.error("Erro ao criar série de parcelas:", error);
+      toast({
+        title: "Erro",
+        description: error.message || "Não foi possível criar as parcelas",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    }
+  };
+
   const createFixedTransactionSeries = async (payload: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -615,14 +675,20 @@ export default function MonthlyStatement() {
     return grouped;
   }, [filteredTransactions]);
 
-  const handleMonthChange = (direction: 'prev' | 'next') => {
+  const handleMonthChange = (direction: 'prev' | 'next', months: number = 1) => {
     const newDate = new Date(currentDate);
     if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
+      newDate.setMonth(newDate.getMonth() - months);
     } else {
-      newDate.setMonth(newDate.getMonth() + 1);
+      newDate.setMonth(newDate.getMonth() + months);
     }
     setCurrentDate(newDate);
+  };
+
+  const setMonthYear = (year: number, month: number) => {
+    const newDate = new Date(year, month - 1, 1); // Month is 0-indexed in JS Date
+    setCurrentDate(newDate);
+    setShowMonthSelector(false);
   };
 
   const markAsPaid = async (transactionId: string) => {
@@ -669,6 +735,28 @@ export default function MonthlyStatement() {
     }
   };
 
+  const deleteTransaction = async (transactionId: string) => {
+    const toastInstance = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Transação excluída", duration: 2000 });
+      refetch();
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível excluir",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    }
+  };
+
   const getTransactionIcon = (transaction: any) => {
     if (transaction.type === 'transfer') {
       return <ArrowUpCircle className="h-4 w-4 text-blue-500" />;
@@ -697,14 +785,56 @@ export default function MonthlyStatement() {
                 <Calendar className="h-4 w-4 mr-2" />
                 Anterior
               </Button>
-              <div className="text-lg font-semibold">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowMonthSelector(!showMonthSelector)}
+                className="relative h-9"
+              >
+                <Calendar className="h-4 w-4 mr-2" />
                 {currentDate.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </div>
+                {showMonthSelector && (
+                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-50 p-4 min-w-64">
+                    <div className="grid grid-cols-3 gap-2">
+                      {Array.from({ length: 12 }, (_, i) => {
+                        const month = i;
+                        const year = currentDate.getFullYear();
+                        return (
+                          <Button
+                            key={month}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setMonthYear(year, month + 1)}
+                          >
+                            {new Date(year, month).toLocaleDateString('pt-BR', { month: 'short' })}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <div className="grid grid-cols-5 gap-1 mt-2">
+                      {Array.from({ length: 5 }, (_, i) => {
+                        const year = currentDate.getFullYear() + (i - 2);
+                        return (
+                          <Button
+                            key={year}
+                            variant="outline"
+                            size="sm"
+                            className="text-xs"
+                            onClick={() => setMonthYear(year, currentDate.getMonth() + 1)}
+                          >
+                            {year}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleMonthChange('next')}
-                disabled={currentDate >= new Date()}
               >
                 Próximo
                 <Calendar className="h-4 w-4 ml-2" />
@@ -912,6 +1042,15 @@ export default function MonthlyStatement() {
                             <Edit className="h-4 w-4" />
                           </Button>
 
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => deleteTransaction(transaction.id)}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+
                           {transaction.status === 'PENDING' ? (
                             <Button
                               size="sm"
@@ -993,29 +1132,29 @@ export default function MonthlyStatement() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <Label className="text-sm">Conta de Origem</Label>
-                  <Select value={fromAccountId} onValueChange={setFromAccountId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Origem" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountsWithBalance.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="accounts"
+                    value={fromAccountId}
+                    onValueChange={setFromAccountId}
+                    placeholder="Origem"
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Conta de Destino</Label>
-                  <Select value={toAccountId} onValueChange={setToAccountId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Destino" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountsWithBalance.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="accounts"
+                    value={toAccountId}
+                    onValueChange={setToAccountId}
+                    placeholder="Destino"
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
               </div>
             ) : type === 'income' ? (
@@ -1023,29 +1162,29 @@ export default function MonthlyStatement() {
               <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
                 <div className="space-y-1">
                   <Label className="text-sm">Conta</Label>
-                  <Select value={accountId} onValueChange={setAccountId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountsWithBalance.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="accounts"
+                    value={accountId}
+                    onValueChange={setAccountId}
+                    placeholder="Conta"
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Categoria</Label>
-                  <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="categories"
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                    placeholder="Categoria"
+                  >
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Valor</Label>
@@ -1073,29 +1212,29 @@ export default function MonthlyStatement() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-sm">Conta</Label>
-                  <Select value={accountId} onValueChange={setAccountId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Conta" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {accountsWithBalance.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="accounts"
+                    value={accountId}
+                    onValueChange={setAccountId}
+                    placeholder="Conta"
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Categoria</Label>
-                  <Select value={categoryId} onValueChange={setCategoryId}>
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder="Categoria" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {categories.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <SelectWithAddButton
+                    entityType="categories"
+                    value={categoryId}
+                    onValueChange={setCategoryId}
+                    placeholder="Categoria"
+                  >
+                    {categories.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Valor</Label>
@@ -1183,17 +1322,17 @@ export default function MonthlyStatement() {
                 {paymentMethod === 'credit' ? (
                   <div className="space-y-1">
                     <Label className="text-sm">Cartão de Crédito</Label>
-                    <Select value={creditCardId || "none"} onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}>
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Selecione" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {creditCards.map((card) => (
-                          <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <SelectWithAddButton
+                      entityType="creditCards"
+                      value={creditCardId || "none"}
+                      onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}
+                      placeholder="Selecione"
+                    >
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {creditCards.map((card) => (
+                        <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                      ))}
+                    </SelectWithAddButton>
                   </div>
                 ) : null}
               </div>
@@ -1232,17 +1371,17 @@ export default function MonthlyStatement() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label className="text-sm">Membro da Família</Label>
-                <Select value={familyMemberId || "none"} onValueChange={(value) => setFamilyMemberId(value === "none" ? null : value)}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Opcional" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {familyMembers.map((member) => (
-                      <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <SelectWithAddButton
+                  entityType="familyMembers"
+                  value={familyMemberId || "none"}
+                  onValueChange={(value) => setFamilyMemberId(value === "none" ? null : value)}
+                  placeholder="Opcional"
+                >
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {familyMembers.map((member) => (
+                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                  ))}
+                </SelectWithAddButton>
               </div>
 
               <div className="space-y-1">
