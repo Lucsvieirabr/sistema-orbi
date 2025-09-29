@@ -232,7 +232,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                     </div>
                   </div>
                 )
-              ) : (
+              ) : categoryExpenses.length > 0 ? (
                 <div className="h-[300px] w-full">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
@@ -253,13 +253,23 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                         })}
                       </Pie>
-                      <Tooltip 
+                      <Tooltip
                         formatter={(value: number) => [formatCurrency(value), 'Valor']}
                         labelFormatter={(label) => `Categoria: ${label}`}
                       />
                       <Legend />
                     </RechartsPieChart>
                   </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-[300px] bg-muted/20 rounded-lg">
+                  <div className="text-center">
+                    <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                    <p className="text-muted-foreground">Nenhum gasto categorizado este mês</p>
+                    <p className="text-sm text-muted-foreground mt-2">
+                      Adicione categorias às suas transações para visualizar o gráfico
+                    </p>
+                  </div>
                 </div>
               )}
             </CardContent>
