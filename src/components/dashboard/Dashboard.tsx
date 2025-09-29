@@ -41,15 +41,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   // Calculate category expenses for chart
   const categoryExpenses = useMemo(() => {
-    // Sample data for testing
-    const sampleData = [
-      { category: 'Alimentação', amount: 500 },
-      { category: 'Transporte', amount: 300 },
-      { category: 'Lazer', amount: 200 },
-      { category: 'Saúde', amount: 150 },
-      { category: 'Educação', amount: 100 },
-    ];
-
     // Check if we have real data
     const expensesByCategory: Record<string, number> = {};
     transactions
@@ -59,13 +50,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
         expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + transaction.value;
       });
 
-    const result = Object.entries(expensesByCategory)
+    return Object.entries(expensesByCategory)
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
-
-    // Return real data if available, otherwise sample data
-    return result.length > 0 ? result : sampleData;
   }, [transactions]);
 
   // Get recent transactions (last 5)
@@ -238,6 +226,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                     <div className="text-center">
                       <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
                       <p className="text-muted-foreground">Nenhum gasto categorizado este mês</p>
+                      <p className="text-sm text-muted-foreground mt-2">
+                        Adicione categorias às suas transações para visualizar os gastos por categoria
+                      </p>
                     </div>
                   </div>
                 )
