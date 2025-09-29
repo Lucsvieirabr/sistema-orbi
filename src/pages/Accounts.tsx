@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useAccounts } from "@/hooks/use-accounts";
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
@@ -82,7 +83,7 @@ export default function Accounts() {
   const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 
   return (
-    <div className="space-y-4 mt-2">
+    <div className="container mx-auto p-4 space-y-6">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Contas</CardTitle>
@@ -168,7 +169,15 @@ export default function Accounts() {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button variant="outline" size="sm" onClick={() => onEdit(a.id)}>Editar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(a.id)}>Excluir</Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                        confirmText="Excluir"
+                        onConfirm={() => onDelete(a.id)}
+                        variant="destructive"
+                      >
+                        <Button variant="destructive" size="sm">Excluir</Button>
+                      </ConfirmationDialog>
                     </div>
                   </div>
                   <div className="mt-4 text-right font-semibold">{formatCurrency(a.current_balance ?? 0)}</div>
@@ -196,7 +205,15 @@ export default function Accounts() {
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{formatCurrency(a.current_balance ?? 0)}</span>
                     <Button variant="outline" onClick={() => onEdit(a.id)}>Editar</Button>
-                    <Button variant="destructive" onClick={() => onDelete(a.id)}>Excluir</Button>
+                    <ConfirmationDialog
+                      title="Confirmar Exclusão"
+                      description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                      confirmText="Excluir"
+                      onConfirm={() => onDelete(a.id)}
+                      variant="destructive"
+                    >
+                      <Button variant="destructive">Excluir</Button>
+                    </ConfirmationDialog>
                   </div>
                 </div>
               ))}

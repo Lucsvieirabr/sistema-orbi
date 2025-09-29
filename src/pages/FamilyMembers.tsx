@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useFamilyMembers } from "@/hooks/use-family-members";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
@@ -69,7 +70,7 @@ export default function FamilyMembers() {
   };
 
   return (
-    <div className="space-y-4 mt-2">
+    <div className="container mx-auto p-4 space-y-6">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Membros da Família</CardTitle>
@@ -132,7 +133,15 @@ export default function FamilyMembers() {
                     </div>
                     <div className="flex gap-2">
                       <Button variant="outline" size="sm" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(member.id)}>Excluir</Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir este membro da família? Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => onDelete(member.id)}
+                        variant="destructive"
+                      >
+                        <Button variant="destructive" size="sm">Excluir</Button>
+                      </ConfirmationDialog>
                     </div>
                   </div>
                 </div>
@@ -157,7 +166,15 @@ export default function FamilyMembers() {
                   </div>
                   <div className="flex gap-2">
                     <Button variant="outline" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
-                    <Button variant="destructive" onClick={() => onDelete(member.id)}>Excluir</Button>
+                    <ConfirmationDialog
+                      title="Confirmar Exclusão"
+                      description="Tem certeza que deseja excluir este membro da família? Esta ação não pode ser desfeita."
+                      confirmText="Excluir"
+                      onConfirm={() => onDelete(member.id)}
+                      variant="destructive"
+                    >
+                      <Button variant="destructive">Excluir</Button>
+                    </ConfirmationDialog>
                   </div>
                 </div>
               ))}

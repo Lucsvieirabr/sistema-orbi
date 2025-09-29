@@ -11,7 +11,7 @@ import { ThemeProvider } from "@/hooks/use-theme";
 import AppLayout from "@/layouts/AppLayout";
 import Categories from "@/pages/Categories";
 import Accounts from "@/pages/Accounts";
-import Transactions from "@/pages/Transactions";
+import MonthlyStatement from "@/pages/MonthlyStatement";
 import Cards from "@/pages/Cards";
 import FamilyMembers from "@/pages/FamilyMembers";
 import Settings from "@/pages/Settings";
@@ -69,9 +69,9 @@ const App = () => {
                 element={authReady ? (isAuthenticated ? <AppLayout onLogout={handleLogout} /> : <Navigate to="/login" replace />) : null}
               >
                 <Route index element={<Dashboard onLogout={handleLogout} />} />
+                <Route path="statement" element={<MonthlyStatement />} />
                 <Route path="categories" element={<Categories />} />
                 <Route path="accounts" element={<Accounts />} />
-                <Route path="transactions" element={<Transactions />} />
                 <Route path="cards" element={<Cards />} />
                 <Route path="family-members" element={<FamilyMembers />} />
                 <Route path="settings" element={<Settings />} />

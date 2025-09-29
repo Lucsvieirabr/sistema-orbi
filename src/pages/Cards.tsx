@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useCreditCards } from "@/hooks/use-credit-cards";
 import { useAccounts } from "@/hooks/use-accounts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -121,7 +122,7 @@ export default function Cards() {
   };
 
   return (
-    <div className="space-y-4 mt-2">
+    <div className="container mx-auto p-4 space-y-6">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Cartões de Crédito</CardTitle>
@@ -219,7 +220,15 @@ export default function Cards() {
                     </div>
                     <div className="flex items-center gap-1">
                       <Button variant="outline" size="sm" onClick={() => onEdit(card.id)}>Editar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(card.id)}>Excluir</Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => onDelete(card.id)}
+                        variant="destructive"
+                      >
+                        <Button variant="destructive" size="sm">Excluir</Button>
+                      </ConfirmationDialog>
                     </div>
                   </div>
                   <div className="space-y-2 text-sm">
@@ -264,7 +273,15 @@ export default function Cards() {
                   </div>
                   <div className="flex items-center gap-2">
                     <Button variant="outline" onClick={() => onEdit(card.id)}>Editar</Button>
-                    <Button variant="destructive" onClick={() => onDelete(card.id)}>Excluir</Button>
+                    <ConfirmationDialog
+                      title="Confirmar Exclusão"
+                      description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
+                      confirmText="Excluir"
+                      onConfirm={() => onDelete(card.id)}
+                      variant="destructive"
+                    >
+                      <Button variant="destructive">Excluir</Button>
+                    </ConfirmationDialog>
                   </div>
                 </div>
               ))}

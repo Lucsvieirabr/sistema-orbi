@@ -5,6 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { IconRenderer } from "@/components/ui/icon-renderer";
+import { IconSelector } from "@/components/ui/icon-selector";
 import { useCategories } from "@/hooks/use-categories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -13,9 +17,11 @@ import { toast } from "@/hooks/use-toast";
 
 export default function Categories() {
   const queryClient = useQueryClient();
-  const { categories, createCategory, updateCategory, deleteCategory, isLoading } = useCategories();
+  const { categories, createCategory, updateCategory, deleteCategory, populateInitialCategories, isLoading } = useCategories();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [categoryType, setCategoryType] = useState<"income" | "expense">("expense");
+  const [icon, setIcon] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
 
@@ -32,28 +38,36 @@ export default function Categories() {
 
   const title = useMemo(() => (editingId ? "Editar Categoria" : "Nova Categoria"), [editingId]);
 
+  const resetForm = () => {
+    setName("");
+    setCategoryType("expense");
+    setIcon("");
+    setEditingId(null);
+  };
+
   const onSubmit = async () => {
     if (!name.trim()) return;
     const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
     try {
       if (editingId) {
-        await updateCategory(editingId, { name });
+        await updateCategory(editingId, { name, category_type: categoryType, icon });
       } else {
-        await createCategory({ name });
+        await createCategory({ name, category_type: categoryType, icon });
       }
       t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
     } catch (e) {
       t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
     }
     setOpen(false);
-    setName("");
-    setEditingId(null);
+    resetForm();
     queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
-  const onEdit = (id: string, currentName: string) => {
+  const onEdit = (id: string, currentName: string, currentType?: string, currentIcon?: string) => {
     setEditingId(id);
     setName(currentName);
+    setCategoryType((currentType as "income" | "expense") || "expense");
+    setIcon(currentIcon || "");
     setOpen(true);
   };
 
@@ -63,42 +77,78 @@ export default function Categories() {
     queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
+  const handlePopulateInitialCategories = async () => {
+    const t = toast({ title: "Populando...", description: "Criando categorias iniciais", duration: 2000 });
+    try {
+      await populateInitialCategories();
+      t.update({ title: "Sucesso", description: "Categorias iniciais criadas", duration: 2000 });
+    } catch (e: any) {
+      t.update({ title: "Erro", description: e.message || "Não foi possível criar categorias", duration: 3000, variant: "destructive" as any });
+    }
+  };
+
   return (
-    <div className="space-y-4 mt-2">
+    <div className="container mx-auto p-4 space-y-6">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Categorias</CardTitle>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <div className="flex items-center gap-2">
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
+          <div className="flex items-center gap-2">
+            {categories.length === 0 && (
+              <Button variant="outline" onClick={handlePopulateInitialCategories}>
+                Criar Categorias Iniciais
+              </Button>
+            )}
+            <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
+              <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <Dialog open={open} onOpenChange={setOpen}>
               <DialogTrigger asChild>
                 <Button size="sm" className="h-8 w-8 p-0">
                   <Plus className="h-4 w-4" />
                 </Button>
               </DialogTrigger>
-            </div>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{title}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>{title}</DialogTitle>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Nome</Label>
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="categoryType">Tipo</Label>
+                      <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="expense">Gasto</SelectItem>
+                          <SelectItem value="income">Ganho</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="icon">Ícone (opcional)</Label>
+                      <IconSelector
+                        value={icon}
+                        onChange={setIcon}
+                      />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={onSubmit}>Salvar</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button onClick={onSubmit}>Salvar</Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -119,10 +169,21 @@ export default function Categories() {
               ) : categories.map((c) => (
                 <div key={c.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium">{c.name}</span>
+                    <div className="flex items-center gap-2">
+                      <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
+                      <span className="font-medium">{c.name}</span>
+                    </div>
                     <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => onEdit(c.id, c.name)}>Editar</Button>
-                      <Button variant="destructive" size="sm" onClick={() => onDelete(c.id)}>Excluir</Button>
+                      <Button variant="outline" size="sm" onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}>Editar</Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => onDelete(c.id)}
+                        variant="destructive"
+                      >
+                        <Button variant="destructive" size="sm">Excluir</Button>
+                      </ConfirmationDialog>
                     </div>
                   </div>
                 </div>
@@ -139,10 +200,21 @@ export default function Categories() {
                 </div>
               ) : categories.map((c) => (
                 <div key={c.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
-                  <span className="font-medium">{c.name}</span>
+                  <div className="flex items-center gap-2">
+                    <IconRenderer iconName={c.icon} className="h-4 w-4 text-primary" />
+                    <span className="font-medium">{c.name}</span>
+                  </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => onEdit(c.id, c.name)}>Editar</Button>
-                    <Button variant="destructive" onClick={() => onDelete(c.id)}>Excluir</Button>
+                    <Button variant="outline" onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}>Editar</Button>
+                    <ConfirmationDialog
+                      title="Confirmar Exclusão"
+                      description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                      confirmText="Excluir"
+                      onConfirm={() => onDelete(c.id)}
+                      variant="destructive"
+                    >
+                      <Button variant="destructive">Excluir</Button>
+                    </ConfirmationDialog>
                   </div>
                 </div>
               ))}

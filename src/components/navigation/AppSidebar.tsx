@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Banknote, List, CreditCard, Users } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -14,8 +14,8 @@ interface SidebarItem {
 
 const menuItems: SidebarItem[] = [
   { title: "Dashboard", icon: LayoutDashboard, path: "/sistema" },
+  { title: "Extrato", icon: Receipt, path: "/sistema/statement" },
   { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
-  { title: "Transações", icon: Banknote, path: "/sistema/transactions" },
   { title: "Categorias", icon: List, path: "/sistema/categories" },
   { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
   { title: "Família", icon: Users, path: "/sistema/family-members" },
@@ -60,6 +60,16 @@ export function AppSidebar() {
               </Button>
             );
           })}
+
+          {/* Botão de Nova Transação */}
+          <Button
+            variant="outline"
+            className="w-full justify-start gap-3 mt-4 border-dashed border-2 hover:bg-primary hover:text-primary-foreground"
+            onClick={() => navigate("/sistema/statement?new=1")}
+          >
+            <Plus className="h-4 w-4" />
+            Nova Transação
+          </Button>
         </div>
       </nav>
 

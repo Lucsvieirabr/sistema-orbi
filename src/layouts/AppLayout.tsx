@@ -28,7 +28,7 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
         {/* Mobile FAB for new transaction */}
         <button
           aria-label="Nova Transação"
-          onClick={() => navigate("/sistema/transactions?new=1")}
+          onClick={() => navigate("/sistema/statement?new=1")}
           className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] flex items-center justify-center text-2xl"
         >
           +
