@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate, Database } from "@/integrations/supabase/types";
 
 type Account = Tables<"accounts">;
-type BalanceRow = Database["public"]["Views"]["vw_account_current_balance"]["Row"]; 
+type BalanceRow = Database["public"]["Views"]["vw_account_current_balance"]["Row"];
+type ProjectedBalanceRow = Database["public"]["Views"]["vw_account_projected_balance"]["Row"]; 
 
 export function useAccounts() {
   const queryClient = useQueryClient();
@@ -29,8 +30,19 @@ export function useAccounts() {
     return (data as BalanceRow[]) ?? [];
   };
 
+  const fetchProjectedBalances = async (): Promise<ProjectedBalanceRow[]> => {
+    const { data: { user } } = await supabase.auth.getUser();
+    const { data, error } = await supabase
+      .from("vw_account_projected_balance")
+      .select("account_id, user_id, projected_balance")
+      .eq("user_id", user?.id ?? "");
+    if (error) throw error;
+    return (data as ProjectedBalanceRow[]) ?? [];
+  };
+
   const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
   const balancesQuery = useQuery({ queryKey: ["balances"], queryFn: fetchBalances });
+  const projectedBalancesQuery = useQuery({ queryKey: ["projected-balances"], queryFn: fetchProjectedBalances });
 
   useEffect(() => {
     const channel = supabase
@@ -38,10 +50,12 @@ export function useAccounts() {
       .on("postgres_changes", { event: "*", schema: "public", table: "accounts" }, () => {
         queryClient.invalidateQueries({ queryKey: ["accounts"] });
         queryClient.invalidateQueries({ queryKey: ["balances"] });
+        queryClient.invalidateQueries({ queryKey: ["projected-balances"] });
       })
       .on("postgres_changes", { event: "*", schema: "public", table: "transactions" }, () => {
         // transactions affect balances
         queryClient.invalidateQueries({ queryKey: ["balances"] });
+        queryClient.invalidateQueries({ queryKey: ["projected-balances"] });
       })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
@@ -52,6 +66,12 @@ export function useAccounts() {
     const balances = new Map((balancesQuery.data ?? []).map((b) => [b.account_id, b.current_balance]));
     return accounts.map((a) => ({ ...a, current_balance: balances.get(a.id) ?? a.initial_balance }));
   }, [accountsQuery.data, balancesQuery.data]);
+
+  const accountsWithProjectedBalance = useMemo(() => {
+    const accounts = accountsQuery.data ?? [];
+    const projectedBalances = new Map((projectedBalancesQuery.data ?? []).map((b) => [b.account_id, b.projected_balance]));
+    return accounts.map((a) => ({ ...a, projected_balance: projectedBalances.get(a.id) ?? a.initial_balance }));
+  }, [accountsQuery.data, projectedBalancesQuery.data]);
 
   const createAccount = async (values: Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -72,8 +92,10 @@ export function useAccounts() {
 
   return {
     accountsWithBalance,
+    accountsWithProjectedBalance,
     isLoading: accountsQuery.isLoading || balancesQuery.isLoading,
-    error: accountsQuery.error || balancesQuery.error,
+    isProjectedLoading: projectedBalancesQuery.isLoading,
+    error: accountsQuery.error || balancesQuery.error || projectedBalancesQuery.error,
     createAccount,
     updateAccount,
     deleteAccount,

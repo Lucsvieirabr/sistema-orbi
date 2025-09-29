@@ -30,7 +30,7 @@ All colors MUST be HSL.
     --muted: 210 17% 92%;
     --muted-foreground: 210 10% 42%; /* #6C757D */
 
-    --accent: 134 61% 41%; /* using success color */
+    --accent: 213 100% 50%; /* using primary color */
     --accent-foreground: 0 0% 100%;
 
     --destructive: 354 70% 54%; /* #DC3545 */
@@ -80,7 +80,7 @@ All colors MUST be HSL.
     --muted: 216 12% 18%;
     --muted-foreground: 210 11% 71%; /* #ADB5BD */
 
-    --accent: 134 47% 47%;
+    --accent: 204 100% 50%;
     --accent-foreground: 0 0% 100%;
 
     --destructive: 0 100% 65%; /* #FF4D4D */

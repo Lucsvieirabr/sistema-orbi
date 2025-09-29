@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -128,7 +129,13 @@ export default function Accounts() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="initial_balance">Saldo Inicial</Label>
-                  <Input id="initial_balance" type="number" value={initialBalance} onChange={(e) => setInitialBalance(parseFloat(e.target.value || "0"))} />
+                  <NumericInput
+                    id="initial_balance"
+                    currency
+                    value={initialBalance}
+                    onChange={setInitialBalance}
+                    placeholder="0,00"
+                  />
                 </div>
               <div className="space-y-2">
                 <Label htmlFor="color">Cor</Label>

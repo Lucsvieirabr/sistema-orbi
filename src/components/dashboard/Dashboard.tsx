@@ -228,7 +228,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         <p className="font-medium text-foreground">{transaction.description}</p>
                         <p className="text-sm text-muted-foreground">
                           {formatDate(transaction.date)}
-                          {transaction.installment_number && (
+                          {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
                             <span className="ml-1">• Parcela {transaction.installment_number}/{transaction.installments}</span>
                           )}
                         </p>
@@ -275,7 +275,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               {transaction.categories.name}
                             </Badge>
                           )}
-                          {transaction.installment_number && (
+                          {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
                             <Badge variant="secondary" className="text-xs">
                               {transaction.installment_number}/{transaction.installments}
                             </Badge>
@@ -289,9 +289,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       </p>
                       <Badge
                         variant={transaction.status === 'PAID' ? 'default' : 'secondary'}
-                        className={`text-xs mt-1 ${transaction.status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}
+                        className={`text-xs mt-1 ${transaction.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-yellow-100 text-yellow-800'}`}
                       >
-                        {transaction.status === 'PAID' ? 'Pago' : 'Pendente'}
+                        {transaction.status === 'PAID'
+                          ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
+                          : 'Pendente'}
                       </Badge>
                     </div>
                   </div>

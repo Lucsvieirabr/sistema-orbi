@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -157,16 +158,36 @@ export default function Cards() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="limit">Limite</Label>
-                  <Input id="limit" type="number" value={limit} onChange={(e) => setLimit(parseFloat(e.target.value || "0"))} />
+                  <NumericInput
+                    id="limit"
+                    currency
+                    value={limit}
+                    onChange={setLimit}
+                    placeholder="0,00"
+                  />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="statement_date">Dia de Fechamento</Label>
-                    <Input id="statement_date" type="number" min="1" max="31" value={statementDate} onChange={(e) => setStatementDate(parseInt(e.target.value || "1"))} />
+                    <NumericInput
+                      id="statement_date"
+                      value={statementDate}
+                      onChange={(value) => setStatementDate(value || 1)}
+                      min={1}
+                      max={31}
+                      placeholder="1"
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="due_date">Dia de Vencimento</Label>
-                    <Input id="due_date" type="number" min="1" max="31" value={dueDate} onChange={(e) => setDueDate(parseInt(e.target.value || "1"))} />
+                    <NumericInput
+                      id="due_date"
+                      value={dueDate}
+                      onChange={(value) => setDueDate(value || 1)}
+                      min={1}
+                      max={31}
+                      placeholder="1"
+                    />
                   </div>
                 </div>
                 <div className="space-y-2">
