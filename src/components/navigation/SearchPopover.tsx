@@ -56,15 +56,15 @@ export function SearchPopover() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-80 justify-start text-muted-foreground">
+        <Button variant="outline" className="w-40 md:w-80 justify-start text-muted-foreground">
           <Search className="mr-2 h-4 w-4" />
-          <span>Buscar páginas...</span>
-          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100">
+          <span className="hidden md:inline">Buscar páginas...</span>
+          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 hidden md:flex">
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 p-0" align="start" sideOffset={4}>
+      <PopoverContent className="w-80 md:w-80 p-0" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar páginas..."

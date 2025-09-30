@@ -4,6 +4,7 @@ import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus } from 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { Sidebar } from "@/components/ui/sidebar";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
 interface SidebarItem {
@@ -29,7 +30,7 @@ export function AppSidebar() {
   const items = useMemo(() => menuItems, []);
 
   return (
-    <div className="hidden md:flex h-svh w-64 flex-col bg-sidebar border-r border-sidebar-border">
+    <Sidebar collapsible="none" className="border-r border-sidebar-border">
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-2">
           <img src={orbiLogo} alt="Orbi" className="h-8 w-8" />
@@ -40,6 +41,17 @@ export function AppSidebar() {
 
       <nav className="flex-1 px-4 py-4 overflow-auto">
         <div className="space-y-2">
+          {/* Botão de Nova Transação - Movido para o topo */}
+          <Button
+            variant="outline"
+            size="lg"
+            className="w-full justify-center gap-3 mb-6 bg-transparent border-2 border-dashed border-blue-400 text-blue-400 hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 shadow-lg font-semibold text-base transition-all duration-300"
+            onClick={() => navigate("/sistema/statement?new=1")}
+          >
+            <Plus className="h-5 w-5" />
+            Nova Transação
+          </Button>
+
           {items.map((item) => {
             const Icon = item.icon;
             const isActive = currentPath === item.path;
@@ -60,21 +72,11 @@ export function AppSidebar() {
               </Button>
             );
           })}
-
-          {/* Botão de Nova Transação */}
-          <Button
-            variant="outline"
-            className="w-full justify-start gap-3 mt-4 border-dashed border-2 hover:bg-primary hover:text-primary-foreground"
-            onClick={() => navigate("/sistema/statement?new=1")}
-          >
-            <Plus className="h-4 w-4" />
-            Nova Transação
-          </Button>
         </div>
       </nav>
 
       <div className="p-4" />
-    </div>
+    </Sidebar>
   );
 }
 

@@ -29,7 +29,7 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
         <button
           aria-label="Nova Transação"
           onClick={() => navigate("/sistema/statement?new=1")}
-          className="md:hidden fixed bottom-6 right-6 h-14 w-14 rounded-full bg-primary text-primary-foreground shadow-[var(--shadow-primary)] flex items-center justify-center text-2xl"
+          className="md:hidden fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300"
         >
           +
         </button>

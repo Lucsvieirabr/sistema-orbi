@@ -16,6 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
+import { useDebtStats } from "@/hooks/use-debts";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 
@@ -39,21 +40,67 @@ export function Dashboard({ onLogout }: DashboardProps) {
     isLoading: transactionsLoading
   } = useMonthlyTransactions(year, month);
 
+  const { data: debtStats } = useDebtStats();
+
   // Calculate category expenses for chart
   const categoryExpenses = useMemo(() => {
     // Check if we have real data
     const expensesByCategory: Record<string, number> = {};
-    transactions
-      .filter(t => t.type === 'expense' && t.status === 'PAID')
-      .forEach(transaction => {
-        const categoryName = transaction.categories?.name || 'Sem Categoria';
-        expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + transaction.value;
-      });
+    
+    // Filtrar apenas transações de despesa pagas
+    const paidExpenses = transactions.filter(t => t.type === 'expense' && t.status === 'PAID');
+    
+    console.log('=== DEBUG GASTOS POR CATEGORIA ===');
+    console.log('Total de transações de despesa pagas:', paidExpenses.length);
+    
+    // Debug: mostrar ganhos reais vs reembolsos
+    const realIncome = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
+                                               !t.description.includes('Parte') && 
+                                               !t.description.includes('A receber'));
+    const reimbursements = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
+                                                   (t.description.includes('Parte') || t.description.includes('A receber')));
+    console.log('Ganhos reais (sem reembolsos):', realIncome.length, 'transações');
+    console.log('Reembolsos:', reimbursements.length, 'transações');
+    
+    paidExpenses.forEach((transaction, index) => {
+      const categoryName = transaction.categories?.name || 'Sem Categoria';
+      
+      console.log(`\nTransação ${index + 1}:`);
+      console.log('- Descrição:', transaction.description);
+      console.log('- Categoria:', categoryName);
+      console.log('- Valor bruto:', transaction.value);
+      console.log('- is_shared:', transaction.is_shared);
+      console.log('- compensation_value:', transaction.compensation_value);
+      
+      // Calcular valor líquido baseado no tipo de transação
+      let realValue = transaction.value;
+      
+      // Se há compensation_value, é uma transação compartilhada (mesmo que is_shared seja undefined)
+      if (transaction.compensation_value && transaction.compensation_value > 0) {
+        realValue = transaction.value - transaction.compensation_value;
+        console.log('- Valor líquido calculado (compartilhado):', realValue);
+      } else {
+        console.log('- Valor líquido (não compartilhado):', realValue);
+      }
+      
+      // Garantir que o valor não seja negativo
+      realValue = Math.max(0, realValue);
+      console.log('- Valor final usado:', realValue);
+      
+      expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + realValue;
+      console.log('- Total acumulado para categoria:', expensesByCategory[categoryName]);
+    });
 
-    return Object.entries(expensesByCategory)
+    const result = Object.entries(expensesByCategory)
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
+    
+    console.log('\n=== RESULTADO FINAL ===');
+    console.log('Gastos por categoria (líquidos):', result);
+    console.log('=====================================\n');
+    
+    return result;
   }, [transactions]);
 
   // Get recent transactions (last 5)
@@ -98,7 +145,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
       <main className="container mx-auto p-4 space-y-6">
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -107,7 +154,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <DollarSign className="h-4 w-4 text-primary" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-foreground">
+              <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                 {formatCurrency(indicators.netBalance)}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -146,6 +193,23 @@ export function Dashboard({ onLogout }: DashboardProps) {
               </div>
               <p className="text-xs text-muted-foreground mt-1">
                 Pagos este mês
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">
+                Saldo de Dívidas
+              </CardTitle>
+              <DollarSign className="h-4 w-4 text-purple-500" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
+                {formatCurrency(debtStats?.netBalance || 0)}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
               </p>
             </CardContent>
           </Card>

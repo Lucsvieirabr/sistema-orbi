@@ -174,15 +174,18 @@ export type Database = {
         Row: {
           account_id: string | null
           category_id: string | null
+          compensation_value: number | null
           created_at: string | null
           credit_card_id: string | null
           date: string
           description: string
+          linked_txn_id: string | null
           person_id: string | null
           id: string
           installment_number: number | null
           installments: number | null
           is_fixed: boolean
+          is_shared: boolean | null
           payment_method: string | null
           series_id: string | null
           status: string
@@ -193,15 +196,18 @@ export type Database = {
         Insert: {
           account_id?: string | null
           category_id?: string | null
+          compensation_value?: number | null
           created_at?: string | null
           credit_card_id?: string | null
           date: string
           description: string
           family_member_id?: string | null
+          linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
           installments?: number | null
           is_fixed?: boolean
+          is_shared?: boolean | null
           payment_method?: string | null
           series_id?: string | null
           status?: string
@@ -212,15 +218,18 @@ export type Database = {
         Update: {
           account_id?: string | null
           category_id?: string | null
+          compensation_value?: number | null
           created_at?: string | null
           credit_card_id?: string | null
           date?: string
           description?: string
           family_member_id?: string | null
+          linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
           installments?: number | null
           is_fixed?: boolean
+          is_shared?: boolean | null
           payment_method?: string | null
           series_id?: string | null
           status?: string

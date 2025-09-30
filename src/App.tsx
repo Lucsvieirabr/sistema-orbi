@@ -14,6 +14,7 @@ import Accounts from "@/pages/Accounts";
 import MonthlyStatement from "@/pages/MonthlyStatement";
 import Cards from "@/pages/Cards";
 import People from "@/pages/People";
+import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -74,6 +75,7 @@ const App = () => {
                 <Route path="accounts" element={<Accounts />} />
                 <Route path="cards" element={<Cards />} />
                 <Route path="people" element={<People />} />
+                <Route path="people/:personId" element={<PersonDetail />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 

@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,10 +11,11 @@ import { usePeople } from "@/hooks/use-people";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus, Users } from "lucide-react";
+import { LayoutGrid, List, Plus, Users, Eye, Receipt } from "lucide-react";
 
 export default function People() {
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const { people, createPerson, updatePerson, deletePerson, isLoading } = usePeople();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
@@ -67,6 +69,10 @@ export default function People() {
       t.update({ title: "Erro", description: e.message || "Não foi possível excluir", duration: 3000, variant: "destructive" as any });
     }
     queryClient.invalidateQueries({ queryKey: ["people"] });
+  };
+
+  const onViewDetails = (personId: string) => {
+    navigate(`/sistema/people/${personId}`);
   };
 
   return (
@@ -124,14 +130,22 @@ export default function People() {
                 </div>
               ) : people.map((member) => (
                 <div key={member.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center justify-between">
+                  <div className="flex flex-col gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                         <Users className="h-4 w-4 text-primary" />
                       </div>
-                      <span className="font-medium">{member.name}</span>
+                      <span className="font-medium truncate">{member.name}</span>
                     </div>
-                    <div className="flex gap-2">
+                    <div className="flex items-center gap-1 ml-auto">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onViewDetails(member.id)}
+                      >
+                        <Receipt className="h-3 w-3 mr-1" />
+                        Ver Extrato
+                      </Button>
                       <Button variant="outline" size="sm" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
                       <ConfirmationDialog
                         title="Confirmar Exclusão"
@@ -165,6 +179,10 @@ export default function People() {
                     <span className="font-medium">{member.name}</span>
                   </div>
                   <div className="flex gap-2">
+                    <Button variant="outline" onClick={() => onViewDetails(member.id)}>
+                      <Eye className="h-3 w-3 mr-1" />
+                      Ver Detalhes
+                    </Button>
                     <Button variant="outline" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
                     <ConfirmationDialog
                       title="Confirmar Exclusão"

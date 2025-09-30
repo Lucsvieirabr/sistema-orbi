@@ -17,6 +17,7 @@ import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCreditCards } from "@/hooks/use-credit-cards";
 import { usePeople } from "@/hooks/use-people";
+// Removido: useDebts, useMarkDebtAsPaid - usando apenas transactions
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
 import { formatCurrencyBRL } from "@/lib/utils";
@@ -67,6 +68,13 @@ export default function MonthlyStatement() {
   const [editScope, setEditScope] = useState<'current' | 'future'>('current');
   const [showMonthSelector, setShowMonthSelector] = useState(false);
 
+  // Estados para empréstimos e rateios
+  const [isShared, setIsShared] = useState(false);
+  const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
+  const [isLoan, setIsLoan] = useState(false);
+  const [isRateio, setIsRateio] = useState(false);
+  const [peopleSearchTerm, setPeopleSearchTerm] = useState("");
+
   // Estados para os diálogos de contas pendentes
   const [showPendingIncomeDialog, setShowPendingIncomeDialog] = useState(false);
   const [showPendingExpenseDialog, setShowPendingExpenseDialog] = useState(false);
@@ -76,6 +84,14 @@ export default function MonthlyStatement() {
   const { accountsWithBalance } = useAccounts();
   const { creditCards } = useCreditCards();
   const { people } = usePeople();
+
+  // Pessoas filtradas para busca
+  const filteredPeople = useMemo(() => {
+    if (!peopleSearchTerm.trim()) return people;
+    return people.filter(person =>
+      person.name.toLowerCase().includes(peopleSearchTerm.toLowerCase())
+    );
+  }, [people, peopleSearchTerm]);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
@@ -129,6 +145,12 @@ export default function MonthlyStatement() {
       setOpen(true);
       setSearch((prev) => { prev.delete('new'); return prev; });
     }
+
+    const personIdParam = search.get('personId');
+    if (personIdParam) {
+      setPersonId(personIdParam);
+      setSearch((prev) => { prev.delete('personId'); return prev; });
+    }
   }, [search, setSearch]);
 
   // Load transaction data when editing
@@ -166,7 +188,7 @@ export default function MonthlyStatement() {
         setDate(data.date.slice(0, 10));
         setIsFixed(data.is_fixed);
         setPersonId(data.person_id);
-        setStatus(data.status);
+        setStatus(data.status as 'PAID' | 'PENDING');
 
         if (data.type === 'income') {
           setAccountId(data.account_id);
@@ -185,8 +207,9 @@ export default function MonthlyStatement() {
           setToAccountId(undefined);
           setInstallments(data.installments);
         } else if (data.type === 'transfer') {
-          setFromAccountId(data.from_account_id);
-          setToAccountId(data.to_account_id);
+          // Para transferências, definir contas padrão já que os campos específicos não vêm na query
+          setFromAccountId(accountsWithBalance[0]?.id);
+          setToAccountId(accountsWithBalance[1]?.id);
           setPaymentMethod('debit');
           setCreditCardId(null);
           setInstallments(null);
@@ -220,6 +243,11 @@ export default function MonthlyStatement() {
     setToAccountId(accountsWithBalance[1]?.id);
     setStatus('PAID');
     setEditScope('current');
+    setIsShared(false);
+    setSelectedPeople([]);
+    setIsLoan(false);
+    setIsRateio(false);
+    setPeopleSearchTerm("");
   };
 
   // Reset campos específicos quando tipo muda
@@ -233,11 +261,19 @@ export default function MonthlyStatement() {
       setCreditCardId(null);
       setFromAccountId(undefined);
       setToAccountId(undefined);
+      setIsShared(false);
+      setSelectedPeople([]);
+      setIsLoan(false);
+      setIsRateio(false);
       // Parcelas ficam disponíveis para ganhos
     } else if (newType === 'expense') {
       // Gasto: limpa campos de transferência
       setFromAccountId(undefined);
       setToAccountId(undefined);
+      setIsShared(false);
+      setSelectedPeople([]);
+      setIsLoan(false);
+      setIsRateio(false);
       // Parcelas serão controladas pelo método de pagamento
     } else if (newType === 'transfer') {
       // Transferência: limpa campos de pagamento, categoria e parcelas
@@ -245,6 +281,165 @@ export default function MonthlyStatement() {
       setCreditCardId(null);
       setInstallments(null);
       setCategoryId(undefined);
+      setIsShared(false);
+      setSelectedPeople([]);
+      setIsLoan(false);
+      setIsRateio(false);
+    }
+  };
+
+  const createSharedTransactions = async (userId: string, payload: any) => {
+    try {
+      if (payload.type === 'expense' && payload.isRateio && payload.selectedPeople?.length > 0) {
+        // Modelo correto: 2 transações (gasto bruto + dívida pendente)
+        const amountPerPerson = payload.value / (payload.selectedPeople.length + 1);
+
+        // 1. Inserir primeiro a transação de gasto bruto (R$ 200) com compensation_value
+        const { data: expenseTransaction, error: expenseError } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: userId,
+            type: 'expense',
+            value: payload.value, // Valor total
+            description: `${payload.description} (Pagamento Total)`,
+            date: payload.date,
+            account_id: payload.account_id,
+            category_id: payload.category_id,
+            payment_method: 'debit',
+            credit_card_id: null,
+            person_id: null,
+            is_fixed: payload.is_fixed,
+            is_shared: true,
+            compensation_value: amountPerPerson, // Valor que será compensado
+            series_id: null, // Será definido após criar a segunda transação
+            linked_txn_id: null, // Será definido após criar a segunda transação
+            status: 'PAID',
+          })
+          .select()
+          .single();
+
+        if (expenseError) throw expenseError;
+
+        // 2. Inserir transações de dívida para cada pessoa selecionada
+        const debtTransactions = [];
+        for (const personId of payload.selectedPeople) {
+          // Buscar o nome da pessoa
+          const { data: personData, error: personError } = await supabase
+            .from("people")
+            .select("name")
+            .eq("id", personId)
+            .single();
+
+          if (personError) throw personError;
+
+          const { data: debtTransaction, error: debtError } = await supabase
+            .from("transactions")
+            .insert({
+              user_id: userId,
+              type: 'income',
+              value: amountPerPerson, // Valor que cada pessoa deve
+              description: `${payload.description} (Parte - ${personData.name})`,
+              date: payload.date,
+              account_id: payload.account_id,
+              category_id: payload.category_id,
+              payment_method: 'debit',
+              credit_card_id: null,
+              person_id: personId, // Vincular à pessoa específica
+              is_fixed: payload.is_fixed,
+              is_shared: true,
+              compensation_value: 0, // Não há compensação nesta transação
+              series_id: null, // Será definido após criar a primeira transação
+              linked_txn_id: expenseTransaction.id, // Liga à transação de gasto
+              status: 'PENDING', // Começa como pendente
+            })
+            .select()
+            .single();
+
+          if (debtError) throw debtError;
+          debtTransactions.push(debtTransaction);
+        }
+
+        // 3. Atualizar as transações para criar a ligação
+        const seriesId = crypto.randomUUID();
+        await supabase
+          .from("transactions")
+          .update({
+            series_id: seriesId,
+          })
+          .eq("id", expenseTransaction.id);
+
+        // Atualizar todas as transações de dívida com o mesmo series_id
+        for (const debtTransaction of debtTransactions) {
+          await supabase
+            .from("transactions")
+            .update({
+              series_id: seriesId,
+            })
+            .eq("id", debtTransaction.id);
+        }
+
+        toast({ title: "Sucesso", description: `Rateio criado: gasto bruto + dívida pendente`, duration: 2000 });
+      } else if (payload.isLoan && payload.person_id) {
+        // Para empréstimo: criar gasto + conta a receber
+        const seriesId = crypto.randomUUID();
+        
+        // 1. Criar gasto (expense) com o valor total
+        const { data: expenseTransaction, error: expenseError } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: userId,
+            type: 'expense',
+            value: payload.value,
+            description: `${payload.description} (Empréstimo)`,
+            date: payload.date,
+            account_id: payload.account_id,
+            category_id: payload.category_id,
+            payment_method: 'debit',
+            credit_card_id: null,
+            person_id: null,
+            is_fixed: payload.is_fixed,
+            is_shared: false,
+            compensation_value: 0,
+            series_id: seriesId,
+            linked_txn_id: null,
+            status: 'PAID',
+          })
+          .select()
+          .single();
+
+        if (expenseError) throw expenseError;
+
+        // 2. Criar conta a receber (income) para a pessoa
+        const { data: incomeTransaction, error: incomeError } = await supabase
+          .from("transactions")
+          .insert({
+            user_id: userId,
+            type: 'income',
+            value: payload.value,
+            description: `${payload.description} (A receber de ${payload.person_name})`,
+            date: payload.date,
+            account_id: payload.account_id,
+            category_id: payload.category_id,
+            payment_method: 'debit',
+            credit_card_id: null,
+            person_id: payload.person_id,
+            is_fixed: payload.is_fixed,
+            is_shared: false,
+            compensation_value: 0,
+            series_id: seriesId,
+            linked_txn_id: expenseTransaction.id,
+            status: 'PENDING',
+          })
+          .select()
+          .single();
+
+        if (incomeError) throw incomeError;
+
+        toast({ title: "Sucesso", description: "Empréstimo criado: gasto + conta a receber", duration: 2000 });
+      }
+    } catch (error) {
+      console.error('Erro ao criar transações:', error);
+      throw error;
     }
   };
 
@@ -253,12 +448,16 @@ export default function MonthlyStatement() {
     try {
       // Construir payload baseado no tipo de transação
       let payload: any = {
-        type,
+        type: type,
         value,
         description,
         date,
         person_id: personId,
         is_fixed: isFixed,
+        is_shared: isShared,
+        selectedPeople: selectedPeople, // Para rateios
+        isLoan: isLoan, // Para empréstimos
+        isRateio: isRateio, // Para rateios
       };
 
       if (type === 'income') {
@@ -276,7 +475,7 @@ export default function MonthlyStatement() {
           installments: installments || 1, // Default 1 se não especificado
         };
       } else if (type === 'expense') {
-        // Gasto: depende do método de pagamento
+        // Gasto ou Rateio: depende do método de pagamento
         if (paymentMethod === 'debit') {
           // Débito: conta obrigatória, sem cartão, sem parcelas
           payload = {
@@ -312,6 +511,32 @@ export default function MonthlyStatement() {
           credit_card_id: null,
           installments: null,
         };
+      } else if (isLoan) {
+        // Empréstimo: conta obrigatória, categoria obrigatória, valor total
+        payload = {
+          ...payload,
+          account_id: accountId,
+          category_id: categoryId,
+          payment_method: 'debit',
+          credit_card_id: null,
+          installments: null,
+          compensation_value: 0,
+        };
+      } else if (type === 'expense' && isRateio) {
+        // Rateio (gasto compartilhado): conta obrigatória, categoria obrigatória, valor total
+        const compensationValue = selectedPeople.length > 0
+          ? value / (selectedPeople.length + 1) // Parte que será compensada
+          : 0;
+
+        payload = {
+          ...payload,
+          account_id: accountId,
+          category_id: categoryId,
+          payment_method: 'debit',
+          credit_card_id: null,
+          installments: null,
+          compensation_value: compensationValue,
+        };
       }
 
       if (editingId) {
@@ -327,29 +552,47 @@ export default function MonthlyStatement() {
           await createInstallmentSeries(payload);
         } else {
           // Transação única
-          const { error } = await supabase.from("transactions").insert({
-            user_id: (await supabase.auth.getUser()).data.user?.id,
-            type: payload.type,
-            account_id: payload.account_id,
-            category_id: payload.category_id,
-            value: payload.value,
-            description: payload.description,
-            date: payload.date,
-            payment_method: payload.payment_method,
-            credit_card_id: payload.credit_card_id,
-            person_id: payload.person_id,
-            is_fixed: payload.is_fixed,
-            installments: null,
-            installment_number: null,
-            series_id: null,
-            status: 'PAID', // Transação única é sempre paga no momento da criação
-          });
-          if (error) throw error;
+          const { data: user } = await supabase.auth.getUser();
+          if (!user.user) throw new Error("Usuário não autenticado");
+
+          // Se for empréstimo ou rateio, criar transações compartilhadas
+          if (isLoan || (type === 'expense' && isRateio)) {
+            // Buscar nome da pessoa para empréstimo
+            if (isLoan && personId) {
+              const { data: personData } = await supabase
+                .from("people")
+                .select("name")
+                .eq("id", personId)
+                .single();
+              payload.person_name = personData?.name || 'Pessoa';
+            }
+            await createSharedTransactions(user.user.id, payload);
+          } else {
+            // Para outros tipos (income, expense normal), criar transação única
+            const { error } = await supabase.from("transactions").insert({
+              user_id: user.user.id,
+              type: payload.type,
+              account_id: payload.account_id,
+              category_id: payload.category_id,
+              value: payload.value,
+              description: payload.description,
+              date: payload.date,
+              payment_method: payload.payment_method,
+              credit_card_id: payload.credit_card_id,
+              person_id: payload.person_id,
+              is_fixed: payload.is_fixed,
+              is_shared: payload.is_shared,
+              compensation_value: payload.compensation_value || 0,
+              installments: null,
+              installment_number: null,
+              series_id: null,
+              status: 'PAID',
+            });
+
+            if (error) throw error;
+            toast({ title: "Sucesso", description: "Transação criada", duration: 2000 });
+          }
         }
-
-        if (error) throw error;
-
-        toast({ title: "Sucesso", description: "Transação criada", duration: 2000 });
       }
     } catch (e: any) {
       toast({
@@ -418,22 +661,22 @@ export default function MonthlyStatement() {
       }
 
       // 6. Executar transação
-      const { error: updateError } = await supabase.rpc('update_transaction_with_balance', {
-        transaction_id: transactionId,
-        new_type: newData.type,
-        new_value: newValue,
-        new_description: newData.description,
-        new_date: newData.date,
-        new_account_id: newData.account_id,
-        new_category_id: newData.category_id,
-        new_payment_method: newData.payment_method,
-        new_credit_card_id: newData.credit_card_id,
-        new_person_id: newData.person_id,
-        new_is_fixed: newData.is_fixed,
-        new_installments: newData.installments,
-        value_difference: valueDifference,
-        affected_account_id: affectedAccountId
-      });
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({
+          type: newData.type,
+          value: newValue,
+          description: newData.description,
+          date: newData.date,
+          account_id: newData.account_id,
+          category_id: newData.category_id,
+          payment_method: newData.payment_method,
+          credit_card_id: newData.credit_card_id,
+          person_id: newData.person_id,
+          is_fixed: newData.is_fixed,
+          installments: newData.installments,
+        })
+        .eq('id', transactionId);
 
       if (updateError) throw updateError;
 
@@ -491,22 +734,22 @@ export default function MonthlyStatement() {
       }
 
       // Executar edição em lote
-      const { error: updateError } = await supabase.rpc('update_transaction_series_with_balance', {
-        series_id: seriesId,
-        from_date: fromDate,
-        new_type: newData.type,
-        new_value: newData.value,
-        new_description: newData.description,
-        new_account_id: newData.account_id,
-        new_category_id: newData.category_id,
-        new_payment_method: newData.payment_method,
-        new_credit_card_id: newData.credit_card_id,
-        new_person_id: newData.person_id,
-        new_is_fixed: newData.is_fixed,
-        new_installments: newData.installments,
-        total_value_difference: totalValueDifference,
-        affected_account_id: affectedAccountId
-      });
+      const { error: updateError } = await supabase
+        .from('transactions')
+        .update({
+          type: newData.type,
+          value: newData.value,
+          description: newData.description,
+          account_id: newData.account_id,
+          category_id: newData.category_id,
+          payment_method: newData.payment_method,
+          credit_card_id: newData.credit_card_id,
+          person_id: newData.person_id,
+          is_fixed: newData.is_fixed,
+          installments: newData.installments,
+        })
+        .eq('series_id', seriesId)
+        .gte('date', fromDate);
 
       if (updateError) throw updateError;
 
@@ -665,7 +908,7 @@ export default function MonthlyStatement() {
     return filtered;
   }, [transactions, filterType]);
 
-  // Re-group filtered transactions
+  // Re-group filtered transactions by date and series, considering linked transactions
   const filteredGroupedTransactions = useMemo(() => {
     const grouped: Record<string, typeof filteredTransactions> = {};
 
@@ -677,12 +920,31 @@ export default function MonthlyStatement() {
       grouped[date].push(transaction);
     });
 
+    // Group related transactions (those with series_id or linked_txn_id)
     Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      const transactions = grouped[date];
+
+      // Group transactions by series_id
+      const groupedBySeries: Record<string, typeof transactions> = {};
+      transactions.forEach(transaction => {
+        const seriesKey = transaction.series_id || transaction.linked_txn_id || transaction.id;
+        if (!groupedBySeries[seriesKey]) {
+          groupedBySeries[seriesKey] = [];
+        }
+        groupedBySeries[seriesKey].push(transaction);
+      });
+
+      // Sort within each group by creation time
+      Object.keys(groupedBySeries).forEach(seriesKey => {
+        groupedBySeries[seriesKey].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      });
+
+      // Flatten back to array
+      grouped[date] = Object.values(groupedBySeries).flat();
     });
 
     return grouped;
-  }, [filteredTransactions]);
+  }, [filteredTransactions, month, year]);
 
   const handleMonthChange = (direction: 'prev' | 'next', months: number = 1) => {
     const newDate = new Date(currentDate);
@@ -879,14 +1141,6 @@ export default function MonthlyStatement() {
                   <SelectItem value="paid">Apenas Pagas</SelectItem>
                 </SelectContent>
               </Select>
-
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="h-8 w-8 p-0">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-              </Dialog>
             </div>
           </div>
         </CardHeader>
@@ -1088,93 +1342,138 @@ export default function MonthlyStatement() {
                   </div>
 
                   <div className="space-y-2">
-                    {dayTransactions.map((transaction) => (
-                      <div
-                        key={transaction.id}
-                        className="flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 flex-1">
-                          {getTransactionIcon(transaction)}
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="font-medium">{transaction.description}</span>
-                              {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
-                                <Badge variant="secondary" className="text-xs">
-                                  {transaction.installment_number}/{transaction.installments}
-                                </Badge>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                              <span>{getAccountName(transaction)}</span>
-                              {transaction.categories?.name && (
-                                <>
-                                  <span>•</span>
-                                  <span>{transaction.categories.name}</span>
-                                </>
-                              )}
+                    {dayTransactions.map((transaction) => {
+                      // Verificar se esta transação faz parte de um rateio
+                      const isPartOfShared = transaction.series_id && transaction.is_shared;
+                      const isLinkedTransaction = transaction.linked_txn_id;
+                      const isPendingIncome = transaction.type === 'income' && transaction.status === 'PENDING';
+                      const isPaidExpense = transaction.type === 'expense' && transaction.status === 'PAID' && transaction.is_shared;
+
+                      return (
+                        <div
+                          key={transaction.id}
+                          className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors ${
+                            transaction.status === 'PAID' && isPendingIncome ? 'opacity-60' : ''
+                          }`}
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            {isPendingIncome ? (
+                              <div className="p-2 rounded-full bg-yellow-100">
+                                <Clock className="h-4 w-4 text-yellow-600" />
+                              </div>
+                            ) : (
+                              getTransactionIcon(transaction)
+                            )}
+                            <div className="flex-1">
+                              <div className="flex items-center gap-2">
+                                <span className="font-medium">{transaction.description}</span>
+                                {isPartOfShared && (
+                                  <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                    Rateio
+                                  </Badge>
+                                )}
+                                {isLinkedTransaction && (
+                                  <Badge variant="outline" className="text-xs">
+                                    Ligada
+                                  </Badge>
+                                )}
+                                {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {transaction.installment_number}/{transaction.installments}
+                                  </Badge>
+                                )}
+                              </div>
+                              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                <span>{getAccountName(transaction)}</span>
+                                {transaction.categories?.name && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{transaction.categories.name}</span>
+                                  </>
+                                )}
+                                {transaction.people?.name && (
+                                  <>
+                                    <span>•</span>
+                                    <span>{transaction.people.name}</span>
+                                  </>
+                                )}
+                                {isPaidExpense && (
+                                  <>
+                                    <span>•</span>
+                                    <span className="text-purple-600">
+                                      Minha parte: {formatCurrencyBRL(transaction.value)}
+                                    </span>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </div>
-                        </div>
 
-                        <div className="flex items-center gap-3">
-                          <div className="text-right">
-                            <div className={`font-semibold ${
-                              transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                            }`}>
-                              {transaction.type === 'income' ? '+' : '-'}
-                              {formatCurrencyBRL(transaction.value)}
+                          <div className="flex items-center gap-3">
+                            <div className="text-right">
+                              <div className={`font-semibold ${
+                                transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                              }`}>
+                                {transaction.type === 'income' ? '+' : '-'}
+                                {formatCurrencyBRL(transaction.value)}
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {transaction.status === 'PAID'
+                                  ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
+                                  : 'Pendente'}
+                              </div>
                             </div>
-                          </div>
 
-                          <Badge
-                            variant={transaction.status === 'PAID' ? 'default' : 'secondary'}
-                            className={transaction.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-yellow-100 text-yellow-800'}
-                          >
-                            {transaction.status === 'PAID'
-                              ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
-                              : 'Pendente'}
-                          </Badge>
+                            <Badge
+                              variant={transaction.status === 'PAID' ? 'default' : 'secondary'}
+                              className={transaction.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-yellow-100 text-yellow-800'}
+                            >
+                              {transaction.status === 'PAID'
+                                ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
+                                : 'Pendente'}
+                            </Badge>
 
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => {
-                              setEditingId(transaction.id);
-                              setOpen(true);
-                            }}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => deleteTransaction(transaction.id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-
-                          {transaction.status === 'PENDING' ? (
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => markAsPaid(transaction.id)}
+                              onClick={() => {
+                                setEditingId(transaction.id);
+                                setOpen(true);
+                              }}
                             >
-                              <CheckCircle className="h-4 w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          ) : (
+
                             <Button
                               size="sm"
                               variant="outline"
-                              onClick={() => markAsPending(transaction.id)}
+                              onClick={() => deleteTransaction(transaction.id)}
+                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
                             >
-                              <Clock className="h-4 w-4" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
-                          )}
+
+                            {transaction.status === 'PENDING' ? (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => markAsPaid(transaction.id)}
+                              >
+                                <CheckCircle className="h-4 w-4" />
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => markAsPending(transaction.id)}
+                              >
+                                <Clock className="h-4 w-4" />
+                              </Button>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               ))}
@@ -1311,7 +1610,7 @@ export default function MonthlyStatement() {
                   />
                 </div>
               </div>
-            ) : (
+            ) : type === 'expense' ? (
               /* Gasto: Conta + Categoria + Valor (método de pagamento será tratado abaixo) */
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
@@ -1351,7 +1650,7 @@ export default function MonthlyStatement() {
                   />
                 </div>
               </div>
-            )}
+            ) : null}
 
             {/* Descrição e Data */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -1423,22 +1722,31 @@ export default function MonthlyStatement() {
                   </div>
                 </div>
 
-                {paymentMethod === 'credit' ? (
-                  <div className="space-y-1">
-                    <Label className="text-sm">Cartão de Crédito</Label>
-                    <SelectWithAddButton
-                      entityType="creditCards"
-                      value={creditCardId || "none"}
-                      onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}
-                      placeholder="Selecione"
-                    >
-                      <SelectItem value="none">Nenhum</SelectItem>
-                      {creditCards.map((card) => (
-                        <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
-                      ))}
-                    </SelectWithAddButton>
+                <div className="space-y-1">
+                  <Label className="text-sm">Configurações</Label>
+                  <div className="flex items-center space-x-2 h-9">
+                    <Switch checked={isFixed} onCheckedChange={setIsFixed} />
+                    <Label className="text-sm">Transação Recorrente</Label>
                   </div>
-                ) : null}
+                </div>
+              </div>
+            )}
+
+            {/* Cartão de Crédito (quando selecionado) */}
+            {type === 'expense' && paymentMethod === 'credit' && (
+              <div className="space-y-1">
+                <Label className="text-sm">Cartão de Crédito</Label>
+                <SelectWithAddButton
+                  entityType="creditCards"
+                  value={creditCardId || "none"}
+                  onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}
+                  placeholder="Selecione"
+                >
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {creditCards.map((card) => (
+                    <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                  ))}
+                </SelectWithAddButton>
               </div>
             )}
 
@@ -1472,30 +1780,135 @@ export default function MonthlyStatement() {
             )}
 
             {/* Campos Opcionais */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label className="text-sm">Pessoa</Label>
-                <SelectWithAddButton
-                  entityType="people"
-                  value={personId || "none"}
-                  onValueChange={(value) => setPersonId(value === "none" ? null : value)}
-                  placeholder="Opcional"
-                >
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {people.map((person) => (
-                    <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>
-                  ))}
-                </SelectWithAddButton>
-              </div>
+            {type !== 'transfer' && (
+              <div className="space-y-4">
+                {/* Tipo de Operação para Gastos */}
+                {type === 'expense' && (
+                  <div className="space-y-2">
+                    <Label className="text-sm">Tipo de Operação</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={!isLoan && !isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(false);
+                          setIsRateio(false);
+                        }}
+                        className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
+                          ? 'border-destructive/50 bg-destructive/10 text-destructive'
+                          : 'hover:border-destructive/30 hover:bg-destructive/5'}`}
+                      >
+                        Gasto Normal
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={isLoan && !isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(true);
+                          setIsRateio(false);
+                        }}
+                        className={`flex-1 h-9 text-xs ${isLoan && !isRateio
+                          ? 'border-purple-500/50 bg-purple-50 text-purple-700'
+                          : 'hover:border-purple-300 hover:bg-purple-50/50'}`}
+                      >
+                        Empréstimo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={!isLoan && isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(false);
+                          setIsRateio(true);
+                        }}
+                        className={`flex-1 h-9 text-xs ${!isLoan && isRateio
+                          ? 'border-blue-500/50 bg-blue-50 text-blue-700'
+                          : 'hover:border-blue-300 hover:bg-blue-50/50'}`}
+                      >
+                        Rateio
+                      </Button>
+                    </div>
+                  </div>
+                )}
 
-              <div className="space-y-1">
-                <Label className="text-sm">Configurações</Label>
-                <div className="flex items-center space-x-2 h-9">
-                  <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                  <Label className="text-sm">Transação Recorrente</Label>
-                </div>
+                {/* Campo de Pessoa - Oculto para Rateio */}
+                {!isRateio && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Pessoa</Label>
+                    <SelectWithAddButton
+                      entityType="people"
+                      value={personId || "none"}
+                      onValueChange={(value) => setPersonId(value === "none" ? null : value)}
+                      placeholder="Opcional"
+                    >
+                      <SelectItem value="none">Nenhum</SelectItem>
+                      {people.map((person) => (
+                        <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>
+                      ))}
+                    </SelectWithAddButton>
+                  </div>
+                )}
+
+                {/* Seleção de Pessoas para Rateio */}
+                {type === 'expense' && isRateio && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <Label className="text-sm">Pessoas Envolvidas no Rateio</Label>
+                      <Input
+                        placeholder="Buscar pessoa por nome..."
+                        className="h-9"
+                        value={peopleSearchTerm}
+                        onChange={(e) => setPeopleSearchTerm(e.target.value)}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                      {filteredPeople.map((person) => (
+                        <Button
+                          key={person.id}
+                          type="button"
+                          variant={selectedPeople.includes(person.id) ? 'default' : 'outline'}
+                          size="sm"
+                          onClick={() => {
+                            setSelectedPeople(prev =>
+                              prev.includes(person.id)
+                                ? prev.filter(id => id !== person.id)
+                                : [...prev, person.id]
+                            );
+                          }}
+                          className={`h-8 ${selectedPeople.includes(person.id)
+                            ? 'bg-purple-100 text-purple-800 border-2 border-purple-300 hover:bg-purple-200'
+                            : 'border-2 border-gray-300 hover:bg-transparent'}`}
+                        >
+                          {person.name}
+                        </Button>
+                      ))}
+                    </div>
+                    {selectedPeople.length > 0 && (
+                      <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 mt-3">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-1">
+                              <span className="text-purple-700 dark:text-purple-300 font-medium">
+                                {selectedPeople.length} pessoa{selectedPeople.length !== 1 ? 's' : ''}
+                              </span>
+                              <span className="text-purple-600 dark:text-purple-400">selecionada{selectedPeople.length !== 1 ? 's' : ''}</span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-purple-700 dark:text-purple-300 font-medium">
+                              Valor por pessoa
+                            </div>
+                            <div className="text-purple-900 dark:text-purple-100 font-semibold">
+                              {formatCurrencyBRL(value / (selectedPeople.length + 1))}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
+            )}
+
 
             {/* Escopo de Edição para Transações em Série */}
             {editingId && (
@@ -1574,6 +1987,18 @@ export default function MonthlyStatement() {
         onOpenChange={setShowPendingExpenseDialog}
         trigger={<div />}
       />
+
+      {/* Floating Button for New Transaction */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <button
+            aria-label="Nova Transação"
+            className="fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+          >
+            <Plus className="h-4 w-4" />
+          </button>
+        </DialogTrigger>
+      </Dialog>
     </div>
   );
 }

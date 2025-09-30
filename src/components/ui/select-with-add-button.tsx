@@ -365,32 +365,42 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const CustomSelectTrigger = React.forwardRef<
     React.ElementRef<typeof SelectPrimitive.Trigger>,
     React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
-  >(({ className, children, ...props }, ref) => (
-    <SelectPrimitive.Trigger
-      ref={ref}
-      className={cn(
-        "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 relative",
-        className,
-      )}
-      {...props}
-    >
-      <div className="flex-1 min-w-0 pr-16">
-        {children}
-      </div>
-      <div className="absolute right-2 top-1/2 -translate-y-1/2 flex items-center gap-1 flex-shrink-0">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          className="h-6 w-6 p-0 hover:bg-muted"
-          disabled={disabled}
-          onClick={handleAddClick}
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
+  >(({ className, children, onClick, ...props }, ref) => (
+    <div className="relative">
+      <SelectPrimitive.Trigger
+        ref={ref}
+        className={cn(
+          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
+          className,
+        )}
+        onClick={(e) => {
+          // Se o clique foi no botão plus, não abrir o select
+          if ((e.target as HTMLElement).closest('[data-plus-button]')) {
+            return;
+          }
+          onClick?.(e);
+        }}
+        {...props}
+      >
+        <div className="flex-1 min-w-0 pr-16">
+          {children}
+        </div>
         <ChevronDown className="h-4 w-4 opacity-50 pointer-events-none" />
-      </div>
-    </SelectPrimitive.Trigger>
+      </SelectPrimitive.Trigger>
+      <button
+        type="button"
+        data-plus-button
+        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          handleAddClick(e);
+        }}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <Plus className="h-3 w-3" />
+      </button>
+    </div>
   ));
 
   CustomSelectTrigger.displayName = "CustomSelectTrigger";

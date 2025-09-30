@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
+import { DaySelector } from "@/components/ui/day-selector";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
@@ -168,28 +169,20 @@ export default function Cards() {
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="statement_date">Dia de Fechamento</Label>
-                    <NumericInput
-                      id="statement_date"
-                      value={statementDate}
-                      onChange={(value) => setStatementDate(value || 1)}
-                      min={1}
-                      max={31}
-                      placeholder="1"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="due_date">Dia de Vencimento</Label>
-                    <NumericInput
-                      id="due_date"
-                      value={dueDate}
-                      onChange={(value) => setDueDate(value || 1)}
-                      min={1}
-                      max={31}
-                      placeholder="1"
-                    />
-                  </div>
+                  <DaySelector
+                    id="statement_date"
+                    label="Dia de Fechamento"
+                    value={statementDate}
+                    onChange={setStatementDate}
+                    placeholder="1"
+                  />
+                  <DaySelector
+                    id="due_date"
+                    label="Dia de Vencimento"
+                    value={dueDate}
+                    onChange={setDueDate}
+                    placeholder="1"
+                  />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
