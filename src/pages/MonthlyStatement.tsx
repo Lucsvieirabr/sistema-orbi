@@ -20,6 +20,7 @@ import { usePeople } from "@/hooks/use-people";
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
 import { formatCurrencyBRL } from "@/lib/utils";
+import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
 import {
   TrendingUp,
   TrendingDown,
@@ -33,7 +34,10 @@ import {
   CreditCard,
   User,
   Edit,
-  Trash2
+  Trash2,
+  Receipt,
+  DollarSign,
+  AlertTriangle
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -63,6 +67,10 @@ export default function MonthlyStatement() {
   const [editScope, setEditScope] = useState<'current' | 'future'>('current');
   const [showMonthSelector, setShowMonthSelector] = useState(false);
 
+  // Estados para os diálogos de contas pendentes
+  const [showPendingIncomeDialog, setShowPendingIncomeDialog] = useState(false);
+  const [showPendingExpenseDialog, setShowPendingExpenseDialog] = useState(false);
+
   // Hooks
   const { categories } = useCategories();
   const { accountsWithBalance } = useAccounts();
@@ -72,6 +80,7 @@ export default function MonthlyStatement() {
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
+  const monthlyData = useMonthlyTransactions(year, month);
   const {
     transactions,
     groupedTransactions,
@@ -79,7 +88,7 @@ export default function MonthlyStatement() {
     error,
     refetch,
     indicators
-  } = useMonthlyTransactions(year, month);
+  } = monthlyData;
 
   const { maintainFixedTransactions } = useTransactionMaintenance();
   const { toast } = useToast();
@@ -764,6 +773,22 @@ export default function MonthlyStatement() {
     return transaction.type === 'income' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />;
   };
 
+  // Filtrar transações pendentes por tipo
+  const pendingIncomeTransactions = useMemo(() => {
+    return transactions.filter(t => t.type === 'income' && t.status === 'PENDING');
+  }, [transactions]);
+
+  const pendingExpenseTransactions = useMemo(() => {
+    return transactions.filter(t => t.type === 'expense' && t.status === 'PENDING');
+  }, [transactions]);
+
+  // Verificar se há contas a pagar vencidas
+  const overdueExpenseTransactions = useMemo(() => {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return pendingExpenseTransactions.filter(t => new Date(t.date) < today);
+  }, [pendingExpenseTransactions]);
+
   const getAccountName = (transaction: any) => {
     if (transaction.account_id && transaction.accounts?.name) {
       return transaction.accounts.name;
@@ -940,6 +965,85 @@ export default function MonthlyStatement() {
                 <TrendingUp className="h-8 w-8 text-green-500" /> :
                 <TrendingDown className="h-8 w-8 text-red-500" />
               }
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Pending Transactions Management */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setShowPendingIncomeDialog(true)}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Receipt className="h-6 w-6 text-green-600 dark:text-green-400" />
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Contas a Receber</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {pendingIncomeTransactions.length}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-lg font-semibold text-green-600">
+                  {formatCurrencyBRL(pendingIncomeTransactions.reduce((sum, t) => sum + t.value, 0))}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                {pendingIncomeTransactions.length > 0
+                  ? `Clique e gerencie suas ${pendingIncomeTransactions.length} contas a receber pendentes`
+                  : 'Não há contas a receber pendentes'
+                }
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className={`cursor-pointer hover:shadow-lg transition-shadow ${overdueExpenseTransactions.length > 0 ? 'ring-2 ring-red-200 dark:ring-red-800' : ''}`} onClick={() => setShowPendingExpenseDialog(true)}>
+          <CardContent className="p-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                    <DollarSign className="h-6 w-6 text-red-600 dark:text-red-400" />
+                  </div>
+                  {overdueExpenseTransactions.length > 0 && (
+                    <div className="absolute -top-1 -right-1 p-1 bg-red-500 rounded-full">
+                      <AlertTriangle className="h-3 w-3 text-white" />
+                    </div>
+                  )}
+                </div>
+                <div>
+                  <p className="text-sm text-muted-foreground">Contas a Pagar</p>
+                  <p className="text-2xl font-bold text-red-600">
+                    {pendingExpenseTransactions.length}
+                    {overdueExpenseTransactions.length > 0 && (
+                      <span className="ml-2 text-sm font-normal text-red-500">
+                        ({overdueExpenseTransactions.length} vencida{overdueExpenseTransactions.length > 1 ? 's' : ''})
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+              <div className="text-right">
+                <p className="text-sm text-muted-foreground">Total</p>
+                <p className="text-lg font-semibold text-red-600">
+                  {formatCurrencyBRL(pendingExpenseTransactions.reduce((sum, t) => sum + t.value, 0))}
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 pt-4 border-t">
+              <p className="text-sm text-muted-foreground">
+                {pendingExpenseTransactions.length > 0
+                  ? `Clique e gerencie suas ${pendingExpenseTransactions.length} contas a pagar pendentes`
+                  : 'Não há contas a pagar pendentes'
+                }
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -1370,7 +1474,7 @@ export default function MonthlyStatement() {
             {/* Campos Opcionais */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-sm">Membro da Família</Label>
+                <Label className="text-sm">Pessoa</Label>
                 <SelectWithAddButton
                   entityType="people"
                   value={personId || "none"}
@@ -1437,6 +1541,39 @@ export default function MonthlyStatement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Pending Transactions Dialogs */}
+      <PendingTransactionsDialog
+        transactions={pendingIncomeTransactions}
+        title="Contas a Receber"
+        type="income"
+        onMarkAsPaid={markAsPaid}
+        onMarkAsPending={markAsPending}
+        onEdit={(id) => {
+          setEditingId(id);
+          setOpen(true);
+        }}
+        onDelete={deleteTransaction}
+        isOpen={showPendingIncomeDialog}
+        onOpenChange={setShowPendingIncomeDialog}
+        trigger={<div />}
+      />
+
+      <PendingTransactionsDialog
+        transactions={pendingExpenseTransactions}
+        title="Contas a Pagar"
+        type="expense"
+        onMarkAsPaid={markAsPaid}
+        onMarkAsPending={markAsPending}
+        onEdit={(id) => {
+          setEditingId(id);
+          setOpen(true);
+        }}
+        onDelete={deleteTransaction}
+        isOpen={showPendingExpenseDialog}
+        onOpenChange={setShowPendingExpenseDialog}
+        trigger={<div />}
+      />
     </div>
   );
 }

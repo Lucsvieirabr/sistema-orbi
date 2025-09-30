@@ -7,11 +7,12 @@ type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
   categories?: { name: string };
   credit_cards?: { name: string };
-  family_members?: { name: string };
+  people?: { name: string };
 };
 
 interface MonthlyTransactionsData {
   transactions: Transaction[];
+  groupedTransactions: Record<string, Transaction[]>;
   isLoading: boolean;
   error: any;
   refetch: () => void;
@@ -39,11 +40,11 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       .select(`
         id, user_id, description, value, date, type, payment_method,
         installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, family_member_id, series_id, status, created_at,
+        credit_card_id, category_id, person_id, series_id, status, created_at,
         accounts(name),
         categories(name),
         credit_cards(name),
-        family_members(name)
+        people(name)
       `)
       .eq("user_id", user?.id ?? "")
       .gte("date", startDate)

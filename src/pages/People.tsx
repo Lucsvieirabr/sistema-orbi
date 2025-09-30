@@ -168,7 +168,7 @@ export default function People() {
                     <Button variant="outline" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
                     <ConfirmationDialog
                       title="Confirmar Exclusão"
-                      description="Tem certeza que deseja excluir este membro da família? Esta ação não pode ser desfeita."
+                      description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
                       confirmText="Excluir"
                       onConfirm={() => onDelete(member.id)}
                       variant="destructive"

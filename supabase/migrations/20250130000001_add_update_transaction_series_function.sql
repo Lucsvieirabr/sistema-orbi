@@ -9,7 +9,7 @@ CREATE OR REPLACE FUNCTION update_transaction_series_with_balance(
   new_category_id UUID,
   new_payment_method TEXT,
   new_credit_card_id UUID,
-  new_family_member_id UUID,
+  new_person_id UUID,
   new_is_fixed BOOLEAN,
   new_installments INTEGER,
   total_value_difference NUMERIC,
