@@ -6,50 +6,50 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogT
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { useFamilyMembers } from "@/hooks/use-family-members";
+import { usePeople } from "@/hooks/use-people";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Users } from "lucide-react";
 
-export default function FamilyMembers() {
+export default function People() {
   const queryClient = useQueryClient();
-  const { familyMembers, createFamilyMember, updateFamilyMember, deleteFamilyMember, isLoading } = useFamilyMembers();
+  const { people, createPerson, updatePerson, deletePerson, isLoading } = usePeople();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
 
   useEffect(() => {
-    const v = (localStorage.getItem("family_members:view") as "list" | "cards") || "list";
+    const v = (localStorage.getItem("people:view") as "list" | "cards") || "list";
     setView(v);
   }, []);
 
   const onChangeView = (val: string) => {
     const v = (val as "list" | "cards") || "list";
     setView(v);
-    localStorage.setItem("family_members:view", v);
+    localStorage.setItem("people:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Membro" : "Novo Membro"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar Pessoa" : "Nova Pessoa"), [editingId]);
 
   const onSubmit = async () => {
     if (!name.trim()) return;
     const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
     try {
       if (editingId) {
-        await updateFamilyMember(editingId, { name });
+        await updatePerson(editingId, { name });
       } else {
-        await createFamilyMember({ name });
+        await createPerson({ name });
       }
-      t.update({ title: "Sucesso", description: "Membro salvo", duration: 2000 });
+      t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
     } catch (e: any) {
       t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
     }
     setOpen(false);
     setName("");
     setEditingId(null);
-    queryClient.invalidateQueries({ queryKey: ["family_members"] });
+    queryClient.invalidateQueries({ queryKey: ["people"] });
   };
 
   const onEdit = (id: string, currentName: string) => {
@@ -61,19 +61,19 @@ export default function FamilyMembers() {
   const onDelete = async (id: string) => {
     const t = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
     try {
-      await deleteFamilyMember(id);
-      t.update({ title: "Sucesso", description: "Membro excluído", duration: 2000 });
+      await deletePerson(id);
+      t.update({ title: "Sucesso", description: "Pessoa excluída", duration: 2000 });
     } catch (e: any) {
       t.update({ title: "Erro", description: e.message || "Não foi possível excluir", duration: 3000, variant: "destructive" as any });
     }
-    queryClient.invalidateQueries({ queryKey: ["family_members"] });
+    queryClient.invalidateQueries({ queryKey: ["people"] });
   };
 
   return (
     <div className="container mx-auto p-4 space-y-6">
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
-          <CardTitle>Membros da Família</CardTitle>
+          <CardTitle>Pessoas</CardTitle>
           <Dialog open={open} onOpenChange={setOpen}>
             <div className="flex items-center gap-2">
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
@@ -96,7 +96,7 @@ export default function FamilyMembers() {
               </DialogHeader>
               <div className="space-y-4">
                 <div className="space-y-2">
-                  <Label htmlFor="name">Nome do Membro</Label>
+                  <Label htmlFor="name">Nome da Pessoa</Label>
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
                 </div>
               </div>
@@ -115,14 +115,14 @@ export default function FamilyMembers() {
             </div>
           ) : view === "cards" ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {familyMembers.length === 0 ? (
+              {people.length === 0 ? (
                 <div className="col-span-full rounded-lg border bg-card p-6 text-center text-muted-foreground">
                   <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
                     <Users className="h-5 w-5" />
                   </div>
-                  Nenhum membro cadastrado
+                  Nenhuma pessoa cadastrada
                 </div>
-              ) : familyMembers.map((member) => (
+              ) : people.map((member) => (
                 <div key={member.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -135,7 +135,7 @@ export default function FamilyMembers() {
                       <Button variant="outline" size="sm" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
                       <ConfirmationDialog
                         title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir este membro da família? Esta ação não pode ser desfeita."
+                        description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
                         confirmText="Excluir"
                         onConfirm={() => onDelete(member.id)}
                         variant="destructive"
@@ -149,14 +149,14 @@ export default function FamilyMembers() {
             </div>
           ) : (
             <div className="divide-y divide-border rounded-md bg-card/40">
-              {familyMembers.length === 0 ? (
+              {people.length === 0 ? (
                 <div className="p-8 text-center text-muted-foreground">
                   <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
                     <Users className="h-5 w-5" />
                   </div>
-                  Nenhum membro cadastrado
+                  Nenhuma pessoa cadastrada
                 </div>
-              ) : familyMembers.map((member) => (
+              ) : people.map((member) => (
                 <div key={member.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">

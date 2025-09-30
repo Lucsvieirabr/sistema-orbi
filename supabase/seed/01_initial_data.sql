@@ -19,8 +19,8 @@ INSERT INTO accounts (id, user_id, name, type, initial_balance, color) VALUES
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'Poupança', 'Poupanca', 10000.00, '#10B981'),
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'Dinheiro', 'Dinheiro', 500.00, '#F59E0B');
 
--- Inserir membros da família padrão
-INSERT INTO family_members (id, user_id, name) VALUES
+-- Inserir pessoas padrão
+INSERT INTO people (id, user_id, name) VALUES
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'Eu'),
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'Cônjuge'),
   (gen_random_uuid(), '00000000-0000-0000-0000-000000000000', 'Filho(a)');

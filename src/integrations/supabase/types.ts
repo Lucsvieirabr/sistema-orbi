@@ -149,7 +149,7 @@ export type Database = {
           },
         ]
       }
-      family_members: {
+      people: {
         Row: {
           created_at: string | null
           id: string
@@ -178,7 +178,7 @@ export type Database = {
           credit_card_id: string | null
           date: string
           description: string
-          family_member_id: string | null
+          person_id: string | null
           id: string
           installment_number: number | null
           installments: number | null
@@ -265,10 +265,10 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_family_member_id_fkey"
-            columns: ["family_member_id"]
+            foreignKeyName: "transactions_person_id_fkey"
+            columns: ["person_id"]
             isOneToOne: false
-            referencedRelation: "family_members"
+            referencedRelation: "people"
             referencedColumns: ["id"]
           },
         ]

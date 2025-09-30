@@ -18,7 +18,7 @@ const menuItems: SidebarItem[] = [
   { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
   { title: "Categorias", icon: List, path: "/sistema/categories" },
   { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
-  { title: "Família", icon: Users, path: "/sistema/family-members" },
+  { title: "Pessoas", icon: Users, path: "/sistema/people" },
 ];
 
 export function AppSidebar() {

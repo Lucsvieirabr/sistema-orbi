@@ -16,7 +16,7 @@ import { useMonthlyTransactions, useTransactionMaintenance } from "@/hooks/use-m
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCreditCards } from "@/hooks/use-credit-cards";
-import { useFamilyMembers } from "@/hooks/use-family-members";
+import { usePeople } from "@/hooks/use-people";
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
 import { formatCurrencyBRL } from "@/lib/utils";
@@ -55,7 +55,7 @@ export default function MonthlyStatement() {
   const [isFixed, setIsFixed] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'debit' | 'credit'>('debit');
   const [creditCardId, setCreditCardId] = useState<string | null>(null);
-  const [familyMemberId, setFamilyMemberId] = useState<string | null>(null);
+  const [personId, setPersonId] = useState<string | null>(null);
   const [installments, setInstallments] = useState<number | null>(null);
   const [fromAccountId, setFromAccountId] = useState<string | undefined>(undefined);
   const [toAccountId, setToAccountId] = useState<string | undefined>(undefined);
@@ -67,7 +67,7 @@ export default function MonthlyStatement() {
   const { categories } = useCategories();
   const { accountsWithBalance } = useAccounts();
   const { creditCards } = useCreditCards();
-  const { familyMembers } = useFamilyMembers();
+  const { people } = usePeople();
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
@@ -137,11 +137,11 @@ export default function MonthlyStatement() {
         .select(`
           id, user_id, description, value, date, type, payment_method,
           installments, installment_number, is_fixed, account_id,
-          credit_card_id, category_id, family_member_id, series_id, status, created_at,
+          credit_card_id, category_id, person_id, series_id, status, created_at,
           accounts(name),
           categories(name),
           credit_cards(name),
-          family_members(name)
+          people(name)
         `)
         .eq("id", transactionId)
         .eq("user_id", user?.id ?? "")
@@ -156,7 +156,7 @@ export default function MonthlyStatement() {
         setDescription(data.description);
         setDate(data.date.slice(0, 10));
         setIsFixed(data.is_fixed);
-        setFamilyMemberId(data.family_member_id);
+        setPersonId(data.person_id);
         setStatus(data.status);
 
         if (data.type === 'income') {
@@ -205,7 +205,7 @@ export default function MonthlyStatement() {
     setIsFixed(false);
     setPaymentMethod('debit');
     setCreditCardId(null);
-    setFamilyMemberId(null);
+    setPersonId(null);
     setInstallments(null);
     setFromAccountId(accountsWithBalance[0]?.id);
     setToAccountId(accountsWithBalance[1]?.id);
@@ -248,7 +248,7 @@ export default function MonthlyStatement() {
         value,
         description,
         date,
-        family_member_id: familyMemberId,
+        person_id: personId,
         is_fixed: isFixed,
       };
 
@@ -328,7 +328,7 @@ export default function MonthlyStatement() {
             date: payload.date,
             payment_method: payload.payment_method,
             credit_card_id: payload.credit_card_id,
-            family_member_id: payload.family_member_id,
+            person_id: payload.person_id,
             is_fixed: payload.is_fixed,
             installments: null,
             installment_number: null,
@@ -419,7 +419,7 @@ export default function MonthlyStatement() {
         new_category_id: newData.category_id,
         new_payment_method: newData.payment_method,
         new_credit_card_id: newData.credit_card_id,
-        new_family_member_id: newData.family_member_id,
+        new_person_id: newData.person_id,
         new_is_fixed: newData.is_fixed,
         new_installments: newData.installments,
         value_difference: valueDifference,
@@ -492,7 +492,7 @@ export default function MonthlyStatement() {
         new_category_id: newData.category_id,
         new_payment_method: newData.payment_method,
         new_credit_card_id: newData.credit_card_id,
-        new_family_member_id: newData.family_member_id,
+        new_person_id: newData.person_id,
         new_is_fixed: newData.is_fixed,
         new_installments: newData.installments,
         total_value_difference: totalValueDifference,
@@ -544,7 +544,7 @@ export default function MonthlyStatement() {
           date: formattedDate,
           payment_method: payload.payment_method,
           credit_card_id: payload.credit_card_id,
-          family_member_id: payload.family_member_id,
+          person_id: payload.person_id,
           is_fixed: false,
           installments: payload.installments,
           installment_number: i + 1, // Começar com parcela 1
@@ -600,7 +600,7 @@ export default function MonthlyStatement() {
           date: formattedDate,
           payment_method: payload.payment_method,
           credit_card_id: payload.credit_card_id,
-          family_member_id: payload.family_member_id,
+          person_id: payload.person_id,
           is_fixed: true,
           installments: payload.installments,
           installment_number: 1,
@@ -1372,14 +1372,14 @@ export default function MonthlyStatement() {
               <div className="space-y-1">
                 <Label className="text-sm">Membro da Família</Label>
                 <SelectWithAddButton
-                  entityType="familyMembers"
-                  value={familyMemberId || "none"}
-                  onValueChange={(value) => setFamilyMemberId(value === "none" ? null : value)}
+                  entityType="people"
+                  value={personId || "none"}
+                  onValueChange={(value) => setPersonId(value === "none" ? null : value)}
                   placeholder="Opcional"
                 >
                   <SelectItem value="none">Nenhum</SelectItem>
-                  {familyMembers.map((member) => (
-                    <SelectItem key={member.id} value={member.id}>{member.name}</SelectItem>
+                  {people.map((person) => (
+                    <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>
                   ))}
                 </SelectWithAddButton>
               </div>

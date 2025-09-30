@@ -13,7 +13,7 @@ import Categories from "@/pages/Categories";
 import Accounts from "@/pages/Accounts";
 import MonthlyStatement from "@/pages/MonthlyStatement";
 import Cards from "@/pages/Cards";
-import FamilyMembers from "@/pages/FamilyMembers";
+import People from "@/pages/People";
 import Settings from "@/pages/Settings";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -73,7 +73,7 @@ const App = () => {
                 <Route path="categories" element={<Categories />} />
                 <Route path="accounts" element={<Accounts />} />
                 <Route path="cards" element={<Cards />} />
-                <Route path="family-members" element={<FamilyMembers />} />
+                <Route path="people" element={<People />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 

@@ -14,12 +14,12 @@ import { toast } from "@/hooks/use-toast";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCategories } from "@/hooks/use-categories";
 import { useCreditCards } from "@/hooks/use-credit-cards";
-import { useFamilyMembers } from "@/hooks/use-family-members";
+import { usePeople } from "@/hooks/use-people";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 
 export interface SelectWithAddButtonProps {
-  entityType: 'accounts' | 'categories' | 'creditCards' | 'familyMembers';
+  entityType: 'accounts' | 'categories' | 'creditCards' | 'people';
   value?: string;
   onValueChange?: (value: string) => void;
   placeholder?: string;
@@ -288,21 +288,21 @@ const EntityForms = {
     );
   },
 
-  familyMembers: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
     const [name, setName] = React.useState("");
-    const { createFamilyMember } = useFamilyMembers();
+    const { createPerson } = usePeople();
     const queryClient = useQueryClient();
 
     const onSubmit = async () => {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createFamilyMember({ name });
-        t.update({ title: "Sucesso", description: "Membro salvo", duration: 2000 });
+        await createPerson({ name });
+        t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         onSuccess();
-        queryClient.invalidateQueries({ queryKey: ["family_members"] });
+        queryClient.invalidateQueries({ queryKey: ["people"] });
       } catch (e: any) {
         t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -311,11 +311,11 @@ const EntityForms = {
     return (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Novo Membro</DialogTitle>
+          <DialogTitle>Nova Pessoa</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome do Membro</Label>
+            <Label htmlFor="name">Nome da Pessoa</Label>
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
           </div>
         </div>
