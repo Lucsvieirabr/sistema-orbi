@@ -9,11 +9,10 @@ import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { IconSelector } from "@/components/ui/icon-selector";
-import { IconRenderer } from "@/components/ui/icon-renderer";
+import { CreditCardForm } from "@/components/ui/credit-card-form";
 import { toast } from "@/hooks/use-toast";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCategories } from "@/hooks/use-categories";
-import { useCreditCards } from "@/hooks/use-credit-cards";
 import { usePeople } from "@/hooks/use-people";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
@@ -165,125 +164,40 @@ const EntityForms = {
   },
 
   creditCards: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
-    const [name, setName] = React.useState("");
-    const [brand, setBrand] = React.useState("");
-    const [limit, setLimit] = React.useState(0);
-    const [statementDate, setStatementDate] = React.useState(1);
-    const [dueDate, setDueDate] = React.useState(1);
-    const [connectedAccountId, setConnectedAccountId] = React.useState<string>("none");
-    const { createCreditCard } = useCreditCards();
     const { accountsWithBalance } = useAccounts();
-    const queryClient = useQueryClient();
 
-    const onSubmit = async () => {
-      if (!name.trim()) return;
-      if (limit <= 0) {
-        toast({ title: "Erro", description: "O limite deve ser maior que zero", variant: "destructive" });
-        return;
-      }
-      if (statementDate < 1 || statementDate > 31) {
-        toast({ title: "Erro", description: "A data de fechamento deve estar entre 1 e 31", variant: "destructive" });
-        return;
-      }
-      if (dueDate < 1 || dueDate > 31) {
-        toast({ title: "Erro", description: "A data de vencimento deve estar entre 1 e 31", variant: "destructive" });
-        return;
-      }
+    const formatCurrency = (amount: number) =>
+      new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
 
-      const payload = {
-        name,
-        brand: brand || null,
-        limit,
-        statement_date: statementDate,
-        due_date: dueDate,
-        connected_account_id: connectedAccountId === "none" ? null : connectedAccountId
-      };
-      const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
-      try {
-        await createCreditCard(payload);
-        t.update({ title: "Sucesso", description: "Cartão salvo", duration: 2000 });
-        onOpenChange(false);
-        setName("");
-        setBrand("");
-        setLimit(0);
-        setStatementDate(1);
-        setDueDate(1);
-        setConnectedAccountId("none");
-        onSuccess();
-        queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      } catch (e: any) {
-        t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
-      }
-    };
+    const accountSelector = (
+      <Select>
+        <SelectTrigger>
+          <SelectValue placeholder="Selecione uma conta" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Nenhuma conta</SelectItem>
+          {accountsWithBalance.map((account) => (
+            <SelectItem key={account.id} value={account.id}>
+              {account.name} - {formatCurrency(account.current_balance ?? 0)}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    );
 
     return (
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Novo Cartão</DialogTitle>
         </DialogHeader>
-        <div className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="name">Nome do Cartão</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Visa Nubank" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="brand">Bandeira</Label>
-            <Input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex: Visa, Mastercard, Elo" />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="limit">Limite</Label>
-            <NumericInput
-              id="limit"
-              currency
-              value={limit}
-              onChange={setLimit}
-              placeholder="0,00"
-            />
-          </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="statement_date">Dia de Fechamento</Label>
-              <NumericInput
-                id="statement_date"
-                value={statementDate}
-                onChange={(value) => setStatementDate(value || 1)}
-                min={1}
-                max={31}
-                placeholder="1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="due_date">Dia de Vencimento</Label>
-              <NumericInput
-                id="due_date"
-                value={dueDate}
-                onChange={(value) => setDueDate(value || 1)}
-                min={1}
-                max={31}
-                placeholder="1"
-              />
-            </div>
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
-            <Select value={connectedAccountId} onValueChange={setConnectedAccountId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Selecione uma conta" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhuma conta</SelectItem>
-                {accountsWithBalance.map((account) => (
-                  <SelectItem key={account.id} value={account.id}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        <DialogFooter>
-          <Button onClick={onSubmit}>Salvar</Button>
-        </DialogFooter>
+        <CreditCardForm
+          onSuccess={() => {
+            onOpenChange(false);
+            onSuccess();
+          }}
+          showFooter={true}
+          accountSelector={accountSelector}
+        />
       </DialogContent>
     );
   },

@@ -56,7 +56,9 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
     queryKey: ["person-transactions", personId],
     queryFn: fetchPersonTransactions,
     enabled: !!personId,
-    staleTime: 30000, // 30 seconds
+    staleTime: 0, // Sempre considerar dados como desatualizados
+    refetchOnMount: 'always', // Sempre atualizar quando o componente for montado
+    refetchOnWindowFocus: true, // Atualizar quando a janela receber foco
   });
 
   // Calculate indicators based on transactions
@@ -135,7 +137,7 @@ export function useCreatePaymentTransaction() {
         user_id: user.id,
         description: `Pagamento de dívida: ${debtTransaction.description}`,
         value: paymentValue,
-        date: new Date().toISOString().split('T')[0],
+        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
         type: 'expense',
         status: 'PAID',
         person_id: debtTransaction.person_id,

@@ -20,7 +20,7 @@ import { usePeople } from "@/hooks/use-people";
 // Removido: useDebts, useMarkDebtAsPaid - usando apenas transactions
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
-import { formatCurrencyBRL } from "@/lib/utils";
+import { formatCurrencyBRL, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
 import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
 import {
   TrendingUp,
@@ -56,7 +56,7 @@ export default function MonthlyStatement() {
   const [categoryId, setCategoryId] = useState<string | undefined>(undefined);
   const [value, setValue] = useState<number>(0);
   const [description, setDescription] = useState("");
-  const [date, setDate] = useState<string>(new Date().toISOString().slice(0,10));
+  const [date, setDate] = useState<string>(getCurrentDateString());
   const [isFixed, setIsFixed] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'debit' | 'credit'>('debit');
   const [creditCardId, setCreditCardId] = useState<string | null>(null);
@@ -65,8 +65,10 @@ export default function MonthlyStatement() {
   const [fromAccountId, setFromAccountId] = useState<string | undefined>(undefined);
   const [toAccountId, setToAccountId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
-  const [editScope, setEditScope] = useState<'current' | 'future'>('current');
+  const [editScope, setEditScope] = useState<'current' | 'future' | 'individual'>('current');
   const [showMonthSelector, setShowMonthSelector] = useState(false);
+  const [isTransactionSeries, setIsTransactionSeries] = useState(false);
+  const [seriesTransactions, setSeriesTransactions] = useState<any[]>([]);
 
   // Estados para empréstimos e rateios
   const [isShared, setIsShared] = useState(false);
@@ -181,6 +183,32 @@ export default function MonthlyStatement() {
       if (error) throw error;
 
       if (data) {
+        // Verificar se é uma transação em série
+        const hasSeries = data.series_id || (data.installments && data.installments > 1);
+        setIsTransactionSeries(hasSeries);
+
+        // Se é uma série, carregar todas as transações da série
+        if (hasSeries && data.series_id) {
+          const { data: seriesData, error: seriesError } = await supabase
+            .from("transactions")
+            .select(`
+              id, description, value, date, installment_number, status,
+              accounts(name),
+              categories(name),
+              credit_cards(name)
+            `)
+            .eq("series_id", data.series_id)
+            .eq("user_id", user?.id ?? "")
+            .order("date");
+
+          if (seriesError) {
+            console.error("Erro ao carregar série de transações:", seriesError);
+          } else {
+            setSeriesTransactions(seriesData || []);
+          }
+        } else {
+          setSeriesTransactions([]);
+        }
         // Populate form with transaction data
         setType(data.type as 'income' | 'expense' | 'transfer');
         setValue(data.value);
@@ -233,7 +261,7 @@ export default function MonthlyStatement() {
     setCategoryId(categories[0]?.id);
     setValue(0);
     setDescription("");
-    setDate(new Date().toISOString().slice(0,10));
+    setDate(getCurrentDateString());
     setIsFixed(false);
     setPaymentMethod('debit');
     setCreditCardId(null);
@@ -243,11 +271,22 @@ export default function MonthlyStatement() {
     setToAccountId(accountsWithBalance[1]?.id);
     setStatus('PAID');
     setEditScope('current');
+    setIsTransactionSeries(false);
+    setSeriesTransactions([]);
     setIsShared(false);
     setSelectedPeople([]);
     setIsLoan(false);
     setIsRateio(false);
     setPeopleSearchTerm("");
+  };
+
+  const handleDialogOpenChange = (open: boolean) => {
+    setOpen(open);
+    if (!open) {
+      // Limpar estado de edição quando dialog é fechado
+      setEditingId(null);
+      resetForm();
+    }
   };
 
   // Reset campos específicos quando tipo muda
@@ -313,7 +352,7 @@ export default function MonthlyStatement() {
             compensation_value: amountPerPerson, // Valor que será compensado
             series_id: null, // Será definido após criar a segunda transação
             linked_txn_id: null, // Será definido após criar a segunda transação
-            status: 'PAID',
+            status: payload.status,
           })
           .select()
           .single();
@@ -402,7 +441,7 @@ export default function MonthlyStatement() {
             compensation_value: 0,
             series_id: seriesId,
             linked_txn_id: null,
-            status: 'PAID',
+            status: payload.status,
           })
           .select()
           .single();
@@ -458,6 +497,7 @@ export default function MonthlyStatement() {
         selectedPeople: selectedPeople, // Para rateios
         isLoan: isLoan, // Para empréstimos
         isRateio: isRateio, // Para rateios
+        status: status, // Status da transação
       };
 
       if (type === 'income') {
@@ -586,7 +626,7 @@ export default function MonthlyStatement() {
               installments: null,
               installment_number: null,
               series_id: null,
-              status: 'PAID',
+              status: payload.status,
             });
 
             if (error) throw error;
@@ -1333,11 +1373,15 @@ export default function MonthlyStatement() {
                   <div className="flex items-center gap-2 mb-3">
                     <Calendar className="h-4 w-4 text-muted-foreground" />
                     <span className="font-medium text-muted-foreground">
-                      {new Date(date).toLocaleDateString('pt-BR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long'
-                      })}
+                      {(() => {
+                        const formattedDate = new Date(date + 'T12:00:00').toLocaleDateString('pt-BR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long'
+                        });
+                        // Capitalizar primeira letra
+                        return formattedDate.charAt(0).toUpperCase() + formattedDate.slice(1);
+                      })()}
                     </span>
                   </div>
 
@@ -1483,7 +1527,7 @@ export default function MonthlyStatement() {
       </Card>
 
       {/* Transaction Creation Modal */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
@@ -1724,9 +1768,15 @@ export default function MonthlyStatement() {
 
                 <div className="space-y-1">
                   <Label className="text-sm">Configurações</Label>
-                  <div className="flex items-center space-x-2 h-9">
-                    <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                    <Label className="text-sm">Transação Recorrente</Label>
+                  <div className="flex items-center space-x-4 h-9">
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={isFixed} onCheckedChange={setIsFixed} />
+                      <Label className="text-sm">Recorrente</Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
+                      <Label className="text-sm">Paga</Label>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1911,39 +1961,126 @@ export default function MonthlyStatement() {
 
 
             {/* Escopo de Edição para Transações em Série */}
-            {editingId && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <div className="space-y-2">
-                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">Escopo de Edição</Label>
-                  <div className="space-y-2">
-                    <div className="flex items-center space-x-2">
+            {editingId && isTransactionSeries && (
+              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                    Escopo de Edição ({seriesTransactions.length} parcelas)
+                  </Label>
+                  
+                  <div className="space-y-3">
+                    <div className="flex items-start space-x-3">
                       <input
                         type="radio"
                         id="edit-current"
                         name="editScope"
                         value="current"
                         checked={editScope === 'current'}
-                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future')}
-                        className="text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
+                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
                       />
-                      <Label htmlFor="edit-current" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer">
-                        Apenas esta transação - Útil para adiar uma parcela específica ou alterar valor pontualmente
-                      </Label>
+                      <div className="flex-1">
+                        <Label htmlFor="edit-current" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
+                          Apenas esta transação
+                        </Label>
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                          Edita somente a parcela selecionada - útil para adiar uma parcela específica ou alterar valor pontualmente
+                        </p>
+                      </div>
                     </div>
-                    <div className="flex items-center space-x-2">
+                    
+                    <div className="flex items-start space-x-3">
                       <input
                         type="radio"
                         id="edit-future"
                         name="editScope"
                         value="future"
                         checked={editScope === 'future'}
-                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future')}
-                        className="text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
+                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
                       />
-                      <Label htmlFor="edit-future" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer">
-                        Esta e todas as futuras - Útil para mudar o valor da mensalidade que ainda será paga
-                      </Label>
+                      <div className="flex-1">
+                        <Label htmlFor="edit-future" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
+                          Esta e todas as futuras
+                        </Label>
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                          Edita a parcela atual e todas as próximas - útil para mudar o valor da mensalidade que ainda será paga
+                        </p>
+                      </div>
                     </div>
+                    
+                    <div className="flex items-start space-x-3">
+                      <input
+                        type="radio"
+                        id="edit-individual"
+                        name="editScope"
+                        value="individual"
+                        checked={editScope === 'individual'}
+                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
+                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
+                      />
+                      <div className="flex-1">
+                        <Label htmlFor="edit-individual" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
+                          Editar parcelas individualmente
+                        </Label>
+                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
+                          Permite editar cada parcela separadamente com valores e datas diferentes
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Lista de parcelas para edição individual */}
+            {editingId && isTransactionSeries && editScope === 'individual' && (
+              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
+                <div className="space-y-3">
+                  <Label className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Editar Parcelas Individualmente
+                  </Label>
+                  <div className="space-y-2 max-h-60 overflow-y-auto">
+                    {seriesTransactions.map((transaction, index) => (
+                      <div key={transaction.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
+                                Parcela {transaction.installment_number || index + 1}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs ${
+                                transaction.status === 'PAID' 
+                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
+                              }`}>
+                                {transaction.status === 'PAID' ? 'Paga' : 'Pendente'}
+                              </span>
+                            </div>
+                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">
+                              {transaction.description}
+                            </p>
+                            <p className="text-sm text-gray-600 dark:text-gray-400">
+                              {new Date(transaction.date).toLocaleDateString('pt-BR')} - 
+                              R$ {transaction.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              // Implementar edição individual da parcela
+                              setEditingId(transaction.id);
+                              loadTransactionData(transaction.id);
+                              setEditScope('current');
+                            }}
+                            className="ml-2"
+                          >
+                            Editar
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               </div>
@@ -1989,7 +2126,7 @@ export default function MonthlyStatement() {
       />
 
       {/* Floating Button for New Transaction */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
         <DialogTrigger asChild>
           <button
             aria-label="Nova Transação"

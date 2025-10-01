@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrencyBRL } from "@/lib/utils";
+import { formatCurrencyBRL, formatDateForDisplay } from "@/lib/utils";
 import { CheckCircle, Clock, Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, User, AlertTriangle } from "lucide-react";
 
 interface Transaction {
@@ -139,7 +139,7 @@ export function PendingTransactionsDialog({
                         <div className="flex items-center gap-4 text-sm text-muted-foreground">
                           <div className="flex items-center gap-1">
                             <Calendar className="h-3 w-3" />
-                            <span>{new Date(transaction.date).toLocaleDateString('pt-BR')}</span>
+                            <span>{formatDateForDisplay(transaction.date)}</span>
                           </div>
                           <div className="flex items-center gap-1">
                             {transaction.account_id ? (

@@ -13,13 +13,13 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Switch } from "@/components/ui/switch";
 import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Plus, CheckCircle, CreditCard, Calendar, FileText, AlertCircle, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
 import { usePeople } from "@/hooks/use-people";
-import { usePersonTransactions, useUpdateTransactionStatus, useCreatePaymentTransaction } from "@/hooks/use-person-transactions";
+import { usePersonTransactions, useUpdateTransactionStatus } from "@/hooks/use-person-transactions";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn } from "@/lib/utils";
+import { cn, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -35,21 +35,17 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const { people, isLoading: peopleLoading, error: peopleError } = usePeople();
   const { transactions, indicators, isLoading: transactionsLoading, error } = usePersonTransactions(personId || "");
   const { updateTransactionStatus } = useUpdateTransactionStatus();
-  const { createPaymentTransaction } = useCreatePaymentTransaction();
   const { categories, isLoading: categoriesLoading } = useCategories();
   const { accountsWithBalance, isLoading: accountsLoading } = useAccounts();
   const queryClient = useQueryClient();
 
-  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
-  const [selectedDebtId, setSelectedDebtId] = useState<string>("");
-  const [paymentValue, setPaymentValue] = useState<number>(0);
 
   // Estados para o dialog de nova transação
   const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
   const [type, setType] = useState<'expense'>('expense');
   const [description, setDescription] = useState('');
   const [value, setValue] = useState<number | null>(null);
-  const [date, setDate] = useState<string>(new Date().toISOString().split('T')[0]);
+  const [date, setDate] = useState<string>(getCurrentDateString());
   const [accountId, setAccountId] = useState('');
   const [categoryId, setCategoryId] = useState('');
   const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
@@ -58,6 +54,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const [isRateio, setIsRateio] = useState(false);
   const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
   const [isFixed, setIsFixed] = useState(false);
+  const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
 
   const person = useMemo(() => {
     return people.find(p => p.id === personId);
@@ -113,21 +110,12 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
     }
   };
 
-  const handleOpenPaymentDialog = (debtId: string, debtValue: number) => {
-    setSelectedDebtId(debtId);
-    setPaymentValue(debtValue);
-    setPaymentDialogOpen(true);
-  };
-
-  const handlePayDebt = async () => {
+  const handlePayDebt = async (transactionId: string) => {
     try {
-      await createPaymentTransaction(selectedDebtId, paymentValue);
-      toast({ title: "Sucesso", description: "Pagamento registrado", duration: 2000 });
-      setPaymentDialogOpen(false);
-      setSelectedDebtId("");
-      setPaymentValue(0);
+      await updateTransactionStatus(transactionId, 'PAID');
+      toast({ title: "Sucesso", description: "Dívida marcada como paga", duration: 2000 });
     } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Não foi possível processar pagamento", duration: 3000, variant: "destructive" as any });
+      toast({ title: "Erro", description: e.message || "Não foi possível marcar como paga", duration: 3000, variant: "destructive" as any });
     }
   };
 
@@ -180,7 +168,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             compensation_value: 0,
             series_id: seriesId,
             linked_txn_id: null,
-            status: 'PAID',
+            status: status,
           })
           .select()
           .single();
@@ -213,7 +201,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             compensation_value: 0,
             series_id: seriesId,
             linked_txn_id: expenseTransaction.id,
-            status: 'PENDING',
+            status: status,
           })
           .select()
           .single();
@@ -257,7 +245,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             compensation_value: amountPerPerson * totalPeopleInRateio, // Valor total que será compensado
             series_id: null,
             linked_txn_id: null,
-            status: 'PAID',
+            status: status,
           })
           .select()
           .single();
@@ -295,7 +283,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
               compensation_value: 0,
               series_id: seriesId,
               linked_txn_id: expenseTransaction.id,
-              status: 'PENDING',
+              status: status,
             })
             .select()
             .single();
@@ -349,7 +337,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
               compensation_value: 0,
               series_id: seriesId,
               linked_txn_id: expenseTransaction.id,
-              status: 'PENDING',
+              status: status,
             })
             .select()
             .single();
@@ -403,7 +391,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           compensation_value: 0,
           series_id: null,
           linked_txn_id: null,
-          status: 'PAID',
+          status: status,
         }).select().single();
 
         if (error) {
@@ -424,7 +412,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       setTransactionDialogOpen(false);
       setDescription('');
       setValue(null);
-      setDate(new Date().toISOString().split('T')[0]);
+      setDate(getCurrentDateString());
       setAccountId('');
       setCategoryId('');
       setSelectedPeople([]);
@@ -433,6 +421,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       setIsRateio(false);
       setSelectedPersonId(null);
       setIsFixed(false);
+      setStatus('PAID');
 
       // Atualizar dados
       queryClient.invalidateQueries({ queryKey: ["person-transactions", personId] });
@@ -734,9 +723,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
 
                     <div className="space-y-1">
                       <Label className="text-sm">Configurações</Label>
-                      <div className="flex items-center space-x-2 h-9">
-                        <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                        <Label className="text-sm">Transação Recorrente</Label>
+                      <div className="flex items-center space-x-4 h-9">
+                        <div className="flex items-center space-x-2">
+                          <Switch checked={isFixed} onCheckedChange={setIsFixed} />
+                          <Label className="text-sm">Recorrente</Label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
+                          <Label className="text-sm">Paga</Label>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -746,9 +741,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                 {isRateio && (
                   <div className="space-y-1">
                     <Label className="text-sm">Configurações</Label>
-                    <div className="flex items-center space-x-2 h-9">
-                      <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                      <Label className="text-sm">Transação Recorrente</Label>
+                    <div className="flex items-center space-x-4 h-9">
+                      <div className="flex items-center space-x-2">
+                        <Switch checked={isFixed} onCheckedChange={setIsFixed} />
+                        <Label className="text-sm">Recorrente</Label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
+                        <Label className="text-sm">Paga</Label>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -889,7 +890,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                       <div className="flex items-center gap-4 text-sm text-muted-foreground">
                         <span className="flex items-center gap-1">
                           <Calendar className="h-3 w-3" />
-                          {format(new Date(transaction.date), "dd/MM/yyyy", { locale: ptBR })}
+                          {formatDateForDisplay(transaction.date)}
                         </span>
                         <span className="font-medium">
                           {formatCurrency(transaction.value)}
@@ -913,12 +914,11 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                     {transaction.type === 'expense' && transaction.status === 'PENDING' && (
                       <Button
                         size="sm"
-                        variant="outline"
-                        onClick={() => handleOpenPaymentDialog(transaction.id, Number(transaction.value))}
-                        className="flex items-center gap-1"
+                        onClick={() => handlePayDebt(transaction.id)}
+                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
                       >
-                        <CreditCard className="h-3 w-3" />
-                        Pagar Dívida
+                        <CheckCircle className="h-3 w-3" />
+                        Pagar
                       </Button>
                     )}
                   </div>
@@ -929,35 +929,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
         </CardContent>
       </Card>
 
-      {/* Payment Dialog */}
-      <Dialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Pagar Dívida</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="payment-value">Valor do Pagamento</Label>
-              <Input
-                id="payment-value"
-                type="number"
-                step="0.01"
-                value={paymentValue}
-                onChange={(e) => setPaymentValue(Number(e.target.value))}
-                placeholder="0,00"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setPaymentDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button onClick={handlePayDebt}>
-              Confirmar Pagamento
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

@@ -197,7 +197,7 @@ export function useMarkDebtAsPaid() {
           type: "income",
           value: data.amount,
           description: `Recebimento de ${data.people?.name || "pessoa"}`,
-          date: new Date().toISOString().split('T')[0],
+          date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
           status: "PAID",
         });
       } else if (data.type === "TO_PAY") {
@@ -207,7 +207,7 @@ export function useMarkDebtAsPaid() {
           type: "expense",
           value: data.amount,
           description: `Pagamento para ${data.people?.name || "pessoa"}`,
-          date: new Date().toISOString().split('T')[0],
+          date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
           status: "PAID",
         });
       }

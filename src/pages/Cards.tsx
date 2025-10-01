@@ -2,14 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { NumericInput } from "@/components/ui/numeric-input";
-import { DaySelector } from "@/components/ui/day-selector";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { SelectItem } from "@/components/ui/select";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { CreditCardForm } from "@/components/ui/credit-card-form";
 import { useCreditCards } from "@/hooks/use-credit-cards";
 import { useAccounts } from "@/hooks/use-accounts";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -19,16 +16,18 @@ import { LayoutGrid, List, Plus, CreditCard } from "lucide-react";
 
 export default function Cards() {
   const queryClient = useQueryClient();
-  const { creditCards, createCreditCard, updateCreditCard, deleteCreditCard, isLoading } = useCreditCards();
+  const { creditCards, deleteCreditCard, isLoading } = useCreditCards();
   const { accountsWithBalance } = useAccounts();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [name, setName] = useState("");
-  const [brand, setBrand] = useState("");
-  const [limit, setLimit] = useState(0);
-  const [statementDate, setStatementDate] = useState(1);
-  const [dueDate, setDueDate] = useState(1);
-  const [connectedAccountId, setConnectedAccountId] = useState<string>("none");
+  const [editingData, setEditingData] = useState<{
+    name: string;
+    brand: string;
+    limit: number;
+    statementDate: number;
+    dueDate: number;
+    connectedAccountId: string;
+  } | undefined>(undefined);
   const [view, setView] = useState<"list" | "cards">("list");
 
   useEffect(() => {
@@ -44,62 +43,25 @@ export default function Cards() {
 
   const title = useMemo(() => (editingId ? "Editar Cartão" : "Novo Cartão"), [editingId]);
 
-  const onSubmit = async () => {
-    if (!name.trim()) return;
-    if (limit <= 0) {
-      toast({ title: "Erro", description: "O limite deve ser maior que zero", variant: "destructive" });
-      return;
-    }
-    if (statementDate < 1 || statementDate > 31) {
-      toast({ title: "Erro", description: "A data de fechamento deve estar entre 1 e 31", variant: "destructive" });
-      return;
-    }
-    if (dueDate < 1 || dueDate > 31) {
-      toast({ title: "Erro", description: "A data de vencimento deve estar entre 1 e 31", variant: "destructive" });
-      return;
-    }
-
-    const payload = { 
-      name, 
-      brand: brand || null, 
-      limit, 
-      statement_date: statementDate, 
-      due_date: dueDate,
-      connected_account_id: connectedAccountId === "none" ? null : connectedAccountId
-    };
-    const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
-    try {
-      if (editingId) {
-        await updateCreditCard(editingId, payload);
-      } else {
-        await createCreditCard(payload);
-      }
-      t.update({ title: "Sucesso", description: "Cartão salvo", duration: 2000 });
-    } catch (e: any) {
-      t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
-    }
-    setOpen(false);
-    setEditingId(null);
-    setName("");
-    setBrand("");
-    setLimit(0);
-    setStatementDate(1);
-    setDueDate(1);
-    setConnectedAccountId("none");
-    queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-  };
-
   const onEdit = (id: string) => {
     const card = creditCards.find((c) => c.id === id);
     if (!card) return;
     setEditingId(id);
-    setName(card.name);
-    setBrand(card.brand || "");
-    setLimit(card.limit);
-    setStatementDate(card.statement_date);
-    setDueDate(card.due_date);
-    setConnectedAccountId(card.connected_account_id || "none");
+    setEditingData({
+      name: card.name,
+      brand: card.brand || "",
+      limit: card.limit,
+      statementDate: card.statement_date,
+      dueDate: card.due_date,
+      connectedAccountId: card.connected_account_id || "none",
+    });
     setOpen(true);
+  };
+
+  const handleCloseDialog = () => {
+    setOpen(false);
+    setEditingId(null);
+    setEditingData(undefined);
   };
 
   const onDelete = async (id: string) => {
@@ -113,7 +75,8 @@ export default function Cards() {
     queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
   };
 
-  const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
+  const formatCurrency = (amount: number) =>
+    new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
 
   const getBrandIcon = (brand: string | null) => {
     if (!brand) return <CreditCard className="h-5 w-5" />;
@@ -129,13 +92,21 @@ export default function Cards() {
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Cartões de Crédito</CardTitle>
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={handleCloseDialog}>
             <div className="flex items-center gap-2">
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="list"
+                  aria-label="Lista"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <List className="h-4 w-4" />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="cards"
+                  aria-label="Cards"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
@@ -149,47 +120,17 @@ export default function Cards() {
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
               </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome do Cartão</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Visa Nubank" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="brand">Bandeira</Label>
-                  <Input id="brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex: Visa, Mastercard, Elo" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="limit">Limite</Label>
-                  <NumericInput
-                    id="limit"
-                    currency
-                    value={limit}
-                    onChange={setLimit}
-                    placeholder="0,00"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-4">
-                  <DaySelector
-                    id="statement_date"
-                    label="Dia de Fechamento"
-                    value={statementDate}
-                    onChange={setStatementDate}
-                    placeholder="1"
-                  />
-                  <DaySelector
-                    id="due_date"
-                    label="Dia de Vencimento"
-                    value={dueDate}
-                    onChange={setDueDate}
-                    placeholder="1"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
+              <CreditCardForm
+                editingId={editingId}
+                initialData={editingData}
+                onSuccess={() => {
+                  handleCloseDialog();
+                  queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+                }}
+                showFooter={true}
+                accountSelector={
                   <SelectWithAddButton
                     entityType="accounts"
-                    value={connectedAccountId}
-                    onValueChange={setConnectedAccountId}
                     placeholder="Selecione uma conta"
                   >
                     <SelectItem value="none">Nenhuma conta</SelectItem>
@@ -199,11 +140,8 @@ export default function Cards() {
                       </SelectItem>
                     ))}
                   </SelectWithAddButton>
-                </div>
-              </div>
-              <DialogFooter>
-                <Button onClick={onSubmit}>Salvar</Button>
-              </DialogFooter>
+                }
+              />
             </DialogContent>
           </Dialog>
         </CardHeader>
