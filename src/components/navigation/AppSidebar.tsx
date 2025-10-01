@@ -58,12 +58,12 @@ export function AppSidebar() {
             return (
               <Button
                 key={item.path}
-                variant={isActive ? "default" : "ghost"}
+                variant="ghost"
                 className={cn(
-                  "w-full justify-start gap-3 transition-smooth",
+                  "w-full justify-start gap-3 transition-all duration-300 border border-transparent bg-transparent hover:bg-transparent",
                   isActive
-                    ? "bg-sidebar-primary text-sidebar-primary-foreground shadow-card"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground",
+                    ? "border-blue-400 text-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]"
+                    : "text-sidebar-foreground hover:border-blue-400 hover:text-blue-400 hover:shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]",
                 )}
                 onClick={() => navigate(item.path)}
               >
