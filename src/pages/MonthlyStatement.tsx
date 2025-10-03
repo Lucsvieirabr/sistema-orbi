@@ -22,6 +22,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
 import { formatCurrencyBRL, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
 import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
+import { InstallmentForm } from "@/components/ui/installment-form";
+import { useInstallments } from "@/hooks/use-installments";
 import {
   TrendingUp,
   TrendingDown,
@@ -81,6 +83,13 @@ export default function MonthlyStatement() {
   const [showPendingIncomeDialog, setShowPendingIncomeDialog] = useState(false);
   const [showPendingExpenseDialog, setShowPendingExpenseDialog] = useState(false);
 
+  // Estados para gerenciamento de parcelas
+  const [showInstallmentForm, setShowInstallmentForm] = useState(false);
+  const [installmentData, setInstallmentData] = useState<{
+    installments: any[];
+    totalValue: number;
+  }>({ installments: [], totalValue: 0 });
+
   // Hooks
   const { categories } = useCategories();
   const { accountsWithBalance } = useAccounts();
@@ -110,6 +119,7 @@ export default function MonthlyStatement() {
 
   const { maintainFixedTransactions } = useTransactionMaintenance();
   const { toast } = useToast();
+  const { createInstallmentSeries: createInstallmentSeriesMutation } = useInstallments();
 
   // Calcular valor da parcela automaticamente
   const installmentValue = useMemo(() => {
@@ -285,6 +295,8 @@ export default function MonthlyStatement() {
     setIsLoan(false);
     setIsRateio(false);
     setPeopleSearchTerm("");
+    // Reset installment data
+    setInstallmentData({ installments: [], totalValue: 0 });
   };
 
   const handleDialogOpenChange = (open: boolean) => {
@@ -332,6 +344,40 @@ export default function MonthlyStatement() {
       setIsLoan(false);
       setIsRateio(false);
     }
+  };
+
+  // Função para mostrar formulário de parcelas
+  const showInstallmentFormHandler = () => {
+    if (!value || !installments || installments <= 0) {
+      toast({
+        title: "Erro",
+        description: "Valor e número de parcelas são obrigatórios",
+        variant: "destructive"
+      });
+      return;
+    }
+    setShowInstallmentForm(true);
+  };
+
+  // Função para salvar parcelas (fechar dialog e mostrar resumo)
+  const handleSaveInstallments = () => {
+    if (installmentData.installments.length === 0) {
+      toast({
+        title: "Erro",
+        description: "Nenhuma parcela foi gerada",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Fechar dialog e voltar ao form principal
+    setShowInstallmentForm(false);
+    
+    toast({
+      title: "Sucesso",
+      description: "Parcelas configuradas com sucesso",
+      duration: 2000
+    });
   };
 
   const createSharedTransactions = async (userId: string, payload: any) => {
@@ -595,8 +641,25 @@ export default function MonthlyStatement() {
           // Para transações fixas, gerar 12 meses futuros
           await createFixedTransactionSeries(payload);
         } else if (payload.installments && payload.installments > 1) {
-          // Para transações parceladas, criar todas as parcelas
-          await createInstallmentSeries(payload);
+          // Para transações parceladas, verificar se já foram configuradas
+          if (installmentData.installments.length > 0) {
+            // Usar parcelas já configuradas
+            await createInstallmentSeriesMutation.mutateAsync({
+              description,
+              type: type as 'income' | 'expense',
+              account_id: accountId,
+              category_id: categoryId,
+              payment_method: paymentMethod,
+              credit_card_id: creditCardId,
+              person_id: personId,
+              is_fixed: isFixed,
+              installments: installmentData.installments
+            });
+          } else {
+            // Mostrar formulário de parcelas se não foram configuradas
+            showInstallmentFormHandler();
+            return; // Não continuar com o fluxo normal
+          }
         } else {
           // Transação única
           const { data: user } = await supabase.auth.getUser();
@@ -1741,6 +1804,7 @@ export default function MonthlyStatement() {
               </div>
             )}
 
+
             {/* Campos principais com lógica de visibilidade dinâmica */}
             {type === 'transfer' ? (
               /* Transferência: Conta Origem + Conta Destino */
@@ -1853,6 +1917,118 @@ export default function MonthlyStatement() {
                 </div>
               </div>
             ) : null}
+
+            {/* Método de Pagamento (apenas para gastos) */}
+            {type === 'expense' && (
+              <div className="space-y-1">
+                <Label className="text-sm">Método de Pagamento</Label>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant={paymentMethod === 'debit' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setPaymentMethod('debit');
+                      setCreditCardId(null);
+                      setInstallments(null);
+                    }}
+                    className="flex-1 h-9 text-xs"
+                  >
+                    Débito/Dinheiro
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={paymentMethod === 'credit' ? 'default' : 'outline'}
+                    onClick={() => {
+                      setPaymentMethod('credit');
+                      setAccountId(undefined);
+                    }}
+                    className="flex-1 h-9 text-xs flex items-center gap-1"
+                  >
+                    <CreditCard className="h-3 w-3" />
+                    Cartão de Crédito
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Cartão de Crédito e Parcelas (quando selecionado) */}
+            {type === 'expense' && paymentMethod === 'credit' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-sm">Cartão de Crédito</Label>
+                  <SelectWithAddButton
+                    entityType="creditCards"
+                    value={creditCardId || "none"}
+                    onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}
+                    placeholder="Selecione"
+                  >
+                    <SelectItem value="none">Nenhum</SelectItem>
+                    {creditCards.map((card) => (
+                      <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                    ))}
+                  </SelectWithAddButton>
+                </div>
+
+                <div className="space-y-1">
+                  <Label className="text-sm">Parcelas</Label>
+                  <NumericInput
+                    value={installments}
+                    onChange={(value) => setInstallments(value)}
+                    placeholder="Ex: 12"
+                    min={2}
+                    integer={true}
+                    currency={false}
+                    className="h-9"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Informação do valor da parcela para gastos parcelados */}
+            {type === 'expense' && paymentMethod === 'credit' && installments && installments > 1 && (
+              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                {installmentData.installments.length > 0 ? (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-red-700 dark:text-red-300 font-medium">Parcelas Configuradas:</span>
+                      <span className="text-red-900 dark:text-red-100 font-semibold">
+                        {installmentData.installments.length} parcelas
+                      </span>
+                    </div>
+                    <div className="text-xs text-red-600 dark:text-red-400 mb-2">
+                      <div>Valor Total: {formatCurrencyBRL(installmentData.totalValue)}</div>
+                      <div className="flex justify-between mt-1">
+                        <span>Pagas: {installmentData.installments.filter(i => i.status === 'PAID').length}</span>
+                        <span>Pendentes: {installmentData.installments.filter(i => i.status === 'PENDING').length}</span>
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-red-700 dark:text-red-300 font-medium">Valor por Parcela:</span>
+                      <span className="text-red-900 dark:text-red-100 font-semibold">
+                        {formatCurrencyBRL(installmentValue)}
+                      </span>
+                    </div>
+                    <div className="text-xs text-red-600 dark:text-red-400 mb-3">
+                      {installments} parcelas de {formatCurrencyBRL(installmentValue)} = {formatCurrencyBRL(value)}
+                    </div>
+                  </>
+                )}
+                <div className="flex justify-center">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={showInstallmentFormHandler}
+                    className="flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                  >
+                    <Edit className="h-4 w-4" />
+                    {installmentData.installments.length > 0 ? 'Editar Parcelas' : 'Gerar Série de Parcelas Personalizada'}
+                  </Button>
+                </div>
+              </div>
+            )}
 
             {/* Descrição e Data */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -2168,6 +2344,45 @@ export default function MonthlyStatement() {
             <Plus className="h-4 w-4" />
           </button>
         </DialogTrigger>
+      </Dialog>
+
+      {/* Modal para gerenciar parcelas */}
+      <Dialog open={showInstallmentForm} onOpenChange={setShowInstallmentForm}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Gerenciar Parcelas</DialogTitle>
+          </DialogHeader>
+          
+          <InstallmentForm
+            totalValue={installmentData.totalValue > 0 ? installmentData.totalValue : value}
+            installments={installments || 1}
+            startDate={date}
+            description={description}
+            initialInstallments={installmentData.installments}
+            onInstallmentsChange={(installments) => 
+              setInstallmentData(prev => ({ ...prev, installments }))
+            }
+            onTotalValueChange={(totalValue) => 
+              setInstallmentData(prev => ({ ...prev, totalValue }))
+            }
+            disabled={createInstallmentSeriesMutation.isPending}
+          />
+          
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setShowInstallmentForm(false)}
+            >
+              Cancelar
+            </Button>
+            <Button
+              onClick={handleSaveInstallments}
+              disabled={createInstallmentSeriesMutation.isPending || installmentData.installments.length === 0}
+            >
+              {createInstallmentSeriesMutation.isPending ? "Salvando..." : "Salvar Parcelas"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
       </Dialog>
     </div>
   );
