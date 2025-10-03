@@ -87,7 +87,7 @@ import {
   AlertCircle,
   Info,
   HelpCircle,
-  Clock,
+  BanknoteXIcon,
   Calendar,
   Bell,
   Mail,
@@ -185,6 +185,7 @@ const iconCategories = {
     { name: "credit-card", component: CreditCard },
     { name: "wallet", component: Wallet },
     { name: "banknote", component: Banknote },
+    { name: "banknote-x", component: BanknoteXIcon },
   ],
   "Renda": [
     { name: "briefcase", component: Briefcase },

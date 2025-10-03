@@ -25,7 +25,7 @@ import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-
 import {
   TrendingUp,
   TrendingDown,
-  Clock,
+  BanknoteXIcon,
   CheckCircle,
   ArrowUpCircle,
   ArrowDownCircle,
@@ -148,6 +148,13 @@ export default function MonthlyStatement() {
       setSearch((prev) => { prev.delete('new'); return prev; });
     }
 
+    const editParam = search.get('edit');
+    if (editParam) {
+      setEditingId(editParam);
+      setOpen(true);
+      setSearch((prev) => { prev.delete('edit'); return prev; });
+    }
+
     const personIdParam = search.get('personId');
     if (personIdParam) {
       setPersonId(personIdParam);
@@ -184,11 +191,11 @@ export default function MonthlyStatement() {
 
       if (data) {
         // Verificar se é uma transação em série
-        const hasSeries = data.series_id || (data.installments && data.installments > 1);
+        const hasSeries = Boolean(data.series_id || (data.installments && data.installments > 1));
         setIsTransactionSeries(hasSeries);
 
         // Se é uma série, carregar todas as transações da série
-        if (hasSeries && data.series_id) {
+        if (hasSeries && Boolean(data.series_id)) {
           const { data: seriesData, error: seriesError } = await supabase
             .from("transactions")
             .select(`
@@ -663,64 +670,112 @@ export default function MonthlyStatement() {
 
       if (fetchError) throw fetchError;
 
-      // 2. Determinar se é uma transação em série
+      // 2. Aplicar regras de imutabilidade
+      const immutableFields = {
+        type: currentTransaction.type,
+        payment_method: currentTransaction.payment_method,
+        credit_card_id: currentTransaction.credit_card_id,
+        status: currentTransaction.status,
+        compensation_value: currentTransaction.compensation_value,
+        series_id: currentTransaction.series_id,
+        linked_txn_id: currentTransaction.linked_txn_id,
+        installments: currentTransaction.installments,
+      };
+
+      // 3. Verificar se campos imutáveis foram alterados
+      const hasImmutableChanges = Object.entries(immutableFields).some(([key, originalValue]) => {
+        if (key === 'type' && newData.type !== originalValue) {
+          toast({
+            title: "Erro",
+            description: "Tipo de transação não pode ser alterado",
+            variant: "destructive" as any
+          });
+          return true;
+        }
+        if (key === 'payment_method' && newData.payment_method !== originalValue) {
+          toast({
+            title: "Erro",
+            description: "Método de pagamento não pode ser alterado",
+            variant: "destructive" as any
+          });
+          return true;
+        }
+        if (key === 'credit_card_id' && newData.credit_card_id !== originalValue) {
+          toast({
+            title: "Erro",
+            description: "Cartão de crédito não pode ser alterado",
+            variant: "destructive" as any
+          });
+          return true;
+        }
+        if (key === 'status' && newData.status !== originalValue) {
+          toast({
+            title: "Erro",
+            description: "Status deve ser alterado apenas pelos botões de ação",
+            variant: "destructive" as any
+          });
+          return true;
+        }
+        return false;
+      });
+
+      if (hasImmutableChanges) return;
+
+      // 4. Determinar se é uma transação em série
       const hasSeriesId = currentTransaction?.series_id;
 
-      // 3. Se for uma transação em série, aplicar lógica de edição em lote
+      // 5. Se for uma transação em série, aplicar lógica de edição em lote
       if (hasSeriesId && editScope === 'future') {
         // Editar esta transação e todas as futuras da mesma série
         await updateTransactionSeries(currentTransaction.series_id, currentTransaction.date, newData);
         return;
       }
 
-      // 4. Calcular impacto no saldo
-      const oldValue = currentTransaction?.value || 0;
-      const newValue = newData.value;
-      const valueDifference = newValue - oldValue;
+      // 6. Detectar mudanças em campos críticos
+      const criticalChanges = {
+        value: newData.value !== currentTransaction.value,
+        date: newData.date !== currentTransaction.date,
+        account_id: newData.account_id !== currentTransaction.account_id,
+      };
 
-      // 5. Determinar conta afetada
-      let affectedAccountId = null;
-      if (newData.type === 'income' && newData.account_id) {
-        affectedAccountId = newData.account_id;
-      } else if (newData.type === 'expense') {
-        if (newData.payment_method === 'debit' && newData.account_id) {
-          affectedAccountId = newData.account_id;
-        } else if (newData.payment_method === 'credit' && newData.credit_card_id) {
-          // Para cartão de crédito, afetar a conta conectada
-          const { data: creditCard } = await supabase
-            .from("credit_cards")
-            .select("connected_account_id")
-            .eq("id", newData.credit_card_id)
-            .single();
-
-          affectedAccountId = creditCard?.connected_account_id;
-        }
-      } else if (newData.type === 'transfer') {
-        // Para transferências, não há impacto direto no saldo
-        affectedAccountId = null;
+      // 7. Se há mudanças críticas, mostrar aviso
+      if (Object.values(criticalChanges).some(Boolean)) {
+        toast({
+          title: "Atenção",
+          description: "Campos críticos alterados - recalculando saldos",
+          duration: 3000
+        });
       }
 
-      // 6. Executar transação
+      // 8. Executar transação com campos imutáveis preservados
       const { error: updateError } = await supabase
         .from('transactions')
         .update({
-          type: newData.type,
-          value: newValue,
+          // Campos editáveis
           description: newData.description,
+          category_id: newData.category_id,
+          person_id: newData.person_id,
+          
+          // Campos críticos (com recálculo de saldo)
+          value: newData.value,
           date: newData.date,
           account_id: newData.account_id,
-          category_id: newData.category_id,
-          payment_method: newData.payment_method,
-          credit_card_id: newData.credit_card_id,
-          person_id: newData.person_id,
-          is_fixed: newData.is_fixed,
-          installments: newData.installments,
+          
+          // Campos imutáveis preservados
+          type: immutableFields.type,
+          payment_method: immutableFields.payment_method,
+          credit_card_id: immutableFields.credit_card_id,
+          status: immutableFields.status,
+          compensation_value: immutableFields.compensation_value,
+          series_id: immutableFields.series_id,
+          linked_txn_id: immutableFields.linked_txn_id,
+          installments: immutableFields.installments,
         })
         .eq('id', transactionId);
 
       if (updateError) throw updateError;
 
-      toast({ title: "Sucesso", description: "Transação atualizada", duration: 2000 });
+      toast({ title: "Sucesso", description: "Transação atualizada com segurança", duration: 2000 });
     } catch (error: any) {
       console.error("Erro ao atualizar transação:", error);
       toast({
@@ -948,11 +1003,16 @@ export default function MonthlyStatement() {
     return filtered;
   }, [transactions, filterType]);
 
-  // Re-group filtered transactions by date and series, considering linked transactions
+  // Group filtered transactions by date with simple ordering (same as Dashboard)
   const filteredGroupedTransactions = useMemo(() => {
     const grouped: Record<string, typeof filteredTransactions> = {};
 
-    filteredTransactions.forEach(transaction => {
+    // Ordenar as transações filtradas por data (mais recente primeiro) - mesma lógica simples do Dashboard
+    const sortedTransactions = [...filteredTransactions].sort((a, b) =>
+      new Date(b.date).getTime() - new Date(a.date).getTime()
+    );
+
+    sortedTransactions.forEach(transaction => {
       const date = transaction.date;
       if (!grouped[date]) {
         grouped[date] = [];
@@ -960,31 +1020,8 @@ export default function MonthlyStatement() {
       grouped[date].push(transaction);
     });
 
-    // Group related transactions (those with series_id or linked_txn_id)
-    Object.keys(grouped).forEach(date => {
-      const transactions = grouped[date];
-
-      // Group transactions by series_id
-      const groupedBySeries: Record<string, typeof transactions> = {};
-      transactions.forEach(transaction => {
-        const seriesKey = transaction.series_id || transaction.linked_txn_id || transaction.id;
-        if (!groupedBySeries[seriesKey]) {
-          groupedBySeries[seriesKey] = [];
-        }
-        groupedBySeries[seriesKey].push(transaction);
-      });
-
-      // Sort within each group by creation time
-      Object.keys(groupedBySeries).forEach(seriesKey => {
-        groupedBySeries[seriesKey].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-      });
-
-      // Flatten back to array
-      grouped[date] = Object.values(groupedBySeries).flat();
-    });
-
     return grouped;
-  }, [filteredTransactions, month, year]);
+  }, [filteredTransactions]);
 
   const handleMonthChange = (direction: 'prev' | 'next', months: number = 1) => {
     const newDate = new Date(currentDate);
@@ -1007,7 +1044,10 @@ export default function MonthlyStatement() {
     try {
       const { error } = await supabase
         .from("transactions")
-        .update({ status: 'PAID' })
+        .update({ 
+          status: 'PAID',
+          liquidation_date: new Date().toISOString()
+        })
         .eq("id", transactionId);
 
       if (error) throw error;
@@ -1029,7 +1069,10 @@ export default function MonthlyStatement() {
     try {
       const { error } = await supabase
         .from("transactions")
-        .update({ status: 'PENDING' })
+        .update({ 
+          status: 'PENDING',
+          liquidation_date: null
+        })
         .eq("id", transactionId);
 
       if (error) throw error;
@@ -1062,6 +1105,48 @@ export default function MonthlyStatement() {
       toast({
         title: "Erro",
         description: e.message || "Não foi possível excluir",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    }
+  };
+
+  const deleteTransactionSeries = async () => {
+    if (!editingId) return;
+    
+    const toastInstance = toast({ title: "Excluindo série...", description: "Aguarde", duration: 2000 });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // Buscar a série atual da transação
+      const { data: currentTransaction, error: fetchError } = await supabase
+        .from("transactions")
+        .select("series_id")
+        .eq("id", editingId)
+        .eq("user_id", user.id)
+        .single();
+
+      if (fetchError) throw fetchError;
+      if (!currentTransaction?.series_id) throw new Error("Transação não faz parte de uma série");
+
+      // Excluir todas as transações da série
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("series_id", currentTransaction.series_id)
+        .eq("user_id", user.id);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Série de transações excluída", duration: 2000 });
+      setOpen(false);
+      resetForm();
+      refetch();
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível excluir a série",
         duration: 3000,
         variant: "destructive" as any
       });
@@ -1225,7 +1310,7 @@ export default function MonthlyStatement() {
                   {formatCurrencyBRL(indicators.incomePending)}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-blue-500" />
+              <BanknoteXIcon className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -1239,7 +1324,7 @@ export default function MonthlyStatement() {
                   {formatCurrencyBRL(indicators.expensesPending)}
                 </p>
               </div>
-              <Clock className="h-8 w-8 text-yellow-500" />
+              <BanknoteXIcon className="h-8 w-8 text-yellow-500" />
             </div>
           </CardContent>
         </Card>
@@ -1403,7 +1488,7 @@ export default function MonthlyStatement() {
                           <div className="flex items-center gap-3 flex-1">
                             {isPendingIncome ? (
                               <div className="p-2 rounded-full bg-yellow-100">
-                                <Clock className="h-4 w-4 text-yellow-600" />
+                                <BanknoteXIcon className="h-4 w-4 text-yellow-600" />
                               </div>
                             ) : (
                               getTransactionIcon(transaction)
@@ -1463,19 +1548,12 @@ export default function MonthlyStatement() {
                               </div>
                               <div className="text-xs text-muted-foreground">
                                 {transaction.status === 'PAID'
-                                  ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
+                                  ? (transaction.type === 'income' ? 'Recebido' : 'Pago') + 
+                                    ((transaction as any).liquidation_date ? ` em ${new Date((transaction as any).liquidation_date).toLocaleDateString('pt-BR')}` : '')
                                   : 'Pendente'}
                               </div>
                             </div>
 
-                            <Badge
-                              variant={transaction.status === 'PAID' ? 'default' : 'secondary'}
-                              className={transaction.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-yellow-100 text-yellow-800'}
-                            >
-                              {transaction.status === 'PAID'
-                                ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
-                                : 'Pendente'}
-                            </Badge>
 
                             <Button
                               size="sm"
@@ -1511,7 +1589,7 @@ export default function MonthlyStatement() {
                                 variant="outline"
                                 onClick={() => markAsPending(transaction.id)}
                               >
-                                <Clock className="h-4 w-4" />
+                                <BanknoteXIcon className="h-4 w-4" />
                               </Button>
                             )}
                           </div>
@@ -1533,45 +1611,135 @@ export default function MonthlyStatement() {
             <DialogTitle>{title}</DialogTitle>
           </DialogHeader>
           <div className="space-y-6">
-            {/* Tipo de Transação */}
+            {/* Tipo de Transação - IMUTÁVEL em edição */}
             <div className="space-y-2">
-              <Label>Tipo de Transação</Label>
-              <div className="flex gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleTypeChange('income')}
-                  className={`flex items-center gap-2 flex-1 ${type === 'income'
-                    ? 'border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
-                    : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
-                >
-                  <ArrowUpCircle className="h-4 w-4" />
-                  Ganho
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleTypeChange('expense')}
-                  className={`flex items-center gap-2 flex-1 ${type === 'expense'
-                    ? 'border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
-                    : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive'}`}
-                >
-                  <ArrowDownCircle className="h-4 w-4" />
-                  Gasto
-                </Button>
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => handleTypeChange('transfer')}
-                  className={`flex items-center gap-2 flex-1 ${type === 'transfer'
-                    ? 'border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
-                    : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
-                >
-                  <ArrowUpCircle className="h-4 w-4" />
-                  Transferência
-                </Button>
-              </div>
+              {editingId ? (
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <AlertTriangle className="h-4 w-4" />
+                    <span>Campo imutável - Tipo de transação não pode ser alterado após criação</span>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      type="button"
+                      variant={type === 'income' ? 'default' : 'outline'}
+                      disabled
+                      className="flex items-center gap-2 flex-1"
+                    >
+                      <ArrowUpCircle className="h-4 w-4" />
+                      Ganho
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={type === 'expense' ? 'default' : 'outline'}
+                      disabled
+                      className="flex items-center gap-2 flex-1"
+                    >
+                      <ArrowDownCircle className="h-4 w-4" />
+                      Gasto
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={type === 'transfer' ? 'default' : 'outline'}
+                      disabled
+                      className="flex items-center gap-2 flex-1"
+                    >
+                      <ArrowUpCircle className="h-4 w-4" />
+                      Transferência
+                    </Button>
+                  </div>
+                </div>
+                
+              ) : (
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleTypeChange('income')}
+                    className={`flex items-center gap-2 flex-1 ${type === 'income'
+                      ? 'border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
+                      : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
+                  >
+                    <ArrowUpCircle className="h-4 w-4" />
+                    Ganho
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleTypeChange('expense')}
+                    className={`flex items-center gap-2 flex-1 ${type === 'expense'
+                      ? 'border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
+                      : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive'}`}
+                  >
+                    <ArrowDownCircle className="h-4 w-4" />
+                    Gasto
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => handleTypeChange('transfer')}
+                    className={`flex items-center gap-2 flex-1 ${type === 'transfer'
+                      ? 'border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
+                      : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
+                  >
+                    <ArrowUpCircle className="h-4 w-4" />
+                    Transferência
+                  </Button>
+                </div>
+              )}
             </div>
+            {/* Campos Opcionais */}
+            {type !== 'transfer' && (
+              <div className="space-y-4">
+                {/* Tipo de Operação para Gastos */}
+                {type === 'expense' && (
+                  <div className="space-y-2">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={!isLoan && !isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(false);
+                          setIsRateio(false);
+                        }}
+                        className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
+                          ? 'border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
+                          : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive'}`}
+                      >
+                        Gasto Normal
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={isLoan && !isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(true);
+                          setIsRateio(false);
+                        }}
+                        className={`flex-1 h-9 text-xs ${isLoan && !isRateio
+                          ? 'border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30'
+                          : 'hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400'}`}
+                      >
+                        Empréstimo
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={!isLoan && isRateio ? 'default' : 'outline'}
+                        onClick={() => {
+                          setIsLoan(false);
+                          setIsRateio(true);
+                        }}
+                        className={`flex-1 h-9 text-xs ${!isLoan && isRateio
+                          ? 'border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
+                          : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
+                      >
+                        Rateio
+                      </Button>
+                    </div>
+                  </div>
+                )}
+
+              </div>
+            )}
 
             {/* Campos principais com lógica de visibilidade dinâmica */}
             {type === 'transfer' ? (
@@ -1605,8 +1773,8 @@ export default function MonthlyStatement() {
                 </div>
               </div>
             ) : type === 'income' ? (
-              /* Ganho: Conta + Categoria + Valor Total + Parcelas */
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+              /* Ganho: Conta + Categoria + Valor */
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <Label className="text-sm">Conta</Label>
                   <SelectWithAddButton
@@ -1640,16 +1808,6 @@ export default function MonthlyStatement() {
                     value={value}
                     onChange={setValue}
                     placeholder="0,00"
-                    className="h-9"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-sm">Parcelas</Label>
-                  <NumericInput
-                    value={installments}
-                    onChange={(value) => setInstallments(value)}
-                    placeholder="1"
-                    min={1}
                     className="h-9"
                   />
                 </div>
@@ -1718,168 +1876,69 @@ export default function MonthlyStatement() {
               </div>
             </div>
 
-            {/* Informação do valor da parcela para ganhos parcelados */}
-            {type === 'income' && installments && installments > 1 && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-blue-700 dark:text-blue-300 font-medium">Valor por Parcela:</span>
-                  <span className="text-blue-900 dark:text-blue-100 font-semibold">
-                    {formatCurrencyBRL(installmentValue)}
-                  </span>
-                </div>
-                <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-                  {installments} parcelas de {formatCurrencyBRL(installmentValue)} = {formatCurrencyBRL(value)}
-                </div>
-              </div>
-            )}
-
-            {/* Método de Pagamento (apenas para gastos) */}
-            {type === 'expense' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {/* Seleção de Pessoas para Rateio */}
+            {type === 'expense' && isRateio && (
+              <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">Método de Pagamento</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant={paymentMethod === 'debit' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setPaymentMethod('debit');
-                        setCreditCardId(null);
-                        setInstallments(null);
-                      }}
-                      className="flex-1 h-9 text-xs"
-                    >
-                      Débito/Dinheiro
-                    </Button>
-                    <Button
-                      type="button"
-                      variant={paymentMethod === 'credit' ? 'default' : 'outline'}
-                      onClick={() => {
-                        setPaymentMethod('credit');
-                        setAccountId(undefined);
-                      }}
-                      className="flex-1 h-9 text-xs flex items-center gap-1"
-                    >
-                      <CreditCard className="h-3 w-3" />
-                      Cartão de Crédito
-                    </Button>
-                  </div>
+                  <Label className="text-sm">Pessoas Envolvidas no Rateio</Label>
+                  <Input
+                    placeholder="Buscar pessoa por nome..."
+                    className="h-9"
+                    value={peopleSearchTerm}
+                    onChange={(e) => setPeopleSearchTerm(e.target.value)}
+                  />
                 </div>
-
-                <div className="space-y-1">
-                  <Label className="text-sm">Configurações</Label>
-                  <div className="flex items-center space-x-4 h-9">
-                    <div className="flex items-center space-x-2">
-                      <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                      <Label className="text-sm">Recorrente</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
-                      <Label className="text-sm">Paga</Label>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* Cartão de Crédito (quando selecionado) */}
-            {type === 'expense' && paymentMethod === 'credit' && (
-              <div className="space-y-1">
-                <Label className="text-sm">Cartão de Crédito</Label>
-                <SelectWithAddButton
-                  entityType="creditCards"
-                  value={creditCardId || "none"}
-                  onValueChange={(value) => setCreditCardId(value === "none" ? null : value)}
-                  placeholder="Selecione"
-                >
-                  <SelectItem value="none">Nenhum</SelectItem>
-                  {creditCards.map((card) => (
-                    <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                  {filteredPeople.map((person) => (
+                    <Button
+                      key={person.id}
+                      type="button"
+                      variant={selectedPeople.includes(person.id) ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => {
+                        setSelectedPeople(prev =>
+                          prev.includes(person.id)
+                            ? prev.filter(id => id !== person.id)
+                            : [...prev, person.id]
+                        );
+                      }}
+                      className={`h-8 ${selectedPeople.includes(person.id)
+                        ? 'bg-purple-100 text-purple-800 border-2 border-purple-300 hover:bg-purple-200'
+                        : 'border-2 border-gray-300 hover:bg-transparent'}`}
+                    >
+                      {person.name}
+                    </Button>
                   ))}
-                </SelectWithAddButton>
-              </div>
-            )}
-
-            {/* Parcelas para Cartão de Crédito */}
-            {type === 'expense' && paymentMethod === 'credit' && (
-              <div className="space-y-1">
-                <Label className="text-sm">Parcelas</Label>
-                <NumericInput
-                  value={installments}
-                  onChange={(value) => setInstallments(value)}
-                  placeholder="Ex: 12"
-                  min={2}
-                  className="h-9"
-                />
-              </div>
-            )}
-
-            {/* Informação do valor da parcela para gastos parcelados */}
-            {type === 'expense' && paymentMethod === 'credit' && installments && installments > 1 && (
-              <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-red-700 dark:text-red-300 font-medium">Valor por Parcela:</span>
-                  <span className="text-red-900 dark:text-red-100 font-semibold">
-                    {formatCurrencyBRL(installmentValue)}
-                  </span>
                 </div>
-                <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                  {installments} parcelas de {formatCurrencyBRL(installmentValue)} = {formatCurrencyBRL(value)}
-                </div>
-              </div>
-            )}
-
-            {/* Campos Opcionais */}
-            {type !== 'transfer' && (
-              <div className="space-y-4">
-                {/* Tipo de Operação para Gastos */}
-                {type === 'expense' && (
-                  <div className="space-y-2">
-                    <Label className="text-sm">Tipo de Operação</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={!isLoan && !isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(false);
-                          setIsRateio(false);
-                        }}
-                        className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
-                          ? 'border-destructive/50 bg-destructive/10 text-destructive'
-                          : 'hover:border-destructive/30 hover:bg-destructive/5'}`}
-                      >
-                        Gasto Normal
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={isLoan && !isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(true);
-                          setIsRateio(false);
-                        }}
-                        className={`flex-1 h-9 text-xs ${isLoan && !isRateio
-                          ? 'border-purple-500/50 bg-purple-50 text-purple-700'
-                          : 'hover:border-purple-300 hover:bg-purple-50/50'}`}
-                      >
-                        Empréstimo
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={!isLoan && isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(false);
-                          setIsRateio(true);
-                        }}
-                        className={`flex-1 h-9 text-xs ${!isLoan && isRateio
-                          ? 'border-blue-500/50 bg-blue-50 text-blue-700'
-                          : 'hover:border-blue-300 hover:bg-blue-50/50'}`}
-                      >
-                        Rateio
-                      </Button>
+                {selectedPeople.length > 0 && (
+                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 mt-3">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
+                          <span className="text-purple-700 dark:text-purple-300 font-medium">
+                            {selectedPeople.length} pessoa{selectedPeople.length !== 1 ? 's' : ''}
+                          </span>
+                          <span className="text-purple-600 dark:text-purple-400">selecionada{selectedPeople.length !== 1 ? 's' : ''}</span>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-purple-700 dark:text-purple-300 font-medium">
+                          Valor por pessoa
+                        </div>
+                        <div className="text-purple-900 dark:text-purple-100 font-semibold">
+                          {formatCurrencyBRL(value / (selectedPeople.length + 1))}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
+              </div>
+            )}
 
+
+            {/* Campo de Pessoa e Configurações */}
+            {type !== 'transfer' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Campo de Pessoa - Oculto para Rateio */}
                 {!isRateio && (
                   <div className="space-y-1">
@@ -1898,75 +1957,49 @@ export default function MonthlyStatement() {
                   </div>
                 )}
 
-                {/* Seleção de Pessoas para Rateio */}
-                {type === 'expense' && isRateio && (
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Pessoas Envolvidas no Rateio</Label>
-                      <Input
-                        placeholder="Buscar pessoa por nome..."
-                        className="h-9"
-                        value={peopleSearchTerm}
-                        onChange={(e) => setPeopleSearchTerm(e.target.value)}
-                      />
+                {/* Configurações */}
+                <div className="space-y-1">
+                  <Label className="text-sm">Configurações</Label>
+                  <div className="flex items-center justify-start space-x-6 py-2 pl-0">
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={isFixed} onCheckedChange={setIsFixed} />
+                      <Label className="text-sm">Recorrente</Label>
                     </div>
-                    <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                      {filteredPeople.map((person) => (
-                        <Button
-                          key={person.id}
-                          type="button"
-                          variant={selectedPeople.includes(person.id) ? 'default' : 'outline'}
-                          size="sm"
-                          onClick={() => {
-                            setSelectedPeople(prev =>
-                              prev.includes(person.id)
-                                ? prev.filter(id => id !== person.id)
-                                : [...prev, person.id]
-                            );
-                          }}
-                          className={`h-8 ${selectedPeople.includes(person.id)
-                            ? 'bg-purple-100 text-purple-800 border-2 border-purple-300 hover:bg-purple-200'
-                            : 'border-2 border-gray-300 hover:bg-transparent'}`}
-                        >
-                          {person.name}
-                        </Button>
-                      ))}
+                    <div className="flex items-center space-x-2">
+                      <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
+                      <Label className="text-sm">{type === 'income' ? 'Recebido' : 'Paga'}</Label>
                     </div>
-                    {selectedPeople.length > 0 && (
-                      <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 mt-3">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center gap-1">
-                              <span className="text-purple-700 dark:text-purple-300 font-medium">
-                                {selectedPeople.length} pessoa{selectedPeople.length !== 1 ? 's' : ''}
-                              </span>
-                              <span className="text-purple-600 dark:text-purple-400">selecionada{selectedPeople.length !== 1 ? 's' : ''}</span>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-purple-700 dark:text-purple-300 font-medium">
-                              Valor por pessoa
-                            </div>
-                            <div className="text-purple-900 dark:text-purple-100 font-semibold">
-                              {formatCurrencyBRL(value / (selectedPeople.length + 1))}
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
-                )}
+                </div>
               </div>
             )}
+
+            
 
 
             {/* Escopo de Edição para Transações em Série */}
             {editingId && isTransactionSeries && (
               <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
                 <div className="space-y-3">
-                  <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Escopo de Edição ({seriesTransactions.length} parcelas)
-                  </Label>
+                  <div className="flex items-center justify-between">
+                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      Escopo de Edição ({seriesTransactions.length} parcelas)
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => {
+                        if (confirm('Tem certeza que deseja excluir toda a série de transações? Esta ação não pode ser desfeita.')) {
+                          deleteTransactionSeries();
+                        }
+                      }}
+                      className="h-8 px-3 text-xs"
+                    >
+                      <Trash2 className="h-3 w-3 mr-1" />
+                      Excluir Série
+                    </Button>
+                  </div>
                   
                   <div className="space-y-3">
                     <div className="flex items-start space-x-3">

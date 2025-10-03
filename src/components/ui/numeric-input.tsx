@@ -6,6 +6,7 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "va
   value?: number | null;
   onChange?: (value: number | null) => void;
   currency?: boolean;
+  integer?: boolean;
   placeholder?: string;
   min?: number;
   max?: number;
@@ -13,11 +14,14 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "va
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ className, value, onChange, currency = true, placeholder = "0,00", min, max, step, ...props }, ref) => {
+  ({ className, value, onChange, currency = true, integer = false, placeholder, min, max, step, ...props }, ref) => {
+    // Definir placeholder padrão baseado no tipo
+    const defaultPlaceholder = integer ? "0" : currency ? "0,00" : "0";
+    const finalPlaceholder = placeholder || defaultPlaceholder;
     const [displayValue, setDisplayValue] = React.useState<string>("");
     const [isFocused, setIsFocused] = React.useState<boolean>(false);
 
-    // Formatar valor para exibição (apenas para moeda)
+    // Formatar valor para exibição
     const formatValue = React.useCallback((num: number | null) => {
       if (num === null || num === undefined || num === 0) return "";
 
@@ -28,12 +32,23 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         }).format(num);
       }
 
+      if (integer) {
+        return Math.floor(num).toString();
+      }
+
       return num.toString();
-    }, [currency]);
+    }, [currency, integer]);
 
     // Converter string para número
     const parseValue = React.useCallback((str: string): number | null => {
       if (!str || str.trim() === "") return null;
+
+      if (integer) {
+        // Para números inteiros, apenas remover caracteres não numéricos
+        const cleaned = str.replace(/\D/g, "");
+        const parsed = parseInt(cleaned, 10);
+        return isNaN(parsed) ? null : parsed;
+      }
 
       // Remove formatação de moeda e converte
       const cleaned = str
@@ -44,7 +59,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
       const parsed = parseFloat(cleaned);
       return isNaN(parsed) ? null : parsed;
-    }, []);
+    }, [integer]);
 
     // Atualizar display quando o valor muda (apenas se não estiver focado)
     React.useEffect(() => {
@@ -63,10 +78,19 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         return;
       }
 
-      // Permitir apenas dígitos, vírgula e ponto durante a digitação
-      const numberRegex = /^[0-9.,]*$/;
-      if (!numberRegex.test(inputValue)) {
-        return;
+      // Validar entrada baseado no tipo
+      if (integer) {
+        // Para números inteiros, apenas dígitos
+        const integerRegex = /^[0-9]*$/;
+        if (!integerRegex.test(inputValue)) {
+          return;
+        }
+      } else {
+        // Para moeda, permitir dígitos, vírgula e ponto
+        const numberRegex = /^[0-9.,]*$/;
+        if (!numberRegex.test(inputValue)) {
+          return;
+        }
       }
 
       // Manter o valor como está sendo digitado
@@ -94,6 +118,9 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
           // Para moeda, mostrar apenas os números (removendo R$ e formatação)
           const numericValue = value.toString();
           setDisplayValue(numericValue);
+        } else if (integer) {
+          // Para números inteiros, mostrar apenas o número
+          setDisplayValue(Math.floor(value).toString());
         } else {
           setDisplayValue(value.toString());
         }
@@ -112,7 +139,7 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         onChange={handleChange}
         onBlur={handleBlur}
         onFocus={handleFocus}
-        placeholder={placeholder}
+        placeholder={finalPlaceholder}
         className={cn(
           "text-center",
           className

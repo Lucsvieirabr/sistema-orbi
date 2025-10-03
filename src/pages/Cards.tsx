@@ -64,6 +64,10 @@ export default function Cards() {
     setEditingData(undefined);
   };
 
+  const handleOpenDialog = () => {
+    setOpen(true);
+  };
+
   const onDelete = async (id: string) => {
     const t = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
     try {
@@ -92,58 +96,57 @@ export default function Cards() {
       <Card className="shadow-md">
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Cartões de Crédito</CardTitle>
-          <Dialog open={open} onOpenChange={handleCloseDialog}>
-            <div className="flex items-center gap-2">
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem
-                  value="list"
-                  aria-label="Lista"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="cards"
-                  aria-label="Cards"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 w-8 p-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-            </div>
-            <DialogContent className="max-w-md">
-              <DialogHeader>
-                <DialogTitle>{title}</DialogTitle>
-              </DialogHeader>
-              <CreditCardForm
-                editingId={editingId}
-                initialData={editingData}
-                onSuccess={() => {
-                  handleCloseDialog();
-                  queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-                }}
-                showFooter={true}
-                accountSelector={
-                  <SelectWithAddButton
-                    entityType="accounts"
-                    placeholder="Selecione uma conta"
-                  >
-                    <SelectItem value="none">Nenhuma conta</SelectItem>
-                    {accountsWithBalance.map((account) => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name} - {formatCurrency(account.current_balance ?? 0)}
-                      </SelectItem>
-                    ))}
-                  </SelectWithAddButton>
-                }
-              />
-            </DialogContent>
-          </Dialog>
+          <div className="flex items-center gap-2">
+            <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
+              <ToggleGroupItem
+                value="list"
+                aria-label="Lista"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                <List className="h-4 w-4" />
+              </ToggleGroupItem>
+              <ToggleGroupItem
+                value="cards"
+                aria-label="Cards"
+                className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </ToggleGroupItem>
+            </ToggleGroup>
+            <Button size="sm" className="h-8 w-8 p-0" onClick={handleOpenDialog}>
+              <Plus className="h-4 w-4" />
+            </Button>
+            
+            <Dialog open={open} onOpenChange={handleCloseDialog}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>{title}</DialogTitle>
+                </DialogHeader>
+                <CreditCardForm
+                  editingId={editingId}
+                  initialData={editingData}
+                  onSuccess={() => {
+                    handleCloseDialog();
+                    queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
+                  }}
+                  showFooter={true}
+                  accountSelector={
+                    <SelectWithAddButton
+                      entityType="accounts"
+                      placeholder="Selecione uma conta"
+                    >
+                      <SelectItem value="none">Nenhuma conta</SelectItem>
+                      {accountsWithBalance.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name} - {formatCurrency(account.current_balance ?? 0)}
+                        </SelectItem>
+                      ))}
+                    </SelectWithAddButton>
+                  }
+                />
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           {isLoading ? (

@@ -1,7 +1,10 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { StatusSelector, TransactionStatus } from "@/components/ui/status-selector";
 import {
   DollarSign,
   TrendingUp,
@@ -12,11 +15,26 @@ import {
   LogOut,
   PieChart,
   List,
-  BarChart3
+  BarChart3,
+  Plus,
+  CreditCard,
+  ArrowUpCircle,
+  ArrowDownCircle,
+  BanknoteXIcon,
+  CheckCircle,
+  Edit,
+  Trash2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
 import { useDebtStats } from "@/hooks/use-debts";
+import { useStatusSync } from "@/hooks/use-status-sync";
+import { useCreditCards } from "@/hooks/use-credit-cards";
+import { useAccounts } from "@/hooks/use-accounts";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { CreditCardForm } from "@/components/ui/credit-card-form";
+import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
+import { SelectItem } from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 
@@ -26,10 +44,16 @@ interface DashboardProps {
 
 export function Dashboard({ onLogout }: DashboardProps) {
   const { toast } = useToast();
+  const { syncStatus } = useStatusSync();
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [currentDate] = useState(new Date());
   const [categoryViewMode, setCategoryViewMode] = useState<'list' | 'chart'>('list');
   const [upcomingPeriod, setUpcomingPeriod] = useState<7 | 15 | 30>(7);
+  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<string | null>(null);
+  const [cardDialogOpen, setCardDialogOpen] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
@@ -41,6 +65,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
   } = useMonthlyTransactions(year, month);
 
   const { data: debtStats } = useDebtStats();
+  const { creditCards, isLoading: cardsLoading } = useCreditCards();
+  const { accountsWithBalance } = useAccounts();
 
   // Calculate category expenses for chart
   const categoryExpenses = useMemo(() => {
@@ -138,6 +164,144 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString('pt-BR');
+  };
+
+  const handleStatusChange = async (transactionId: string, newStatus: TransactionStatus) => {
+    setUpdatingStatus(transactionId);
+    const loadingToast = toast({
+      title: "Atualizando status...",
+      description: "Sincronizando transações relacionadas",
+      duration: 2000
+    });
+
+    try {
+      // Obter o usuário atual
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Usuário não autenticado");
+
+      await syncStatus(transactionId, newStatus);
+      loadingToast.update({
+        id: loadingToast.id,
+        title: "Status atualizado!",
+        description: "Transações sincronizadas com sucesso",
+        duration: 2000
+      });
+      
+      // Invalidar queries para atualizar dados
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+    } catch (error: any) {
+      loadingToast.update({
+        id: loadingToast.id,
+        title: "Erro ao atualizar status",
+        description: error.message || "Não foi possível atualizar o status",
+        duration: 3000,
+        variant: "destructive"
+      });
+    } finally {
+      setUpdatingStatus(null);
+    }
+  };
+
+  const getTransactionIcon = (transaction: any) => {
+    if (transaction.type === 'transfer') {
+      return <ArrowUpCircle className="h-4 w-4 text-blue-500" />;
+    }
+    return transaction.type === 'income' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />;
+  };
+
+  const getAccountName = (transaction: any) => {
+    if (transaction.account_id && transaction.accounts?.name) {
+      return transaction.accounts.name;
+    }
+    if (transaction.credit_card_id && transaction.credit_cards?.name) {
+      return transaction.credit_cards.name;
+    }
+    return 'N/A';
+  };
+
+  const markAsPaid = async (transactionId: string) => {
+    const toastInstance = toast({ title: "Atualizando...", description: "Aguarde", duration: 2000 });
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ 
+          status: 'PAID',
+          liquidation_date: new Date().toISOString()
+        })
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Transação marcada como paga", duration: 2000 });
+      
+      // Invalidar queries para atualizar dados
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível atualizar",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    }
+  };
+
+  const markAsPending = async (transactionId: string) => {
+    const toastInstance = toast({ title: "Atualizando...", description: "Aguarde", duration: 2000 });
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .update({ 
+          status: 'PENDING',
+          liquidation_date: null
+        })
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Status alterado para pendente", duration: 2000 });
+      
+      // Invalidar queries para atualizar dados
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível atualizar",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    }
+  };
+
+  const deleteTransaction = async (transactionId: string) => {
+    setDeletingTransaction(transactionId);
+    const toastInstance = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
+    try {
+      const { error } = await supabase
+        .from("transactions")
+        .delete()
+        .eq("id", transactionId);
+
+      if (error) throw error;
+
+      toast({ title: "Sucesso", description: "Transação excluída", duration: 2000 });
+      
+      // Invalidar queries para atualizar dados
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível excluir",
+        duration: 3000,
+        variant: "destructive" as any
+      });
+    } finally {
+      setDeletingTransaction(null);
+    }
   };
 
   return (
@@ -407,10 +571,17 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           </div>
                         </div>
                       </div>
-                      <div className="text-right">
+                      <div className="text-right flex flex-col items-end gap-2">
                         <p className={`font-semibold ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
                           {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
                         </p>
+                        <StatusSelector
+                          currentStatus={transaction.status as TransactionStatus}
+                          onStatusChange={(newStatus) => handleStatusChange(transaction.id, newStatus)}
+                          disabled={updatingStatus === transaction.id}
+                          size="sm"
+                          variant="badge"
+                        />
                       </div>
                     </div>
                   ))}
@@ -435,43 +606,229 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 <p>Nenhuma transação encontrada</p>
               </div>
             ) : (
-              <div className="space-y-3">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-2 h-8 rounded-full ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
-                      <div>
-                        <p className="font-medium text-foreground">{transaction.description}</p>
-                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                          <span>{formatDate(transaction.date)}</span>
-                          {transaction.categories?.name && (
-                            <Badge variant="outline" className="text-xs">
-                              {transaction.categories.name}
-                            </Badge>
+              <div className="space-y-2">
+                {recentTransactions.map((transaction) => {
+                  const isPendingIncome = transaction.type === 'income' && transaction.status === 'PENDING';
+                  const isPaidExpense = transaction.type === 'expense' && transaction.status === 'PAID' && transaction.is_shared;
+
+                  return (
+                    <div
+                      key={transaction.id}
+                      className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors ${
+                        transaction.status === 'PAID' && isPendingIncome ? 'opacity-60' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-3 flex-1">
+                        {isPendingIncome ? (
+                          <div className="p-2 rounded-full bg-yellow-100">
+                            <BanknoteXIcon className="h-4 w-4 text-yellow-600" />
+                          </div>
+                        ) : (
+                          getTransactionIcon(transaction)
+                        )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-medium">{transaction.description}</span>
+                            {transaction.series_id && transaction.is_shared && (
+                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                                Rateio
+                              </Badge>
+                            )}
+                            {transaction.linked_txn_id && (
+                              <Badge variant="outline" className="text-xs">
+                                Ligada
+                              </Badge>
+                            )}
+                            {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {transaction.installment_number}/{transaction.installments}
+                              </Badge>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{getAccountName(transaction)}</span>
+                            {transaction.categories?.name && (
+                              <>
+                                <span>•</span>
+                                <span>{transaction.categories.name}</span>
+                              </>
+                            )}
+                            {transaction.people?.name && (
+                              <>
+                                <span>•</span>
+                                <span>{transaction.people.name}</span>
+                              </>
+                            )}
+                            {isPaidExpense && (
+                              <>
+                                <span>•</span>
+                                <span className="text-purple-600">
+                                  Minha parte: {formatCurrency(transaction.value)}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-3">
+                        <div className="text-right">
+                          <div className={`font-semibold ${
+                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                          }`}>
+                            {transaction.type === 'income' ? '+' : '-'}
+                            {formatCurrency(transaction.value)}
+                          </div>
+                          <div className="text-xs text-muted-foreground">
+                            {transaction.status === 'PAID'
+                              ? (transaction.type === 'income' ? 'Recebido' : 'Pago') + 
+                                ((transaction as any).liquidation_date ? ` em ${new Date((transaction as any).liquidation_date).toLocaleDateString('pt-BR')}` : '')
+                              : 'Pendente'}
+                          </div>
+                        </div>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            navigate('/sistema/statement?edit=' + transaction.id);
+                          }}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => deleteTransaction(transaction.id)}
+                          disabled={deletingTransaction === transaction.id}
+                          className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        >
+                          {deletingTransaction === transaction.id ? (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
                           )}
-                          {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
-                            <Badge variant="secondary" className="text-xs">
-                              {transaction.installment_number}/{transaction.installments}
-                            </Badge>
-                          )}
+                        </Button>
+
+                        {transaction.status === 'PENDING' ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => markAsPaid(transaction.id)}
+                          >
+                            <CheckCircle className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => markAsPending(transaction.id)}
+                          >
+                            <BanknoteXIcon className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Credit Cards Section */}
+        <Card className="bg-gradient-card shadow-md">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-2">
+                <CreditCard className="h-5 w-5 text-primary" />
+                Cartões de Crédito
+              </CardTitle>
+              <Dialog open={cardDialogOpen} onOpenChange={setCardDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm" className="h-8 w-8 p-0">
+                    <Plus className="h-4 w-4" />
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Novo Cartão</DialogTitle>
+                  </DialogHeader>
+                  <CreditCardForm
+                    onSuccess={() => {
+                      setCardDialogOpen(false);
+                      // Invalidar queries para atualizar dados
+                      queryClient.invalidateQueries({ queryKey: ["credit-cards"] });
+                    }}
+                    showFooter={true}
+                    accountSelector={
+                      <SelectWithAddButton
+                        entityType="accounts"
+                        placeholder="Selecione uma conta"
+                      >
+                        <SelectItem value="none">Nenhuma conta</SelectItem>
+                        {accountsWithBalance.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name} - {formatCurrency(account.current_balance ?? 0)}
+                          </SelectItem>
+                        ))}
+                      </SelectWithAddButton>
+                    }
+                  />
+                </DialogContent>
+              </Dialog>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {cardsLoading ? (
+              <div className="flex items-center justify-center h-32">
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
+              </div>
+            ) : creditCards.length === 0 ? (
+              <div className="flex items-center justify-center h-32 text-muted-foreground">
+                <div className="text-center">
+                  <CreditCard className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
+                  <p>Nenhum cartão cadastrado</p>
+                  <p className="text-sm">Clique no botão + para adicionar um cartão</p>
+                </div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                {creditCards.slice(0, 6).map((card) => (
+                  <div key={card.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
+                    <div className="flex items-start justify-between mb-3">
+                      <div className="flex items-center gap-3">
+                        <CreditCard className="h-5 w-5 text-primary" />
+                        <div className="flex flex-col">
+                          <span className="font-medium">{card.name}</span>
+                          {card.brand && <span className="text-sm text-muted-foreground">{card.brand}</span>}
                         </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                        {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
-                      </p>
-                      <Badge
-                        variant={transaction.status === 'PAID' ? 'default' : 'secondary'}
-                        className={`text-xs mt-1 ${transaction.status === 'PAID' ? 'bg-primary/10 text-primary' : 'bg-yellow-100 text-yellow-800'}`}
-                      >
-                        {transaction.status === 'PAID'
-                          ? (transaction.type === 'income' ? 'Recebido' : 'Pago')
-                          : 'Pendente'}
-                      </Badge>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Limite:</span>
+                        <span className="font-semibold">{formatCurrency(card.limit)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Fechamento:</span>
+                        <span>Dia {card.statement_date}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Vencimento:</span>
+                        <span>Dia {card.due_date}</span>
+                      </div>
                     </div>
                   </div>
                 ))}
+                {creditCards.length > 6 && (
+                  <div className="rounded-lg border bg-muted/20 p-4 flex items-center justify-center">
+                    <p className="text-sm text-muted-foreground">
+                      +{creditCards.length - 6} cartões adicionais
+                    </p>
+                  </div>
+                )}
               </div>
             )}
           </CardContent>

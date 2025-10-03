@@ -4,7 +4,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
 import { formatCurrencyBRL, formatDateForDisplay } from "@/lib/utils";
-import { CheckCircle, Clock, Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, User, AlertTriangle } from "lucide-react";
+import { CheckCircle, BanknoteXIcon, Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, User, AlertTriangle } from "lucide-react";
 
 interface Transaction {
   id: string;
@@ -204,7 +204,7 @@ export function PendingTransactionsDialog({
                           onClick={() => onMarkAsPending(transaction.id)}
                           className="h-8 px-3 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
                         >
-                          <Clock className="h-3 w-3 mr-1" />
+                          <BanknoteXIcon className="h-3 w-3 mr-1" />
                           Marcar Pendente
                         </Button>
                       )}

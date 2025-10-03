@@ -37,13 +37,14 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");
 
-    // Fetch transactions
+    // Fetch transactions with liquidation_date
     const { data: transactions, error: transactionsError } = await supabase
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
         installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
+        credit_card_id, category_id, person_id, series_id, status, created_at, 
+        updated_at, liquidation_date, compensation_value,
         accounts(name),
         categories(name),
         credit_cards(name),
@@ -51,14 +52,28 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       `)
       .eq("user_id", user.id)
       .gte("date", startDate)
-      .lte("date", endDate)
-      .order("date", { ascending: false })
-      .order("created_at", { ascending: false });
+      .lte("date", endDate);
 
     if (transactionsError) throw transactionsError;
 
-    // Return transactions only (no debts table anymore)
-    return transactions ?? [];
+    // Aplicar ordenação simplificada: liquidation_date vs created_at
+    const sortedTransactions = (transactions ?? []).sort((a, b) => {
+      // Para cada transação, usar liquidation_date se paga, senão created_at
+      const getEffectiveDate = (transaction: Transaction) => {
+        if (transaction.status === 'PAID' && transaction.liquidation_date) {
+          return transaction.liquidation_date;
+        }
+        return transaction.created_at;
+      };
+      
+      const aEffectiveDate = getEffectiveDate(a);
+      const bEffectiveDate = getEffectiveDate(b);
+      
+      // Ordenar por data efetiva mais recente (mais recente primeiro)
+      return new Date(bEffectiveDate).getTime() - new Date(aEffectiveDate).getTime();
+    });
+
+    return sortedTransactions;
   };
 
   const query = useQuery({
@@ -157,12 +172,13 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     };
   }, [query.data, startDate, endDate]);
 
-  // Group transactions by day
+  // Group transactions by day (mantendo a ordenação inteligente)
   const groupedTransactions = useMemo(() => {
     if (!query.data) return {};
 
     const grouped: Record<string, Transaction[]> = {};
 
+    // As transações já vêm ordenadas pela lógica inteligente
     query.data.forEach(transaction => {
       const date = transaction.date;
       if (!grouped[date]) {
@@ -171,12 +187,14 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       grouped[date].push(transaction);
     });
 
-    // Sort transactions within each day by creation time (newest first)
-    Object.keys(grouped).forEach(date => {
-      grouped[date].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    // Ordenar as datas para exibição (mais recente primeiro)
+    const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b).getTime() - new Date(a).getTime());
+    const sortedGrouped: Record<string, Transaction[]> = {};
+    sortedDates.forEach(date => {
+      sortedGrouped[date] = grouped[date];
     });
 
-    return grouped;
+    return sortedGrouped;
   }, [query.data]);
 
   return {
