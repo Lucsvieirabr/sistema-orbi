@@ -6,7 +6,14 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
-import { formatCurrencyBRL, getCurrentDateString } from "@/lib/utils";
+import { 
+  formatCurrencyBRL, 
+  getCurrentDateString, 
+  roundCurrency, 
+  calculateInstallmentValue, 
+  redistributeInstallmentValues,
+  isValidCurrencyValue 
+} from "@/lib/utils";
 import { Plus, Trash2, Calendar, DollarSign, CheckCircle, BanknoteXIcon } from "lucide-react";
 
 interface Installment {
@@ -28,6 +35,10 @@ interface InstallmentFormProps {
   onInstallmentsCountChange?: (count: number) => void; // Nova prop para notificar mudanças no número de parcelas
   disabled?: boolean;
   initialInstallments?: Installment[]; // Nova prop para dados iniciais
+  allowTotalValueEdit?: boolean; // Nova prop para permitir edição do valor total
+  onTotalValueEdit?: (newTotalValue: number) => void; // Callback para quando o valor total é editado
+  seriesId?: string; // ID da série para atualização individual
+  onSeriesUpdate?: (seriesId: string, newTotalValue: number) => void; // Callback para atualizar série
 }
 
 export function InstallmentForm({
@@ -39,21 +50,39 @@ export function InstallmentForm({
   onTotalValueChange,
   onInstallmentsCountChange,
   disabled = false,
-  initialInstallments = []
+  initialInstallments = [],
+  allowTotalValueEdit = false,
+  onTotalValueEdit,
+  seriesId,
+  onSeriesUpdate
 }: InstallmentFormProps) {
   const [installmentsList, setInstallmentsList] = useState<Installment[]>(initialInstallments);
   const [isGenerated, setIsGenerated] = useState(initialInstallments.length > 0);
 
-  // Calcular valor médio das parcelas
+  // Calcular valor médio das parcelas com precisão
   const averageValue = useMemo(() => {
-    if (installments <= 0) return 0;
-    return totalValue / installments;
+    return calculateInstallmentValue(totalValue, installments);
   }, [totalValue, installments]);
+
+  // Calcular valor exato por parcela para exibição
+  const exactValuePerInstallment = useMemo(() => {
+    if (installmentsList.length === 0) return 0;
+    return roundCurrency(totalValue / installmentsList.length);
+  }, [totalValue, installmentsList.length]);
 
   // Calcular valor total atual baseado nas parcelas
   const currentTotalValue = useMemo(() => {
     return installmentsList.reduce((sum, installment) => sum + installment.value, 0);
   }, [installmentsList]);
+
+  // Verificar se há discrepância entre valor total da série e parcelas
+  const hasValueDiscrepancy = useMemo(() => {
+    if (seriesId && installmentsList.length > 0) {
+      const difference = Math.abs(totalValue - currentTotalValue);
+      return difference > 0.01; // Tolerância de 1 centavo
+    }
+    return false;
+  }, [seriesId, totalValue, currentTotalValue]);
 
   // Gerar parcelas iniciais
   const generateInstallments = () => {
@@ -62,13 +91,23 @@ export function InstallmentForm({
     const newInstallments: Installment[] = [];
     const startDateObj = new Date(startDate);
 
+    // Calcular valor base para cada parcela
+    const baseValue = totalValue / installments;
+    const roundedBaseValue = roundCurrency(baseValue);
+    
+    // Calcular a diferença total para ajustar a última parcela
+    const totalDistributed = roundedBaseValue * installments;
+    const difference = totalValue - totalDistributed;
+
     for (let i = 0; i < installments; i++) {
       const installmentDate = new Date(startDateObj);
       installmentDate.setMonth(installmentDate.getMonth() + i);
 
       newInstallments.push({
         id: `installment-${i}`,
-        value: averageValue,
+        value: i === installments - 1 
+          ? roundCurrency(roundedBaseValue + difference)
+          : roundedBaseValue,
         date: installmentDate.toISOString().slice(0, 10),
         status: i === 0 ? 'PAID' : 'PENDING',
         installment_number: i + 1
@@ -82,32 +121,91 @@ export function InstallmentForm({
 
   // Atualizar valor de uma parcela específica (com redistribuição automática)
   const updateInstallmentValue = (id: string, newValue: number) => {
-    // Marcar a parcela como editada
+    // Validar valor - não pode ser negativo
+    if (!isValidCurrencyValue(newValue) || newValue < 0) {
+      return;
+    }
+
+    // Limitar valor máximo ao valor total da série (não da transação individual)
+    const limitedValue = Math.min(newValue, totalValue);
+    
+    // Arredondar valor para 2 casas decimais
+    const roundedValue = roundCurrency(limitedValue);
+
+    // Validar se o valor total das parcelas editadas não excede o valor total da série
+    const editedInstallments = installmentsList.filter(i => i.isEdited && i.id !== id);
+    const editedTotal = editedInstallments.reduce((sum, i) => sum + i.value, 0);
+    const newTotal = editedTotal + roundedValue;
+    
+    if (newTotal > totalValue) {
+      // Se exceder, ajustar para o valor máximo possível
+      const maxAllowedValue = totalValue - editedTotal;
+      if (maxAllowedValue <= 0) {
+        return; // Não é possível adicionar mais valor
+      }
+      const adjustedValue = Math.min(roundedValue, maxAllowedValue);
+      const finalValue = roundCurrency(adjustedValue);
+      
+      const updatedInstallments = installmentsList.map(installment =>
+        installment.id === id 
+          ? { ...installment, value: finalValue, isEdited: true } 
+          : installment
+      );
+      
+      setInstallmentsList(updatedInstallments);
+      onInstallmentsChange(updatedInstallments);
+      return;
+    }
+
+    // Marcar a parcela como editada com valor arredondado
     const updatedInstallments = installmentsList.map(installment =>
       installment.id === id 
-        ? { ...installment, value: newValue, isEdited: true } 
+        ? { ...installment, value: roundedValue, isEdited: true } 
         : installment
     );
 
+    // Se estamos editando uma parcela individual e temos seriesId, atualizar a série
+    if (seriesId && onSeriesUpdate) {
+      const newTotalValue = updatedInstallments.reduce((sum, installment) => sum + installment.value, 0);
+      onSeriesUpdate(seriesId, newTotalValue);
+    }
+
     // Calcular valor total das parcelas editadas
-    const editedInstallments = updatedInstallments.filter(i => i.isEdited);
-    const editedTotal = editedInstallments.reduce((sum, i) => sum + i.value, 0);
+    const allEditedInstallments = updatedInstallments.filter(i => i.isEdited);
+    const allEditedTotal = allEditedInstallments.reduce((sum, i) => sum + i.value, 0);
 
     // Calcular valor disponível para parcelas não editadas
     const nonEditedInstallments = updatedInstallments.filter(i => !i.isEdited);
-    const availableValue = totalValue - editedTotal;
+    const availableValue = totalValue - allEditedTotal;
 
-    // Redistribuir valor entre parcelas não editadas
+    // Redistribuir valor entre parcelas não editadas com precisão
     if (nonEditedInstallments.length > 0) {
-      const newValue = availableValue / nonEditedInstallments.length;
+      // Garantir que o valor disponível não seja negativo
+      const safeAvailableValue = Math.max(0, availableValue);
       
-      const finalInstallments = updatedInstallments.map(installment => {
+      // Calcular valor base para cada parcela não editada
+      const baseValue = safeAvailableValue / nonEditedInstallments.length;
+      const roundedBaseValue = roundCurrency(baseValue);
+      
+      // Calcular a diferença total para ajustar a última parcela
+      const totalDistributed = roundedBaseValue * nonEditedInstallments.length;
+      const difference = safeAvailableValue - totalDistributed;
+      
+      // Aplicar a diferença na última parcela para garantir precisão total
+      const finalInstallments = updatedInstallments.map((installment, index) => {
         if (installment.isEdited) {
           return installment;
         }
+        
+        // Encontrar o índice da última parcela não editada
+        const nonEditedIndex = updatedInstallments.filter(i => !i.isEdited).indexOf(installment);
+        const isLastNonEdited = nonEditedIndex === nonEditedInstallments.length - 1;
+        
         return {
           ...installment,
-          value: newValue
+          value: isLastNonEdited 
+            ? roundCurrency(roundedBaseValue + difference)
+            : roundedBaseValue
         };
       });
 
@@ -122,7 +220,7 @@ export function InstallmentForm({
   // Atualizar data de uma parcela específica
   const updateInstallmentDate = (id: string, date: string) => {
     const updatedInstallments = installmentsList.map(installment =>
-      installment.id === id ? { ...installment, date } : installment
+      installment.id === id ? { ...installment, date, isEdited: true } : installment
     );
     
     setInstallmentsList(updatedInstallments);
@@ -132,7 +230,7 @@ export function InstallmentForm({
   // Atualizar status de uma parcela específica
   const updateInstallmentStatus = (id: string, status: 'PAID' | 'PENDING') => {
     const updatedInstallments = installmentsList.map(installment =>
-      installment.id === id ? { ...installment, status } : installment
+      installment.id === id ? { ...installment, status, isEdited: true } : installment
     );
     
     setInstallmentsList(updatedInstallments);
@@ -142,6 +240,17 @@ export function InstallmentForm({
   // Remover uma parcela preservando parcelas editadas
   const removeInstallment = (id: string) => {
     const updatedInstallments = installmentsList.filter(installment => installment.id !== id);
+    
+    // Se não há mais parcelas, notificar para limpeza da série
+    if (updatedInstallments.length === 0) {
+      setInstallmentsList([]);
+      onInstallmentsChange([]);
+      // Notificar que a série deve ser deletada
+      if (onInstallmentsCountChange) {
+        onInstallmentsCountChange(0);
+      }
+      return;
+    }
     
     // Reordenar números das parcelas
     const reorderedInstallments = updatedInstallments.map((installment, index) => ({
@@ -160,7 +269,15 @@ export function InstallmentForm({
       
       if (nonEditedInstallments.length > 0) {
         const availableValue = totalValue - editedTotal;
-        const newValue = availableValue / nonEditedInstallments.length;
+        const safeAvailableValue = Math.max(0, availableValue);
+        
+        // Calcular valor base para cada parcela não editada
+        const baseValue = safeAvailableValue / nonEditedInstallments.length;
+        const roundedBaseValue = roundCurrency(baseValue);
+        
+        // Calcular a diferença total para ajustar a última parcela
+        const totalDistributed = roundedBaseValue * nonEditedInstallments.length;
+        const difference = safeAvailableValue - totalDistributed;
 
         // Encontrar a última parcela editada para usar como referência de data
         let lastEditedDate = new Date(startDate);
@@ -180,6 +297,10 @@ export function InstallmentForm({
             return installment;
           }
           
+          // Encontrar o índice da última parcela não editada para aplicar a diferença
+          const nonEditedIndex = reorderedInstallments.filter(i => !i.isEdited).indexOf(installment);
+          const isLastNonEdited = nonEditedIndex === nonEditedInstallments.length - 1;
+          
           // Para parcelas não editadas após a última editada, recalcular data sequencialmente
           if (index > lastEditedIndex) {
             const monthsFromLastEdited = index - lastEditedIndex;
@@ -188,7 +309,9 @@ export function InstallmentForm({
             
             return {
               ...installment,
-              value: newValue,
+              value: isLastNonEdited 
+                ? roundCurrency(roundedBaseValue + difference)
+                : roundedBaseValue,
               date: newDate.toISOString().slice(0, 10)
             };
           }
@@ -196,7 +319,9 @@ export function InstallmentForm({
           // Para parcelas não editadas antes da última editada, manter data original
           return {
             ...installment,
-            value: newValue
+            value: isLastNonEdited 
+              ? roundCurrency(roundedBaseValue + difference)
+              : roundedBaseValue
           };
         });
         
@@ -227,11 +352,19 @@ export function InstallmentForm({
     // Calcular valor disponível para as parcelas não editadas + nova parcela
     const nonEditedInstallments = installmentsList.filter(i => !i.isEdited);
     const availableValue = totalValue - editedTotal;
-    const newValue = availableValue / (nonEditedInstallments.length + 1);
+    const safeAvailableValue = Math.max(0, availableValue);
+    
+    // Calcular valor base para cada parcela não editada + nova parcela
+    const baseValue = safeAvailableValue / (nonEditedInstallments.length + 1);
+    const roundedBaseValue = roundCurrency(baseValue);
+    
+    // Calcular a diferença total para ajustar a última parcela
+    const totalDistributed = roundedBaseValue * (nonEditedInstallments.length + 1);
+    const difference = safeAvailableValue - totalDistributed;
 
     const newInstallment: Installment = {
       id: `installment-${Date.now()}`,
-      value: newValue,
+      value: roundedBaseValue + difference, // Aplicar diferença na nova parcela
       date: nextDate.toISOString().slice(0, 10),
       status: 'PENDING',
       installment_number: installmentsList.length + 1,
@@ -246,7 +379,7 @@ export function InstallmentForm({
       // Redistribuir apenas parcelas não editadas
       return {
         ...installment,
-        value: newValue
+        value: roundedBaseValue
       };
     });
 
@@ -259,10 +392,19 @@ export function InstallmentForm({
 
   // Redistribuir valores igualmente baseado no valor total fixo
   const redistributeValues = () => {
-    const newValue = totalValue / installmentsList.length;
-    const updatedInstallments = installmentsList.map(installment => ({
+    // Calcular valor base para cada parcela
+    const baseValue = totalValue / installmentsList.length;
+    const roundedBaseValue = roundCurrency(baseValue);
+    
+    // Calcular a diferença total para ajustar a última parcela
+    const totalDistributed = roundedBaseValue * installmentsList.length;
+    const difference = totalValue - totalDistributed;
+    
+    const updatedInstallments = installmentsList.map((installment, index) => ({
       ...installment,
-      value: newValue,
+      value: index === installmentsList.length - 1 
+        ? roundCurrency(roundedBaseValue + difference)
+        : roundedBaseValue,
       isEdited: false // Limpar estado de editado
     }));
     
@@ -270,10 +412,17 @@ export function InstallmentForm({
     onInstallmentsChange(updatedInstallments);
   };
 
-  // Atualizar valor total quando as parcelas mudam
-  useEffect(() => {
-    onTotalValueChange(currentTotalValue);
-  }, [currentTotalValue, onTotalValueChange]);
+  // Função para permitir edição do valor total
+  const handleTotalValueEdit = () => {
+    if (onTotalValueEdit && allowTotalValueEdit) {
+      // Calcular novo valor total baseado nas parcelas atuais
+      const newTotalValue = installmentsList.reduce((sum, installment) => sum + installment.value, 0);
+      onTotalValueEdit(roundCurrency(newTotalValue));
+    }
+  };
+
+  // Não alterar o valor total - ele deve permanecer fixo
+  // useEffect removido para evitar alteração do valor total
 
   // Notificar mudanças no número de parcelas
   useEffect(() => {
@@ -281,6 +430,14 @@ export function InstallmentForm({
       onInstallmentsCountChange(installmentsList.length);
     }
   }, [installmentsList.length, onInstallmentsCountChange]);
+
+  // Sincronizar estado interno com initialInstallments quando mudam
+  useEffect(() => {
+    if (initialInstallments.length > 0) {
+      setInstallmentsList(initialInstallments);
+      setIsGenerated(true);
+    }
+  }, [initialInstallments]);
 
   // Reset quando os parâmetros mudam (apenas se não há dados iniciais)
   useEffect(() => {
@@ -301,7 +458,7 @@ export function InstallmentForm({
                 Valor Total Fixo
               </span>
               <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                Manual
+                {seriesId ? 'Série' : 'Manual'}
               </span>
               <span className="text-xs text-blue-600 font-medium">
                 {installmentsList.length} parcela{installmentsList.length !== 1 ? 's' : ''}
@@ -313,8 +470,13 @@ export function InstallmentForm({
                   {formatCurrencyBRL(totalValue)}
                 </div>
                 <div className="text-xs text-blue-600">
-                  {formatCurrencyBRL(totalValue / installmentsList.length)} por parcela
+                  {formatCurrencyBRL(exactValuePerInstallment)} por parcela
                 </div>
+                {hasValueDiscrepancy && (
+                  <div className="text-xs text-orange-600 font-medium">
+                    Atual: {formatCurrencyBRL(currentTotalValue)}
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1">
                 <Button
@@ -354,7 +516,7 @@ export function InstallmentForm({
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-1">
                   <Badge variant="outline" className="text-xs px-1.5 py-0.5">
-                    {installment.installment_number}
+                    {installment.installment_number || (index + 1)}
                   </Badge>
                   {installment.isEdited && (
                     <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">
@@ -404,6 +566,8 @@ export function InstallmentForm({
                     placeholder="0,00"
                     className="h-7 text-xs"
                     disabled={disabled}
+                    max={totalValue}
+                    min={0}
                   />
                 </div>
                 <div className="space-y-0.5">

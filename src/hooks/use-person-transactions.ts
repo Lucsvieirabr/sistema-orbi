@@ -35,13 +35,13 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
-        installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
-        linked_txn_id,
+        account_id, credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
+        linked_txn_id, installment_number,
         accounts(name),
         categories(name),
         credit_cards(name),
-        people(name)
+        people(name),
+        series(total_installments, is_fixed)
       `)
       .eq("user_id", user.id)
       .eq("person_id", personId)

@@ -163,7 +163,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             payment_method: 'debit',
             credit_card_id: null,
             person_id: null,
-            is_fixed: false,
+            // is_fixed field moved to series table
             is_shared: false,
             compensation_value: 0,
             series_id: seriesId,
@@ -174,7 +174,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           .single();
 
         if (expenseError) {
-          console.error("Erro ao criar gasto do empréstimo:", expenseError);
           throw expenseError;
         }
 
@@ -196,7 +195,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             payment_method: 'debit',
             credit_card_id: null,
             person_id: personId,
-            is_fixed: false,
+            // is_fixed field moved to series table
             is_shared: false,
             compensation_value: 0,
             series_id: seriesId,
@@ -207,7 +206,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           .single();
 
         if (incomeError) {
-          console.error("Erro ao criar conta a receber:", incomeError);
           throw incomeError;
         }
 
@@ -240,7 +238,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             payment_method: 'debit',
             credit_card_id: null,
             person_id: null,
-            is_fixed: false,
+            // is_fixed field moved to series table
             is_shared: true,
             compensation_value: amountPerPerson * totalPeopleInRateio, // Valor total que será compensado
             series_id: null,
@@ -251,7 +249,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           .single();
 
         if (expenseError) {
-          console.error("Erro ao criar gasto bruto:", expenseError);
           throw expenseError;
         }
 
@@ -278,7 +275,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
               payment_method: 'debit',
               credit_card_id: null,
               person_id: personId,
-              is_fixed: false,
+              // is_fixed field moved to series table
               is_shared: true,
               compensation_value: 0,
               series_id: seriesId,
@@ -289,7 +286,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             .single();
 
           if (debtErrorRoute) {
-            console.error("Erro ao criar dívida da pessoa da rota:", debtErrorRoute);
             throw debtErrorRoute;
           }
 
@@ -311,7 +307,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             .single();
 
           if (personError) {
-            console.error("Erro ao buscar pessoa:", personError);
             throw personError;
           }
 
@@ -332,7 +327,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
               payment_method: 'debit',
               credit_card_id: null,
               person_id: personIdToShare,
-              is_fixed: false,
+              // is_fixed field moved to series table
               is_shared: true,
               compensation_value: 0,
               series_id: seriesId,
@@ -343,7 +338,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             .single();
 
           if (debtError) {
-            console.error("Erro ao criar dívida individual:", debtError);
             throw debtError;
           }
 
@@ -386,16 +380,12 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           payment_method: 'debit',
           credit_card_id: null,
           person_id: selectedPersonId,
-          is_fixed: false,
           is_shared: false,
           compensation_value: 0,
-          series_id: null,
-          linked_txn_id: null,
           status: status,
         }).select().single();
 
         if (error) {
-          console.error("Erro ao criar gasto:", error);
           throw error;
         }
 
@@ -431,7 +421,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       toast({ title: "Sucesso", description: "Transação criada com sucesso", duration: 2000 });
 
     } catch (e: any) {
-      console.error("Erro ao criar transação:", e);
       toast({ title: "Erro", description: e.message || "Não foi possível criar transação", duration: 3000, variant: "destructive" as any });
     }
   };

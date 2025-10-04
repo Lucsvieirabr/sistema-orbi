@@ -20,10 +20,20 @@ import { usePeople } from "@/hooks/use-people";
 // Removido: useDebts, useMarkDebtAsPaid - usando apenas transactions
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
-import { formatCurrencyBRL, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
+import { formatCurrencyBRL, getCurrentDateString, formatDateForDisplay, roundCurrency } from "@/lib/utils";
 import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
 import { InstallmentForm } from "@/components/ui/installment-form";
 import { useInstallments } from "@/hooks/use-installments";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+
+interface Installment {
+  id: string;
+  value: number;
+  date: string;
+  status: 'PAID' | 'PENDING';
+  installment_number: number;
+  isEdited?: boolean;
+}
 import {
   TrendingUp,
   TrendingDown,
@@ -70,6 +80,36 @@ export default function MonthlyStatement() {
   const [toAccountId, setToAccountId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
   const [editScope, setEditScope] = useState<'current' | 'future' | 'individual'>('current');
+  const [editCurrentTransaction, setEditCurrentTransaction] = useState(false);
+  const [editFutureTransactions, setEditFutureTransactions] = useState(false);
+
+  // Sincronizar toggles com editScope
+  useEffect(() => {
+    if (editScope === 'current') {
+      setEditCurrentTransaction(true);
+      setEditFutureTransactions(false);
+    } else if (editScope === 'future') {
+      setEditCurrentTransaction(true);
+      setEditFutureTransactions(true);
+    } else if (editScope === 'individual') {
+      setEditCurrentTransaction(false);
+      setEditFutureTransactions(false);
+    }
+  }, [editScope]);
+
+  // Sincronizar editScope com toggles
+  const handleToggleChange = (current: boolean, future: boolean) => {
+    setEditCurrentTransaction(current);
+    setEditFutureTransactions(future);
+    
+    if (current && future) {
+      setEditScope('future');
+    } else if (current && !future) {
+      setEditScope('current');
+    } else if (!current && !future) {
+      setEditScope('individual');
+    }
+  };
   const [showMonthSelector, setShowMonthSelector] = useState(false);
   const [isTransactionSeries, setIsTransactionSeries] = useState(false);
   const [seriesTransactions, setSeriesTransactions] = useState<any[]>([]);
@@ -121,12 +161,15 @@ export default function MonthlyStatement() {
 
   const { maintainFixedTransactions } = useTransactionMaintenance();
   const { toast } = useToast();
-  const { createInstallmentSeries: createInstallmentSeriesMutation } = useInstallments();
+  const { 
+    createInstallmentSeries: createInstallmentSeriesMutation,
+    updateInstallmentSeries: updateInstallmentSeriesMutation 
+  } = useInstallments();
 
   // Calcular valor da parcela automaticamente
   const installmentValue = useMemo(() => {
     if (!value || !installments || installments <= 0) return 0;
-    return value / installments;
+    return roundCurrency(value / installments);
   }, [value, installments]);
 
   // Initialize default values
@@ -145,7 +188,6 @@ export default function MonthlyStatement() {
         // Após manutenção, recarregar dados
         refetch();
       } catch (error) {
-        console.error('Erro na manutenção automática:', error);
       }
     };
 
@@ -188,12 +230,12 @@ export default function MonthlyStatement() {
         .from("transactions")
         .select(`
           id, user_id, description, value, date, type, payment_method,
-          installments, installment_number, is_fixed, account_id,
-          credit_card_id, category_id, person_id, series_id, status, created_at,
+          account_id, credit_card_id, category_id, person_id, series_id, status, created_at,
           accounts(name),
           categories(name),
           credit_cards(name),
-          people(name)
+          people(name),
+          series(total_installments, is_fixed)
         `)
         .eq("id", transactionId)
         .eq("user_id", user?.id ?? "")
@@ -203,7 +245,7 @@ export default function MonthlyStatement() {
 
       if (data) {
         // Verificar se é uma transação em série
-        const hasSeries = Boolean(data.series_id || (data.installments && data.installments > 1));
+        const hasSeries = Boolean(data.series_id || (data.series && Array.isArray(data.series) && data.series[0]?.total_installments > 1));
         setIsTransactionSeries(hasSeries);
 
         // Se é uma série, carregar todas as transações da série
@@ -211,7 +253,7 @@ export default function MonthlyStatement() {
           const { data: seriesData, error: seriesError } = await supabase
             .from("transactions")
             .select(`
-              id, description, value, date, installment_number, status,
+              id, description, value, date, status, series_id, installment_number,
               accounts(name),
               categories(name),
               credit_cards(name)
@@ -221,7 +263,6 @@ export default function MonthlyStatement() {
             .order("date");
 
           if (seriesError) {
-            console.error("Erro ao carregar série de transações:", seriesError);
           } else {
             setSeriesTransactions(seriesData || []);
           }
@@ -229,31 +270,33 @@ export default function MonthlyStatement() {
           setSeriesTransactions([]);
         }
         // Populate form with transaction data
-        setType(data.type as 'income' | 'expense' | 'transfer');
-        setValue(data.value);
-        setDescription(data.description);
-        setDate(data.date.slice(0, 10));
-        setIsFixed(data.is_fixed);
-        setPersonId(data.person_id);
-        setStatus(data.status as 'PAID' | 'PENDING');
+        setType((data as any).type as 'income' | 'expense' | 'transfer');
+        // Para transações em série, o valor mostrado é da parcela individual
+        // Para transações únicas, é o valor total
+        setValue((data as any).value);
+        setDescription((data as any).description);
+        setDate((data as any).date.slice(0, 10));
+        setIsFixed(Array.isArray((data as any).series) ? (data as any).series[0]?.is_fixed || false : (data as any).series?.is_fixed || false);
+        setPersonId((data as any).person_id);
+        setStatus((data as any).status as 'PAID' | 'PENDING');
 
-        if (data.type === 'income') {
-          setAccountId(data.account_id);
-          setCategoryId(data.category_id);
+        if ((data as any).type === 'income') {
+          setAccountId((data as any).account_id);
+          setCategoryId((data as any).category_id);
           setPaymentMethod('debit');
           setCreditCardId(null);
           setFromAccountId(undefined);
           setToAccountId(undefined);
-          setInstallments(data.installments);
-        } else if (data.type === 'expense') {
-          setAccountId(data.account_id);
-          setCategoryId(data.category_id);
-          setPaymentMethod(data.payment_method as 'debit' | 'credit');
-          setCreditCardId(data.credit_card_id);
+          setInstallments(Array.isArray((data as any).series) ? (data as any).series[0]?.total_installments || null : (data as any).series?.total_installments || null);
+        } else if ((data as any).type === 'expense') {
+          setAccountId((data as any).account_id);
+          setCategoryId((data as any).category_id);
+          setPaymentMethod((data as any).payment_method as 'debit' | 'credit');
+          setCreditCardId((data as any).credit_card_id);
           setFromAccountId(undefined);
           setToAccountId(undefined);
-          setInstallments(data.installments);
-        } else if (data.type === 'transfer') {
+          setInstallments(Array.isArray((data as any).series) ? (data as any).series[0]?.total_installments || null : (data as any).series?.total_installments || null);
+        } else if ((data as any).type === 'transfer') {
           // Para transferências, definir contas padrão já que os campos específicos não vêm na query
           setFromAccountId(accountsWithBalance[0]?.id);
           setToAccountId(accountsWithBalance[1]?.id);
@@ -290,6 +333,8 @@ export default function MonthlyStatement() {
     setToAccountId(accountsWithBalance[1]?.id);
     setStatus('PAID');
     setEditScope('current');
+    setEditCurrentTransaction(false);
+    setEditFutureTransactions(false);
     setIsTransactionSeries(false);
     setSeriesTransactions([]);
     setIsShared(false);
@@ -348,6 +393,51 @@ export default function MonthlyStatement() {
     }
   };
 
+  // Função para gerar parcelas automaticamente
+  const generateInstallmentsAutomatically = (): Installment[] => {
+    if (!value || !installments || installments <= 0) {
+      toast({
+        title: "Erro",
+        description: "Valor e número de parcelas são obrigatórios",
+        variant: "destructive"
+      });
+      return [];
+    }
+
+    const newInstallments: Installment[] = [];
+    const startDateObj = new Date(date);
+
+    // Calcular valor base para cada parcela
+    const baseValue = value / installments;
+    const roundedBaseValue = roundCurrency(baseValue);
+    
+    // Calcular a diferença total para ajustar a última parcela
+    const totalDistributed = roundedBaseValue * installments;
+    const difference = value - totalDistributed;
+
+    for (let i = 0; i < installments; i++) {
+      const installmentDate = new Date(startDateObj);
+      installmentDate.setMonth(installmentDate.getMonth() + i);
+
+      newInstallments.push({
+        id: `installment-${i}`,
+        value: i === installments - 1 
+          ? roundCurrency(roundedBaseValue + difference)
+          : roundedBaseValue,
+        date: installmentDate.toISOString().slice(0, 10),
+        status: i === 0 ? 'PAID' : 'PENDING',
+        installment_number: i + 1
+      });
+    }
+
+    setInstallmentData({
+      installments: newInstallments,
+      totalValue: value
+    });
+
+    return newInstallments;
+  };
+
   // Função para mostrar formulário de parcelas
   const showInstallmentFormHandler = () => {
     if (!value || !installments || installments <= 0) {
@@ -382,11 +472,52 @@ export default function MonthlyStatement() {
     });
   };
 
+  // Função para salvar parcelas editadas individualmente
+  const handleSaveEditedInstallments = async () => {
+    if (!editingId || !seriesTransactions.length) {
+      toast({
+        title: "Erro",
+        description: "Nenhuma série de parcelas para atualizar",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      // Usar os dados das parcelas que estão sendo editadas (seriesTransactions)
+      // em vez de installmentData.installments que está vazio no modo de edição
+      const installmentsData = seriesTransactions.map((transaction) => ({
+        id: transaction.id,
+        value: roundCurrency(transaction.value),
+        date: transaction.date,
+        status: transaction.status,
+        installment_number: transaction.installment_number || 1
+      }));
+
+      // Atualizar a série de parcelas
+      await updateInstallmentSeriesMutation.mutateAsync({
+        series_id: seriesTransactions[0].series_id,
+        installments: installmentsData
+      });
+
+      // Fechar ambos os diálogos
+      setShowInstallmentForm(false);
+      setOpen(false);
+      
+    } catch (error) {
+      toast({
+        title: "Erro",
+        description: "Não foi possível salvar as alterações das parcelas",
+        variant: "destructive"
+      });
+    }
+  };
+
   const createSharedTransactions = async (userId: string, payload: any) => {
     try {
       if (payload.type === 'expense' && payload.isRateio && payload.selectedPeople?.length > 0) {
         // Modelo correto: 2 transações (gasto bruto + dívida pendente)
-        const amountPerPerson = payload.value / (payload.selectedPeople.length + 1);
+        const amountPerPerson = roundCurrency(payload.value / (payload.selectedPeople.length + 1));
 
         // 1. Inserir primeiro a transação de gasto bruto (R$ 200) com compensation_value
         const { data: expenseTransaction, error: expenseError } = await supabase
@@ -402,7 +533,7 @@ export default function MonthlyStatement() {
             payment_method: 'debit',
             credit_card_id: null,
             person_id: null,
-            is_fixed: payload.is_fixed,
+            // is_fixed field moved to series table
             is_shared: true,
             compensation_value: amountPerPerson, // Valor que será compensado
             series_id: null, // Será definido após criar a segunda transação
@@ -439,7 +570,7 @@ export default function MonthlyStatement() {
               payment_method: 'debit',
               credit_card_id: null,
               person_id: personId, // Vincular à pessoa específica
-              is_fixed: payload.is_fixed,
+              // is_fixed field moved to series table
               is_shared: true,
               compensation_value: 0, // Não há compensação nesta transação
               series_id: null, // Será definido após criar a primeira transação
@@ -491,7 +622,7 @@ export default function MonthlyStatement() {
             payment_method: 'debit',
             credit_card_id: null,
             person_id: null,
-            is_fixed: payload.is_fixed,
+            // is_fixed field moved to series table
             is_shared: false,
             compensation_value: 0,
             series_id: seriesId,
@@ -517,7 +648,7 @@ export default function MonthlyStatement() {
             payment_method: 'debit',
             credit_card_id: null,
             person_id: payload.person_id,
-            is_fixed: payload.is_fixed,
+            // is_fixed field moved to series table
             is_shared: false,
             compensation_value: 0,
             series_id: seriesId,
@@ -532,7 +663,6 @@ export default function MonthlyStatement() {
         toast({ title: "Sucesso", description: "Empréstimo criado: gasto + conta a receber", duration: 2000 });
       }
     } catch (error) {
-      console.error('Erro ao criar transações:', error);
       throw error;
     }
   };
@@ -547,7 +677,7 @@ export default function MonthlyStatement() {
         description,
         date,
         person_id: personId,
-        is_fixed: isFixed,
+        is_fixed: isFixed, // Campo is_fixed restaurado
         is_shared: isShared,
         selectedPeople: selectedPeople, // Para rateios
         isLoan: isLoan, // Para empréstimos
@@ -620,7 +750,7 @@ export default function MonthlyStatement() {
       } else if (type === 'expense' && isRateio) {
         // Rateio (gasto compartilhado): conta obrigatória, categoria obrigatória, valor total
         const compensationValue = selectedPeople.length > 0
-          ? value / (selectedPeople.length + 1) // Parte que será compensada
+          ? roundCurrency(value / (selectedPeople.length + 1)) // Parte que será compensada
           : 0;
 
         payload = {
@@ -635,13 +765,20 @@ export default function MonthlyStatement() {
       }
 
       if (editingId) {
+        // Para transações em série, ajustar o payload
+        if (isTransactionSeries) {
+          // Para transações em série, o valor é sempre da parcela individual
+          // Não recalcular installmentValue pois já é o valor correto da parcela
+          payload.value = value;
+        }
+        
         // Implementar edição transacional
         await updateTransaction(editingId, payload);
       } else {
         // Criar nova transação usando o hook useMonthlyTransactions
         if (payload.is_fixed) {
-          // Para transações fixas, gerar 12 meses futuros
-          await createFixedTransactionSeries(payload);
+          // Para transações fixas, usar sistema inteligente moderno
+          await createSmartFixedTransaction(payload);
         } else if (payload.installments && payload.installments > 1) {
           // Para transações parceladas, verificar se já foram configuradas
           if (installmentData.installments.length > 0) {
@@ -654,13 +791,23 @@ export default function MonthlyStatement() {
               payment_method: paymentMethod,
               credit_card_id: creditCardId,
               person_id: personId,
-              is_fixed: isFixed,
+              // is_fixed field moved to series table
               installments: installmentData.installments
             });
           } else {
-            // Mostrar formulário de parcelas se não foram configuradas
-            showInstallmentFormHandler();
-            return; // Não continuar com o fluxo normal
+            // Gerar parcelas automaticamente se não foram configuradas
+            const generatedInstallments = generateInstallmentsAutomatically();
+            // Usar as parcelas geradas automaticamente
+            await createInstallmentSeriesMutation.mutateAsync({
+              description,
+              type: type as 'income' | 'expense',
+              account_id: accountId,
+              category_id: categoryId,
+              payment_method: paymentMethod,
+              credit_card_id: creditCardId,
+              person_id: personId,
+              installments: generatedInstallments
+            });
           }
         } else {
           // Transação única
@@ -692,12 +839,8 @@ export default function MonthlyStatement() {
               payment_method: payload.payment_method,
               credit_card_id: payload.credit_card_id,
               person_id: payload.person_id,
-              is_fixed: payload.is_fixed,
               is_shared: payload.is_shared,
               compensation_value: payload.compensation_value || 0,
-              installments: null,
-              installment_number: null,
-              series_id: null,
               status: payload.status,
             });
 
@@ -728,7 +871,10 @@ export default function MonthlyStatement() {
       // 1. Buscar dados atuais da transação
       const { data: currentTransaction, error: fetchError } = await supabase
         .from("transactions")
-        .select("*")
+        .select(`
+          *,
+          series(total_installments, is_fixed)
+        `)
         .eq("id", transactionId)
         .eq("user_id", user.id)
         .single();
@@ -744,7 +890,7 @@ export default function MonthlyStatement() {
         compensation_value: currentTransaction.compensation_value,
         series_id: currentTransaction.series_id,
         linked_txn_id: currentTransaction.linked_txn_id,
-        installments: currentTransaction.installments,
+        installments: Array.isArray((currentTransaction as any).series) ? (currentTransaction as any).series[0]?.total_installments || null : (currentTransaction as any).series?.total_installments || null,
       };
 
       // 3. Verificar se campos imutáveis foram alterados
@@ -834,7 +980,7 @@ export default function MonthlyStatement() {
           compensation_value: immutableFields.compensation_value,
           series_id: immutableFields.series_id,
           linked_txn_id: immutableFields.linked_txn_id,
-          installments: immutableFields.installments,
+          // installments field removed - now managed by series table
         })
         .eq('id', transactionId);
 
@@ -842,7 +988,6 @@ export default function MonthlyStatement() {
 
       toast({ title: "Sucesso", description: "Transação atualizada com segurança", duration: 2000 });
     } catch (error: any) {
-      console.error("Erro ao atualizar transação:", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível atualizar",
@@ -854,68 +999,56 @@ export default function MonthlyStatement() {
 
   const updateTransactionSeries = async (seriesId: string, fromDate: string, newData: any) => {
     try {
-      // Buscar todas as transações futuras da série
-      const { data: futureTransactions, error } = await supabase
+      // Buscar todas as transações da série (não apenas futuras)
+      const { data: allSeriesTransactions, error } = await supabase
         .from("transactions")
         .select("*")
         .eq("series_id", seriesId)
-        .gte("date", fromDate)
         .order("date");
 
       if (error) throw error;
 
-      if (!futureTransactions || futureTransactions.length === 0) {
-        throw new Error("Nenhuma transação futura encontrada para esta série");
+      if (!allSeriesTransactions || allSeriesTransactions.length === 0) {
+        throw new Error("Nenhuma transação encontrada para esta série");
       }
 
-      // Calcular o valor antigo total das transações futuras
-      const oldTotalValue = futureTransactions.reduce((sum, t) => sum + t.value, 0);
-      const newTotalValue = futureTransactions.length * newData.value;
-      const totalValueDifference = newTotalValue - oldTotalValue;
-
-      // Determinar conta afetada (usar a primeira transação como referência)
-      let affectedAccountId = null;
-      const firstTransaction = futureTransactions[0];
-
-      if (newData.type === 'income' && newData.account_id) {
-        affectedAccountId = newData.account_id;
-      } else if (newData.type === 'expense') {
-        if (newData.payment_method === 'debit' && newData.account_id) {
-          affectedAccountId = newData.account_id;
-        } else if (newData.payment_method === 'credit' && newData.credit_card_id) {
-          const { data: creditCard } = await supabase
-            .from("credit_cards")
-            .select("connected_account_id")
-            .eq("id", newData.credit_card_id)
-            .single();
-
-          affectedAccountId = creditCard?.connected_account_id;
+      // Preparar dados das parcelas atualizadas
+      const installmentsData = allSeriesTransactions.map((transaction, index) => {
+        // Se a transação é anterior à data de início da edição, manter dados originais
+        if (transaction.date < fromDate) {
+          return {
+            value: transaction.value,
+            date: transaction.date,
+            status: transaction.status
+          };
         }
-      }
-
-      // Executar edição em lote
-      const { error: updateError } = await supabase
-        .from('transactions')
-        .update({
-          type: newData.type,
+        
+        // Para transações futuras (a partir da data de início), aplicar as mudanças
+        return {
           value: newData.value,
-          description: newData.description,
-          account_id: newData.account_id,
-          category_id: newData.category_id,
-          payment_method: newData.payment_method,
-          credit_card_id: newData.credit_card_id,
-          person_id: newData.person_id,
-          is_fixed: newData.is_fixed,
-          installments: newData.installments,
-        })
-        .eq('series_id', seriesId)
-        .gte('date', fromDate);
+          date: newData.date,
+          status: transaction.status
+        };
+      });
 
-      if (updateError) throw updateError;
+      // Usar nossa função update_installment_series que recria todas as transações
+      await updateInstallmentSeriesMutation.mutateAsync({
+        series_id: seriesId,
+        installments: installmentsData.map((installment, index) => ({
+          id: allSeriesTransactions[index].id,
+          value: installment.value,
+          date: installment.date,
+          status: installment.status as 'PAID' | 'PENDING',
+          installment_number: index + 1
+        }))
+      });
 
-      toast({ title: "Sucesso", description: `${futureTransactions.length} transações da série atualizadas`, duration: 2000 });
+      toast({ 
+        title: "Sucesso", 
+        description: `Série de parcelas atualizada com sucesso`, 
+        duration: 2000 
+      });
     } catch (error: any) {
-      console.error("Erro ao atualizar série de transações:", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível atualizar a série",
@@ -957,9 +1090,6 @@ export default function MonthlyStatement() {
           payment_method: payload.payment_method,
           credit_card_id: payload.credit_card_id,
           person_id: payload.person_id,
-          is_fixed: false,
-          installments: payload.installments,
-          installment_number: i + 1, // Começar com parcela 1
           series_id: seriesId,
           status: i === 0 ? 'PAID' : 'PENDING', // Primeira parcela como PAID, outras como PENDING
         });
@@ -971,7 +1101,6 @@ export default function MonthlyStatement() {
 
       toast({ title: "Sucesso", description: `${payload.installments} parcelas criadas`, duration: 2000 });
     } catch (error: any) {
-      console.error("Erro ao criar série de parcelas:", error);
       toast({
         title: "Erro",
         description: error.message || "Não foi possível criar as parcelas",
@@ -981,28 +1110,59 @@ export default function MonthlyStatement() {
     }
   };
 
-  const createFixedTransactionSeries = async (payload: any) => {
+  const createSmartFixedTransaction = async (payload: any) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Gerar um series_id único
+      // Sistema inteligente: criar série de transações fixas que se auto-renova
       const seriesId = crypto.randomUUID();
-
-      // Data inicial
       const startDate = new Date(payload.date);
 
-      // Criar array de transações para os próximos 12 meses
-      const transactionsToInsert = [];
+      // Criar registro na tabela series para controle inteligente
+      const { error: seriesError } = await supabase
+        .from("series")
+        .insert({
+          id: seriesId,
+          user_id: user.id,
+          description: payload.description,
+          total_value: payload.value,
+          total_installments: 1, // Será atualizado conforme necessário
+          is_fixed: true,
+          category_id: payload.category_id,
+        });
 
-      for (let i = 0; i < 12; i++) {
-        const transactionDate = new Date(startDate);
-        transactionDate.setMonth(transactionDate.getMonth() + i);
+      if (seriesError) throw seriesError;
 
-        // Formatar data como YYYY-MM-DD
-        const formattedDate = transactionDate.toISOString().slice(0, 10);
+      // Criar transação atual (primeira)
+      const { error: transactionError } = await supabase
+        .from("transactions")
+        .insert({
+          user_id: user.id,
+          type: payload.type,
+          account_id: payload.account_id,
+          category_id: payload.category_id,
+          value: payload.value,
+          description: payload.description,
+          date: payload.date,
+          payment_method: payload.payment_method,
+          credit_card_id: payload.credit_card_id,
+          person_id: payload.person_id,
+          series_id: seriesId,
+          is_fixed: true,
+          status: payload.status,
+        });
 
-        transactionsToInsert.push({
+      if (transactionError) throw transactionError;
+
+      // Gerar próximas 6 transações (sistema inteligente)
+      const futureTransactions = [];
+      for (let i = 1; i <= 6; i++) {
+        const futureDate = new Date(startDate);
+        futureDate.setMonth(futureDate.getMonth() + i);
+        const formattedDate = futureDate.toISOString().slice(0, 10);
+
+        futureTransactions.push({
           user_id: user.id,
           type: payload.type,
           account_id: payload.account_id,
@@ -1013,33 +1173,39 @@ export default function MonthlyStatement() {
           payment_method: payload.payment_method,
           credit_card_id: payload.credit_card_id,
           person_id: payload.person_id,
-          is_fixed: true,
-          installments: payload.installments,
-          installment_number: 1,
           series_id: seriesId,
-          status: 'PENDING', // Todas as transações futuras começam como PENDING
+          is_fixed: true,
+          status: 'PENDING',
         });
       }
 
-      // Inserir todas as transações
-      const { error } = await supabase.from("transactions").insert(transactionsToInsert);
-      if (error) throw error;
-
-      // Marcar apenas a primeira transação como PAID (a atual)
-      const { error: updateError } = await supabase
+      // Inserir transações futuras
+      const { error: futureError } = await supabase
         .from("transactions")
-        .update({ status: 'PAID' })
-        .eq("series_id", seriesId)
-        .eq("date", payload.date);
+        .insert(futureTransactions);
 
-      if (updateError) throw updateError;
+      if (futureError) throw futureError;
 
-      toast({ title: "Sucesso", description: "Transações fixas criadas para 12 meses", duration: 2000 });
+      // Atualizar série com total correto
+      const { error: updateSeriesError } = await supabase
+        .from("series")
+        .update({ 
+          total_installments: 7, // 1 atual + 6 futuras
+          total_value: payload.value * 7 
+        })
+        .eq("id", seriesId);
+
+      if (updateSeriesError) throw updateSeriesError;
+
+      toast({ 
+        title: "Sucesso", 
+        description: "Transação fixa criada com sistema inteligente de renovação automática", 
+        duration: 2000 
+      });
     } catch (error: any) {
-      console.error("Erro ao criar série de transações fixas:", error);
       toast({
         title: "Erro",
-        description: error.message || "Não foi possível criar transações fixas",
+        description: error.message || "Não foi possível criar a transação fixa",
         duration: 3000,
         variant: "destructive" as any
       });
@@ -1414,6 +1580,68 @@ export default function MonthlyStatement() {
         </Card>
       </div>
 
+      {/* Fixed Transactions Status */}
+      {(() => {
+        const fixedTransactions = transactions.filter(t => (t as any).is_fixed === true);
+        const fixedSeries = new Set(fixedTransactions.map(t => t.series_id).filter(Boolean));
+        
+        if (fixedSeries.size > 0) {
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock10Icon className="h-5 w-5 text-blue-500" />
+                  Transações Fixas Ativas
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {Array.from(fixedSeries).map(seriesId => {
+                    const seriesTransactions = fixedTransactions.filter(t => t.series_id === seriesId);
+                    const paidCount = seriesTransactions.filter(t => t.status === 'PAID').length;
+                    const pendingCount = seriesTransactions.filter(t => t.status === 'PENDING').length;
+                    const totalValue = seriesTransactions.reduce((sum, t) => sum + t.value, 0);
+                    const paidValue = seriesTransactions
+                      .filter(t => t.status === 'PAID')
+                      .reduce((sum, t) => sum + t.value, 0);
+                    
+                    return (
+                      <div key={seriesId} className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-950/20 rounded-lg">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium text-blue-900 dark:text-blue-100">
+                              {seriesTransactions[0]?.description}
+                            </span>
+                            <Badge variant="secondary" className="text-xs">
+                              {formatCurrencyBRL(seriesTransactions[0]?.value || 0)}/mês
+                            </Badge>
+                          </div>
+                          <div className="text-sm text-blue-700 dark:text-blue-300">
+                            {paidCount} pagas • {pendingCount} pendentes • Total: {formatCurrencyBRL(totalValue)}
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <div className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                            {formatCurrencyBRL(paidValue)}
+                          </div>
+                          <div className="text-xs text-blue-600 dark:text-blue-400">
+                            já pagas
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="text-xs text-muted-foreground mt-2">
+                    💡 Transações fixas são renovadas automaticamente quando necessário
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          );
+        }
+        return null;
+      })()}
+
       {/* Pending Transactions Management */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card className="cursor-pointer hover:shadow-lg transition-shadow" onClick={() => setShowPendingIncomeDialog(true)}>
@@ -1433,7 +1661,7 @@ export default function MonthlyStatement() {
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-lg font-semibold text-green-600">
-                  {formatCurrencyBRL(pendingIncomeTransactions.reduce((sum, t) => sum + t.value, 0))}
+                  {formatCurrencyBRL(roundCurrency(pendingIncomeTransactions.reduce((sum, t) => sum + t.value, 0)))}
                 </p>
               </div>
             </div>
@@ -1477,7 +1705,7 @@ export default function MonthlyStatement() {
               <div className="text-right">
                 <p className="text-sm text-muted-foreground">Total</p>
                 <p className="text-lg font-semibold text-red-600">
-                  {formatCurrencyBRL(pendingExpenseTransactions.reduce((sum, t) => sum + t.value, 0))}
+                  {formatCurrencyBRL(roundCurrency(pendingExpenseTransactions.reduce((sum, t) => sum + t.value, 0)))}
                 </p>
               </div>
             </div>
@@ -1571,9 +1799,9 @@ export default function MonthlyStatement() {
                                     Ligada
                                   </Badge>
                                 )}
-                                {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                                {transaction.series_id && transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                                   <Badge variant="secondary" className="text-xs">
-                                    {transaction.installment_number}/{transaction.installments}
+                                    {transaction.installmentNumber}/{transaction.totalInstallments}
                                   </Badge>
                                 )}
                               </div>
@@ -1631,14 +1859,21 @@ export default function MonthlyStatement() {
                               <Edit className="h-4 w-4" />
                             </Button>
 
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => deleteTransaction(transaction.id)}
-                              className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              onConfirm={() => deleteTransaction(transaction.id)}
+                              variant="destructive"
                             >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
 
                             {transaction.status === 'PENDING' ? (
                               <Button
@@ -1680,10 +1915,6 @@ export default function MonthlyStatement() {
             <div className="space-y-2">
               {editingId ? (
                 <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <AlertTriangle className="h-4 w-4" />
-                    <span>Campo imutável - Tipo de transação não pode ser alterado após criação</span>
-                  </div>
                   <div className="mt-2 flex gap-2">
                     <Button
                       type="button"
@@ -1759,47 +1990,78 @@ export default function MonthlyStatement() {
                 {/* Tipo de Operação para Gastos */}
                 {type === 'expense' && (
                   <div className="space-y-2">
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={!isLoan && !isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(false);
-                          setIsRateio(false);
-                        }}
-                        className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
-                          ? 'border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
-                          : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive'}`}
-                      >
-                        Gasto Normal
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={isLoan && !isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(true);
-                          setIsRateio(false);
-                        }}
-                        className={`flex-1 h-9 text-xs ${isLoan && !isRateio
-                          ? 'border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30'
-                          : 'hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400'}`}
-                      >
-                        Empréstimo
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={!isLoan && isRateio ? 'default' : 'outline'}
-                        onClick={() => {
-                          setIsLoan(false);
-                          setIsRateio(true);
-                        }}
-                        className={`flex-1 h-9 text-xs ${!isLoan && isRateio
-                          ? 'border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
-                          : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
-                      >
-                        Rateio
-                      </Button>
-                    </div>
+                    {editingId ? (
+                      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                        <div className="flex gap-2">
+                          <Button
+                            type="button"
+                            variant={!isLoan && !isRateio ? 'default' : 'outline'}
+                            disabled
+                            className="flex-1 h-9 text-xs"
+                          >
+                            Gasto Normal
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={isLoan && !isRateio ? 'default' : 'outline'}
+                            disabled
+                            className="flex-1 h-9 text-xs"
+                          >
+                            Empréstimo
+                          </Button>
+                          <Button
+                            type="button"
+                            variant={!isLoan && isRateio ? 'default' : 'outline'}
+                            disabled
+                            className="flex-1 h-9 text-xs"
+                          >
+                            Rateio
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex gap-2">
+                        <Button
+                          type="button"
+                          variant={!isLoan && !isRateio ? 'default' : 'outline'}
+                          onClick={() => {
+                            setIsLoan(false);
+                            setIsRateio(false);
+                          }}
+                          className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
+                            ? 'border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
+                            : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive'}`}
+                        >
+                          Gasto Normal
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={isLoan && !isRateio ? 'default' : 'outline'}
+                          onClick={() => {
+                            setIsLoan(true);
+                            setIsRateio(false);
+                          }}
+                          className={`flex-1 h-9 text-xs ${isLoan && !isRateio
+                            ? 'border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30'
+                            : 'hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400'}`}
+                        >
+                          Empréstimo
+                        </Button>
+                        <Button
+                          type="button"
+                          variant={!isLoan && isRateio ? 'default' : 'outline'}
+                          onClick={() => {
+                            setIsLoan(false);
+                            setIsRateio(true);
+                          }}
+                          className={`flex-1 h-9 text-xs ${!isLoan && isRateio
+                            ? 'border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
+                            : 'hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary'}`}
+                        >
+                          Rateio
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1924,32 +2186,56 @@ export default function MonthlyStatement() {
             {type === 'expense' && (
               <div className="space-y-1">
                 <Label className="text-sm">Método de Pagamento</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={paymentMethod === 'debit' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setPaymentMethod('debit');
-                      setCreditCardId(null);
-                      setInstallments(null);
-                    }}
-                    className="flex-1 h-9 text-xs"
-                  >
-                    Débito/Dinheiro
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={paymentMethod === 'credit' ? 'default' : 'outline'}
-                    onClick={() => {
-                      setPaymentMethod('credit');
-                      setAccountId(undefined);
-                    }}
-                    className="flex-1 h-9 text-xs flex items-center gap-1"
-                  >
-                    <CreditCard className="h-3 w-3" />
-                    Cartão de Crédito
-                  </Button>
-                </div>
+                {editingId ? (
+                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                    <div className="flex gap-2 mt-3">
+                      <Button
+                        type="button"
+                        variant={paymentMethod === 'debit' ? 'default' : 'outline'}
+                        disabled
+                        className="flex-1 h-9 text-xs opacity-60"
+                      >
+                        Débito/Dinheiro
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={paymentMethod === 'credit' ? 'default' : 'outline'}
+                        disabled
+                        className="flex-1 h-9 text-xs flex items-center gap-1 opacity-60"
+                      >
+                        <CreditCard className="h-3 w-3" />
+                        Cartão de Crédito
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      variant={paymentMethod === 'debit' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setPaymentMethod('debit');
+                        setCreditCardId(null);
+                        setInstallments(null);
+                      }}
+                      className="flex-1 h-9 text-xs"
+                    >
+                      Débito/Dinheiro
+                    </Button>
+                    <Button
+                      type="button"
+                      variant={paymentMethod === 'credit' ? 'default' : 'outline'}
+                      onClick={() => {
+                        setPaymentMethod('credit');
+                        setAccountId(undefined);
+                      }}
+                      className="flex-1 h-9 text-xs flex items-center gap-1"
+                    >
+                      <CreditCard className="h-3 w-3" />
+                      Cartão de Crédito
+                    </Button>
+                  </div>
+                )}
               </div>
             )}
 
@@ -1986,8 +2272,8 @@ export default function MonthlyStatement() {
               </div>
             )}
 
-            {/* Informação do valor da parcela para gastos parcelados */}
-            {type === 'expense' && paymentMethod === 'credit' && installments && installments > 1 && (
+            {/* Informação do valor da parcela para gastos parcelados - APENAS no modo de criação */}
+            {!editingId && type === 'expense' && paymentMethod === 'credit' && installments && installments > 1 && (
               <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
                 {installmentData.installments.length > 0 ? (
                   <>
@@ -2104,7 +2390,7 @@ export default function MonthlyStatement() {
                           Valor por pessoa
                         </div>
                         <div className="text-purple-900 dark:text-purple-100 font-semibold">
-                          {formatCurrencyBRL(value / (selectedPeople.length + 1))}
+                          {formatCurrencyBRL(roundCurrency(value / (selectedPeople.length + 1)))}
                         </div>
                       </div>
                     </div>
@@ -2155,149 +2441,186 @@ export default function MonthlyStatement() {
             
 
 
-            {/* Escopo de Edição para Transações em Série */}
+            {/* Escopo de Edição para Transações em Série - Estilo do Sistema */}
             {editingId && isTransactionSeries && (
-              <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                <div className="space-y-3">
+              <div className="bg-card border border-border rounded-lg p-4">
+                <div className="space-y-4">
+                  {/* Header com título e badge */}
                   <div className="flex items-center justify-between">
-                    <Label className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                      Escopo de Edição ({seriesTransactions.length} parcelas)
-                    </Label>
-                    <Button
-                      type="button"
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <Edit className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">
+                          Edição de Parcelas
+                        </h3>
+                        <p className="text-xs text-muted-foreground">
+                          {seriesTransactions.length} parcelas nesta série
+                        </p>
+                      </div>
+                    </div>
+                    
+                    {/* Botão de exclusão */}
+                    <ConfirmationDialog
+                      title="Confirmar Exclusão de Parcelas"
+                      description="Tem certeza que deseja excluir todas as parcelas desta série? Esta ação não pode ser desfeita."
+                      confirmText="Excluir todas"
+                      onConfirm={deleteTransactionSeries}
                       variant="destructive"
-                      size="sm"
-                      onClick={() => {
-                        if (confirm('Tem certeza que deseja excluir toda a série de transações? Esta ação não pode ser desfeita.')) {
-                          deleteTransactionSeries();
-                        }
-                      }}
-                      className="h-8 px-3 text-xs"
                     >
-                      <Trash2 className="h-3 w-3 mr-1" />
-                      Excluir Série
-                    </Button>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                      >
+                        <Trash2 className="h-3 w-3 mr-1" />
+                        Excluir todas as parcelas
+                      </Button>
+                    </ConfirmationDialog>
                   </div>
-                  
-                  <div className="space-y-3">
-                    <div className="flex items-start space-x-3">
-                      <input
-                        type="radio"
-                        id="edit-current"
-                        name="editScope"
-                        value="current"
-                        checked={editScope === 'current'}
-                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
-                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="edit-current" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
-                          Apenas esta transação
-                        </Label>
-                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                          Edita somente a parcela selecionada - útil para adiar uma parcela específica ou alterar valor pontualmente
-                        </p>
+
+                  {/* Opções de edição */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {/* Opção 1: Editar transação atual */}
+                    <div 
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        editScope === 'current' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setEditScope('current');
+                        handleToggleChange(true, false);
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          editScope === 'current' 
+                            ? 'border-primary bg-primary' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {editScope === 'current' && (
+                            <div className="w-full h-full rounded-full bg-primary-foreground scale-50"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-foreground">
+                            Apenas esta transação
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Editar apenas a parcela selecionada
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <input
-                        type="radio"
-                        id="edit-future"
-                        name="editScope"
-                        value="future"
-                        checked={editScope === 'future'}
-                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
-                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
-                      <div className="flex-1">
-                        <Label htmlFor="edit-future" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
-                          Esta e todas as futuras
-                        </Label>
-                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                          Edita a parcela atual e todas as próximas - útil para mudar o valor da mensalidade que ainda será paga
-                        </p>
+
+                    {/* Opção 2: Editar transação atual + futuras */}
+                    <div 
+                      className={`p-3 rounded-lg border-2 cursor-pointer transition-all ${
+                        editScope === 'future' 
+                          ? 'border-primary bg-primary/5' 
+                          : 'border-border hover:border-primary/50'
+                      }`}
+                      onClick={() => {
+                        setEditScope('future');
+                        handleToggleChange(true, true);
+                      }}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`w-4 h-4 rounded-full border-2 ${
+                          editScope === 'future' 
+                            ? 'border-primary bg-primary' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {editScope === 'future' && (
+                            <div className="w-full h-full rounded-full bg-primary-foreground scale-50"></div>
+                          )}
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-sm font-medium text-foreground">
+                            Esta e futuras
+                          </h4>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Aplicar mudanças às parcelas restantes
+                          </p>
+                        </div>
                       </div>
                     </div>
-                    
-                    <div className="flex items-start space-x-3">
-                      <input
-                        type="radio"
-                        id="edit-individual"
-                        name="editScope"
-                        value="individual"
-                        checked={editScope === 'individual'}
-                        onChange={(e) => setEditScope(e.target.value as 'current' | 'future' | 'individual')}
-                        className="mt-1 text-blue-600 dark:text-blue-400 focus:ring-blue-500 dark:focus:ring-blue-400"
-                      />
+                  </div>
+
+                  {/* Opção 3: Edição individual */}
+                  <div 
+                    className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      editScope === 'individual' 
+                        ? 'border-accent bg-accent/5' 
+                        : 'border-border hover:border-accent/50'
+                    }`}
+                    onClick={() => {
+                      setEditScope('individual');
+                      handleToggleChange(false, false);
+                      setShowInstallmentForm(true);
+                    }}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className={`w-5 h-5 rounded-full border-2 ${
+                        editScope === 'individual' 
+                          ? 'border-accent bg-accent' 
+                          : 'border-muted-foreground'
+                      }`}>
+                        {editScope === 'individual' && (
+                          <div className="w-full h-full rounded-full bg-accent-foreground scale-50"></div>
+                        )}
+                      </div>
                       <div className="flex-1">
-                        <Label htmlFor="edit-individual" className="text-sm text-blue-800 dark:text-blue-200 cursor-pointer font-medium">
-                          Editar parcelas individualmente
-                        </Label>
-                        <p className="text-xs text-blue-600 dark:text-blue-300 mt-1">
-                          Permite editar cada parcela separadamente com valores e datas diferentes
+                        <div className="flex items-center gap-2">
+                          <h4 className="text-sm font-semibold text-foreground">
+                            Edição Individual
+                          </h4>
+                          <span className="text-xs bg-accent text-accent-foreground px-2 py-0.5 rounded-full">
+                            Avançado
+                          </span>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Editar cada parcela separadamente com valores e datas personalizados
                         </p>
                       </div>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-8 px-3 text-xs"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Abrir
+                      </Button>
                     </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Lista de parcelas para edição individual */}
-            {editingId && isTransactionSeries && editScope === 'individual' && (
-              <div className="bg-green-50 dark:bg-green-950/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                <div className="space-y-3">
-                  <Label className="text-sm font-medium text-green-900 dark:text-green-100">
-                    Editar Parcelas Individualmente
-                  </Label>
-                  <div className="space-y-2 max-h-60 overflow-y-auto">
-                    {seriesTransactions.map((transaction, index) => (
-                      <div key={transaction.id} className="bg-white dark:bg-gray-800 rounded-lg p-3 border">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2">
-                              <span className="text-xs font-medium text-gray-500 dark:text-gray-400">
-                                Parcela {transaction.installment_number || index + 1}
-                              </span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${
-                                transaction.status === 'PAID' 
-                                  ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
-                                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200'
-                              }`}>
-                                {transaction.status === 'PAID' ? 'Paga' : 'Pendente'}
-                              </span>
-                            </div>
-                            <p className="text-sm font-medium text-gray-900 dark:text-gray-100 mt-1">
-                              {transaction.description}
-                            </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-400">
-                              {new Date(transaction.date).toLocaleDateString('pt-BR')} - 
-                              R$ {transaction.value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
-                            </p>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => {
-                              // Implementar edição individual da parcela
-                              setEditingId(transaction.id);
-                              loadTransactionData(transaction.id);
-                              setEditScope('current');
-                            }}
-                            className="ml-2"
-                          >
-                            Editar
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
           <DialogFooter>
+            {editingId && (
+              <ConfirmationDialog
+                title="Confirmar Exclusão"
+                description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                confirmText="Excluir"
+                onConfirm={() => {
+                  deleteTransaction(editingId);
+                  setOpen(false);
+                  resetForm();
+                }}
+                variant="destructive"
+              >
+                <Button variant="destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Excluir
+                </Button>
+              </ConfirmationDialog>
+            )}
             <Button onClick={onSubmit}>Salvar</Button>
           </DialogFooter>
         </DialogContent>
@@ -2352,25 +2675,80 @@ export default function MonthlyStatement() {
       <Dialog open={showInstallmentForm} onOpenChange={setShowInstallmentForm}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Gerenciar Parcelas</DialogTitle>
+            <DialogTitle>
+              {editingId ? 'Editar Parcelas Individualmente' : 'Gerenciar Parcelas'}
+            </DialogTitle>
           </DialogHeader>
           
           <InstallmentForm
-            totalValue={installmentData.totalValue > 0 ? installmentData.totalValue : value}
-            installments={installments || 1}
-            startDate={date}
+            totalValue={
+              editingId 
+                ? roundCurrency(seriesTransactions.reduce((sum, t) => sum + t.value, 0))
+                : (installmentData.totalValue > 0 ? installmentData.totalValue : value)
+            }
+            installments={
+              editingId 
+                ? seriesTransactions.length 
+                : (installments || 1)
+            }
+            startDate={
+              editingId 
+                ? (seriesTransactions[0]?.date || date)
+                : date
+            }
             description={description}
-            initialInstallments={installmentData.installments}
-            onInstallmentsChange={(installments) => 
-              setInstallmentData(prev => ({ ...prev, installments }))
+            initialInstallments={
+              editingId 
+                ? seriesTransactions.map((t) => ({
+                    id: t.id,
+                    value: t.value,
+                    date: t.date,
+                    status: t.status as 'PAID' | 'PENDING',
+                    installment_number: t.installment_number || 1,
+                    isEdited: false
+                  }))
+                : installmentData.installments
             }
-            onTotalValueChange={(totalValue) => 
-              setInstallmentData(prev => ({ ...prev, totalValue }))
-            }
-            onInstallmentsCountChange={(count) => 
-              setInstallments(count)
-            }
-            disabled={createInstallmentSeriesMutation.isPending}
+            onInstallmentsChange={(installments) => {
+              if (editingId) {
+                // Converter installments para o formato de seriesTransactions
+                const updatedTransactions = installments.map((installment, index) => {
+                  const originalTransaction = seriesTransactions[index];
+                  return {
+                    ...originalTransaction,
+                    value: installment.value,
+                    date: installment.date,
+                    status: installment.status,
+                    installment_number: installment.installment_number // Use from backend
+                  };
+                });
+                setSeriesTransactions(updatedTransactions);
+              } else {
+                setInstallmentData(prev => ({ ...prev, installments }));
+              }
+            }}
+            onTotalValueChange={(totalValue) => {
+              if (editingId) {
+                // Para transações em série, não alterar o valor individual da parcela
+                // O valor total será recalculado automaticamente
+                // setValue(totalValue); // Comentado para evitar confusão
+              } else {
+                setInstallmentData(prev => ({ ...prev, totalValue }));
+              }
+            }}
+            onInstallmentsCountChange={(count) => {
+              if (!editingId) {
+                setInstallments(count);
+              }
+            }}
+            allowTotalValueEdit={editingId ? true : false}
+            onTotalValueEdit={(newTotalValue) => {
+              if (editingId) {
+                // Atualizar o valor total da série no sistema
+                // Isso pode ser usado para recalcular o valor total baseado nas parcelas editadas
+              }
+            }}
+            disabled={editingId ? false : createInstallmentSeriesMutation.isPending}
           />
           
           <DialogFooter>
@@ -2378,14 +2756,24 @@ export default function MonthlyStatement() {
               variant="outline"
               onClick={() => setShowInstallmentForm(false)}
             >
-              Cancelar
+              Fechar
             </Button>
-            <Button
-              onClick={handleSaveInstallments}
-              disabled={createInstallmentSeriesMutation.isPending || installmentData.installments.length === 0}
-            >
-              {createInstallmentSeriesMutation.isPending ? "Salvando..." : "Salvar Parcelas"}
-            </Button>
+            {editingId && (
+              <Button
+                onClick={handleSaveEditedInstallments}
+                disabled={updateInstallmentSeriesMutation.isPending}
+              >
+                {updateInstallmentSeriesMutation.isPending ? "Salvando..." : "Salvar"}
+              </Button>
+            )}
+            {!editingId && (
+              <Button
+                onClick={handleSaveInstallments}
+                disabled={createInstallmentSeriesMutation.isPending || installmentData.installments.length === 0}
+              >
+                {createInstallmentSeriesMutation.isPending ? "Salvando..." : "Salvar Parcelas"}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -35,6 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CreditCardForm } from "@/components/ui/credit-card-form";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { SelectItem } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 
@@ -76,27 +77,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
     // Filtrar apenas transações de despesa pagas
     const paidExpenses = transactions.filter(t => t.type === 'expense' && t.status === 'PAID');
     
-    console.log('=== DEBUG GASTOS POR CATEGORIA ===');
-    console.log('Total de transações de despesa pagas:', paidExpenses.length);
-    
     // Debug: mostrar ganhos reais vs reembolsos
     const realIncome = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
                                                !t.description.includes('Parte') && 
                                                !t.description.includes('A receber'));
     const reimbursements = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
                                                    (t.description.includes('Parte') || t.description.includes('A receber')));
-    console.log('Ganhos reais (sem reembolsos):', realIncome.length, 'transações');
-    console.log('Reembolsos:', reimbursements.length, 'transações');
     
     paidExpenses.forEach((transaction, index) => {
       const categoryName = transaction.categories?.name || 'Sem Categoria';
-      
-      console.log(`\nTransação ${index + 1}:`);
-      console.log('- Descrição:', transaction.description);
-      console.log('- Categoria:', categoryName);
-      console.log('- Valor bruto:', transaction.value);
-      console.log('- is_shared:', transaction.is_shared);
-      console.log('- compensation_value:', transaction.compensation_value);
       
       // Calcular valor líquido baseado no tipo de transação
       let realValue = transaction.value;
@@ -104,17 +93,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
       // Se há compensation_value, é uma transação compartilhada (mesmo que is_shared seja undefined)
       if (transaction.compensation_value && transaction.compensation_value > 0) {
         realValue = transaction.value - transaction.compensation_value;
-        console.log('- Valor líquido calculado (compartilhado):', realValue);
-      } else {
-        console.log('- Valor líquido (não compartilhado):', realValue);
       }
       
       // Garantir que o valor não seja negativo
       realValue = Math.max(0, realValue);
-      console.log('- Valor final usado:', realValue);
       
       expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + realValue;
-      console.log('- Total acumulado para categoria:', expensesByCategory[categoryName]);
     });
 
     const result = Object.entries(expensesByCategory)
@@ -122,9 +106,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
     
-    console.log('\n=== RESULTADO FINAL ===');
-    console.log('Gastos por categoria (líquidos):', result);
-    console.log('=====================================\n');
     
     return result;
   }, [transactions]);
@@ -563,9 +544,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 {transaction.categories.name}
                               </Badge>
                             )}
-                            {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                               <Badge variant="secondary" className="text-xs">
-                                {transaction.installment_number}/{transaction.installments}
+                                {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
@@ -639,9 +620,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 Ligada
                               </Badge>
                             )}
-                            {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                               <Badge variant="secondary" className="text-xs">
-                                {transaction.installment_number}/{transaction.installments}
+                                {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
@@ -697,19 +678,26 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <Edit className="h-4 w-4" />
                         </Button>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteTransaction(transaction.id)}
-                          disabled={deletingTransaction === transaction.id}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => deleteTransaction(transaction.id)}
+                          variant="destructive"
                         >
-                          {deletingTransaction === transaction.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={deletingTransaction === transaction.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingTransaction === transaction.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </ConfirmationDialog>
 
                         {transaction.status === 'PENDING' ? (
                           <Button

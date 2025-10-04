@@ -62,7 +62,7 @@ export function useInstallments() {
     onSuccess: (seriesId) => {
       toast({
         title: "Sucesso",
-        description: `Série de parcelas criada com ID: ${seriesId}`,
+        description: "Série de parcelas criada com sucesso",
         duration: 3000
       });
       
@@ -93,9 +93,9 @@ export function useInstallments() {
       }));
 
       const { data, error } = await supabase.rpc('update_installment_series', {
+        p_installments_data: installmentsData,
         p_series_id: params.series_id,
-        p_user_id: user.id,
-        p_installments_data: installmentsData
+        p_user_id: user.id
       });
 
       if (error) throw error;

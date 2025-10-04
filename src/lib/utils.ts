@@ -21,6 +21,41 @@ export function formatCurrencyBRL(amount: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);
 }
 
+// Função para arredondar valores monetários com precisão de 2 casas decimais
+export function roundCurrency(amount: number): number {
+  return Math.round(amount * 100) / 100;
+}
+
+// Função para calcular valor de parcela com redistribuição precisa
+export function calculateInstallmentValue(totalValue: number, totalInstallments: number): number {
+  if (totalInstallments <= 0) return 0;
+  return roundCurrency(totalValue / totalInstallments);
+}
+
+// Função para redistribuir valores entre parcelas com precisão
+export function redistributeInstallmentValues(
+  totalValue: number, 
+  editedInstallments: Array<{ id: string; value: number }>,
+  nonEditedCount: number
+): { editedValues: Array<{ id: string; value: number }>, nonEditedValue: number } {
+  const editedTotal = editedInstallments.reduce((sum, installment) => sum + installment.value, 0);
+  const availableValue = totalValue - editedTotal;
+  const nonEditedValue = nonEditedCount > 0 ? roundCurrency(availableValue / nonEditedCount) : 0;
+  
+  return {
+    editedValues: editedInstallments.map(installment => ({
+      ...installment,
+      value: roundCurrency(installment.value)
+    })),
+    nonEditedValue
+  };
+}
+
+// Função para validar se um valor monetário é válido
+export function isValidCurrencyValue(value: number): boolean {
+  return !isNaN(value) && isFinite(value) && value >= 0;
+}
+
 // Função para obter data atual no formato YYYY-MM-DD sem problemas de fuso horário
 export function getCurrentDateString(): string {
   const now = new Date();

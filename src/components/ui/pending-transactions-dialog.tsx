@@ -17,8 +17,8 @@ interface Transaction {
   credit_card_id?: string;
   category_id?: string;
   person_id?: string;
-  installment_number?: number;
-  installments?: number;
+  installmentNumber?: number;
+  totalInstallments?: number;
   accounts?: { name: string };
   categories?: { name: string };
   credit_cards?: { name: string };
@@ -130,9 +130,9 @@ export function PendingTransactionsDialog({
                               Vencida
                             </Badge>
                           )}
-                          {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                          {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                             <Badge variant="secondary" className="text-xs">
-                              {transaction.installment_number}/{transaction.installments}
+                              {transaction.installmentNumber}/{transaction.totalInstallments}
                             </Badge>
                           )}
                         </div>

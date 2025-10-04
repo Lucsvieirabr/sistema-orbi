@@ -8,6 +8,9 @@ type Transaction = Tables<"transactions"> & {
   categories?: { name: string };
   credit_cards?: { name: string };
   people?: { name: string };
+  series?: { total_installments: number; is_fixed: boolean } | { total_installments: number; is_fixed: boolean }[];
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
 };
 
 interface MonthlyTransactionsData {
@@ -42,13 +45,13 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
-        installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, person_id, series_id, status, created_at, 
-        updated_at, liquidation_date, compensation_value,
+        account_id, credit_card_id, category_id, person_id, series_id, status, created_at, 
+        updated_at, liquidation_date, compensation_value, installment_number, is_fixed,
         accounts(name),
         categories(name),
         credit_cards(name),
-        people(name)
+        people(name),
+        series(total_installments, is_fixed)
       `)
       .eq("user_id", user.id)
       .gte("date", startDate)
@@ -73,7 +76,28 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       return new Date(bEffectiveDate).getTime() - new Date(aEffectiveDate).getTime();
     });
 
-    return sortedTransactions;
+    // Usar installment_number do backend em vez de calcular
+    const transactionsWithInstallmentNumber = sortedTransactions.map(transaction => {
+      if (transaction.series_id) {
+        const totalInstallments = Array.isArray(transaction.series) 
+          ? transaction.series[0]?.total_installments 
+          : transaction.series?.total_installments;
+        
+        return {
+          ...transaction,
+          installmentNumber: transaction.installment_number,
+          totalInstallments: totalInstallments || 0
+        };
+      }
+      
+      return {
+        ...transaction,
+        installmentNumber: null,
+        totalInstallments: null
+      };
+    });
+
+    return transactionsWithInstallmentNumber;
   };
 
   const query = useQuery({
@@ -107,8 +131,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   const indicators = useMemo((): MonthlyIndicators => {
     const transactions = query.data ?? [];
 
-    console.log('=== DEBUG INDICADORES ===');
-    console.log('Total de transações:', transactions.length);
 
     // Ganhos recebidos: apenas transações de income com status PAID que NÃO são reembolsos
     // Reembolsos são identificados pela descrição que contém "Parte" ou "A receber"
@@ -118,14 +140,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
                    !t.description.includes('A receber'))
       .reduce((sum, t) => sum + t.value, 0);
 
-    // Debug: mostrar detalhes das transações de income
-    const allIncomeTransactions = transactions.filter(t => t.type === 'income' && t.status === 'PAID');
-    console.log('Todas as transações de income PAID:', allIncomeTransactions.length);
-    allIncomeTransactions.forEach(t => {
-      console.log(`- ${t.description}: linked_txn_id = ${t.linked_txn_id}, value = ${t.value}`);
-    });
-    
-    console.log('Ganhos recebidos (income PAID sem linked_txn_id):', incomeReceived);
 
     // Gastos pagos: transações de expense com status PAID, usando valor líquido (valor - compensação)
     const expensesPaid = transactions
@@ -135,11 +149,9 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
         const netValue = (t.compensation_value && t.compensation_value > 0) 
           ? (t.value - t.compensation_value) 
           : t.value;
-        console.log(`Gasto: ${t.description}, Valor bruto: ${t.value}, Compensação: ${t.compensation_value || 0}, Valor líquido: ${netValue}`);
         return sum + netValue;
       }, 0);
 
-    console.log('Gastos pagos (expense PAID - líquido):', expensesPaid);
 
     // Contas a receber: transações de income com status PENDING
     const incomePending = transactions
@@ -160,8 +172,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     // Saldo líquido: ganhos recebidos - gastos pagos (líquidos)
     const netBalance = incomeReceived - expensesPaid;
 
-    console.log('Saldo líquido calculado:', netBalance);
-    console.log('========================');
 
     return {
       incomeReceived,
@@ -211,11 +221,10 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
 export function useTransactionMaintenance() {
   const maintainFixedTransactions = async () => {
     try {
-      const { data, error } = await supabase.rpc('maintain_fixed_transaction_series');
+      const { data, error } = await supabase.rpc('maintain_smart_fixed_transactions');
       if (error) throw error;
       return data;
     } catch (error) {
-      console.error('Erro na manutenção de transações fixas:', error);
       throw error;
     }
   };

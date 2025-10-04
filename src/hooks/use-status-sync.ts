@@ -87,7 +87,6 @@ export function useStatusSync() {
       ]);
 
     } catch (error: any) {
-      console.error('Erro na sincronização de status:', error);
       throw error;
     }
   }, [queryClient]);

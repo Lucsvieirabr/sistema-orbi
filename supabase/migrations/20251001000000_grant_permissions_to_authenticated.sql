@@ -17,7 +17,7 @@ GRANT ALL ON public.transactions TO authenticated;
 -- ====================
 GRANT SELECT ON public.vw_account_current_balance TO authenticated;
 GRANT SELECT ON public.vw_account_projected_balance TO authenticated;
-GRANT SELECT ON public.vw_transaction_series TO authenticated;
+-- vw_transaction_series was removed in migration 20250131000008
 
 -- ====================
 -- 3. GRANT EXECUTE on functions to authenticated role
@@ -38,7 +38,7 @@ GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO authenticated;
 -- ====================
 ALTER VIEW public.vw_account_current_balance SET (security_invoker = true);
 ALTER VIEW public.vw_account_projected_balance SET (security_invoker = true);
-ALTER VIEW public.vw_transaction_series SET (security_invoker = true);
+-- vw_transaction_series was removed in migration 20250131000008
 
 COMMIT;
 
