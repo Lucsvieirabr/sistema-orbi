@@ -25,6 +25,7 @@ interface InstallmentFormProps {
   description: string;
   onInstallmentsChange: (installments: Installment[]) => void;
   onTotalValueChange: (totalValue: number) => void;
+  onInstallmentsCountChange?: (count: number) => void; // Nova prop para notificar mudanças no número de parcelas
   disabled?: boolean;
   initialInstallments?: Installment[]; // Nova prop para dados iniciais
 }
@@ -36,6 +37,7 @@ export function InstallmentForm({
   description,
   onInstallmentsChange,
   onTotalValueChange,
+  onInstallmentsCountChange,
   disabled = false,
   initialInstallments = []
 }: InstallmentFormProps) {
@@ -273,6 +275,13 @@ export function InstallmentForm({
     onTotalValueChange(currentTotalValue);
   }, [currentTotalValue, onTotalValueChange]);
 
+  // Notificar mudanças no número de parcelas
+  useEffect(() => {
+    if (onInstallmentsCountChange) {
+      onInstallmentsCountChange(installmentsList.length);
+    }
+  }, [installmentsList.length, onInstallmentsCountChange]);
+
   // Reset quando os parâmetros mudam (apenas se não há dados iniciais)
   useEffect(() => {
     if (!isGenerated && initialInstallments.length === 0) {
@@ -282,43 +291,9 @@ export function InstallmentForm({
 
   return (
     <div className="space-y-3">
-      {/* Cabeçalho com controles */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h3 className="text-base font-semibold">Parcelas da Transação</h3>
-          <p className="text-xs text-muted-foreground">
-            {description} - {installmentsList.length} parcela{installmentsList.length !== 1 ? 's' : ''}
-          </p>
-        </div>
-        <div className="flex items-center gap-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={redistributeValues}
-            disabled={disabled || installmentsList.length === 0}
-            className="h-7 px-2 text-xs"
-          >
-            <DollarSign className="h-3 w-3 mr-1" />
-            Redistribuir
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={addInstallment}
-            disabled={disabled}
-            className="h-7 px-2 text-xs"
-          >
-            <Plus className="h-3 w-3 mr-1" />
-            Adicionar
-          </Button>
-        </div>
-      </div>
-
-      {/* Resumo do valor total fixo */}
+      {/* Resumo do valor total fixo com controles integrados */}
       <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
-        <CardContent className="p-3">
+        <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <DollarSign className="h-4 w-4 text-blue-600" />
@@ -328,13 +303,42 @@ export function InstallmentForm({
               <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
                 Manual
               </span>
+              <span className="text-xs text-blue-600 font-medium">
+                {installmentsList.length} parcela{installmentsList.length !== 1 ? 's' : ''}
+              </span>
             </div>
-            <div className="text-right">
-              <div className="text-lg font-bold text-blue-600">
-                {formatCurrencyBRL(totalValue)}
+            <div className="flex items-center gap-2">
+              <div className="text-right mr-2">
+                <div className="text-lg font-bold text-blue-600">
+                  {formatCurrencyBRL(totalValue)}
+                </div>
+                <div className="text-xs text-blue-600">
+                  {formatCurrencyBRL(totalValue / installmentsList.length)} por parcela
+                </div>
               </div>
-              <div className="text-xs text-blue-600">
-                {formatCurrencyBRL(totalValue / installmentsList.length)} por parcela
+              <div className="flex items-center gap-1">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={redistributeValues}
+                  disabled={disabled || installmentsList.length === 0}
+                  className="h-6 px-2 text-xs"
+                >
+                  <DollarSign className="h-3 w-3 mr-1" />
+                  Redistribuir
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={addInstallment}
+                  disabled={disabled}
+                  className="h-6 px-2 text-xs"
+                >
+                  <Plus className="h-3 w-3 mr-1" />
+                  Adicionar
+                </Button>
               </div>
             </div>
           </div>

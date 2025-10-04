@@ -40,7 +40,9 @@ import {
   Trash2,
   Receipt,
   DollarSign,
-  AlertTriangle
+  AlertTriangle,
+  Clock10Icon,
+  BanknoteArrowDown
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -1373,7 +1375,7 @@ export default function MonthlyStatement() {
                   {formatCurrencyBRL(indicators.incomePending)}
                 </p>
               </div>
-              <BanknoteXIcon className="h-8 w-8 text-blue-500" />
+              <Clock10Icon className="h-8 w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
@@ -1383,12 +1385,12 @@ export default function MonthlyStatement() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">Contas a Pagar</p>
-                <p className="text-2xl font-bold text-yellow-600">
+                <p className="text-2xl font-bold text-red-600">
                   {formatCurrencyBRL(indicators.expensesPending)}
                 </p>
               </div>
-              <BanknoteXIcon className="h-8 w-8 text-yellow-500" />
-            </div>
+              <DollarSign className="h-6 w-6 text-red-600 dark:text-red-400" />
+              </div>
           </CardContent>
         </Card>
 
@@ -2364,6 +2366,9 @@ export default function MonthlyStatement() {
             }
             onTotalValueChange={(totalValue) => 
               setInstallmentData(prev => ({ ...prev, totalValue }))
+            }
+            onInstallmentsCountChange={(count) => 
+              setInstallments(count)
             }
             disabled={createInstallmentSeriesMutation.isPending}
           />

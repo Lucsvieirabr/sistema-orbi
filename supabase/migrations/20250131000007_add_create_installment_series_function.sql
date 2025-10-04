@@ -70,7 +70,7 @@ BEGIN
       transaction_data->>'description',
       transaction_data->>'type',
       (transaction_data->>'value')::numeric,
-      transaction_data->>'date',
+      (transaction_data->>'date')::date,
       transaction_data->>'status',
       CASE WHEN transaction_data->>'account_id' = 'null' THEN NULL ELSE (transaction_data->>'account_id')::uuid END,
       CASE WHEN transaction_data->>'category_id' = 'null' THEN NULL ELSE (transaction_data->>'category_id')::uuid END,
@@ -140,7 +140,7 @@ BEGIN
     SELECT 
       user_id, description, type, 
       (installment_record->>'value')::numeric,
-      installment_record->>'date',
+      (installment_record->>'date')::date,
       installment_record->>'status',
       account_id, category_id, payment_method, credit_card_id, person_id,
       is_fixed, 
