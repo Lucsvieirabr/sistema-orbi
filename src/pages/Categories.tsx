@@ -17,7 +17,7 @@ import { toast } from "@/hooks/use-toast";
 
 export default function Categories() {
   const queryClient = useQueryClient();
-  const { categories, createCategory, updateCategory, deleteCategory, populateInitialCategories, isLoading } = useCategories();
+  const { categories, createCategory, updateCategory, deleteCategory, isLoading } = useCategories();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [categoryType, setCategoryType] = useState<"income" | "expense">("expense");
@@ -77,15 +77,6 @@ export default function Categories() {
     queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
-  const handlePopulateInitialCategories = async () => {
-    const t = toast({ title: "Populando...", description: "Criando categorias iniciais", duration: 2000 });
-    try {
-      await populateInitialCategories();
-      t.update({ title: "Sucesso", description: "Categorias iniciais criadas", duration: 2000 });
-    } catch (e: any) {
-      t.update({ title: "Erro", description: e.message || "Não foi possível criar categorias", duration: 3000, variant: "destructive" as any });
-    }
-  };
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -93,11 +84,6 @@ export default function Categories() {
         <CardHeader className="flex items-center justify-between">
           <CardTitle>Categorias</CardTitle>
           <div className="flex items-center gap-2">
-            {categories.length === 0 && (
-              <Button variant="outline" onClick={handlePopulateInitialCategories}>
-                Criar Categorias Iniciais
-              </Button>
-            )}
             <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
               <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
                 <List className="h-4 w-4" />

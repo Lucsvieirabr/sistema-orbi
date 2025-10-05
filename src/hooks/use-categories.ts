@@ -24,6 +24,21 @@ export function useCategories() {
     queryFn: fetchCategories,
   });
 
+  const populateInitialCategories = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
+    // Use the database function to create initial categories
+    const { error } = await supabase.rpc('create_initial_categories_for_user', {
+      user_id: user.id
+    });
+    
+    if (error) throw error;
+
+    // Invalidate queries to refresh the data
+    queryClient.invalidateQueries({ queryKey: ["categories"] });
+  };
+
   useEffect(() => {
     const channel = supabase
       .channel("categories-changes")
@@ -37,6 +52,21 @@ export function useCategories() {
       supabase.removeChannel(channel);
     };
   }, [queryClient]);
+
+  // Auto-create initial categories if user has no categories
+  useEffect(() => {
+    const autoCreateCategories = async () => {
+      if (!isLoading && data && data.length === 0) {
+        try {
+          await populateInitialCategories();
+        } catch (error) {
+          console.error("Failed to auto-create initial categories:", error);
+        }
+      }
+    };
+
+    autoCreateCategories();
+  }, [isLoading, data, populateInitialCategories]);
 
   const createCategory = async (values: Pick<TablesInsert<"categories">, "name" | "category_type" | "icon">) => {
     const { data: { user } } = await supabase.auth.getUser();
@@ -65,52 +95,6 @@ export function useCategories() {
   const deleteCategory = async (id: string) => {
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) throw error;
-  };
-
-  const populateInitialCategories = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
-
-    // Check if user already has categories
-    const { data: existingCategories } = await supabase
-      .from("categories")
-      .select("id")
-      .eq("user_id", user.id)
-      .limit(1);
-
-    if (existingCategories && existingCategories.length > 0) {
-      return; // User already has categories
-    }
-
-    // Initial categories data
-    const initialCategories = [
-      // Expense categories
-      { name: "Moradia", category_type: "expense", icon: "fa-home" },
-      { name: "Alimentação", category_type: "expense", icon: "fa-utensils" },
-      { name: "Transporte", category_type: "expense", icon: "fa-car" },
-      { name: "Saúde", category_type: "expense", icon: "fa-heartbeat" },
-      { name: "Educação", category_type: "expense", icon: "fa-graduation-cap" },
-      { name: "Lazer e Viagem", category_type: "expense", icon: "fa-plane" },
-      { name: "Pessoal e Vestuário", category_type: "expense", icon: "fa-shopping-bag" },
-      { name: "Impostos e Taxas", category_type: "expense", icon: "fa-file-invoice-dollar" },
-      // Income categories
-      { name: "Salário / Renda Principal", category_type: "income", icon: "fa-briefcase" },
-      { name: "Renda Extra / Freelance", category_type: "income", icon: "fa-dollar-sign" },
-      { name: "Investimentos", category_type: "income", icon: "fa-chart-line" },
-      { name: "Presentes e Reembolsos", category_type: "income", icon: "fa-gift" },
-    ];
-
-    // Insert all initial categories
-    const categoriesToInsert = initialCategories.map(category => ({
-      ...category,
-      user_id: user.id,
-    }));
-
-    const { error } = await supabase.from("categories").insert(categoriesToInsert);
-    if (error) throw error;
-
-    // Invalidate queries to refresh the data
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
   };
 
   return {

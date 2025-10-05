@@ -296,8 +296,10 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
         }}
         {...props}
       >
-        <div className="flex-1 min-w-0 pr-16">
-          {children}
+        <div className="flex-1 min-w-0 pr-16 overflow-hidden">
+          <div className="truncate">
+            {children}
+          </div>
         </div>
         <ChevronDown className="h-4 w-4 opacity-50 pointer-events-none" />
       </SelectPrimitive.Trigger>
