@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,9 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { IconSelector } from "@/components/ui/icon-selector";
 import { CreditCardForm } from "@/components/ui/credit-card-form";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCategories } from "@/hooks/use-categories";
@@ -251,6 +254,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
 }) => {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+  const [open, setOpen] = React.useState(false);
 
   const onSuccess = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -275,71 +279,82 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
     return map;
   }, [children]);
 
-  // SelectTrigger personalizado que não inclui o ícone automático
-  const CustomSelectTrigger = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Trigger>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
-  >(({ className, children, onClick, ...props }, ref) => (
-    <div className="relative">
-      <SelectPrimitive.Trigger
-        ref={ref}
-        className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [&[data-state=open]]:ring-2 [&[data-state=open]]:ring-ring [&[data-state=open]]:ring-offset-2",
-          className,
-        )}
-        onClick={(e) => {
-          // Se o clique foi no botão plus, não abrir o select
-          if ((e.target as HTMLElement).closest('[data-plus-button]')) {
-            return;
-          }
-          onClick?.(e);
-        }}
-        {...props}
-      >
-        <div className="flex-1 min-w-0 pr-16 overflow-hidden">
-          <div className="truncate">
-            {children}
-          </div>
-        </div>
-        <ChevronDown className="h-4 w-4 opacity-50 pointer-events-none" />
-      </SelectPrimitive.Trigger>
-      <button
-        type="button"
-        data-plus-button
-        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAddClick(e);
-        }}
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        <Plus className="h-3 w-3" />
-      </button>
-    </div>
-  ));
-
-  CustomSelectTrigger.displayName = "CustomSelectTrigger";
-
+  // Converte children para formato Command
+  const commandItems = React.useMemo(() => {
+    return React.Children.toArray(children).map((child) => {
+      if (React.isValidElement(child) && child.type === SelectItem) {
+        return {
+          value: child.props.value,
+          label: child.props.children as string,
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [children]);
 
   return (
     <div className="relative w-full">
-      <Select
-        value={value}
-        onValueChange={onValueChange}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between pr-12 border border-input"
+            disabled={disabled}
+          >
+            <span className="truncate">
+              {value && valueTextMap[value] ? valueTextMap[value] : placeholder}
+            </span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <Command shouldFilter={false}>
+            <CommandInput placeholder="Buscar..." />
+            <ScrollArea className="max-h-[300px]">
+              <CommandList>
+                <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
+                <CommandGroup>
+                  {commandItems.map((item) => (
+                    <CommandItem
+                      key={item.value}
+                      value={item.label}
+                      onSelect={(currentValue) => {
+                        const selectedItem = commandItems.find(item => item.label === currentValue);
+                        if (selectedItem) {
+                          onValueChange?.(selectedItem.value === value ? "" : selectedItem.value);
+                          setOpen(false);
+                        }
+                      }}
+                    >
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          value === item.value ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {item.label}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </ScrollArea>
+          </Command>
+        </PopoverContent>
+      </Popover>
+
+      {/* Botão de adicionar */}
+      <button
+        type="button"
+        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
+        onClick={handleAddClick}
         disabled={disabled}
       >
-        <CustomSelectTrigger className="w-full pr-12">
-          <SelectValue placeholder={placeholder}>
-            {value && valueTextMap[value] ? valueTextMap[value] : placeholder}
-          </SelectValue>
-        </CustomSelectTrigger>
-        <SelectContent className="w-full">
-          {children}
-        </SelectContent>
-      </Select>
+        <Plus className="h-3 w-3" />
+      </button>
 
-      {/* Dialog separado, fora do Select */}
+      {/* Dialog separado */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <EntityFormComponent
           open={dialogOpen}
