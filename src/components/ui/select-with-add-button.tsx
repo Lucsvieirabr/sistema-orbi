@@ -255,6 +255,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
   const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
   const onSuccess = () => {
     setRefreshTrigger(prev => prev + 1);
@@ -292,9 +293,22 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
     }).filter(Boolean);
   }, [children]);
 
+  // Filtra os itens baseado no termo de busca
+  const filteredItems = React.useMemo(() => {
+    if (!searchTerm.trim()) return commandItems;
+    return commandItems.filter(item => 
+      item.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [commandItems, searchTerm]);
+
   return (
     <div className="relative w-full">
-      <Popover open={open} onOpenChange={setOpen}>
+      <Popover open={open} onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (!newOpen) {
+          setSearchTerm("");
+        }
+      }}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
@@ -310,37 +324,42 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start">
-          <Command shouldFilter={false}>
-            <CommandInput placeholder="Buscar..." />
-            <ScrollArea className="max-h-[300px]">
-              <CommandList>
-                <CommandEmpty>Nenhum item encontrado.</CommandEmpty>
-                <CommandGroup>
-                  {commandItems.map((item) => (
-                    <CommandItem
-                      key={item.value}
-                      value={item.label}
-                      onSelect={(currentValue) => {
-                        const selectedItem = commandItems.find(item => item.label === currentValue);
-                        if (selectedItem) {
-                          onValueChange?.(selectedItem.value === value ? "" : selectedItem.value);
-                          setOpen(false);
-                        }
-                      }}
-                    >
-                      <Check
-                        className={cn(
-                          "mr-2 h-4 w-4",
-                          value === item.value ? "opacity-100" : "opacity-0"
-                        )}
-                      />
-                      {item.label}
-                    </CommandItem>
-                  ))}
-                </CommandGroup>
-              </CommandList>
-            </ScrollArea>
-          </Command>
+          <div className="border-b p-2">
+            <Input 
+              placeholder="Buscar..." 
+              className="h-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div className="max-h-[300px] overflow-y-auto">
+            {filteredItems.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum item encontrado.
+              </div>
+            ) : (
+              <div className="p-1">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.value}
+                    className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onValueChange?.(item.value === value ? "" : item.value);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === item.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </PopoverContent>
       </Popover>
 
