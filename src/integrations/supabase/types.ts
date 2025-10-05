@@ -182,6 +182,9 @@ export type Database = {
           created_by_txn_id: string | null
           created_at: string | null
           updated_at: string | null
+          frequency: string
+          start_date: string
+          end_date: string | null
         }
         Insert: {
           id?: string
@@ -194,6 +197,9 @@ export type Database = {
           created_by_txn_id?: string | null
           created_at?: string | null
           updated_at?: string | null
+          frequency?: string
+          start_date?: string
+          end_date?: string | null
         }
         Update: {
           id?: string
@@ -206,6 +212,9 @@ export type Database = {
           created_by_txn_id?: string | null
           created_at?: string | null
           updated_at?: string | null
+          frequency?: string
+          start_date?: string
+          end_date?: string | null
         }
         Relationships: [
           {

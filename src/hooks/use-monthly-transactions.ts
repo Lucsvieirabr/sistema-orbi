@@ -217,17 +217,3 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   };
 }
 
-// Hook para manutenção automática de transações fixas
-export function useTransactionMaintenance() {
-  const maintainFixedTransactions = async () => {
-    try {
-      const { data, error } = await supabase.rpc('maintain_smart_fixed_transactions');
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  return { maintainFixedTransactions };
-}
