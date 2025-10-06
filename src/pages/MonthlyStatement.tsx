@@ -2308,9 +2308,13 @@ export default function MonthlyStatement() {
                     </Button>
                     <Button
                       type="button"
-                      variant={type === 'fixed' ? 'default' : 'outline'}
+                      variant={type === 'fixed' || (editingId && isFixed) ? 'default' : 'outline'}
                       disabled
-                      className="flex items-center gap-2 flex-1"
+                      className={`flex items-center gap-2 flex-1 ${
+                        type === 'fixed' || (editingId && isFixed)
+                          ? 'border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30'
+                          : 'hover:border-blue-500/30 hover:bg-blue-500/5 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400'
+                      }`}
                     >
                       <ArrowUpCircle className="h-4 w-4" />
                       {isFixed ? 'Fixa' : 'Fixo'}
@@ -2355,7 +2359,7 @@ export default function MonthlyStatement() {
                   </Button>
                   <Button
                     type="button"
-                    variant="outline"
+                    variant={type === 'fixed' ? 'default' : 'outline'}
                     onClick={() => handleTypeChange('fixed')}
                     className={`flex items-center gap-2 flex-1 ${type === 'fixed'
                       ? 'border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30'

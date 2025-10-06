@@ -256,10 +256,45 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
   const onSuccess = () => {
     setRefreshTrigger(prev => prev + 1);
   };
+
+  // Adiciona event listeners para scroll
+  React.useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      scrollArea.scrollTop += e.deltaY;
+    };
+
+    let startY = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      scrollArea.scrollTop += deltaY;
+      startY = currentY;
+    };
+
+    scrollArea.addEventListener('wheel', handleWheel, { passive: false });
+    scrollArea.addEventListener('touchstart', handleTouchStart, { passive: true });
+    scrollArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      scrollArea.removeEventListener('wheel', handleWheel);
+      scrollArea.removeEventListener('touchstart', handleTouchStart);
+      scrollArea.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [open]); // Re-executa quando o popover abre
 
   const EntityFormComponent = EntityForms[entityType];
 
@@ -332,7 +367,11 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          <div className="max-h-[300px] overflow-y-auto">
+          <div 
+            ref={scrollAreaRef}
+            className="max-h-[300px] overflow-y-auto overflow-x-hidden"
+            style={{ scrollbarWidth: 'thin' }}
+          >
             {filteredItems.length === 0 ? (
               <div className="py-6 text-center text-sm text-muted-foreground">
                 Nenhum item encontrado.

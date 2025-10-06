@@ -24,7 +24,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
       const inputValue = e.target.value;
       const numericValue = parseInt(inputValue);
 
-      if (inputValue === "" || (numericValue >= 1 && numericValue <= 30)) {
+      if (inputValue === "" || (numericValue >= 1 && numericValue <= 31)) {
         onChange(numericValue || 1);
       }
     };
@@ -34,7 +34,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
       setOpen(false);
     };
 
-    const days = Array.from({ length: 30 }, (_, i) => i + 1);
+    const days = Array.from({ length: 31 }, (_, i) => i + 1);
 
     return (
       <div className={cn("space-y-2", className)}>
@@ -54,8 +54,8 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[200px] p-0 border-2 border-border bg-background" align="start">
-              <div className="grid grid-cols-5 gap-1 p-2">
+            <PopoverContent className="w-[295px] p-0 border-2 border-border bg-background" align="start" side="bottom" sideOffset={4}>
+              <div className="grid grid-cols-8 gap-2 p-2">
                 {days.map((day) => (
                   <Button
                     key={day}
@@ -76,7 +76,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
           id={id}
           type="number"
           min={1}
-          max={30}
+          max={31}
           value={value || ""}
           onChange={handleInputChange}
           placeholder={placeholder}
