@@ -2452,6 +2452,17 @@ export default function MonthlyStatement() {
                   </div>
                 )}
 
+                {/* Campo de Descrição */}
+                <div className="space-y-1">
+                  <Label className="text-sm">Descrição</Label>
+                  <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Salário, Aluguel, etc..."
+                    className="h-9"
+                  />
+                </div>
+
               </div>
             )}
 
