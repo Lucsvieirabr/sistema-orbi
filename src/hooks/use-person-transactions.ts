@@ -36,7 +36,7 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
       .select(`
         id, user_id, description, value, date, type, payment_method,
         account_id, credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
-        linked_txn_id, installment_number,
+        linked_txn_id, installment_number, composition_details,
         accounts(name),
         categories(name),
         credit_cards(name),

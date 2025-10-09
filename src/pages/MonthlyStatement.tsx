@@ -26,6 +26,8 @@ import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-
 import { InstallmentForm } from "@/components/ui/installment-form";
 import { useInstallments } from "@/hooks/use-installments";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
+import { CompositionDialog, CompositionItem } from "@/components/ui/composition-dialog";
+import { CompositionViewDialog } from "@/components/ui/composition-view-dialog";
 
 interface Installment {
   id: string;
@@ -53,7 +55,8 @@ import {
   DollarSign,
   AlertTriangle,
   Clock10Icon,
-  BanknoteArrowDown
+  BanknoteArrowDown,
+  Info
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -125,6 +128,12 @@ export default function MonthlyStatement() {
   const [isLoan, setIsLoan] = useState(false);
   const [isRateio, setIsRateio] = useState(false);
   const [peopleSearchTerm, setPeopleSearchTerm] = useState("");
+  
+  // Estados para rateio composto personalizado
+  const [compositionDialogOpen, setCompositionDialogOpen] = useState(false);
+  const [compositionItems, setCompositionItems] = useState<CompositionItem[]>([]);
+  const [viewCompositionDialogOpen, setViewCompositionDialogOpen] = useState(false);
+  const [viewCompositionItems, setViewCompositionItems] = useState<CompositionItem[]>([]);
 
   // Estados para os diálogos de contas pendentes
   const [showPendingIncomeDialog, setShowPendingIncomeDialog] = useState(false);
@@ -413,6 +422,7 @@ export default function MonthlyStatement() {
     setIsLoan(false);
     setIsRateio(false);
     setPeopleSearchTerm("");
+    setCompositionItems([]);
     // Reset installment data
     setInstallmentData({ installments: [], totalValue: 0 });
   };
@@ -422,6 +432,7 @@ export default function MonthlyStatement() {
     if (!open) {
       // Limpar estado de edição quando dialog é fechado
       setEditingId(null);
+      setCompositionDialogOpen(false); // Fechar dialog de composição se estiver aberto
       resetForm();
     }
   };
@@ -604,7 +615,12 @@ export default function MonthlyStatement() {
         // Modelo correto: 2 transações (gasto bruto + dívida pendente)
         const amountPerPerson = roundCurrency(payload.value / (payload.selectedPeople.length + 1));
 
-        // 1. Inserir primeiro a transação de gasto bruto (R$ 200) com compensation_value
+        // Preparar composition_details se houver itens
+        const compositionDetailsJson = payload.compositionItems && payload.compositionItems.length > 0
+          ? JSON.stringify(payload.compositionItems)
+          : null;
+
+        // 1. Inserir primeiro a transação de gasto bruto (R$ 200) com compensation_value e composition_details
         const { data: expenseTransaction, error: expenseError } = await supabase
           .from("transactions")
           .insert({
@@ -624,6 +640,7 @@ export default function MonthlyStatement() {
             series_id: null, // Será definido após criar a segunda transação
             linked_txn_id: null, // Será definido após criar a segunda transação
             status: payload.status,
+            composition_details: compositionDetailsJson, // Detalhes da composição
           })
           .select()
           .single();
@@ -632,6 +649,20 @@ export default function MonthlyStatement() {
 
         // 2. Inserir transações de dívida para cada pessoa selecionada
         const debtTransactions = [];
+        const totalPeople = payload.selectedPeople.length + 1; // +1 para incluir o usuário
+
+        // Preparar composition_details proporcional para cada parte
+        let proportionalCompositionDetailsJson = null;
+        if (payload.compositionItems && payload.compositionItems.length > 0) {
+          const proportionalItems = payload.compositionItems.map((item: CompositionItem) => ({
+            value: roundCurrency(item.value / totalPeople), // Valor individual (dividido)
+            totalValue: item.value, // Valor total do item
+            description: item.description,
+            date: item.date,
+          }));
+          proportionalCompositionDetailsJson = JSON.stringify(proportionalItems);
+        }
+
         for (const personId of payload.selectedPeople) {
           // Buscar o nome da pessoa
           const { data: personData, error: personError } = await supabase
@@ -661,6 +692,7 @@ export default function MonthlyStatement() {
               series_id: null, // Será definido após criar a primeira transação
               linked_txn_id: expenseTransaction.id, // Liga à transação de gasto
               status: 'PENDING', // Começa como pendente
+              composition_details: proportionalCompositionDetailsJson, // Detalhes proporcionais da composição
             })
             .select()
             .single();
@@ -669,8 +701,27 @@ export default function MonthlyStatement() {
           debtTransactions.push(debtTransaction);
         }
 
-        // 3. Atualizar as transações para criar a ligação
+        // 3. Criar série e vincular transações
         const seriesId = crypto.randomUUID();
+
+        // Criar registro na tabela series (sem composition_details)
+        const { error: seriesError } = await supabase
+          .from("series")
+          .insert({
+            id: seriesId,
+            user_id: userId,
+            description: payload.description,
+            total_value: payload.value,
+            total_installments: 1,
+            is_fixed: false,
+            category_id: payload.category_id,
+            frequency: 'monthly',
+            start_date: payload.date,
+          });
+
+        if (seriesError) throw seriesError;
+
+        // Atualizar a transação de gasto com series_id
         await supabase
           .from("transactions")
           .update({
@@ -808,6 +859,7 @@ export default function MonthlyStatement() {
         selectedPeople: selectedPeople, // Para rateios
         isLoan: isLoan, // Para empréstimos
         isRateio: isRateio, // Para rateios
+        compositionItems: compositionItems, // Para rateio composto personalizado
         status: status, // Status da transação
       };
 
@@ -1735,6 +1787,29 @@ export default function MonthlyStatement() {
     }
   };
 
+  const viewComposition = (compositionDetailsJson: string) => {
+    try {
+      if (compositionDetailsJson) {
+        const items = JSON.parse(compositionDetailsJson) as CompositionItem[];
+        setViewCompositionItems(items);
+        setViewCompositionDialogOpen(true);
+      } else {
+        toast({
+          title: "Informação",
+          description: "Este rateio não possui detalhes de composição",
+          duration: 2000,
+        });
+      }
+    } catch (e: any) {
+      toast({
+        title: "Erro",
+        description: e.message || "Não foi possível carregar a composição",
+        duration: 3000,
+        variant: "destructive" as any,
+      });
+    }
+  };
+
   const deleteTransaction = async (transactionId: string) => {
     const toastInstance = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
     try {
@@ -2211,33 +2286,6 @@ export default function MonthlyStatement() {
                             </div>
 
 
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => {
-                                setEditingId(transaction.id);
-                                setOpen(true);
-                              }}
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-
-                            <ConfirmationDialog
-                              title="Confirmar Exclusão"
-                              description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                              confirmText="Excluir"
-                              onConfirm={() => deleteTransaction(transaction.id)}
-                              variant="destructive"
-                            >
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </ConfirmationDialog>
-
                             {transaction.status === 'PENDING' ? (
                               <Button
                                 size="sm"
@@ -2255,6 +2303,45 @@ export default function MonthlyStatement() {
                                 <BanknoteXIcon className="h-4 w-4" />
                               </Button>
                             )}
+
+                            {(transaction as any).composition_details && (
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                onClick={() => viewComposition((transaction as any).composition_details)}
+                                className="text-white-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
+                                title="Ver detalhes da composição"
+                              >
+                                <Info className="h-4 w-4" />
+                              </Button>
+                            )}
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => {
+                                setEditingId(transaction.id);
+                                setOpen(true);
+                              }}
+                            >
+                              <Edit className="h-4 w-4" />
+                            </Button>
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              onConfirm={() => deleteTransaction(transaction.id)}
+                              variant="destructive"
+                            >
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="text-red-600 hover:text-red-700 hover:bg-red-50"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+
+                            
                           </div>
                         </div>
                       );
@@ -2414,6 +2501,7 @@ export default function MonthlyStatement() {
                           onClick={() => {
                             setIsLoan(false);
                             setIsRateio(false);
+                            setIsFixed(false);
                           }}
                           className={`flex-1 h-9 text-xs ${!isLoan && !isRateio
                             ? 'border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30'
@@ -2427,6 +2515,7 @@ export default function MonthlyStatement() {
                           onClick={() => {
                             setIsLoan(true);
                             setIsRateio(false);
+                            setIsFixed(false);
                           }}
                           className={`flex-1 h-9 text-xs ${isLoan && !isRateio
                             ? 'border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30'
@@ -2440,6 +2529,7 @@ export default function MonthlyStatement() {
                           onClick={() => {
                             setIsLoan(false);
                             setIsRateio(true);
+                            setIsFixed(false);
                           }}
                           className={`flex-1 h-9 text-xs ${!isLoan && isRateio
                             ? 'border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30'
@@ -2924,6 +3014,24 @@ export default function MonthlyStatement() {
                     </div>
                   </div>
                 )}
+                
+                {/* Botão para Personalizar Rateio */}
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setCompositionDialogOpen(true)}
+                    className="w-full border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                  >
+                    <Receipt className="h-4 w-4 mr-2" />
+                    Personalizar Rateio
+                    {compositionItems.length > 0 && (
+                      <Badge variant="secondary" className="ml-2">
+                        {compositionItems.length} {compositionItems.length === 1 ? 'item' : 'itens'}
+                      </Badge>
+                    )}
+                  </Button>
+                </div>
               </div>
             )}
 
@@ -3155,6 +3263,24 @@ export default function MonthlyStatement() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Composition Dialog */}
+      <CompositionDialog
+        open={compositionDialogOpen}
+        onOpenChange={setCompositionDialogOpen}
+        onSave={(items, total) => {
+          setCompositionItems(items);
+          setValue(total);
+        }}
+        initialItems={compositionItems}
+      />
+
+      {/* Composition View Dialog */}
+      <CompositionViewDialog
+        open={viewCompositionDialogOpen}
+        onOpenChange={setViewCompositionDialogOpen}
+        items={viewCompositionItems}
+      />
 
       {/* Pending Transactions Dialogs */}
       <PendingTransactionsDialog

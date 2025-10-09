@@ -255,6 +255,7 @@ export type Database = {
           user_id: string
           value: number
           liquidation_date: string | null
+          composition_details: string | null
         }
         Insert: {
           account_id?: string | null
@@ -277,6 +278,7 @@ export type Database = {
           user_id: string
           value: number
           liquidation_date?: string | null
+          composition_details?: string | null
         }
         Update: {
           account_id?: string | null
@@ -299,6 +301,7 @@ export type Database = {
           user_id?: string
           value?: number
           liquidation_date?: string | null
+          composition_details?: string | null
         }
         Relationships: [
           {
