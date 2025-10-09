@@ -12,7 +12,7 @@ import { IconSelector } from "@/components/ui/icon-selector";
 import { useCategories } from "@/hooks/use-categories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { LayoutGrid, List, Plus, Tag, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 
 export default function Categories() {
@@ -47,16 +47,16 @@ export default function Categories() {
 
   const onSubmit = async () => {
     if (!name.trim()) return;
-    const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+    toast({ title: "Salvando...", description: "Aguarde" });
     try {
       if (editingId) {
         await updateCategory(editingId, { name, category_type: categoryType, icon });
       } else {
         await createCategory({ name, category_type: categoryType, icon });
       }
-      t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
+      toast({ title: "Sucesso", description: "Categoria salva" });
     } catch (e) {
-      t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+      toast({ title: "Erro", description: "Não foi possível salvar", variant: "destructive" });
     }
     setOpen(false);
     resetForm();
@@ -80,24 +80,45 @@ export default function Categories() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <Card className="shadow-md">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Categorias</CardTitle>
-          <div className="flex items-center gap-2">
-            <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-              <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                <List className="h-4 w-4" />
-              </ToggleGroupItem>
-              <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
-                <LayoutGrid className="h-4 w-4" />
-              </ToggleGroupItem>
-            </ToggleGroup>
-            <Dialog open={open} onOpenChange={setOpen}>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 w-8 p-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
+      {/* Header Section */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Tag className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">Categorias</CardTitle>
+                <p className="text-muted-foreground mt-1">
+                  Organize suas transações em categorias personalizadas
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
+                <ToggleGroupItem
+                  value="list"
+                  aria-label="Lista"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  <List className="h-4 w-4" />
+                </ToggleGroupItem>
+                <ToggleGroupItem
+                  value="cards"
+                  aria-label="Cards"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
+                  <LayoutGrid className="h-4 w-4" />
+                </ToggleGroupItem>
+              </ToggleGroup>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Nova Categoria
+                  </Button>
+                </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{title}</DialogTitle>
@@ -133,34 +154,59 @@ export default function Categories() {
                   <Button onClick={onSubmit}>Salvar</Button>
                 </DialogFooter>
               </DialogContent>
-            </Dialog>
+              </Dialog>
+            </div>
           </div>
         </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" : "space-y-3"}>
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
-            </div>
-          ) : view === "cards" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {categories.length === 0 ? (
-                <div className="col-span-full rounded-lg border bg-card p-6 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <List className="h-5 w-5" />
+      </Card>
+
+      {/* Categories Grid/List */}
+      {isLoading ? (
+        <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
+          ))}
+        </div>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {categories.length === 0 ? (
+            <div className="col-span-full">
+              <Card className="border-dashed border-2 border-muted-foreground/25">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="p-4 bg-muted/50 rounded-full mb-4">
+                    <Tag className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  Nenhuma categoria cadastrada
-                </div>
-              ) : categories.map((c) => (
-                <div key={c.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
-                      <span className="font-medium">{c.name}</span>
+                  <h3 className="text-lg font-semibold mb-2">Nenhuma categoria cadastrada</h3>
+                  <p className="text-muted-foreground">
+                    Crie sua primeira categoria para organizar suas transações
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            categories.map((c) => (
+              <Card key={c.id} className="group hover:shadow-lg transition-all duration-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      {c.icon && (
+                        <div className="h-8 w-8 rounded-full bg-transparent flex items-center justify-center flex-shrink-0">
+                          <IconRenderer iconName={c.icon} className="h-4 w-4 text-primary" />
+                        </div>
+                      )}
+                      <h3 className="font-semibold text-sm truncate" title={c.name}>
+                        {c.name}
+                      </h3>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}>Editar</Button>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       <ConfirmationDialog
                         title="Confirmar Exclusão"
                         description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
@@ -168,46 +214,68 @@ export default function Categories() {
                         onConfirm={() => onDelete(c.id)}
                         variant="destructive"
                       >
-                        <Button variant="destructive" size="sm">Excluir</Button>
+                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </ConfirmationDialog>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-border rounded-md bg-card/40">
-              {categories.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <List className="h-5 w-5" />
-                  </div>
-                  Nenhuma categoria cadastrada
-                </div>
-              ) : categories.map((c) => (
-                <div key={c.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
-                  <div className="flex items-center gap-2">
-                    <IconRenderer iconName={c.icon} className="h-4 w-4 text-primary" />
-                    <span className="font-medium">{c.name}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}>Editar</Button>
-                    <ConfirmationDialog
-                      title="Confirmar Exclusão"
-                      description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                      confirmText="Excluir"
-                      onConfirm={() => onDelete(c.id)}
-                      variant="destructive"
-                    >
-                      <Button variant="destructive">Excluir</Button>
-                    </ConfirmationDialog>
-                  </div>
-                </div>
-              ))}
-            </div>
+                </CardHeader>
+              </Card>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            {categories.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Tag className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Nenhuma categoria cadastrada</h3>
+                <p>Crie sua primeira categoria para começar</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {categories.map((c) => (
+                  <div key={c.id} className="flex items-center justify-between p-6 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center gap-3">
+                      {c.icon && (
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
+                        </div>
+                      )}
+                      <span className="font-semibold">{c.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => onDelete(c.id)}
+                        variant="destructive"
+                      >
+                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </ConfirmationDialog>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

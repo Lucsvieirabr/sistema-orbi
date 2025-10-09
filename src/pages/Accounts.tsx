@@ -12,7 +12,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus } from "lucide-react";
+import { LayoutGrid, List, Plus, Wallet, Edit, Trash2 } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
 
 export default function Accounts() {
@@ -85,25 +85,45 @@ export default function Accounts() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <Card className="shadow-md">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Contas</CardTitle>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <div className="flex items-center gap-2">
+      {/* Header Section */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Wallet className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">Contas</CardTitle>
+                <p className="text-muted-foreground mt-1">
+                  Gerencie suas contas bancárias e acompanhe seus saldos
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="list"
+                  aria-label="Lista"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <List className="h-4 w-4" />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="cards"
+                  aria-label="Cards"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 w-8 p-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-            </div>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Nova Conta
+                  </Button>
+                </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
@@ -146,36 +166,58 @@ export default function Accounts() {
                 <Button onClick={onSubmit}>Salvar</Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" : "space-y-3"}>
-              <Skeleton className={view === "cards" ? "h-24 w-full" : "h-14 w-full"} />
-              <Skeleton className={view === "cards" ? "h-24 w-full" : "h-14 w-full"} />
-              <Skeleton className={view === "cards" ? "h-24 w-full" : "h-14 w-full"} />
+              </Dialog>
             </div>
-          ) : view === "cards" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {accountsWithBalance.length === 0 ? (
-                <div className="col-span-full rounded-lg border bg-card p-6 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <LayoutGrid className="h-5 w-5" />
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* Accounts Grid/List */}
+      {isLoading ? (
+        <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
+          ))}
+        </div>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {accountsWithBalance.length === 0 ? (
+            <div className="col-span-full">
+              <Card className="border-dashed border-2 border-muted-foreground/25">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="p-4 bg-muted/50 rounded-full mb-4">
+                    <Wallet className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  Nenhuma conta cadastrada
-                </div>
-              ) : accountsWithBalance.map((a) => (
-                <div key={a.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                  <h3 className="text-lg font-semibold mb-2">Nenhuma conta cadastrada</h3>
+                  <p className="text-muted-foreground">
+                    Adicione sua primeira conta para começar a gerenciar suas finanças
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            accountsWithBalance.map((a) => (
+              <Card key={a.id} className="group hover:shadow-lg transition-all duration-200" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
+                      <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ backgroundColor: a.color ?? "#e5e7eb" }}>
+                        <Wallet className="h-5 w-5 text-white" />
+                      </div>
                       <div className="flex flex-col">
-                        <span className="font-medium">{a.name}</span>
+                        <h3 className="font-semibold text-lg">{a.name}</h3>
                         <span className="text-sm text-muted-foreground">{a.type}</span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Button variant="outline" size="sm" onClick={() => onEdit(a.id)}>Editar</Button>
+                    <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onEdit(a.id)}
+                        className="h-8 w-8 p-0"
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
                       <ConfirmationDialog
                         title="Confirmar Exclusão"
                         description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
@@ -183,24 +225,37 @@ export default function Accounts() {
                         onConfirm={() => onDelete(a.id)}
                         variant="destructive"
                       >
-                        <Button variant="destructive" size="sm">Excluir</Button>
+                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </ConfirmationDialog>
                     </div>
                   </div>
-                  <div className="mt-4 text-right font-semibold">{formatCurrency(a.current_balance ?? 0)}</div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-border rounded-md bg-card/40">
-              {accountsWithBalance.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <List className="h-5 w-5" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-right">
+                    <p className="text-sm text-muted-foreground">Saldo Atual</p>
+                    <p className="text-2xl font-bold">{formatCurrency(a.current_balance ?? 0)}</p>
                   </div>
-                  Nenhuma conta cadastrada
+                </CardContent>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0 border-dashed border-2 border-muted-foreground/25 rounded-lg">
+            {accountsWithBalance.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Wallet className="h-6 w-6" />
                 </div>
-              ) : accountsWithBalance.map((a) => (
+                <h3 className="text-lg font-semibold mb-2">Nenhuma conta cadastrada</h3>
+                <p>Adicione sua primeira conta para começar</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {accountsWithBalance.map((a) => (
                 <div key={a.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
@@ -211,7 +266,14 @@ export default function Accounts() {
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="font-semibold">{formatCurrency(a.current_balance ?? 0)}</span>
-                    <Button variant="outline" onClick={() => onEdit(a.id)}>Editar</Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onEdit(a.id)}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
                     <ConfirmationDialog
                       title="Confirmar Exclusão"
                       description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
@@ -219,15 +281,18 @@ export default function Accounts() {
                       onConfirm={() => onDelete(a.id)}
                       variant="destructive"
                     >
-                      <Button variant="destructive">Excluir</Button>
+                      <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </ConfirmationDialog>
                   </div>
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

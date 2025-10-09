@@ -94,3 +94,101 @@ export function getMaxAllowedDate(): string {
   const currentYear = new Date().getFullYear();
   return `${currentYear}-12-31`;
 }
+
+/**
+ * Calcula o período de fatura de um cartão de crédito baseado na data de fechamento (statement_date)
+ * 
+ * @param statementDay - Dia do mês em que a fatura fecha (1-31)
+ * @param referenceDate - Data de referência para calcular o período (geralmente a data da transação ou data atual)
+ * @returns Objeto com startDate e endDate do período da fatura
+ * 
+ * Lógica padrão do mercado de cartões:
+ * - Se cartão fecha dia 10:
+ *   - Transações entre 11/09 e 10/10 pertencem à fatura de outubro (vence em outubro)
+ *   - Transações entre 11/10 e 10/11 pertencem à fatura de novembro (vence em novembro)
+ * 
+ * @example
+ * // Se hoje é 15/10 e o cartão fecha dia 10:
+ * // - Período: 11/10 a 10/11
+ * // - Fatura: novembro/2024
+ * 
+ * // Se hoje é 05/10 e o cartão fecha dia 10:
+ * // - Período: 11/09 a 10/10
+ * // - Fatura: outubro/2024
+ */
+export function getCardStatementPeriod(statementDay: number, referenceDate: Date): {
+  startDate: Date;
+  endDate: Date;
+  billingMonth: number; // Mês da fatura (1-12)
+  billingYear: number;  // Ano da fatura
+} {
+  // Data de fechamento do mês de referência
+  const closingDate = new Date(
+    referenceDate.getFullYear(),
+    referenceDate.getMonth(),
+    statementDay
+  );
+
+  let periodStart: Date;
+  let periodEnd: Date;
+  let billingMonth: number;
+  let billingYear: number;
+
+  // Se a data de referência é ANTES do fechamento, pertence à fatura do mês atual (que fecha neste mês)
+  if (referenceDate < closingDate) {
+    // Período do mês anterior
+    periodEnd = new Date(closingDate);
+    periodEnd.setDate(periodEnd.getDate() - 1); // Dia anterior ao fechamento
+    
+    periodStart = new Date(closingDate);
+    periodStart.setMonth(periodStart.getMonth() - 1); // Último fechamento
+    
+    // A fatura é do mês do fechamento (mês da referência)
+    billingMonth = referenceDate.getMonth() + 1;
+    billingYear = referenceDate.getFullYear();
+  } else {
+    // Período atual - se a data é igual ou depois do fechamento, pertence à próxima fatura
+    periodStart = new Date(closingDate);
+    
+    periodEnd = new Date(closingDate);
+    periodEnd.setMonth(periodEnd.getMonth() + 1); // Próximo fechamento
+    periodEnd.setDate(periodEnd.getDate() - 1); // Dia anterior ao fechamento
+    
+    // A fatura é do próximo mês
+    const nextMonth = new Date(referenceDate);
+    nextMonth.setMonth(nextMonth.getMonth() + 1);
+    billingMonth = nextMonth.getMonth() + 1;
+    billingYear = nextMonth.getFullYear();
+  }
+
+  return {
+    startDate: periodStart,
+    endDate: periodEnd,
+    billingMonth,
+    billingYear,
+  };
+}
+
+/**
+ * Verifica se uma transação de cartão pertence a um determinado mês/ano de referência
+ * 
+ * @param transactionDate - Data da transação (string YYYY-MM-DD ou Date)
+ * @param statementDay - Dia do fechamento da fatura
+ * @param referenceYear - Ano de referência
+ * @param referenceMonth - Mês de referência (1-12)
+ * @returns true se a transação pertence ao período da fatura daquele mês/ano
+ */
+export function isTransactionInBillingPeriod(
+  transactionDate: string | Date,
+  statementDay: number,
+  referenceYear: number,
+  referenceMonth: number
+): boolean {
+  const txDate = typeof transactionDate === 'string' 
+    ? new Date(transactionDate + 'T00:00:00') 
+    : transactionDate;
+  
+  const period = getCardStatementPeriod(statementDay, txDate);
+  
+  return period.billingYear === referenceYear && period.billingMonth === referenceMonth;
+}

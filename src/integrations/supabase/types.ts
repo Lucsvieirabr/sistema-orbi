@@ -185,6 +185,7 @@ export type Database = {
           frequency: string
           start_date: string
           end_date: string | null
+          logo_url: string | null
         }
         Insert: {
           id?: string
@@ -200,6 +201,7 @@ export type Database = {
           frequency?: string
           start_date?: string
           end_date?: string | null
+          logo_url?: string | null
         }
         Update: {
           id?: string
@@ -215,6 +217,7 @@ export type Database = {
           frequency?: string
           start_date?: string
           end_date?: string | null
+          logo_url?: string | null
         }
         Relationships: [
           {

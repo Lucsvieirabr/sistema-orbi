@@ -413,7 +413,28 @@ export default function MonthlyStatement() {
         setPersonId((data as any).person_id);
         setStatus((data as any).status as "PAID" | "PENDING");
 
-        if ((data as any).type === "income") {
+        // Verificar se é transação fixa (is_fixed = true)
+        const isFixedTransaction = (data as any).is_fixed === true;
+        
+        if (isFixedTransaction) {
+          // Transação fixa: pode ser income ou expense, carregar tipo e método de pagamento
+          setType("fixed");
+          setFixedType((data as any).type as "income" | "expense");
+          setAccountId((data as any).account_id);
+          setCategoryId((data as any).category_id);
+          setPaymentMethod((data as any).payment_method as "debit" | "credit");
+          setCreditCardId((data as any).credit_card_id);
+          setFromAccountId(undefined);
+          setToAccountId(undefined);
+          setInstallments(null);
+          setIsFixed(true);
+          // Carregar configurações da série se disponível
+          if ((data as any).series && (data as any).series.length > 0) {
+            const series = (data as any).series[0];
+            setFrequency(series.frequency || "monthly");
+            setEndDate(series.end_date || "");
+          }
+        } else if ((data as any).type === "income") {
           setAccountId((data as any).account_id);
           setCategoryId((data as any).category_id);
           setPaymentMethod("debit");
@@ -437,22 +458,6 @@ export default function MonthlyStatement() {
               ? (data as any).series[0]?.total_installments || null
               : (data as any).series?.total_installments || null
           );
-        } else if ((data as any).type === "fixed") {
-          setAccountId((data as any).account_id);
-          setCategoryId((data as any).category_id);
-          setPaymentMethod("debit");
-          setCreditCardId(null);
-          setFromAccountId(undefined);
-          setToAccountId(undefined);
-          setInstallments(null);
-          setIsFixed(true);
-          setFixedType((data as any).type as "income" | "expense"); // Define o tipo específico
-          // Carregar configurações da série se disponível
-          if ((data as any).series && (data as any).series.length > 0) {
-            const series = (data as any).series[0];
-            setFrequency(series.frequency || "monthly");
-            setEndDate(series.end_date || "");
-          }
         } else if ((data as any).type === "transfer") {
           // Para transferências, definir contas padrão já que os campos específicos não vêm na query
           setFromAccountId(accountsWithBalance[0]?.id);
@@ -930,10 +935,19 @@ export default function MonthlyStatement() {
 
       // Validação específica por tipo
       if (type === "fixed") {
-        if (!accountId) {
+        // Validar método de pagamento para transações fixas
+        if (paymentMethod === "debit" && !accountId) {
           toast({
             title: "Erro",
-            description: "Conta é obrigatória para transações fixas",
+            description: "Conta é obrigatória para transações fixas com débito",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (paymentMethod === "credit" && !creditCardId) {
+          toast({
+            title: "Erro",
+            description: "Cartão de crédito é obrigatório para transações fixas com crédito",
             variant: "destructive",
           });
           return;
@@ -942,6 +956,15 @@ export default function MonthlyStatement() {
           toast({
             title: "Erro",
             description: "Categoria é obrigatória para transações fixas",
+            variant: "destructive",
+          });
+          return;
+        }
+        // Validar que ganho fixo não pode ter cartão de crédito
+        if (fixedType === "income" && paymentMethod === "credit") {
+          toast({
+            title: "Erro",
+            description: "Transações fixas de ganho não podem usar cartão de crédito",
             variant: "destructive",
           });
           return;
@@ -1047,14 +1070,14 @@ export default function MonthlyStatement() {
           compensation_value: compensationValue,
         };
       } else if (type === "fixed") {
-        // Fixo (recorrente): conta + categoria obrigatórios, sempre recorrente
+        // Fixo (recorrente): conta ou cartão + categoria obrigatórios, sempre recorrente
         payload = {
           ...payload,
           type: fixedType, // Usa o tipo específico (income/expense) para transações fixas
-          account_id: accountId,
+          account_id: paymentMethod === "debit" ? accountId : null,
           category_id: categoryId,
-          payment_method: "debit",
-          credit_card_id: null,
+          payment_method: paymentMethod,
+          credit_card_id: paymentMethod === "credit" ? creditCardId : null,
           installments: null,
           is_fixed: true,
           frequency: frequency,
@@ -1457,6 +1480,48 @@ export default function MonthlyStatement() {
       // Calcular data final se fornecida
       const endDateObj = payload.endDate ? new Date(payload.endDate) : null;
 
+      // Buscar logo automaticamente se for uma assinatura
+      let logoUrl: string | null = null;
+      try {
+        // Check if category is "Assinaturas"
+        if (payload.category_id) {
+          const { data: category } = await supabase
+            .from("categories")
+            .select("name")
+            .eq("id", payload.category_id)
+            .single();
+
+          const isSubscription = category?.name?.toLowerCase().includes("assinatura");
+          
+          if (isSubscription || payload.is_fixed) {
+            // Search for company logo
+            const { data: { session } } = await supabase.auth.getSession();
+            if (session) {
+              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+              const logoResponse = await fetch(
+                `${supabaseUrl}/functions/v1/search-logo`,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    "Authorization": `Bearer ${session.access_token}`,
+                  },
+                  body: JSON.stringify({ query: payload.description }),
+                }
+              );
+              
+              if (logoResponse.ok) {
+                const logoData = await logoResponse.json();
+                logoUrl = logoData.logo_url || null;
+              }
+            }
+          }
+        }
+      } catch (logoError) {
+        // Logo search failed, but don't stop the transaction creation
+        console.warn("Failed to fetch logo:", logoError);
+      }
+
       // Criar registro na tabela series para controle inteligente
       const { error: seriesError } = await supabase.from("series").insert({
         id: seriesId,
@@ -1469,6 +1534,7 @@ export default function MonthlyStatement() {
         frequency: payload.frequency || "monthly",
         start_date: payload.date,
         end_date: payload.endDate || null,
+        logo_url: logoUrl,
       });
 
       if (seriesError) throw seriesError;
@@ -3037,23 +3103,47 @@ export default function MonthlyStatement() {
             ) : type === "fixed" ? (
               /* Fixo: Campos organizados conforme especificação */
               <div className="space-y-4">
-                {/* Primeira linha: Conta, Categoria, Valor */}
+                {/* Primeira linha: Conta ou Cartão (dependendo do método), Categoria, Valor */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-sm">Conta</Label>
-                    <SelectWithAddButton
-                      entityType="accounts"
-                      value={accountId}
-                      onValueChange={setAccountId}
-                      placeholder="Conta"
-                    >
-                      {accountsWithBalance.map((a) => (
-                        <SelectItem key={a.id} value={a.id}>
-                          {a.name}
-                        </SelectItem>
-                      ))}
-                    </SelectWithAddButton>
-                  </div>
+                  {/* Mostrar Conta apenas se método de pagamento for débito */}
+                  {paymentMethod === "debit" && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Conta</Label>
+                      <SelectWithAddButton
+                        entityType="accounts"
+                        value={accountId}
+                        onValueChange={setAccountId}
+                        placeholder="Conta"
+                      >
+                        {accountsWithBalance.map((a) => (
+                          <SelectItem key={a.id} value={a.id}>
+                            {a.name}
+                          </SelectItem>
+                        ))}
+                      </SelectWithAddButton>
+                    </div>
+                  )}
+                  {/* Mostrar Cartão apenas se método de pagamento for crédito */}
+                  {paymentMethod === "credit" && (
+                    <div className="space-y-1">
+                      <Label className="text-sm">Cartão de Crédito</Label>
+                      <SelectWithAddButton
+                        entityType="creditCards"
+                        value={creditCardId || "none"}
+                        onValueChange={(value) =>
+                          setCreditCardId(value === "none" ? null : value)
+                        }
+                        placeholder="Selecione"
+                      >
+                        <SelectItem value="none">Nenhum</SelectItem>
+                        {creditCards.map((card) => (
+                          <SelectItem key={card.id} value={card.id}>
+                            {card.name}
+                          </SelectItem>
+                        ))}
+                      </SelectWithAddButton>
+                    </div>
+                  )}
                   <div className="space-y-1">
                     <Label className="text-sm">Categoria</Label>
                     <SelectWithAddButton
@@ -3164,7 +3254,12 @@ export default function MonthlyStatement() {
                       <Button
                         type="button"
                         variant={fixedType === "income" ? "default" : "outline"}
-                        onClick={() => setFixedType("income")}
+                        onClick={() => {
+                          setFixedType("income");
+                          // Se for ganho, forçar método débito e limpar cartão
+                          setPaymentMethod("debit");
+                          setCreditCardId(null);
+                        }}
                         className={`flex items-center gap-2 flex-1 h-9 ${
                           fixedType === "income"
                             ? "border-green-500/50 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400"
@@ -3206,6 +3301,38 @@ export default function MonthlyStatement() {
                     </div>
                   </div>
                 </div>
+
+                {/* Quinta linha: Método de Pagamento (apenas para gastos fixos) */}
+                {fixedType === "expense" && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Método de Pagamento</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={paymentMethod === "debit" ? "default" : "outline"}
+                        onClick={() => {
+                          setPaymentMethod("debit");
+                          setCreditCardId(null);
+                        }}
+                        className="flex-1 h-9 text-xs"
+                      >
+                        Débito/Dinheiro
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={paymentMethod === "credit" ? "default" : "outline"}
+                        onClick={() => {
+                          setPaymentMethod("credit");
+                          setAccountId(undefined);
+                        }}
+                        className="flex-1 h-9 text-xs flex items-center gap-1"
+                      >
+                        <CreditCard className="h-3 w-3" />
+                        Cartão de Crédito
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             ) : null}
 

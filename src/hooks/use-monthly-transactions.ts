@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { isTransactionInBillingPeriod } from "@/lib/utils";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
@@ -40,8 +41,26 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");
 
+    // Buscar cartões de crédito para validar períodos de fatura
+    const { data: creditCards, error: cardsError } = await supabase
+      .from("credit_cards")
+      .select("id, statement_date")
+      .eq("user_id", user.id);
+
+    if (cardsError) throw cardsError;
+
+    // Criar um mapa de cartões para acesso rápido
+    const cardMap = new Map(
+      (creditCards || []).map(card => [card.id, card.statement_date])
+    );
+
+    // Buscar transações com uma janela maior para incluir transações de cartão
+    // que podem pertencer a este mês mesmo estando em datas diferentes
+    const searchStartDate = new Date(year, month - 2, 1).toISOString().slice(0, 10);
+    const searchEndDate = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+
     // Fetch transactions with liquidation_date
-    const { data: transactions, error: transactionsError } = await supabase
+    const { data: allTransactions, error: transactionsError } = await supabase
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
@@ -54,10 +73,35 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
         series(total_installments, is_fixed)
       `)
       .eq("user_id", user.id)
-      .gte("date", startDate)
-      .lte("date", endDate);
+      .gte("date", searchStartDate)
+      .lte("date", searchEndDate);
 
     if (transactionsError) throw transactionsError;
+
+    // Filtrar transações baseado no tipo:
+    // 1. Transações sem cartão: filtrar pela data normal (startDate - endDate)
+    // 2. Transações com cartão: filtrar pelo período de fatura
+    const transactions = (allTransactions || []).filter(transaction => {
+      if (!transaction.credit_card_id) {
+        // Transação normal (conta): filtrar pela data
+        const txDate = transaction.date;
+        return txDate >= startDate && txDate <= endDate;
+      } else {
+        // Transação de cartão: filtrar pelo período de fatura
+        const statementDay = cardMap.get(transaction.credit_card_id);
+        if (!statementDay) {
+          // Se não encontrou o cartão, incluir por segurança (não deve acontecer)
+          return true;
+        }
+        
+        return isTransactionInBillingPeriod(
+          transaction.date,
+          statementDay,
+          year,
+          month
+        );
+      }
+    });
 
     // Aplicar ordenação simplificada: liquidation_date vs created_at
     const sortedTransactions = (transactions ?? []).sort((a, b) => {

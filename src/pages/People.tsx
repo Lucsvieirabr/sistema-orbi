@@ -11,7 +11,7 @@ import { usePeople } from "@/hooks/use-people";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus, Users, Eye, Receipt } from "lucide-react";
+import { LayoutGrid, List, Plus, Users, Eye, Receipt, Edit, Trash2 } from "lucide-react";
 
 export default function People() {
   const queryClient = useQueryClient();
@@ -37,16 +37,16 @@ export default function People() {
 
   const onSubmit = async () => {
     if (!name.trim()) return;
-    const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+    toast({ title: "Salvando...", description: "Aguarde" });
     try {
       if (editingId) {
         await updatePerson(editingId, { name });
       } else {
         await createPerson({ name });
       }
-      t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
+      toast({ title: "Sucesso", description: "Pessoa salva" });
     } catch (e: any) {
-      t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+      toast({ title: "Erro", description: e.message || "Não foi possível salvar", variant: "destructive" });
     }
     setOpen(false);
     setName("");
@@ -61,12 +61,12 @@ export default function People() {
   };
 
   const onDelete = async (id: string) => {
-    const t = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
+    toast({ title: "Excluindo...", description: "Aguarde" });
     try {
       await deletePerson(id);
-      t.update({ title: "Sucesso", description: "Pessoa excluída", duration: 2000 });
+      toast({ title: "Sucesso", description: "Pessoa excluída" });
     } catch (e: any) {
-      t.update({ title: "Erro", description: e.message || "Não foi possível excluir", duration: 3000, variant: "destructive" as any });
+      toast({ title: "Erro", description: e.message || "Não foi possível excluir", variant: "destructive" });
     }
     queryClient.invalidateQueries({ queryKey: ["people"] });
   };
@@ -77,25 +77,45 @@ export default function People() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
-      <Card className="shadow-md">
-        <CardHeader className="flex items-center justify-between">
-          <CardTitle>Pessoas</CardTitle>
-          <Dialog open={open} onOpenChange={setOpen}>
-            <div className="flex items-center gap-2">
+      {/* Header Section */}
+      <Card className="shadow-lg">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Users className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-2xl">Pessoas</CardTitle>
+                <p className="text-muted-foreground mt-1">
+                  Gerencie pessoas e acompanhe transações individuais
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem value="list" aria-label="Lista" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="list"
+                  aria-label="Lista"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <List className="h-4 w-4" />
                 </ToggleGroupItem>
-                <ToggleGroupItem value="cards" aria-label="Cards" className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <ToggleGroupItem
+                  value="cards"
+                  aria-label="Cards"
+                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                >
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <DialogTrigger asChild>
-                <Button size="sm" className="h-8 w-8 p-0">
-                  <Plus className="h-4 w-4" />
-                </Button>
-              </DialogTrigger>
-            </div>
+              <Dialog open={open} onOpenChange={setOpen}>
+                <DialogTrigger asChild>
+                  <Button className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Nova Pessoa
+                  </Button>
+                </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
@@ -110,43 +130,55 @@ export default function People() {
                 <Button onClick={onSubmit}>Salvar</Button>
               </DialogFooter>
             </DialogContent>
-          </Dialog>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3" : "space-y-3"}>
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
-              <Skeleton className={view === "cards" ? "h-20 w-full" : "h-12 w-full"} />
+              </Dialog>
             </div>
-          ) : view === "cards" ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-              {people.length === 0 ? (
-                <div className="col-span-full rounded-lg border bg-card p-6 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <Users className="h-5 w-5" />
+          </div>
+        </CardHeader>
+      </Card>
+
+      {/* People Grid/List */}
+      {isLoading ? (
+        <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
+          ))}
+        </div>
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {people.length === 0 ? (
+            <div className="col-span-full">
+              <Card className="border-dashed border-2 border-muted-foreground/25">
+                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                  <div className="p-4 bg-muted/50 rounded-full mb-4">
+                    <Users className="h-8 w-8 text-muted-foreground" />
                   </div>
-                  Nenhuma pessoa cadastrada
-                </div>
-              ) : people.map((member) => (
-                <div key={member.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
-                  <div className="flex flex-col gap-3">
+                  <h3 className="text-lg font-semibold mb-2">Nenhuma pessoa cadastrada</h3>
+                  <p className="text-muted-foreground">
+                    Adicione pessoas para acompanhar transações individuais
+                  </p>
+                </CardContent>
+              </Card>
+            </div>
+          ) : (
+            people.map((member) => (
+              <Card key={member.id} className="group hover:shadow-lg transition-all duration-200">
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                        <Users className="h-4 w-4 text-primary" />
+                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                        <Users className="h-5 w-5 text-primary" />
                       </div>
-                      <span className="font-medium truncate">{member.name}</span>
+                      <h3 className="font-semibold text-lg">{member.name}</h3>
                     </div>
-                    <div className="flex items-center gap-1 ml-auto">
+                    <div className="flex items-center gap-1">
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onViewDetails(member.id)}
+                        onClick={() => onEdit(member.id, member.name)}
+                        className="h-8 w-8 p-0"
                       >
-                        <Receipt className="h-3 w-3 mr-1" />
-                        Ver Extrato
+                        <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="outline" size="sm" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
                       <ConfirmationDialog
                         title="Confirmar Exclusão"
                         description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
@@ -154,52 +186,87 @@ export default function People() {
                         onConfirm={() => onDelete(member.id)}
                         variant="destructive"
                       >
-                        <Button variant="destructive" size="sm">Excluir</Button>
+                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
                       </ConfirmationDialog>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="divide-y divide-border rounded-md bg-card/40">
-              {people.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <div className="mx-auto mb-2 h-10 w-10 rounded-full bg-muted flex items-center justify-center">
-                    <Users className="h-5 w-5" />
-                  </div>
-                  Nenhuma pessoa cadastrada
-                </div>
-              ) : people.map((member) => (
-                <div key={member.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors">
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <Users className="h-4 w-4 text-primary" />
-                    </div>
-                    <span className="font-medium">{member.name}</span>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => onViewDetails(member.id)}>
-                      <Eye className="h-3 w-3 mr-1" />
-                      Ver Detalhes
-                    </Button>
-                    <Button variant="outline" onClick={() => onEdit(member.id, member.name)}>Editar</Button>
-                    <ConfirmationDialog
-                      title="Confirmar Exclusão"
-                      description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                      confirmText="Excluir"
-                      onConfirm={() => onDelete(member.id)}
-                      variant="destructive"
-                    >
-                      <Button variant="destructive">Excluir</Button>
-                    </ConfirmationDialog>
-                  </div>
-                </div>
-              ))}
-            </div>
+                </CardHeader>
+                <CardContent>
+                  <Button
+                    variant="outline"
+                    className="w-full gap-2"
+                    onClick={() => onViewDetails(member.id)}
+                  >
+                    <Receipt className="h-4 w-4" />
+                    Ver Extrato
+                  </Button>
+                </CardContent>
+              </Card>
+            ))
           )}
-        </CardContent>
-      </Card>
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="p-0">
+            {people.length === 0 ? (
+              <div className="p-8 text-center text-muted-foreground">
+                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                  <Users className="h-6 w-6" />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Nenhuma pessoa cadastrada</h3>
+                <p>Adicione sua primeira pessoa para começar</p>
+              </div>
+            ) : (
+              <div className="divide-y divide-border">
+                {people.map((member) => (
+                  <div key={member.id} className="p-6 hover:bg-muted/30 transition-colors">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-4">
+                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                          <Users className="h-5 w-5 text-primary" />
+                        </div>
+                        <span className="font-semibold">{member.name}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onViewDetails(member.id)}
+                          className="gap-2"
+                        >
+                          <Eye className="h-4 w-4" />
+                          Ver Detalhes
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEdit(member.id, member.name)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => onDelete(member.id)}
+                          variant="destructive"
+                        >
+                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmationDialog>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

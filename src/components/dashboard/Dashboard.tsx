@@ -39,6 +39,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 import { formatDateForDisplay } from "@/lib/utils";
+import { SubscriptionChart } from "./SubscriptionChart";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -290,75 +291,83 @@ export function Dashboard({ onLogout }: DashboardProps) {
     <div className="min-h-screen bg-background">
       <main className="container mx-auto p-4 space-y-6">
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo Atual
-              </CardTitle>
-              <DollarSign className={`h-4 w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(indicators.netBalance)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Saldo líquido do mês atual
-              </p>
-            </CardContent>
-          </Card>
+        {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Side: 2x2 Summary Cards */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Saldo Atual
+                </CardTitle>
+                <DollarSign className={`h-4 w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(indicators.netBalance)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Saldo líquido do mês atual
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Ganhos do Mês
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">
-                {formatCurrency(indicators.incomeReceived)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Recebidos este mês
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Ganhos do Mês
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-success" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  {formatCurrency(indicators.incomeReceived)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recebidos este mês
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Gastos do Mês
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">
-                {formatCurrency(indicators.expensesPaid)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Pagos este mês
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Gastos do Mês
+                </CardTitle>
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">
+                  {formatCurrency(indicators.expensesPaid)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pagos este mês
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo de Dívidas
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
-                {formatCurrency(debtStats?.netBalance || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Saldo de Dívidas
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
+                  {formatCurrency(debtStats?.netBalance || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side: Subscription Chart */}
+          <div className="lg:col-span-1">
+            <SubscriptionChart />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -778,103 +787,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Credit Cards Section */}
-        <Card className="bg-gradient-card shadow-md">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                Cartões de Crédito
-              </CardTitle>
-              <Dialog open={cardDialogOpen} onOpenChange={setCardDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="h-8 w-8 p-0">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Novo Cartão</DialogTitle>
-                  </DialogHeader>
-                  <CreditCardForm
-                    onSuccess={() => {
-                      setCardDialogOpen(false);
-                      // Invalidar queries para atualizar dados
-                      queryClient.invalidateQueries({ queryKey: ["credit-cards"] });
-                    }}
-                    showFooter={true}
-                    accountSelector={
-                      <SelectWithAddButton
-                        entityType="accounts"
-                        placeholder="Selecione uma conta"
-                      >
-                        <SelectItem value="none">Nenhuma conta</SelectItem>
-                        {accountsWithBalance.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name} - {formatCurrency(account.current_balance ?? 0)}
-                          </SelectItem>
-                        ))}
-                      </SelectWithAddButton>
-                    }
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {cardsLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              </div>
-            ) : creditCards.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <CreditCard className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p>Nenhum cartão cadastrado</p>
-                  <p className="text-sm">Clique no botão + para adicionar um cartão</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {creditCards.slice(0, 6).map((card) => (
-                  <div key={card.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        <div className="flex flex-col">
-                          <span className="font-medium">{card.name}</span>
-                          {card.brand && <span className="text-sm text-muted-foreground">{card.brand}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Limite:</span>
-                        <span className="font-semibold">{formatCurrency(card.limit)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Fechamento:</span>
-                        <span>Dia {card.statement_date}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Vencimento:</span>
-                        <span>Dia {card.due_date}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {creditCards.length > 6 && (
-                  <div className="rounded-lg border bg-muted/20 p-4 flex items-center justify-center">
-                    <p className="text-sm text-muted-foreground">
-                      +{creditCards.length - 6} cartões adicionais
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
