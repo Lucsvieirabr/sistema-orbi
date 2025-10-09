@@ -81,3 +81,16 @@ export function formatBackendDate(dateString: string): string {
   const date = new Date(dateString + 'T12:00:00');
   return date.toLocaleDateString('pt-BR');
 }
+
+// Função para obter a data mínima permitida (início do ano passado)
+export function getMinAllowedDate(): string {
+  const currentYear = new Date().getFullYear();
+  const lastYear = currentYear - 1;
+  return `${lastYear}-01-01`;
+}
+
+// Função para obter a data máxima permitida (fim do ano atual)
+export function getMaxAllowedDate(): string {
+  const currentYear = new Date().getFullYear();
+  return `${currentYear}-12-31`;
+}

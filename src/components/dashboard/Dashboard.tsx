@@ -38,6 +38,7 @@ import { SelectItem } from "@/components/ui/select";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
+import { formatDateForDisplay } from "@/lib/utils";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -530,39 +531,92 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   <p>Nenhum lançamento pendente para os próximos {upcomingPeriod} dias</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {upcomingTransactions.map((transaction) => (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <div className={`w-2 h-8 rounded-full ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
-                        <div>
-                          <p className="font-medium text-foreground">{transaction.description}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{formatDate(transaction.date)}</span>
-                            {transaction.categories?.name && (
-                              <Badge variant="outline" className="text-xs">
-                                {transaction.categories.name}
-                              </Badge>
-                            )}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground">{transaction.description}</p>
                             {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                               <Badge variant="secondary" className="text-xs">
                                 {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{formatDateForDisplay(transaction.date)}</span>
+                            {transaction.categories?.name && (
+                              <>
+                                <span>•</span>
+                                <span>{transaction.categories.name}</span>
+                              </>
+                            )}
+                          </div>
                         </div>
                       </div>
-                      <div className="text-right flex flex-col items-end gap-2">
-                        <p className={`font-semibold ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                          {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
-                        </p>
-                        <StatusSelector
-                          currentStatus={transaction.status as TransactionStatus}
-                          onStatusChange={(newStatus) => handleStatusChange(transaction.id, newStatus)}
-                          disabled={updatingStatus === transaction.id}
-                          size="sm"
-                          variant="badge"
-                        />
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                            {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {transaction.status === 'PAID' ? (transaction.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente'}
+                          </p>
+                        </div>
+
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            navigate('/sistema/statement?edit=' + transaction.id);
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => deleteTransaction(transaction.id)}
+                          variant="destructive"
+                        >
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            disabled={deletingTransaction === transaction.id}
+                          >
+                            {deletingTransaction === transaction.id ? (
+                              <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </ConfirmationDialog>
+
+                        {transaction.status === 'PENDING' ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => markAsPaid(transaction.id)}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => markAsPending(transaction.id)}
+                          >
+                            <BanknoteXIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -632,6 +686,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               <>
                                 <span>•</span>
                                 <span>{transaction.categories.name}</span>
+
                               </>
                             )}
                             {transaction.people?.name && (
@@ -640,6 +695,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 <span>{transaction.people.name}</span>
                               </>
                             )}
+                             <span>•</span>
+                             <span>{formatDateForDisplay(transaction.date)}</span>
                             {isPaidExpense && (
                               <>
                                 <span>•</span>
@@ -665,6 +722,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               ? (transaction.type === 'income' ? 'Recebido' : 'Pago') + 
                                 ((transaction as any).liquidation_date ? ` em ${new Date((transaction as any).liquidation_date).toLocaleDateString('pt-BR')}` : '')
                               : 'Pendente'}
+                              
                           </div>
                         </div>
 

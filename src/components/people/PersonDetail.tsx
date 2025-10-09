@@ -19,7 +19,7 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
+import { cn, getCurrentDateString, formatDateForDisplay, getMinAllowedDate, getMaxAllowedDate } from "@/lib/utils";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -654,6 +654,8 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
+                      min={getMinAllowedDate()}
+                      max={getMaxAllowedDate()}
                       className="w-full"
                     />
                   </div>

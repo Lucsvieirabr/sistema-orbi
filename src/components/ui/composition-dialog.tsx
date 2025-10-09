@@ -13,6 +13,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { getMinAllowedDate, getMaxAllowedDate } from "@/lib/utils";
 
 export interface CompositionItem {
   value: number;
@@ -158,6 +159,8 @@ export function CompositionDialog({
                   onChange={(e) =>
                     setCurrentItem({ ...currentItem, date: e.target.value })
                   }
+                  min={getMinAllowedDate()}
+                  max={getMaxAllowedDate()}
                   className="h-8"
                 />
               </div>

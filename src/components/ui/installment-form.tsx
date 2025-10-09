@@ -12,7 +12,9 @@ import {
   roundCurrency, 
   calculateInstallmentValue, 
   redistributeInstallmentValues,
-  isValidCurrencyValue 
+  isValidCurrencyValue,
+  getMinAllowedDate,
+  getMaxAllowedDate
 } from "@/lib/utils";
 import { Plus, Trash2, Calendar, DollarSign, CheckCircle, BanknoteXIcon } from "lucide-react";
 
@@ -578,6 +580,8 @@ export function InstallmentForm({
                       type="date"
                       value={installment.date}
                       onChange={(e) => updateInstallmentDate(installment.id, e.target.value)}
+                      min={getMinAllowedDate()}
+                      max={getMaxAllowedDate()}
                       className="h-7 pl-6 text-xs"
                       disabled={disabled}
                     />
