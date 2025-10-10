@@ -10,7 +10,7 @@ INSERT INTO public.categories (user_id, name, category_type, icon, created_at) V
 -- Alimentação
 ('00000000-0000-0000-0000-000000000000', 'Alimentação', 'expense', 'utensils', NOW()),
 --Assinaturas
-('00000000-0000-0000-0000-000000000000', 'Assinaturas', 'expense', 'subscription', NOW()),
+('00000000-0000-0000-0000-000000000000', 'Assinaturas', 'expense', 'captions', NOW()),
 -- Bem Estar / Beleza
 ('00000000-0000-0000-0000-000000000000', 'Bem Estar / Beleza', 'expense', 'sparkles', NOW()),
 -- Casa

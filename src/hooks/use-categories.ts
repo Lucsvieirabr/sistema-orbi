@@ -11,10 +11,13 @@ export function useCategories() {
   const fetchCategories = async (): Promise<Category[]> => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
+    
+    // Buscar categorias globais (is_system = true) e categorias do usuário
     const { data, error } = await supabase
       .from("categories")
-      .select("id, user_id, name, category_type, icon, created_at")
-      .eq("user_id", user?.id ?? "");
+      .select("id, user_id, name, category_type, icon, created_at, is_system")
+      .or(`is_system.eq.true,user_id.eq.${user?.id ?? ""}`);
+    
     if (error) throw error;
     return data ?? [];
   };
@@ -23,21 +26,6 @@ export function useCategories() {
     queryKey: ["categories"],
     queryFn: fetchCategories,
   });
-
-  const populateInitialCategories = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
-
-    // Use the database function to create initial categories
-    const { error } = await supabase.rpc('create_initial_categories_for_user', {
-      user_id: user.id
-    });
-    
-    if (error) throw error;
-
-    // Invalidate queries to refresh the data
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
-  };
 
   useEffect(() => {
     const channel = supabase
@@ -53,21 +41,6 @@ export function useCategories() {
     };
   }, [queryClient]);
 
-  // Auto-create initial categories if user has no categories
-  useEffect(() => {
-    const autoCreateCategories = async () => {
-      if (!isLoading && data && data.length === 0) {
-        try {
-          await populateInitialCategories();
-        } catch (error) {
-          console.error("Failed to auto-create initial categories:", error);
-        }
-      }
-    };
-
-    autoCreateCategories();
-  }, [isLoading, data, populateInitialCategories]);
-
   const createCategory = async (values: Pick<TablesInsert<"categories">, "name" | "category_type" | "icon">) => {
     const { data: { user } } = await supabase.auth.getUser();
     const payload: TablesInsert<"categories"> = {
@@ -76,11 +49,23 @@ export function useCategories() {
       icon: values.icon,
       user_id: user!.id
     };
-    const { error } = await supabase.from("categories").insert(payload);
+    const { data, error } = await supabase.from("categories").insert(payload).select().single();
     if (error) throw error;
+    return data;
   };
 
   const updateCategory = async (id: string, values: Pick<TablesUpdate<"categories">, "name" | "category_type" | "icon">) => {
+    // Check if this is a system category (protected)
+    const { data: category } = await supabase
+      .from("categories")
+      .select("is_system")
+      .eq("id", id)
+      .single();
+    
+    if (category?.is_system) {
+      throw new Error("Categorias do sistema não podem ser editadas.");
+    }
+    
     const { error } = await supabase
       .from("categories")
       .update({
@@ -93,6 +78,17 @@ export function useCategories() {
   };
 
   const deleteCategory = async (id: string) => {
+    // Check if this is a system category (protected)
+    const { data: category } = await supabase
+      .from("categories")
+      .select("name, is_system")
+      .eq("id", id)
+      .single();
+    
+    if (category?.is_system) {
+      throw new Error("Categorias do sistema não podem ser excluídas.");
+    }
+    
     const { error } = await supabase.from("categories").delete().eq("id", id);
     if (error) throw error;
   };
@@ -104,7 +100,6 @@ export function useCategories() {
     createCategory,
     updateCategory,
     deleteCategory,
-    populateInitialCategories,
   };
 }
 

@@ -30,7 +30,7 @@ export interface SelectWithAddButtonProps {
 }
 
 const EntityForms = {
-  accounts: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  accounts: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const [type, setType] = React.useState("Corrente");
     const [initialBalance, setInitialBalance] = React.useState(0);
@@ -42,16 +42,16 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createAccount({ name, type, initial_balance: initialBalance, color });
+        const newAccount = await createAccount({ name, type, initial_balance: initialBalance, color });
         t.update({ title: "Sucesso", description: "Conta salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setType("Corrente");
         setInitialBalance(0);
         setColor("#4f46e5");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["accounts"] });
         queryClient.invalidateQueries({ queryKey: ["balances"] });
+        onSuccess(newAccount.id);
       } catch (e) {
         t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -103,7 +103,7 @@ const EntityForms = {
     );
   },
 
-  categories: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  categories: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const [categoryType, setCategoryType] = React.useState<"income" | "expense">("expense");
     const [icon, setIcon] = React.useState("");
@@ -114,14 +114,14 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createCategory({ name, category_type: categoryType, icon });
+        const newCategory = await createCategory({ name, category_type: categoryType, icon });
         t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setCategoryType("expense");
         setIcon("");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["categories"] });
+        onSuccess(newCategory.id);
       } catch (e) {
         t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -166,7 +166,7 @@ const EntityForms = {
     );
   },
 
-  creditCards: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  creditCards: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const { accountsWithBalance } = useAccounts();
 
     const formatCurrency = (amount: number) =>
@@ -194,9 +194,9 @@ const EntityForms = {
           <DialogTitle>Novo Cartão</DialogTitle>
         </DialogHeader>
         <CreditCardForm
-          onSuccess={() => {
+          onSuccess={(id) => {
             onOpenChange(false);
-            onSuccess();
+            onSuccess(id);
           }}
           showFooter={true}
           accountSelector={accountSelector}
@@ -205,7 +205,7 @@ const EntityForms = {
     );
   },
 
-  people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const { createPerson } = usePeople();
     const queryClient = useQueryClient();
@@ -214,12 +214,12 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createPerson({ name });
+        const newPerson = await createPerson({ name });
         t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
         onOpenChange(false);
         setName("");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["people"] });
+        onSuccess(newPerson.id);
       } catch (e: any) {
         t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -258,8 +258,12 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const [searchTerm, setSearchTerm] = React.useState("");
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
-  const onSuccess = () => {
+  const onSuccess = (id: string) => {
     setRefreshTrigger(prev => prev + 1);
+    // Selecionar automaticamente a entidade recém-criada
+    if (onValueChange) {
+      onValueChange(id);
+    }
   };
 
   // Adiciona event listeners para scroll

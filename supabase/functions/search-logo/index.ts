@@ -101,8 +101,8 @@ serve(async (req) => {
     }
 
     // Construct the CDN logo URL with token for rendering
-    // Formatos aceitos: jpg (padrão), png, webp
-    const logoUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN_IMAGES}&format=png&size=60`
+    // Note: When using token, don't add format/size parameters
+    const logoUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN_IMAGES}`
 
     const response: LogoSearchResponse = {
       domain,

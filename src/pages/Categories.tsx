@@ -72,9 +72,17 @@ export default function Categories() {
   };
 
   const onDelete = async (id: string) => {
-    // Replace with a custom confirmation dialog in real app
-    await deleteCategory(id);
-    queryClient.invalidateQueries({ queryKey: ["categories"] });
+    try {
+      await deleteCategory(id);
+      toast({ title: "Sucesso", description: "Categoria excluída" });
+      queryClient.invalidateQueries({ queryKey: ["categories"] });
+    } catch (error: any) {
+      toast({ 
+        title: "Erro", 
+        description: error?.message || "Não foi possível excluir a categoria", 
+        variant: "destructive" 
+      });
+    }
   };
 
 
@@ -197,27 +205,36 @@ export default function Categories() {
                       <h3 className="font-semibold text-sm truncate" title={c.name}>
                         {c.name}
                       </h3>
+                      {c.is_system && (
+                        <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                          Sistema
+                        </span>
+                      )}
                     </div>
                     <div className="flex items-center gap-1 flex-shrink-0">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                        confirmText="Excluir"
-                        onConfirm={() => onDelete(c.id)}
-                        variant="destructive"
-                      >
-                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </ConfirmationDialog>
+                      {!c.is_system && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(c.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </>
+                      )}
                     </div>
                   </div>
                 </CardHeader>
@@ -246,28 +263,39 @@ export default function Categories() {
                           <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
                         </div>
                       )}
-                      <span className="font-semibold">{c.name}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-semibold">{c.name}</span>
+                        {c.is_system && (
+                          <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                            Sistema
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                        confirmText="Excluir"
-                        onConfirm={() => onDelete(c.id)}
-                        variant="destructive"
-                      >
-                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </ConfirmationDialog>
+                      {!c.is_system && (
+                        <>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(c.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </>
+                      )}
                     </div>
                   </div>
                 ))}

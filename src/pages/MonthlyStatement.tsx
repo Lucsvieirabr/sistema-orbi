@@ -80,6 +80,7 @@ import {
   Clock10Icon,
   BanknoteArrowDown,
   Info,
+  Loader2,
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -92,6 +93,7 @@ export default function MonthlyStatement() {
   >("all");
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Form state
   const [type, setType] = useState<"income" | "expense" | "transfer" | "fixed">(
@@ -908,6 +910,7 @@ export default function MonthlyStatement() {
   };
 
   const onSubmit = async () => {
+    setIsSubmitting(true);
     const toastInstance = toast({
       title: "Salvando...",
       description: "Aguarde",
@@ -921,6 +924,7 @@ export default function MonthlyStatement() {
           description: "Descrição é obrigatória",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -930,6 +934,7 @@ export default function MonthlyStatement() {
           description: "Valor deve ser maior que zero",
           variant: "destructive",
         });
+        setIsSubmitting(false);
         return;
       }
 
@@ -1181,13 +1186,15 @@ export default function MonthlyStatement() {
         duration: 3000,
         variant: "destructive" as any,
       });
+    } finally {
+      setIsSubmitting(false);
+      setOpen(false);
+      resetForm();
+      queryClient.invalidateQueries({
+        queryKey: ["monthly-transactions", year, month],
+      });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
     }
-    setOpen(false);
-    resetForm();
-    queryClient.invalidateQueries({
-      queryKey: ["monthly-transactions", year, month],
-    });
-    queryClient.invalidateQueries({ queryKey: ["balances"] });
   };
 
   const updateTransaction = async (transactionId: string, newData: any) => {
@@ -1480,7 +1487,7 @@ export default function MonthlyStatement() {
       // Calcular data final se fornecida
       const endDateObj = payload.endDate ? new Date(payload.endDate) : null;
 
-      // Buscar logo automaticamente se for uma assinatura
+      // Buscar logo automaticamente se for uma assinatura (com cache local)
       let logoUrl: string | null = null;
       try {
         // Check if category is "Assinaturas"
@@ -1493,26 +1500,30 @@ export default function MonthlyStatement() {
 
           const isSubscription = category?.name?.toLowerCase().includes("assinatura");
           
-          if (isSubscription || payload.is_fixed) {
-            // Search for company logo
+          if (isSubscription) {
+            // Search for company logo (with local caching)
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
               const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
               const logoResponse = await fetch(
-                `${supabaseUrl}/functions/v1/search-logo`,
+                `${supabaseUrl}/functions/v1/get-company-logo`,
                 {
                   method: "POST",
                   headers: {
                     "Content-Type": "application/json",
                     "Authorization": `Bearer ${session.access_token}`,
                   },
-                  body: JSON.stringify({ query: payload.description }),
+                  body: JSON.stringify({ 
+                    companyName: payload.description.toLowerCase().trim() 
+                  }),
                 }
               );
               
               if (logoResponse.ok) {
                 const logoData = await logoResponse.json();
                 logoUrl = logoData.logo_url || null;
+                // logoData.source indica se veio do 'storage' ou 'api'
+                console.log(`Logo obtained from: ${logoData.source}`);
               }
             }
           }
@@ -2100,10 +2111,10 @@ export default function MonthlyStatement() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Buscar a série atual da transação
+      // Buscar a série atual da transação e verificar se é fixa
       const { data: currentTransaction, error: fetchError } = await supabase
         .from("transactions")
-        .select("series_id")
+        .select("series_id, is_fixed, date")
         .eq("id", editingId)
         .eq("user_id", user.id)
         .single();
@@ -2112,20 +2123,66 @@ export default function MonthlyStatement() {
       if (!currentTransaction?.series_id)
         throw new Error("Transação não faz parte de uma série");
 
-      // Excluir todas as transações da série
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("series_id", currentTransaction.series_id)
-        .eq("user_id", user.id);
+      // Se for transação fixa, remover series_id das transações passadas para mantê-las como histórico
+      if (currentTransaction.is_fixed) {
+        const currentDate = new Date(currentTransaction.date);
+        
+        // Atualizar transações passadas para remover series_id (torná-las independentes)
+        await supabase
+          .from("transactions")
+          .update({ series_id: null })
+          .eq("series_id", currentTransaction.series_id)
+          .eq("user_id", user.id)
+          .lt("date", currentDate.toISOString().slice(0, 10));
 
-      if (error) throw error;
+        // Excluir transações atuais e futuras (incluindo a data atual)
+        const { error: deleteError } = await supabase
+          .from("transactions")
+          .delete()
+          .eq("series_id", currentTransaction.series_id)
+          .eq("user_id", user.id)
+          .gte("date", currentDate.toISOString().slice(0, 10));
 
-      toast({
-        title: "Sucesso",
-        description: "Série de transações excluída",
-        duration: 2000,
-      });
+        if (deleteError) throw deleteError;
+
+        // Excluir a série
+        const { error: seriesError } = await supabase
+          .from("series")
+          .delete()
+          .eq("id", currentTransaction.series_id)
+          .eq("user_id", user.id);
+
+        if (seriesError) throw seriesError;
+
+        toast({
+          title: "Sucesso",
+          description: "Transação fixa excluída. Histórico mantido.",
+          duration: 2000,
+        });
+      } else {
+        // Para séries normais (parcelas), excluir todas as transações
+        const { error } = await supabase
+          .from("transactions")
+          .delete()
+          .eq("series_id", currentTransaction.series_id)
+          .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        // Excluir a série
+        await supabase
+          .from("series")
+          .delete()
+          .eq("id", currentTransaction.series_id)
+          .eq("user_id", user.id);
+
+        toast({
+          title: "Sucesso",
+          description: "Série de transações excluída",
+          duration: 2000,
+        });
+      }
+
       setOpen(false);
       resetForm();
       refetch();
@@ -2182,6 +2239,37 @@ export default function MonthlyStatement() {
     }
     return "N/A";
   };
+
+  // Loading screen while fetching data
+  if (isLoading) {
+    return (
+      <div className="container mx-auto p-4 space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <Skeleton className="h-10 w-64" />
+              <Skeleton className="h-10 w-40" />
+            </div>
+          </CardHeader>
+        </Card>
+        <div className="grid gap-4 md:grid-cols-3">
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+          <Skeleton className="h-32" />
+        </div>
+        <Card>
+          <CardHeader>
+            <Skeleton className="h-8 w-48" />
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-20" />
+            ))}
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -3103,7 +3191,39 @@ export default function MonthlyStatement() {
             ) : type === "fixed" ? (
               /* Fixo: Campos organizados conforme especificação */
               <div className="space-y-4">
-                {/* Primeira linha: Conta ou Cartão (dependendo do método), Categoria, Valor */}
+
+                {/* Primeira linha: Método de Pagamento (apenas para gastos fixos) */}
+                {fixedType === "expense" && (
+                  <div className="space-y-1">
+                    <Label className="text-sm">Método de Pagamento</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        variant={paymentMethod === "debit" ? "default" : "outline"}
+                        onClick={() => {
+                          setPaymentMethod("debit");
+                          setCreditCardId(null);
+                        }}
+                        className="flex-1 h-9 text-xs"
+                      >
+                        Débito/Dinheiro
+                      </Button>
+                      <Button
+                        type="button"
+                        variant={paymentMethod === "credit" ? "default" : "outline"}
+                        onClick={() => {
+                          setPaymentMethod("credit");
+                          setAccountId(undefined);
+                        }}
+                        className="flex-1 h-9 text-xs flex items-center gap-1"
+                      >
+                        <CreditCard className="h-3 w-3" />
+                        Cartão de Crédito
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                {/* Segunda linha: Conta ou Cartão (dependendo do método), Categoria, Valor */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   {/* Mostrar Conta apenas se método de pagamento for débito */}
                   {paymentMethod === "debit" && (
@@ -3171,7 +3291,7 @@ export default function MonthlyStatement() {
                   </div>
                 </div>
 
-                {/* Segunda linha: Descrição, Pessoa, Frequência */}
+                {/* Terceira linha: Descrição, Pessoa, Frequência */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <Label className="text-sm">Descrição</Label>
@@ -3220,7 +3340,7 @@ export default function MonthlyStatement() {
                   </div>
                 </div>
 
-                {/* Terceira linha: Data, Data Final */}
+                {/* Quarta linha: Data, Data Final */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-sm">Data</Label>
@@ -3245,7 +3365,7 @@ export default function MonthlyStatement() {
                   </div>
                 </div>
 
-                {/* Quarta linha: Tipo de Transação e Configurações */}
+                {/* Quinta linha: Tipo de Transação e Configurações */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   {/* Toggle para tipo de transação fixa (ganho/gasto) */}
                   <div className="space-y-3">
@@ -3301,38 +3421,6 @@ export default function MonthlyStatement() {
                     </div>
                   </div>
                 </div>
-
-                {/* Quinta linha: Método de Pagamento (apenas para gastos fixos) */}
-                {fixedType === "expense" && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">Método de Pagamento</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "debit" ? "default" : "outline"}
-                        onClick={() => {
-                          setPaymentMethod("debit");
-                          setCreditCardId(null);
-                        }}
-                        className="flex-1 h-9 text-xs"
-                      >
-                        Débito/Dinheiro
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "credit" ? "default" : "outline"}
-                        onClick={() => {
-                          setPaymentMethod("credit");
-                          setAccountId(undefined);
-                        }}
-                        className="flex-1 h-9 text-xs flex items-center gap-1"
-                      >
-                        <CreditCard className="h-3 w-3" />
-                        Cartão de Crédito
-                      </Button>
-                    </div>
-                  </div>
-                )}
               </div>
             ) : null}
 
@@ -3858,7 +3946,16 @@ export default function MonthlyStatement() {
                 </Button>
               </ConfirmationDialog>
             )}
-            <Button onClick={onSubmit}>Salvar</Button>
+            <Button onClick={onSubmit} disabled={isSubmitting}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Salvando...
+                </>
+              ) : (
+                "Salvar"
+              )}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -49,8 +49,9 @@ export function useCreditCards() {
       connected_account_id: values.connected_account_id,
       user_id: user!.id 
     };
-    const { error } = await supabase.from("credit_cards").insert(payload);
+    const { data, error } = await supabase.from("credit_cards").insert(payload).select().single();
     if (error) throw error;
+    return data;
   };
 
   const updateCreditCard = async (id: string, values: Pick<TablesUpdate<"credit_cards">, "name" | "brand" | "limit" | "statement_date" | "due_date" | "connected_account_id">) => {

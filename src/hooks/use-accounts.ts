@@ -76,8 +76,9 @@ export function useAccounts() {
   const createAccount = async (values: Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
     const { data: { user } } = await supabase.auth.getUser();
     const payload: TablesInsert<"accounts"> = { ...values, user_id: user!.id };
-    const { error } = await supabase.from("accounts").insert(payload);
+    const { data, error } = await supabase.from("accounts").insert(payload).select().single();
     if (error) throw error;
+    return data;
   };
 
   const updateAccount = async (id: string, values: Pick<TablesUpdate<"accounts">, "name" | "type" | "initial_balance" | "color">) => {

@@ -41,8 +41,9 @@ export function usePeople() {
   const createPerson = async (values: Pick<TablesInsert<"people">, "name">) => {
     const { data: { user } } = await supabase.auth.getUser();
     const payload: TablesInsert<"people"> = { name: values.name, user_id: user!.id };
-    const { error } = await supabase.from("people").insert(payload);
+    const { data, error } = await supabase.from("people").insert(payload).select().single();
     if (error) throw error;
+    return data;
   };
 
   const updatePerson = async (id: string, values: Pick<TablesUpdate<"people">, "name">) => {
