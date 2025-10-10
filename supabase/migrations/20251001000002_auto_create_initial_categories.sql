@@ -17,7 +17,7 @@ BEGIN
   -- Alimentação
   (user_id, 'Alimentação', 'expense', 'utensils', NOW()),
   --Assinaturas
-  (user_id, 'Assinaturas', 'expense', 'subscription', NOW()),
+  (user_id, 'Assinaturas', 'expense', 'captions', NOW()),
   -- Bem Estar / Beleza
   (user_id, 'Bem Estar / Beleza', 'expense', 'sparkles', NOW()),
   -- Casa

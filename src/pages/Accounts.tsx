@@ -244,7 +244,7 @@ export default function Accounts() {
         </div>
       ) : (
         <Card>
-          <CardContent className="p-0 border-dashed border-2 border-muted-foreground/25 rounded-lg">
+          <CardContent className="p-0 rounded-lg">
             {accountsWithBalance.length === 0 ? (
               <div className="p-8 text-center text-muted-foreground">
                 <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
@@ -256,7 +256,7 @@ export default function Accounts() {
             ) : (
               <div className="divide-y divide-border">
                 {accountsWithBalance.map((a) => (
-                <div key={a.id} className="flex items-center justify-between p-4 hover:bg-muted/40 transition-colors" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                <div key={a.id} className="flex items-center rounded-lg justify-between p-4 hover:bg-muted/40 transition-colors" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
                   <div className="flex items-center gap-3">
                     <div className="h-8 w-8 rounded-full" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
                     <div className="flex flex-col">

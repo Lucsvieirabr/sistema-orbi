@@ -16,33 +16,31 @@ export function useSubscriptions() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Find the "Assinaturas" category
+      // Find the "Assinaturas" category (global or user-specific)
       const { data: categories } = await supabase
         .from("categories")
         .select("*")
-        .eq("user_id", user.id)
+        .or(`user_id.eq.${user.id},user_id.is.null`)
         .ilike("name", "%assinatura%")
         .limit(1);
 
       const subscriptionCategoryId = categories?.[0]?.id;
 
-      // Build query - get series that are fixed (recurring) OR in subscription category
-      let query = supabase
+      // Only get series from "Assinaturas" category
+      if (!subscriptionCategoryId) {
+        // If no subscription category exists, return empty array
+        return [];
+      }
+
+      const { data, error } = await supabase
         .from("series")
         .select(`
           *,
           categories (*)
         `)
-        .eq("user_id", user.id);
-
-      // Filter by is_fixed = true OR category_id = subscriptionCategoryId
-      if (subscriptionCategoryId) {
-        query = query.or(`is_fixed.eq.true,category_id.eq.${subscriptionCategoryId}`);
-      } else {
-        query = query.eq("is_fixed", true);
-      }
-
-      const { data, error } = await query.order("description", { ascending: true });
+        .eq("user_id", user.id)
+        .eq("category_id", subscriptionCategoryId)
+        .order("description", { ascending: true });
 
       if (error) throw error;
 
@@ -64,26 +62,32 @@ export async function searchCompanyLogo(companyName: string): Promise<LogoSearch
     throw new Error("User not authenticated");
   }
 
-  // Call the Edge Function
+  // Call the new Edge Function that handles caching
   const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
   const response = await fetch(
-    `${supabaseUrl}/functions/v1/search-logo`,
+    `${supabaseUrl}/functions/v1/get-company-logo`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
         "Authorization": `Bearer ${session.access_token}`,
       },
-      body: JSON.stringify({ query: companyName }),
+      body: JSON.stringify({ companyName: companyName.toLowerCase().trim() }),
     }
   );
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(error.error || "Failed to search logo");
+    throw new Error(error.error || "Failed to get logo");
   }
 
-  return await response.json();
+  const data = await response.json();
+  
+  // Return in the expected format
+  return {
+    logo_url: data.logo_url,
+    domain: undefined // Not needed anymore
+  };
 }
 
 export async function updateSeriesLogo(seriesId: string, logoUrl: string) {

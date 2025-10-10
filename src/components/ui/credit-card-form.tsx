@@ -19,7 +19,7 @@ interface CreditCardFormProps {
     dueDate: number;
     connectedAccountId: string;
   };
-  onSuccess?: () => void;
+  onSuccess?: (id?: string) => void;
   onCancel?: () => void;
   showFooter?: boolean;
   accountSelector?: React.ReactNode;
@@ -100,10 +100,12 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
 
     const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
     try {
+      let createdId: string | undefined;
       if (editingId) {
         await updateCreditCard(editingId, payload);
       } else {
-        await createCreditCard(payload);
+        const newCard = await createCreditCard(payload);
+        createdId = newCard.id;
       }
       t.update({ title: "Sucesso", description: "Cartão salvo", duration: 2000 });
       
@@ -116,7 +118,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       setConnectedAccountId("none");
       
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-      onSuccess?.();
+      onSuccess?.(createdId);
     } catch (e: any) {
       t.update({
         title: "Erro",

@@ -23,7 +23,8 @@ import {
   BanknoteXIcon,
   CheckCircle,
   Edit,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
@@ -40,6 +41,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 import { formatDateForDisplay } from "@/lib/utils";
 import { SubscriptionChart } from "./SubscriptionChart";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -286,6 +288,46 @@ export function Dashboard({ onLogout }: DashboardProps) {
       setDeletingTransaction(null);
     }
   };
+
+  // Loading screen while fetching initial data
+  if (transactionsLoading && transactions.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto p-4 space-y-6">
+          {/* Loading Statistics Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </div>
+            <div className="lg:col-span-1">
+              <Skeleton className="h-64" />
+            </div>
+          </div>
+
+          {/* Loading Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Skeleton className="h-96" />
+            <Skeleton className="h-96" />
+          </div>
+
+          {/* Loading Recent Transactions */}
+          <Card className="bg-gradient-card shadow-md">
+            <CardHeader>
+              <Skeleton className="h-8 w-48" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-20" />
+              ))}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">

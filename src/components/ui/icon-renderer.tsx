@@ -126,6 +126,7 @@ import {
   Percent,
   PlusCircle,
   MoreHorizontal,
+  Captions,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -255,6 +256,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   percent: Percent,
   "plus-circle": PlusCircle,
   "more-horizontal": MoreHorizontal,
+  captions: Captions,
 };
 
 interface IconRendererProps {
