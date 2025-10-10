@@ -16,13 +16,15 @@ interface PersonTransactionsData {
     totalAReceber: number;
     totalAPagar: number;
     saldoLiquido: number;
+    totalRecebido: number;
+    totalPago: number;
   };
   isLoading: boolean;
   error: any;
   refetch: () => void;
 }
 
-export function usePersonTransactions(personId: string): PersonTransactionsData {
+export function usePersonTransactions(personId: string, month?: number, year?: number): PersonTransactionsData {
   const queryClient = useQueryClient();
 
   const fetchPersonTransactions = async (): Promise<Transaction[]> => {
@@ -35,13 +37,13 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
-        installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
-        linked_txn_id,
+        account_id, credit_card_id, category_id, person_id, series_id, status, created_at, compensation_value,
+        linked_txn_id, installment_number, composition_details,
         accounts(name),
         categories(name),
         credit_cards(name),
-        people(name)
+        people(name),
+        series(total_installments, is_fixed)
       `)
       .eq("user_id", user.id)
       .eq("person_id", personId)
@@ -53,7 +55,7 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
   };
 
   const query = useQuery({
-    queryKey: ["person-transactions", personId],
+    queryKey: ["person-transactions", personId, month, year],
     queryFn: fetchPersonTransactions,
     enabled: !!personId,
     staleTime: 0, // Sempre considerar dados como desatualizados
@@ -61,9 +63,17 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
     refetchOnWindowFocus: true, // Atualizar quando a janela receber foco
   });
 
-  // Calculate indicators based on transactions
+  // Calculate indicators based on transactions with period filter
   const indicators = useMemo(() => {
-    const transactions = query.data ?? [];
+    let transactions = query.data ?? [];
+
+    // Apply period filter if month and year are provided
+    if (month !== undefined && year !== undefined) {
+      transactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate.getMonth() === month && transactionDate.getFullYear() === year;
+      });
+    }
 
     const totalAReceber = transactions
       .filter(t => t.type === 'income' && t.status === 'PENDING')
@@ -73,17 +83,41 @@ export function usePersonTransactions(personId: string): PersonTransactionsData 
       .filter(t => t.type === 'expense' && t.status === 'PENDING')
       .reduce((sum, t) => sum + t.value, 0);
 
+    const totalRecebido = transactions
+      .filter(t => t.type === 'income' && t.status === 'PAID')
+      .reduce((sum, t) => sum + t.value, 0);
+
+    const totalPago = transactions
+      .filter(t => t.type === 'expense' && t.status === 'PAID')
+      .reduce((sum, t) => sum + t.value, 0);
+
     const saldoLiquido = totalAReceber - totalAPagar;
 
     return {
       totalAReceber,
       totalAPagar,
       saldoLiquido,
+      totalRecebido,
+      totalPago,
     };
-  }, [query.data]);
+  }, [query.data, month, year]);
+
+  // Filter transactions for display based on period
+  const filteredTransactions = useMemo(() => {
+    let transactions = query.data ?? [];
+
+    if (month !== undefined && year !== undefined) {
+      transactions = transactions.filter(t => {
+        const transactionDate = new Date(t.date);
+        return transactionDate.getMonth() === month && transactionDate.getFullYear() === year;
+      });
+    }
+
+    return transactions;
+  }, [query.data, month, year]);
 
   return {
-    transactions: query.data ?? [],
+    transactions: filteredTransactions,
     indicators,
     isLoading: query.isLoading,
     error: query.error,

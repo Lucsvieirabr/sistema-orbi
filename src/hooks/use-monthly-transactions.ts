@@ -2,12 +2,16 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { isTransactionInBillingPeriod } from "@/lib/utils";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
   categories?: { name: string };
   credit_cards?: { name: string };
   people?: { name: string };
+  series?: { total_installments: number; is_fixed: boolean } | { total_installments: number; is_fixed: boolean }[];
+  installmentNumber?: number | null;
+  totalInstallments?: number | null;
 };
 
 interface MonthlyTransactionsData {
@@ -37,24 +41,67 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");
 
+    // Buscar cartões de crédito para validar períodos de fatura
+    const { data: creditCards, error: cardsError } = await supabase
+      .from("credit_cards")
+      .select("id, statement_date")
+      .eq("user_id", user.id);
+
+    if (cardsError) throw cardsError;
+
+    // Criar um mapa de cartões para acesso rápido
+    const cardMap = new Map(
+      (creditCards || []).map(card => [card.id, card.statement_date])
+    );
+
+    // Buscar transações com uma janela maior para incluir transações de cartão
+    // que podem pertencer a este mês mesmo estando em datas diferentes
+    const searchStartDate = new Date(year, month - 2, 1).toISOString().slice(0, 10);
+    const searchEndDate = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+
     // Fetch transactions with liquidation_date
-    const { data: transactions, error: transactionsError } = await supabase
+    const { data: allTransactions, error: transactionsError } = await supabase
       .from("transactions")
       .select(`
         id, user_id, description, value, date, type, payment_method,
-        installments, installment_number, is_fixed, account_id,
-        credit_card_id, category_id, person_id, series_id, status, created_at, 
-        updated_at, liquidation_date, compensation_value,
+        account_id, credit_card_id, category_id, person_id, series_id, status, created_at, 
+        updated_at, liquidation_date, compensation_value, installment_number, is_fixed, composition_details,
         accounts(name),
         categories(name),
         credit_cards(name),
-        people(name)
+        people(name),
+        series(total_installments, is_fixed)
       `)
       .eq("user_id", user.id)
-      .gte("date", startDate)
-      .lte("date", endDate);
+      .gte("date", searchStartDate)
+      .lte("date", searchEndDate);
 
     if (transactionsError) throw transactionsError;
+
+    // Filtrar transações baseado no tipo:
+    // 1. Transações sem cartão: filtrar pela data normal (startDate - endDate)
+    // 2. Transações com cartão: filtrar pelo período de fatura
+    const transactions = (allTransactions || []).filter(transaction => {
+      if (!transaction.credit_card_id) {
+        // Transação normal (conta): filtrar pela data
+        const txDate = transaction.date;
+        return txDate >= startDate && txDate <= endDate;
+      } else {
+        // Transação de cartão: filtrar pelo período de fatura
+        const statementDay = cardMap.get(transaction.credit_card_id);
+        if (!statementDay) {
+          // Se não encontrou o cartão, incluir por segurança (não deve acontecer)
+          return true;
+        }
+        
+        return isTransactionInBillingPeriod(
+          transaction.date,
+          statementDay,
+          year,
+          month
+        );
+      }
+    });
 
     // Aplicar ordenação simplificada: liquidation_date vs created_at
     const sortedTransactions = (transactions ?? []).sort((a, b) => {
@@ -73,7 +120,28 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
       return new Date(bEffectiveDate).getTime() - new Date(aEffectiveDate).getTime();
     });
 
-    return sortedTransactions;
+    // Usar installment_number do backend em vez de calcular
+    const transactionsWithInstallmentNumber = sortedTransactions.map(transaction => {
+      if (transaction.series_id) {
+        const totalInstallments = Array.isArray(transaction.series) 
+          ? transaction.series[0]?.total_installments 
+          : transaction.series?.total_installments;
+        
+        return {
+          ...transaction,
+          installmentNumber: transaction.installment_number,
+          totalInstallments: totalInstallments || 0
+        };
+      }
+      
+      return {
+        ...transaction,
+        installmentNumber: null,
+        totalInstallments: null
+      };
+    });
+
+    return transactionsWithInstallmentNumber;
   };
 
   const query = useQuery({
@@ -107,8 +175,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   const indicators = useMemo((): MonthlyIndicators => {
     const transactions = query.data ?? [];
 
-    console.log('=== DEBUG INDICADORES ===');
-    console.log('Total de transações:', transactions.length);
 
     // Ganhos recebidos: apenas transações de income com status PAID que NÃO são reembolsos
     // Reembolsos são identificados pela descrição que contém "Parte" ou "A receber"
@@ -118,14 +184,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
                    !t.description.includes('A receber'))
       .reduce((sum, t) => sum + t.value, 0);
 
-    // Debug: mostrar detalhes das transações de income
-    const allIncomeTransactions = transactions.filter(t => t.type === 'income' && t.status === 'PAID');
-    console.log('Todas as transações de income PAID:', allIncomeTransactions.length);
-    allIncomeTransactions.forEach(t => {
-      console.log(`- ${t.description}: linked_txn_id = ${t.linked_txn_id}, value = ${t.value}`);
-    });
-    
-    console.log('Ganhos recebidos (income PAID sem linked_txn_id):', incomeReceived);
 
     // Gastos pagos: transações de expense com status PAID, usando valor líquido (valor - compensação)
     const expensesPaid = transactions
@@ -135,11 +193,9 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
         const netValue = (t.compensation_value && t.compensation_value > 0) 
           ? (t.value - t.compensation_value) 
           : t.value;
-        console.log(`Gasto: ${t.description}, Valor bruto: ${t.value}, Compensação: ${t.compensation_value || 0}, Valor líquido: ${netValue}`);
         return sum + netValue;
       }, 0);
 
-    console.log('Gastos pagos (expense PAID - líquido):', expensesPaid);
 
     // Contas a receber: transações de income com status PENDING
     const incomePending = transactions
@@ -160,8 +216,6 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     // Saldo líquido: ganhos recebidos - gastos pagos (líquidos)
     const netBalance = incomeReceived - expensesPaid;
 
-    console.log('Saldo líquido calculado:', netBalance);
-    console.log('========================');
 
     return {
       incomeReceived,
@@ -207,18 +261,3 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   };
 }
 
-// Hook para manutenção automática de transações fixas
-export function useTransactionMaintenance() {
-  const maintainFixedTransactions = async () => {
-    try {
-      const { data, error } = await supabase.rpc('maintain_fixed_transaction_series');
-      if (error) throw error;
-      return data;
-    } catch (error) {
-      console.error('Erro na manutenção de transações fixas:', error);
-      throw error;
-    }
-  };
-
-  return { maintainFixedTransactions };
-}

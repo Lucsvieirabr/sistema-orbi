@@ -13,6 +13,7 @@ import Categories from "@/pages/Categories";
 import Accounts from "@/pages/Accounts";
 import MonthlyStatement from "@/pages/MonthlyStatement";
 import Cards from "@/pages/Cards";
+import CardStatements from "@/pages/CardStatements";
 import People from "@/pages/People";
 import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
@@ -74,6 +75,7 @@ const App = () => {
                 <Route path="categories" element={<Categories />} />
                 <Route path="accounts" element={<Accounts />} />
                 <Route path="cards" element={<Cards />} />
+                <Route path="cards/:cardId/statements" element={<CardStatements />} />
                 <Route path="people" element={<People />} />
                 <Route path="people/:personId" element={<PersonDetail />} />
                 <Route path="settings" element={<Settings />} />

@@ -170,6 +170,72 @@ export type Database = {
         }
         Relationships: []
       }
+      series: {
+        Row: {
+          id: string
+          user_id: string
+          description: string
+          total_value: number
+          total_installments: number
+          is_fixed: boolean
+          category_id: string | null
+          created_by_txn_id: string | null
+          created_at: string | null
+          updated_at: string | null
+          frequency: string
+          start_date: string
+          end_date: string | null
+          logo_url: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          description: string
+          total_value: number
+          total_installments: number
+          is_fixed?: boolean
+          category_id?: string | null
+          created_by_txn_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          frequency?: string
+          start_date?: string
+          end_date?: string | null
+          logo_url?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          description?: string
+          total_value?: number
+          total_installments?: number
+          is_fixed?: boolean
+          category_id?: string | null
+          created_by_txn_id?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+          frequency?: string
+          start_date?: string
+          end_date?: string | null
+          logo_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_created_by_txn_id_fkey"
+            columns: ["created_by_txn_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       transactions: {
         Row: {
           account_id: string | null
@@ -183,8 +249,7 @@ export type Database = {
           person_id: string | null
           id: string
           installment_number: number | null
-          installments: number | null
-          is_fixed: boolean
+          is_fixed: boolean | null
           is_shared: boolean | null
           payment_method: string | null
           series_id: string | null
@@ -193,6 +258,7 @@ export type Database = {
           user_id: string
           value: number
           liquidation_date: string | null
+          composition_details: string | null
         }
         Insert: {
           account_id?: string | null
@@ -206,8 +272,7 @@ export type Database = {
           linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
-          installments?: number | null
-          is_fixed?: boolean
+          is_fixed?: boolean | null
           is_shared?: boolean | null
           payment_method?: string | null
           series_id?: string | null
@@ -216,6 +281,7 @@ export type Database = {
           user_id: string
           value: number
           liquidation_date?: string | null
+          composition_details?: string | null
         }
         Update: {
           account_id?: string | null
@@ -229,8 +295,7 @@ export type Database = {
           linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
-          installments?: number | null
-          is_fixed?: boolean
+          is_fixed?: boolean | null
           is_shared?: boolean | null
           payment_method?: string | null
           series_id?: string | null
@@ -239,6 +304,7 @@ export type Database = {
           user_id?: string
           value?: number
           liquidation_date?: string | null
+          composition_details?: string | null
         }
         Relationships: [
           {
@@ -300,6 +366,25 @@ export type Database = {
           account_id: string | null
           projected_balance: number | null
           user_id: string | null
+        }
+        Relationships: []
+      }
+      series_summary: {
+        Row: {
+          id: string
+          user_id: string
+          description: string
+          total_value: number
+          total_installments: number
+          is_fixed: boolean
+          category_id: string | null
+          created_at: string | null
+          updated_at: string | null
+          created_installments: number
+          paid_installments: number
+          pending_installments: number
+          paid_value: number
+          pending_value: number
         }
         Relationships: []
       }

@@ -120,6 +120,13 @@ import {
   Square,
   Triangle,
   Diamond,
+  Dog,
+  Cat,
+  Handshake,
+  Percent,
+  PlusCircle,
+  MoreHorizontal,
+  Captions,
 } from "lucide-react";
 
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -243,6 +250,13 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   square: Square,
   triangle: Triangle,
   diamond: Diamond,
+  dog: Dog,
+  cat: Cat,
+  handshake: Handshake,
+  percent: Percent,
+  "plus-circle": PlusCircle,
+  "more-horizontal": MoreHorizontal,
+  captions: Captions,
 };
 
 interface IconRendererProps {

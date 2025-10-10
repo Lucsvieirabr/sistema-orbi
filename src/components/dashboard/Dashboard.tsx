@@ -23,7 +23,8 @@ import {
   BanknoteXIcon,
   CheckCircle,
   Edit,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
@@ -35,8 +36,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { CreditCardForm } from "@/components/ui/credit-card-form";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { SelectItem } from "@/components/ui/select";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
+import { formatDateForDisplay } from "@/lib/utils";
+import { SubscriptionChart } from "./SubscriptionChart";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -76,27 +81,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
     // Filtrar apenas transações de despesa pagas
     const paidExpenses = transactions.filter(t => t.type === 'expense' && t.status === 'PAID');
     
-    console.log('=== DEBUG GASTOS POR CATEGORIA ===');
-    console.log('Total de transações de despesa pagas:', paidExpenses.length);
-    
     // Debug: mostrar ganhos reais vs reembolsos
     const realIncome = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
                                                !t.description.includes('Parte') && 
                                                !t.description.includes('A receber'));
     const reimbursements = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
                                                    (t.description.includes('Parte') || t.description.includes('A receber')));
-    console.log('Ganhos reais (sem reembolsos):', realIncome.length, 'transações');
-    console.log('Reembolsos:', reimbursements.length, 'transações');
     
     paidExpenses.forEach((transaction, index) => {
       const categoryName = transaction.categories?.name || 'Sem Categoria';
-      
-      console.log(`\nTransação ${index + 1}:`);
-      console.log('- Descrição:', transaction.description);
-      console.log('- Categoria:', categoryName);
-      console.log('- Valor bruto:', transaction.value);
-      console.log('- is_shared:', transaction.is_shared);
-      console.log('- compensation_value:', transaction.compensation_value);
       
       // Calcular valor líquido baseado no tipo de transação
       let realValue = transaction.value;
@@ -104,17 +97,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
       // Se há compensation_value, é uma transação compartilhada (mesmo que is_shared seja undefined)
       if (transaction.compensation_value && transaction.compensation_value > 0) {
         realValue = transaction.value - transaction.compensation_value;
-        console.log('- Valor líquido calculado (compartilhado):', realValue);
-      } else {
-        console.log('- Valor líquido (não compartilhado):', realValue);
       }
       
       // Garantir que o valor não seja negativo
       realValue = Math.max(0, realValue);
-      console.log('- Valor final usado:', realValue);
       
       expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + realValue;
-      console.log('- Total acumulado para categoria:', expensesByCategory[categoryName]);
     });
 
     const result = Object.entries(expensesByCategory)
@@ -122,9 +110,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
     
-    console.log('\n=== RESULTADO FINAL ===');
-    console.log('Gastos por categoria (líquidos):', result);
-    console.log('=====================================\n');
     
     return result;
   }, [transactions]);
@@ -304,79 +289,127 @@ export function Dashboard({ onLogout }: DashboardProps) {
     }
   };
 
+  // Loading screen while fetching initial data
+  if (transactionsLoading && transactions.length === 0) {
+    return (
+      <div className="min-h-screen bg-background">
+        <main className="container mx-auto p-4 space-y-6">
+          {/* Loading Statistics Cards */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+              <Skeleton className="h-32" />
+            </div>
+            <div className="lg:col-span-1">
+              <Skeleton className="h-64" />
+            </div>
+          </div>
+
+          {/* Loading Charts */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Skeleton className="h-96" />
+            <Skeleton className="h-96" />
+          </div>
+
+          {/* Loading Recent Transactions */}
+          <Card className="bg-gradient-card shadow-md">
+            <CardHeader>
+              <Skeleton className="h-8 w-48" />
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Skeleton key={i} className="h-20" />
+              ))}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto p-4 space-y-6">
 
-        {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo Atual
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {formatCurrency(indicators.netBalance)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Saldo líquido do mês atual
-              </p>
-            </CardContent>
-          </Card>
+        {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          {/* Left Side: 2x2 Summary Cards */}
+          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Saldo Atual
+                </CardTitle>
+                <DollarSign className={`h-4 w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                  {formatCurrency(indicators.netBalance)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Saldo líquido do mês atual
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Ganhos do Mês
-              </CardTitle>
-              <TrendingUp className="h-4 w-4 text-success" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-success">
-                {formatCurrency(indicators.incomeReceived)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Recebidos este mês
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Ganhos do Mês
+                </CardTitle>
+                <TrendingUp className="h-4 w-4 text-success" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-success">
+                  {formatCurrency(indicators.incomeReceived)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Recebidos este mês
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Gastos do Mês
-              </CardTitle>
-              <TrendingDown className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">
-                {formatCurrency(indicators.expensesPaid)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Pagos este mês
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Gastos do Mês
+                </CardTitle>
+                <TrendingDown className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">
+                  {formatCurrency(indicators.expensesPaid)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Pagos este mês
+                </p>
+              </CardContent>
+            </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
-                Saldo de Dívidas
-              </CardTitle>
-              <DollarSign className="h-4 w-4 text-purple-500" />
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
-                {formatCurrency(debtStats?.netBalance || 0)}
-              </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
-              </p>
-            </CardContent>
-          </Card>
+            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium text-muted-foreground">
+                  Saldo de Dívidas
+                </CardTitle>
+                <DollarSign className="h-4 w-4 text-purple-500" />
+              </CardHeader>
+              <CardContent>
+                <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
+                  {formatCurrency(debtStats?.netBalance || 0)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
+                </p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Right Side: Subscription Chart */}
+          <div className="lg:col-span-1">
+            <SubscriptionChart />
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -549,39 +582,92 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   <p>Nenhum lançamento pendente para os próximos {upcomingPeriod} dias</p>
                 </div>
               ) : (
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {upcomingTransactions.map((transaction) => (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-3 flex-1">
                         <div className={`w-2 h-8 rounded-full ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
-                        <div>
-                          <p className="font-medium text-foreground">{transaction.description}</p>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{formatDate(transaction.date)}</span>
-                            {transaction.categories?.name && (
-                              <Badge variant="outline" className="text-xs">
-                                {transaction.categories.name}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <p className="font-medium text-foreground">{transaction.description}</p>
+                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
-                            {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {transaction.installment_number}/{transaction.installments}
-                              </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{formatDateForDisplay(transaction.date)}</span>
+                            {transaction.categories?.name && (
+                              <>
+                                <span>•</span>
+                                <span>{transaction.categories.name}</span>
+                              </>
                             )}
                           </div>
                         </div>
                       </div>
-                      <div className="text-right flex flex-col items-end gap-2">
-                        <p className={`font-semibold ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                          {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
-                        </p>
-                        <StatusSelector
-                          currentStatus={transaction.status as TransactionStatus}
-                          onStatusChange={(newStatus) => handleStatusChange(transaction.id, newStatus)}
-                          disabled={updatingStatus === transaction.id}
-                          size="sm"
-                          variant="badge"
-                        />
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
+                            {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {transaction.status === 'PAID' ? (transaction.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente'}
+                          </p>
+                        </div>
+
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="h-7 w-7"
+                          onClick={() => {
+                            navigate('/sistema/statement?edit=' + transaction.id);
+                          }}
+                        >
+                          <Edit className="h-3.5 w-3.5" />
+                        </Button>
+
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => deleteTransaction(transaction.id)}
+                          variant="destructive"
+                        >
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                            disabled={deletingTransaction === transaction.id}
+                          >
+                            {deletingTransaction === transaction.id ? (
+                              <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-3.5 w-3.5" />
+                            )}
+                          </Button>
+                        </ConfirmationDialog>
+
+                        {transaction.status === 'PENDING' ? (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => markAsPaid(transaction.id)}
+                          >
+                            <CheckCircle className="h-3.5 w-3.5" />
+                          </Button>
+                        ) : (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-7 w-7"
+                            onClick={() => markAsPending(transaction.id)}
+                          >
+                            <BanknoteXIcon className="h-3.5 w-3.5" />
+                          </Button>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -639,9 +725,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 Ligada
                               </Badge>
                             )}
-                            {transaction.installment_number && transaction.installments && transaction.installments > 1 && (
+                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                               <Badge variant="secondary" className="text-xs">
-                                {transaction.installment_number}/{transaction.installments}
+                                {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
@@ -651,6 +737,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               <>
                                 <span>•</span>
                                 <span>{transaction.categories.name}</span>
+
                               </>
                             )}
                             {transaction.people?.name && (
@@ -659,6 +746,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 <span>{transaction.people.name}</span>
                               </>
                             )}
+                             <span>•</span>
+                             <span>{formatDateForDisplay(transaction.date)}</span>
                             {isPaidExpense && (
                               <>
                                 <span>•</span>
@@ -684,6 +773,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               ? (transaction.type === 'income' ? 'Recebido' : 'Pago') + 
                                 ((transaction as any).liquidation_date ? ` em ${new Date((transaction as any).liquidation_date).toLocaleDateString('pt-BR')}` : '')
                               : 'Pendente'}
+                              
                           </div>
                         </div>
 
@@ -697,19 +787,26 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <Edit className="h-4 w-4" />
                         </Button>
 
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => deleteTransaction(transaction.id)}
-                          disabled={deletingTransaction === transaction.id}
-                          className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => deleteTransaction(transaction.id)}
+                          variant="destructive"
                         >
-                          {deletingTransaction === transaction.id ? (
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={deletingTransaction === transaction.id}
+                            className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                          >
+                            {deletingTransaction === transaction.id ? (
+                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </ConfirmationDialog>
 
                         {transaction.status === 'PENDING' ? (
                           <Button
@@ -732,103 +829,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
                     </div>
                   );
                 })}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {/* Credit Cards Section */}
-        <Card className="bg-gradient-card shadow-md">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <CreditCard className="h-5 w-5 text-primary" />
-                Cartões de Crédito
-              </CardTitle>
-              <Dialog open={cardDialogOpen} onOpenChange={setCardDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm" className="h-8 w-8 p-0">
-                    <Plus className="h-4 w-4" />
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-md">
-                  <DialogHeader>
-                    <DialogTitle>Novo Cartão</DialogTitle>
-                  </DialogHeader>
-                  <CreditCardForm
-                    onSuccess={() => {
-                      setCardDialogOpen(false);
-                      // Invalidar queries para atualizar dados
-                      queryClient.invalidateQueries({ queryKey: ["credit-cards"] });
-                    }}
-                    showFooter={true}
-                    accountSelector={
-                      <SelectWithAddButton
-                        entityType="accounts"
-                        placeholder="Selecione uma conta"
-                      >
-                        <SelectItem value="none">Nenhuma conta</SelectItem>
-                        {accountsWithBalance.map((account) => (
-                          <SelectItem key={account.id} value={account.id}>
-                            {account.name} - {formatCurrency(account.current_balance ?? 0)}
-                          </SelectItem>
-                        ))}
-                      </SelectWithAddButton>
-                    }
-                  />
-                </DialogContent>
-              </Dialog>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {cardsLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              </div>
-            ) : creditCards.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <div className="text-center">
-                  <CreditCard className="h-12 w-12 mx-auto mb-2 text-muted-foreground" />
-                  <p>Nenhum cartão cadastrado</p>
-                  <p className="text-sm">Clique no botão + para adicionar um cartão</p>
-                </div>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                {creditCards.slice(0, 6).map((card) => (
-                  <div key={card.id} className="rounded-lg border bg-card p-4 shadow-sm hover:shadow-md transition">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center gap-3">
-                        <CreditCard className="h-5 w-5 text-primary" />
-                        <div className="flex flex-col">
-                          <span className="font-medium">{card.name}</span>
-                          {card.brand && <span className="text-sm text-muted-foreground">{card.brand}</span>}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Limite:</span>
-                        <span className="font-semibold">{formatCurrency(card.limit)}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Fechamento:</span>
-                        <span>Dia {card.statement_date}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Vencimento:</span>
-                        <span>Dia {card.due_date}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                {creditCards.length > 6 && (
-                  <div className="rounded-lg border bg-muted/20 p-4 flex items-center justify-center">
-                    <p className="text-sm text-muted-foreground">
-                      +{creditCards.length - 6} cartões adicionais
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>

@@ -1,27 +1,16 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
-import { NumericInput } from "@/components/ui/numeric-input";
-import { Switch } from "@/components/ui/switch";
-import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Plus, CheckCircle, CreditCard, Calendar, FileText, AlertCircle, ArrowUpCircle, ArrowDownCircle } from "lucide-react";
+import { ArrowLeft, TrendingUp, TrendingDown, DollarSign, Users, CheckCircle, Calendar, FileText, AlertCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { usePeople } from "@/hooks/use-people";
 import { usePersonTransactions, useUpdateTransactionStatus } from "@/hooks/use-person-transactions";
-import { useCategories } from "@/hooks/use-categories";
-import { useAccounts } from "@/hooks/use-accounts";
 import { toast } from "@/hooks/use-toast";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { cn, getCurrentDateString, formatDateForDisplay } from "@/lib/utils";
-import { supabase } from "@/integrations/supabase/client";
-import { useQueryClient } from "@tanstack/react-query";
+import { cn, formatDateForDisplay } from "@/lib/utils";
 
 interface PersonDetailProps {
   personId?: string;
@@ -32,53 +21,43 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const personId = propPersonId || paramPersonId;
   const navigate = useNavigate();
 
-  const { people, isLoading: peopleLoading, error: peopleError } = usePeople();
-  const { transactions, indicators, isLoading: transactionsLoading, error } = usePersonTransactions(personId || "");
+  // Period filter state - default to current month
+  const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth());
+  const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
+
+  const { people, isLoading: peopleLoading } = usePeople();
+  const { transactions, indicators, isLoading: transactionsLoading, error } = usePersonTransactions(personId || "", selectedMonth, selectedYear);
   const { updateTransactionStatus } = useUpdateTransactionStatus();
-  const { categories, isLoading: categoriesLoading } = useCategories();
-  const { accountsWithBalance, isLoading: accountsLoading } = useAccounts();
-  const queryClient = useQueryClient();
-
-
-  // Estados para o dialog de nova transação
-  const [transactionDialogOpen, setTransactionDialogOpen] = useState(false);
-  const [type, setType] = useState<'expense'>('expense');
-  const [description, setDescription] = useState('');
-  const [value, setValue] = useState<number | null>(null);
-  const [date, setDate] = useState<string>(getCurrentDateString());
-  const [accountId, setAccountId] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [selectedPeople, setSelectedPeople] = useState<string[]>([]);
-  const [peopleSearchTerm, setPeopleSearchTerm] = useState("");
-  const [isLoan, setIsLoan] = useState(false);
-  const [isRateio, setIsRateio] = useState(false);
-  const [selectedPersonId, setSelectedPersonId] = useState<string | null>(null);
-  const [isFixed, setIsFixed] = useState(false);
-  const [status, setStatus] = useState<'PAID' | 'PENDING'>('PAID');
 
   const person = useMemo(() => {
     return people.find(p => p.id === personId);
   }, [people, personId]);
 
-  // Pessoas filtradas para busca (excluindo a pessoa da rota)
-  const filteredPeople = useMemo(() => {
-    if (!peopleSearchTerm.trim()) return people.filter(p => p.id !== personId);
-    return people.filter(p => 
-      p.id !== personId && 
-      p.name.toLowerCase().includes(peopleSearchTerm.toLowerCase())
-    );
-  }, [people, peopleSearchTerm, personId]);
-
-  // Limpar pessoas selecionadas quando o dialog abrir (usuário + pessoa da rota são automáticos)
-  useEffect(() => {
-    if (transactionDialogOpen) {
-      setSelectedPeople([]);
-      setIsLoan(false);
-      setIsRateio(false);
-      setSelectedPersonId(null);
-      setIsFixed(false);
+  // Helper function to navigate months
+  const handlePreviousMonth = () => {
+    if (selectedMonth === 0) {
+      setSelectedMonth(11);
+      setSelectedYear(selectedYear - 1);
+    } else {
+      setSelectedMonth(selectedMonth - 1);
     }
-  }, [transactionDialogOpen]);
+  };
+
+  const handleNextMonth = () => {
+    if (selectedMonth === 11) {
+      setSelectedMonth(0);
+      setSelectedYear(selectedYear + 1);
+    } else {
+      setSelectedMonth(selectedMonth + 1);
+    }
+  };
+
+  // Format month/year for display
+  const periodDisplay = useMemo(() => {
+    const date = new Date(selectedYear, selectedMonth);
+    return format(date, "MMMM 'de' yyyy", { locale: ptBR });
+  }, [selectedMonth, selectedYear]);
+
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -119,323 +98,6 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
     }
   };
 
-  const handleCreateTransaction = async () => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
-
-      const transactionValue = parseFloat((value || 0).toString());
-      if (!transactionValue || transactionValue <= 0) {
-        throw new Error("Valor deve ser maior que zero");
-      }
-
-      if (!description.trim()) {
-        throw new Error("Descrição é obrigatória");
-      }
-
-      if (!accountId) {
-        throw new Error("Conta é obrigatória");
-      }
-
-      if (!categoryId) {
-        throw new Error("Categoria é obrigatória");
-      }
-
-      if (!date) {
-        throw new Error("Data é obrigatória");
-      }
-
-      if (isLoan) {
-        // Para empréstimo: criar gasto + conta a receber
-        const seriesId = crypto.randomUUID();
-        
-        // 1. Criar gasto (expense) com o valor total
-        const { data: expenseTransaction, error: expenseError } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: user.id,
-            type: 'expense',
-            value: transactionValue,
-            description: `${description.trim()} (Empréstimo)`,
-            date: date,
-            account_id: accountId,
-            category_id: categoryId,
-            payment_method: 'debit',
-            credit_card_id: null,
-            person_id: null,
-            is_fixed: false,
-            is_shared: false,
-            compensation_value: 0,
-            series_id: seriesId,
-            linked_txn_id: null,
-            status: status,
-          })
-          .select()
-          .single();
-
-        if (expenseError) {
-          console.error("Erro ao criar gasto do empréstimo:", expenseError);
-          throw expenseError;
-        }
-
-        if (!expenseTransaction) {
-          throw new Error("Erro interno: gasto do empréstimo não foi criado");
-        }
-
-        // 2. Criar conta a receber (income) para a pessoa
-        const { data: incomeTransaction, error: incomeError } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: user.id,
-            type: 'income',
-            value: transactionValue,
-            description: `${description.trim()} (A receber de ${person?.name})`,
-            date: date,
-            account_id: accountId,
-            category_id: categoryId,
-            payment_method: 'debit',
-            credit_card_id: null,
-            person_id: personId,
-            is_fixed: false,
-            is_shared: false,
-            compensation_value: 0,
-            series_id: seriesId,
-            linked_txn_id: expenseTransaction.id,
-            status: status,
-          })
-          .select()
-          .single();
-
-        if (incomeError) {
-          console.error("Erro ao criar conta a receber:", incomeError);
-          throw incomeError;
-        }
-
-        if (!incomeTransaction) {
-          throw new Error("Erro interno: conta a receber não foi criada");
-        }
-
-        toast({ title: "Sucesso", description: "Empréstimo criado: gasto + conta a receber", duration: 2000 });
-      } else if (type === 'expense' && isRateio) {
-        // Para rateio: criar gasto bruto + dívidas individuais
-        // Padrão do sistema: usuário atual + pessoa da rota + pessoas selecionadas
-        const totalPeopleInRateio = selectedPeople.length + 2; // +2 para usuário atual + pessoa da rota
-        const amountPerPerson = transactionValue / totalPeopleInRateio;
-
-        if (amountPerPerson <= 0) {
-          throw new Error("Valor por pessoa deve ser maior que zero");
-        }
-
-        // 1. Inserir gasto bruto
-        const { data: expenseTransaction, error: expenseError } = await supabase
-          .from("transactions")
-          .insert({
-            user_id: user.id,
-            type: 'expense',
-            value: transactionValue,
-            description: `${description.trim()} (Pagamento Total)`,
-            date: date,
-            account_id: accountId,
-            category_id: categoryId,
-            payment_method: 'debit',
-            credit_card_id: null,
-            person_id: null,
-            is_fixed: false,
-            is_shared: true,
-            compensation_value: amountPerPerson * totalPeopleInRateio, // Valor total que será compensado
-            series_id: null,
-            linked_txn_id: null,
-            status: status,
-          })
-          .select()
-          .single();
-
-        if (expenseError) {
-          console.error("Erro ao criar gasto bruto:", expenseError);
-          throw expenseError;
-        }
-
-        if (!expenseTransaction) {
-          throw new Error("Erro interno: gasto bruto não foi criado");
-        }
-
-        // 2. Inserir dívidas individuais (apenas para pessoas selecionadas + pessoa da rota)
-        const seriesId = crypto.randomUUID();
-        
-        // 2.1. Criar dívida para a pessoa da rota
-        let debtDataRoute = null;
-        if (personId) {
-          const { data, error: debtErrorRoute } = await supabase
-            .from("transactions")
-            .insert({
-              user_id: user.id,
-              type: 'income',
-              value: amountPerPerson,
-              description: `${description.trim()} (Parte - ${person?.name})`,
-              date: date,
-              account_id: accountId,
-              category_id: categoryId,
-              payment_method: 'debit',
-              credit_card_id: null,
-              person_id: personId,
-              is_fixed: false,
-              is_shared: true,
-              compensation_value: 0,
-              series_id: seriesId,
-              linked_txn_id: expenseTransaction.id,
-              status: status,
-            })
-            .select()
-            .single();
-
-          if (debtErrorRoute) {
-            console.error("Erro ao criar dívida da pessoa da rota:", debtErrorRoute);
-            throw debtErrorRoute;
-          }
-
-          if (!data) {
-            throw new Error("Erro interno: dívida da pessoa da rota não foi criada");
-          }
-
-          debtDataRoute = data;
-        }
-        
-        // 2.2. Criar dívidas para as pessoas selecionadas
-        const debtTransactions = [];
-        for (const personIdToShare of selectedPeople) {
-          // Buscar nome da pessoa
-          const { data: personData, error: personError } = await supabase
-            .from("people")
-            .select("name")
-            .eq("id", personIdToShare)
-            .single();
-
-          if (personError) {
-            console.error("Erro ao buscar pessoa:", personError);
-            throw personError;
-          }
-
-          if (!personData) {
-            throw new Error(`Pessoa não encontrada: ${personIdToShare}`);
-          }
-
-          const { data: debtData, error: debtError } = await supabase
-            .from("transactions")
-            .insert({
-              user_id: user.id,
-              type: 'income',
-              value: amountPerPerson,
-              description: `${description.trim()} (Parte - ${personData.name})`,
-              date: date,
-              account_id: accountId,
-              category_id: categoryId,
-              payment_method: 'debit',
-              credit_card_id: null,
-              person_id: personIdToShare,
-              is_fixed: false,
-              is_shared: true,
-              compensation_value: 0,
-              series_id: seriesId,
-              linked_txn_id: expenseTransaction.id,
-              status: status,
-            })
-            .select()
-            .single();
-
-          if (debtError) {
-            console.error("Erro ao criar dívida individual:", debtError);
-            throw debtError;
-          }
-
-          if (!debtData) {
-            throw new Error("Erro interno: dívida individual não foi criada");
-          }
-
-          debtTransactions.push(debtData);
-        }
-
-        // 3. Atualizar as transações para criar a ligação
-        await supabase
-          .from("transactions")
-          .update({
-            series_id: seriesId,
-          })
-          .eq("id", expenseTransaction.id);
-
-        const allDebtTransactions = [debtDataRoute, ...debtTransactions].filter(Boolean);
-        for (const debtTransaction of allDebtTransactions) {
-          await supabase
-            .from("transactions")
-            .update({
-              series_id: seriesId,
-            })
-            .eq("id", debtTransaction.id);
-        }
-
-        toast({ title: "Sucesso", description: `Rateio criado: gasto bruto + dívidas individuais`, duration: 2000 });
-      } else if (type === 'expense' && !isLoan && !isRateio) {
-        // Para gasto normal: criar apenas uma transação de gasto
-        const { data, error } = await supabase.from("transactions").insert({
-          user_id: user.id,
-          type: 'expense',
-          value: transactionValue,
-          description: description.trim(),
-          date: date,
-          account_id: accountId,
-          category_id: categoryId,
-          payment_method: 'debit',
-          credit_card_id: null,
-          person_id: selectedPersonId,
-          is_fixed: false,
-          is_shared: false,
-          compensation_value: 0,
-          series_id: null,
-          linked_txn_id: null,
-          status: status,
-        }).select().single();
-
-        if (error) {
-          console.error("Erro ao criar gasto:", error);
-          throw error;
-        }
-
-        if (!data) {
-          throw new Error("Erro interno: gasto não foi criado");
-        }
-
-        toast({ title: "Sucesso", description: "Gasto criado", duration: 2000 });
-      } else {
-        throw new Error("Tipo de transação inválido ou dados insuficientes");
-      }
-
-      // Limpar formulário e fechar dialog
-      setTransactionDialogOpen(false);
-      setDescription('');
-      setValue(null);
-      setDate(getCurrentDateString());
-      setAccountId('');
-      setCategoryId('');
-      setSelectedPeople([]);
-      setPeopleSearchTerm("");
-      setIsLoan(false);
-      setIsRateio(false);
-      setSelectedPersonId(null);
-      setIsFixed(false);
-      setStatus('PAID');
-
-      // Atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["person-transactions", personId] });
-      queryClient.invalidateQueries({ queryKey: ["monthly-transactions"] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
-
-      toast({ title: "Sucesso", description: "Transação criada com sucesso", duration: 2000 });
-
-    } catch (e: any) {
-      console.error("Erro ao criar transação:", e);
-      toast({ title: "Erro", description: e.message || "Não foi possível criar transação", duration: 3000, variant: "destructive" as any });
-    }
-  };
-
   if (peopleLoading || transactionsLoading) {
     return (
       <div className="container mx-auto p-4 space-y-6">
@@ -444,10 +106,12 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <Skeleton className="h-8 w-48" />
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <Skeleton className="h-20" />
-              <Skeleton className="h-20" />
-              <Skeleton className="h-20" />
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
+              <Skeleton className="h-24" />
             </div>
             <Skeleton className="h-96" />
           </CardContent>
@@ -492,75 +156,134 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       {/* Header */}
       <Card className="shadow-md">
         <CardHeader>
-          <div className="flex items-center gap-4">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/sistema/people')}
-              className="flex items-center gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Voltar
-            </Button>
-            <CardTitle className="flex items-center gap-3">
-              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                <DollarSign className="h-5 w-5 text-primary" />
-              </div>
-              {person.name}
-            </CardTitle>
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/sistema/people')}
+                className="flex items-center gap-2"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Voltar
+              </Button>
+              <CardTitle className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                  <Users className="h-5 w-5 text-primary" />
+                </div>
+                {person.name}
+              </CardTitle>
+            </div>
+            
+            {/* Period Filter */}
+            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handlePreviousMonth}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <span className="text-sm font-medium min-w-[160px] text-center capitalize">
+                {periodDisplay}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleNextMonth}
+                className="h-7 w-7 p-0"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardHeader>
       </Card>
 
       {/* Indicators */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
         <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
               Total a Receber
             </CardTitle>
-            <TrendingUp className="h-4 w-4 text-green-600" />
+            <TrendingUp className="h-3.5 w-3.5 text-green-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">
+          <CardContent className="pb-3">
+            <div className="text-xl font-bold text-green-600">
               {formatCurrency(indicators.totalAReceber)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Dívidas pendentes
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Pendente
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
               Total a Pagar
             </CardTitle>
-            <TrendingDown className="h-4 w-4 text-red-600" />
+            <TrendingDown className="h-3.5 w-3.5 text-red-600" />
           </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">
+          <CardContent className="pb-3">
+            <div className="text-xl font-bold text-red-600">
               {formatCurrency(indicators.totalAPagar)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Dívidas pendentes
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Pendente
             </p>
           </CardContent>
         </Card>
 
         <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Total Recebido
+            </CardTitle>
+            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="text-xl font-bold text-green-600">
+              {formatCurrency(indicators.totalRecebido)}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Pago
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
+              Total Pago
+            </CardTitle>
+            <CheckCircle className="h-3.5 w-3.5 text-red-600" />
+          </CardHeader>
+          <CardContent className="pb-3">
+            <div className="text-xl font-bold text-red-600">
+              {formatCurrency(indicators.totalPago)}
+            </div>
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              Pago
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium text-muted-foreground">
               Saldo Líquido
             </CardTitle>
-            <DollarSign className={`h-4 w-4 ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+            <DollarSign className={`h-3.5 w-3.5 ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`} />
           </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+          <CardContent className="pb-3">
+            <div className={`text-xl font-bold ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {formatCurrency(indicators.saldoLiquido)}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              {indicators.saldoLiquido >= 0 ? 'Você receberá' : 'Você pagará'} este valor
+            <p className="text-[10px] text-muted-foreground mt-0.5">
+              {indicators.saldoLiquido >= 0 ? 'A receber' : 'A pagar'}
             </p>
           </CardContent>
         </Card>
@@ -568,295 +291,11 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
 
       {/* Transactions List */}
       <Card className="shadow-md">
-        <CardHeader className="flex items-center justify-between">
+        <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
-            Extrato de Dívidas Vinculadas
+            Extrato de Transações Vinculadas
           </CardTitle>
-          <Dialog open={transactionDialogOpen} onOpenChange={setTransactionDialogOpen}>
-            <DialogTrigger asChild>
-              <Button
-                size="sm"
-                variant="outline"
-                className="flex items-center gap-2 mt-4"
-              >
-                <Plus className="h-4 w-4" />
-                Nova transação
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>Nova Transação</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-6">
-                {/* Tipo de Operação */}
-                <div className="space-y-2">
-                  <Label>Tipo de Operação</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsLoan(false);
-                        setIsRateio(false);
-                      }}
-                      className={`flex items-center gap-2 flex-1 ${!isLoan && !isRateio
-                        ? 'border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive'
-                        : 'hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10'}`}
-                    >
-                      <ArrowDownCircle className="h-4 w-4" />
-                      Gasto Normal
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsLoan(true);
-                        setIsRateio(false);
-                      }}
-                      className={`flex items-center gap-2 flex-1 ${isLoan && !isRateio
-                        ? 'border-purple-500/50 bg-purple-50 dark:bg-purple-950/20 text-purple-700 dark:text-purple-300'
-                        : 'hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-950/10'}`}
-                    >
-                      <DollarSign className="h-4 w-4" />
-                      Empréstimo
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => {
-                        setIsLoan(false);
-                        setIsRateio(true);
-                      }}
-                      className={`flex items-center gap-2 flex-1 ${!isLoan && isRateio
-                        ? 'border-blue-500/50 bg-blue-50 dark:bg-blue-950/20 text-blue-700 dark:text-blue-300'
-                        : 'hover:border-blue-300 hover:bg-blue-50/50 dark:hover:bg-blue-950/10'}`}
-                    >
-                      <ArrowDownCircle className="h-4 w-4" />
-                      Rateio
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Campos principais */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descrição</Label>
-                    <Input
-                      id="description"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ex: Jantar no restaurante"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="value">Valor</Label>
-                    <NumericInput
-                      id="value"
-                      value={value}
-                      onChange={setValue}
-                      placeholder="0,00"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="date">Data</Label>
-                    <Input
-                      id="date"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      className="w-full"
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="space-y-2">
-                    <Label>Conta</Label>
-                    <SelectWithAddButton
-                      entityType="accounts"
-                      value={accountId}
-                      onValueChange={setAccountId}
-                      placeholder="Selecionar conta"
-                    >
-                      {accountsWithBalance?.map((account) => (
-                        <SelectItem key={account.id} value={account.id}>
-                          {account.name}
-                        </SelectItem>
-                      ))}
-                    </SelectWithAddButton>
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Categoria</Label>
-                    <SelectWithAddButton
-                      entityType="categories"
-                      value={categoryId}
-                      onValueChange={setCategoryId}
-                      placeholder="Selecionar categoria"
-                    >
-                      {categories?.map((category) => (
-                        <SelectItem key={category.id} value={category.id}>
-                          {category.name}
-                        </SelectItem>
-                      ))}
-                    </SelectWithAddButton>
-                  </div>
-                </div>
-
-                {/* Campos de Pessoa e Configurações - Ocultos para Rateio */}
-                {!isRateio && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <div className="space-y-1">
-                      <Label className="text-sm">Pessoa</Label>
-                      <SelectWithAddButton
-                        entityType="people"
-                        value={selectedPersonId || "none"}
-                        onValueChange={(value) => setSelectedPersonId(value === "none" ? null : value)}
-                        placeholder="Opcional"
-                      >
-                        <SelectItem value="none">Nenhum</SelectItem>
-                        {people.map((person) => (
-                          <SelectItem key={person.id} value={person.id}>{person.name}</SelectItem>
-                        ))}
-                      </SelectWithAddButton>
-                    </div>
-
-                    <div className="space-y-1">
-                      <Label className="text-sm">Configurações</Label>
-                      <div className="flex items-center space-x-4 h-9">
-                        <div className="flex items-center space-x-2">
-                          <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                          <Label className="text-sm">Recorrente</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
-                          <Label className="text-sm">Paga</Label>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Campo de Configurações para Rateio - Sempre visível */}
-                {isRateio && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">Configurações</Label>
-                    <div className="flex items-center space-x-4 h-9">
-                      <div className="flex items-center space-x-2">
-                        <Switch checked={isFixed} onCheckedChange={setIsFixed} />
-                        <Label className="text-sm">Recorrente</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch checked={status === 'PAID'} onCheckedChange={(checked) => setStatus(checked ? 'PAID' : 'PENDING')} />
-                        <Label className="text-sm">Paga</Label>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Seleção de Pessoas para Rateio */}
-                {isRateio && (
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label>Pessoas para dividir</Label>
-                      
-                      {/* Mostrar pessoas sempre incluídas no rateio */}
-                      <div className="space-y-2">
-                       
-                        
-                        {person && (
-                          <div className="bg-blue-50 dark:bg-blue-950/20 border border-blue-200 dark:border-blue-800 rounded-lg p-3">
-                            <div className="flex items-center gap-2 text-sm">
-                              <div className="h-6 w-6 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
-                                <DollarSign className="h-3 w-3 text-blue-600 dark:text-blue-400" />
-                              </div>
-                              <span className="text-blue-700 dark:text-blue-300 font-medium">
-                                {person.name}
-                              </span>
-                              <span className="text-blue-600 dark:text-blue-400 text-xs">
-                                - Já incluído no rateio
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      
-
-                      <div className="space-y-2">
-                        <Label>Adicionar outras pessoas</Label>
-                        <Input
-                          placeholder="Buscar pessoas..."
-                          value={peopleSearchTerm}
-                          onChange={(e) => setPeopleSearchTerm(e.target.value)}
-                          className="w-full"
-                        />
-                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                          {peopleLoading ? (
-                            <div className="text-sm text-muted-foreground">Carregando pessoas...</div>
-                          ) : (
-                            filteredPeople.map((person) => (
-                            <Button
-                              key={person.id}
-                              type="button"
-                              variant={selectedPeople.includes(person.id) ? 'default' : 'outline'}
-                              size="sm"
-                              onClick={() => {
-                                setSelectedPeople(prev =>
-                                  prev.includes(person.id)
-                                    ? prev.filter(id => id !== person.id)
-                                    : [...prev, person.id]
-                                );
-                              }}
-                              className={`h-8 ${selectedPeople.includes(person.id)
-                                ? 'bg-purple-100 text-purple-800 border-2 border-purple-300 hover:bg-purple-200'
-                                : 'border-2 border-gray-300 hover:bg-transparent'}`}
-                            >
-                              {person.name}
-                            </Button>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                      
-                      {(selectedPeople.length > 0 || person) && (
-                        <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3">
-                          <div className="flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-2">
-                              <div className="flex items-center gap-1">
-                                <span className="text-purple-700 dark:text-purple-300 font-medium">
-                                  {selectedPeople.length + 1} pessoa{(selectedPeople.length + 1) !== 1 ? 's' : ''}
-                                </span>
-                                <span className="text-purple-600 dark:text-purple-400">no rateio</span>
-                              </div>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-purple-700 dark:text-purple-300 font-medium">
-                                Valor por pessoa
-                              </div>
-                              <div className="text-purple-900 dark:text-purple-100 font-semibold">
-                                {value && parseFloat(value.toString()) > 0
-                                  ? `R$ ${(parseFloat(value.toString()) / (selectedPeople.length + 2)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-                                  : 'R$ 0,00'
-                                }
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setTransactionDialogOpen(false)}>
-                  Cancelar
-                </Button>
-                <Button onClick={handleCreateTransaction}>
-                  Criar Transação
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (

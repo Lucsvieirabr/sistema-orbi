@@ -1,6 +1,6 @@
 import * as React from "react";
 import * as SelectPrimitive from "@radix-ui/react-select";
-import { Plus, ChevronDown } from "lucide-react";
+import { Plus, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -10,6 +10,9 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { IconSelector } from "@/components/ui/icon-selector";
 import { CreditCardForm } from "@/components/ui/credit-card-form";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "@/hooks/use-toast";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCategories } from "@/hooks/use-categories";
@@ -27,7 +30,7 @@ export interface SelectWithAddButtonProps {
 }
 
 const EntityForms = {
-  accounts: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  accounts: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const [type, setType] = React.useState("Corrente");
     const [initialBalance, setInitialBalance] = React.useState(0);
@@ -39,16 +42,16 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createAccount({ name, type, initial_balance: initialBalance, color });
+        const newAccount = await createAccount({ name, type, initial_balance: initialBalance, color });
         t.update({ title: "Sucesso", description: "Conta salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setType("Corrente");
         setInitialBalance(0);
         setColor("#4f46e5");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["accounts"] });
         queryClient.invalidateQueries({ queryKey: ["balances"] });
+        onSuccess(newAccount.id);
       } catch (e) {
         t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -100,7 +103,7 @@ const EntityForms = {
     );
   },
 
-  categories: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  categories: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const [categoryType, setCategoryType] = React.useState<"income" | "expense">("expense");
     const [icon, setIcon] = React.useState("");
@@ -111,14 +114,14 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createCategory({ name, category_type: categoryType, icon });
+        const newCategory = await createCategory({ name, category_type: categoryType, icon });
         t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setCategoryType("expense");
         setIcon("");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["categories"] });
+        onSuccess(newCategory.id);
       } catch (e) {
         t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -163,7 +166,7 @@ const EntityForms = {
     );
   },
 
-  creditCards: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  creditCards: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const { accountsWithBalance } = useAccounts();
 
     const formatCurrency = (amount: number) =>
@@ -191,9 +194,9 @@ const EntityForms = {
           <DialogTitle>Novo Cartão</DialogTitle>
         </DialogHeader>
         <CreditCardForm
-          onSuccess={() => {
+          onSuccess={(id) => {
             onOpenChange(false);
-            onSuccess();
+            onSuccess(id);
           }}
           showFooter={true}
           accountSelector={accountSelector}
@@ -202,7 +205,7 @@ const EntityForms = {
     );
   },
 
-  people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: () => void }) => {
+  people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
     const { createPerson } = usePeople();
     const queryClient = useQueryClient();
@@ -211,12 +214,12 @@ const EntityForms = {
       if (!name.trim()) return;
       const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
       try {
-        await createPerson({ name });
+        const newPerson = await createPerson({ name });
         t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
         onOpenChange(false);
         setName("");
-        onSuccess();
         queryClient.invalidateQueries({ queryKey: ["people"] });
+        onSuccess(newPerson.id);
       } catch (e: any) {
         t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
@@ -251,10 +254,51 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
 }) => {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
+  const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
+  const scrollAreaRef = React.useRef<HTMLDivElement>(null);
 
-  const onSuccess = () => {
+  const onSuccess = (id: string) => {
     setRefreshTrigger(prev => prev + 1);
+    // Selecionar automaticamente a entidade recém-criada
+    if (onValueChange) {
+      onValueChange(id);
+    }
   };
+
+  // Adiciona event listeners para scroll
+  React.useEffect(() => {
+    const scrollArea = scrollAreaRef.current;
+    if (!scrollArea) return;
+
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      scrollArea.scrollTop += e.deltaY;
+    };
+
+    let startY = 0;
+    const handleTouchStart = (e: TouchEvent) => {
+      startY = e.touches[0].clientY;
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      const currentY = e.touches[0].clientY;
+      const deltaY = startY - currentY;
+      scrollArea.scrollTop += deltaY;
+      startY = currentY;
+    };
+
+    scrollArea.addEventListener('wheel', handleWheel, { passive: false });
+    scrollArea.addEventListener('touchstart', handleTouchStart, { passive: true });
+    scrollArea.addEventListener('touchmove', handleTouchMove, { passive: false });
+
+    return () => {
+      scrollArea.removeEventListener('wheel', handleWheel);
+      scrollArea.removeEventListener('touchstart', handleTouchStart);
+      scrollArea.removeEventListener('touchmove', handleTouchMove);
+    };
+  }, [open]); // Re-executa quando o popover abre
 
   const EntityFormComponent = EntityForms[entityType];
 
@@ -275,69 +319,104 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
     return map;
   }, [children]);
 
-  // SelectTrigger personalizado que não inclui o ícone automático
-  const CustomSelectTrigger = React.forwardRef<
-    React.ElementRef<typeof SelectPrimitive.Trigger>,
-    React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
-  >(({ className, children, onClick, ...props }, ref) => (
-    <div className="relative">
-      <SelectPrimitive.Trigger
-        ref={ref}
-        className={cn(
-          "flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50",
-          className,
-        )}
-        onClick={(e) => {
-          // Se o clique foi no botão plus, não abrir o select
-          if ((e.target as HTMLElement).closest('[data-plus-button]')) {
-            return;
-          }
-          onClick?.(e);
-        }}
-        {...props}
-      >
-        <div className="flex-1 min-w-0 pr-16">
-          {children}
-        </div>
-        <ChevronDown className="h-4 w-4 opacity-50 pointer-events-none" />
-      </SelectPrimitive.Trigger>
-      <button
-        type="button"
-        data-plus-button
-        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          handleAddClick(e);
-        }}
-        onMouseDown={(e) => e.preventDefault()}
-      >
-        <Plus className="h-3 w-3" />
-      </button>
-    </div>
-  ));
+  // Converte children para formato Command
+  const commandItems = React.useMemo(() => {
+    return React.Children.toArray(children).map((child) => {
+      if (React.isValidElement(child) && child.type === SelectItem) {
+        return {
+          value: child.props.value,
+          label: child.props.children as string,
+        };
+      }
+      return null;
+    }).filter(Boolean);
+  }, [children]);
 
-  CustomSelectTrigger.displayName = "CustomSelectTrigger";
-
+  // Filtra os itens baseado no termo de busca
+  const filteredItems = React.useMemo(() => {
+    if (!searchTerm.trim()) return commandItems;
+    return commandItems.filter(item => 
+      item.label.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [commandItems, searchTerm]);
 
   return (
     <div className="relative w-full">
-      <Select
-        value={value}
-        onValueChange={onValueChange}
+      <Popover open={open} onOpenChange={(newOpen) => {
+        setOpen(newOpen);
+        if (!newOpen) {
+          setSearchTerm("");
+        }
+      }}>
+        <PopoverTrigger asChild>
+          <Button
+            variant="outline"
+            role="combobox"
+            aria-expanded={open}
+            className="w-full justify-between pr-12 border border-input"
+            disabled={disabled}
+          >
+            <span className="truncate">
+              {value && valueTextMap[value] ? valueTextMap[value] : placeholder}
+            </span>
+            <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="w-full p-0" align="start">
+          <div className="border-b p-2">
+            <Input 
+              placeholder="Buscar..." 
+              className="h-8"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          <div 
+            ref={scrollAreaRef}
+            className="max-h-[300px] overflow-y-auto overflow-x-hidden"
+            style={{ scrollbarWidth: 'thin' }}
+          >
+            {filteredItems.length === 0 ? (
+              <div className="py-6 text-center text-sm text-muted-foreground">
+                Nenhum item encontrado.
+              </div>
+            ) : (
+              <div className="p-1">
+                {filteredItems.map((item) => (
+                  <div
+                    key={item.value}
+                    className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
+                    onClick={() => {
+                      onValueChange?.(item.value === value ? "" : item.value);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value === item.value ? "opacity-100" : "opacity-0"
+                      )}
+                    />
+                    {item.label}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </PopoverContent>
+      </Popover>
+
+      {/* Botão de adicionar */}
+      <button
+        type="button"
+        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
+        onClick={handleAddClick}
         disabled={disabled}
       >
-        <CustomSelectTrigger className="w-full pr-12">
-          <SelectValue placeholder={placeholder}>
-            {value && valueTextMap[value] ? valueTextMap[value] : placeholder}
-          </SelectValue>
-        </CustomSelectTrigger>
-        <SelectContent className="w-full">
-          {children}
-        </SelectContent>
-      </Select>
+        <Plus className="h-3 w-3" />
+      </button>
 
-      {/* Dialog separado, fora do Select */}
+      {/* Dialog separado */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <EntityFormComponent
           open={dialogOpen}
