@@ -32,7 +32,6 @@ import { useDebtStats } from "@/hooks/use-debts";
 import { useStatusSync } from "@/hooks/use-status-sync";
 import { useCreditCards } from "@/hooks/use-credit-cards";
 import { useAccounts } from "@/hooks/use-accounts";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { CreditCardForm } from "@/components/ui/credit-card-form";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { SelectItem } from "@/components/ui/select";
@@ -332,7 +331,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto p-4 space-y-6">
-
         {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left Side: 2x2 Summary Cards */}

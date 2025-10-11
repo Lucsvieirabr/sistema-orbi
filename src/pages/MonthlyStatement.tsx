@@ -51,6 +51,7 @@ import {
   CompositionItem,
 } from "@/components/ui/composition-dialog";
 import { CompositionViewDialog } from "@/components/ui/composition-view-dialog";
+import { ExtratoUploader } from "@/components/extrato-uploader";
 
 interface Installment {
   id: string;
@@ -81,6 +82,7 @@ import {
   BanknoteArrowDown,
   Info,
   Loader2,
+  Upload,
 } from "lucide-react";
 
 export default function MonthlyStatement() {
@@ -92,6 +94,7 @@ export default function MonthlyStatement() {
     "all" | "income" | "expense" | "fixed" | "pending" | "paid"
   >("all");
   const [open, setOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -4010,6 +4013,29 @@ export default function MonthlyStatement() {
         onOpenChange={setShowPendingExpenseDialog}
         trigger={<div />}
       />
+
+      {/* Import Dialog */}
+      <ExtratoUploader
+        open={importDialogOpen}
+        onOpenChange={setImportDialogOpen}
+        onTransactionsImported={() => {
+          queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+          queryClient.invalidateQueries({ queryKey: ["balances"] });
+          toast({
+            title: "Sucesso!",
+            description: "Transações importadas e categorizadas com IA.",
+          });
+        }}
+      />
+
+      {/* Floating Button for Import */}
+      <button
+        aria-label="Importar Extrato"
+        onClick={() => setImportDialogOpen(true)}
+        className="fixed bottom-6 right-20 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-green-400 text-green-400 shadow-lg hover:bg-green-400/10 hover:border-green-300 hover:text-green-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+      >
+        <Upload className="h-4 w-4" />
+      </button>
 
       {/* Floating Button for New Transaction */}
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
