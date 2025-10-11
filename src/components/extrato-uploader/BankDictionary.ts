@@ -751,7 +751,7 @@ export class BankDictionary {
           entity_name: 'Neoenergia',
           category: 'Moradia',
           subcategory: 'Energia Elétrica',
-          aliases: ['elektro', 'coelba', 'celpe', 'cosern'],
+          aliases: ['elektro', 'coelba', 'celpe', 'cosern','celesc'],
           confidence_modifier: 0.90,
           priority: 95
         },
@@ -1548,6 +1548,187 @@ export class BankDictionary {
           aliases: ['codetime ltda', 'codetime', 'code time'],
           confidence_modifier: 0.95,
           priority: 100
+        },
+        
+        // ========================================
+        // VAREJO DE MODA E E-COMMERCE ESPECIALIZADO
+        // ========================================
+        
+        'dafiti': {
+          entity_name: 'Dafiti',
+          category: 'Compras',
+          subcategory: 'E-commerce Moda',
+          aliases: ['dafiti brasil', 'dafiti.com.br'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        'zattini': {
+          entity_name: 'Zattini',
+          category: 'Compras',
+          subcategory: 'E-commerce Moda/Calçados',
+          aliases: ['zattini.com.br'],
+          confidence_modifier: 0.85,
+          priority: 90
+        },
+        'colcci': {
+          entity_name: 'Colcci',
+          category: 'Compras',
+          subcategory: 'Marcas de Moda Premium',
+          aliases: ['colcci store', 'loja colcci'],
+          confidence_modifier: 0.85,
+          priority: 90
+        },
+        
+        // E-commerce de Eletrônicos
+        'kabum': {
+          entity_name: 'KaBuM!',
+          category: 'Compras',
+          subcategory: 'E-commerce Eletrônicos',
+          aliases: ['kabum!', 'kabum.com.br'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        
+        // ========================================
+        // SAÚDE EXPANDIDA
+        // ========================================
+        
+        // Hospitais de Referência
+        'albert einstein': {
+          entity_name: 'Hospital Albert Einstein',
+          category: 'Saúde',
+          subcategory: 'Hospitais/Clínicas',
+          aliases: ['einstein', 'hosp albert einstein', 'hospital israelita'],
+          confidence_modifier: 0.95,
+          priority: 100
+        },
+        'sirio libanes': {
+          entity_name: 'Hospital Sírio-Libanês',
+          category: 'Saúde',
+          subcategory: 'Hospitais/Clínicas',
+          aliases: ['sirio-libanes', 'sirio libanês', 'hosp sirio'],
+          confidence_modifier: 0.95,
+          priority: 100
+        },
+        
+        // Academias Expandido
+        'bluefit': {
+          entity_name: 'Bluefit',
+          category: 'Bem Estar / Beleza',
+          subcategory: 'Academia',
+          aliases: ['blue fit', 'bluefit academia'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        
+        // Clínicas de Estética
+        'onodera estetica': {
+          entity_name: 'Onodera Estética',
+          category: 'Bem Estar / Beleza',
+          subcategory: 'Clínicas de Estética',
+          aliases: ['onodera', 'clinica onodera'],
+          confidence_modifier: 0.85,
+          priority: 90
+        },
+        
+        // ========================================
+        // COMBUSTÍVEL EXPANDIDO
+        // ========================================
+        
+        'galo pp': {
+          entity_name: 'GALO PP',
+          category: 'Transporte',
+          subcategory: 'Combustível',
+          aliases: ['galo', 'posto galo', 'auto posto galo'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        
+        // ========================================
+        // LAZER E ENTRETENIMENTO EXPANDIDO
+        // ========================================
+        
+        // Parques Temáticos
+        'beach park': {
+          entity_name: 'Beach Park',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Parques Temáticos',
+          aliases: ['beach park resort', 'beachpark'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        'thermas laranjais': {
+          entity_name: 'Thermas dos Laranjais',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Parques Temáticos',
+          aliases: ['thermas', 'laranjais', 'thermas olimpia'],
+          confidence_modifier: 0.85,
+          priority: 90
+        },
+        
+        // Cinemas
+        'moviecom': {
+          entity_name: 'Moviecom Cinemas',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Cinema',
+          aliases: ['moviecom', 'cinema moviecom'],
+          confidence_modifier: 0.85,
+          priority: 90
+        },
+        'cinemark': {
+          entity_name: 'Cinemark',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Cinema',
+          aliases: ['cinemark cinemas'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        
+        // Plataformas de Jogos
+        'psn': {
+          entity_name: 'PlayStation Network',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Jogos/Plataformas Digitais',
+          aliases: ['playstation network', 'playstation store', 'ps store', 'sony playstation'],
+          confidence_modifier: 0.95,
+          priority: 100
+        },
+        'steam': {
+          entity_name: 'Steam',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Jogos/Plataformas Digitais',
+          aliases: ['steam store', 'valve steam', 'steam games'],
+          confidence_modifier: 0.95,
+          priority: 100
+        },
+        'xbox live': {
+          entity_name: 'Xbox Live',
+          category: 'Lazer e Entretenimento',
+          subcategory: 'Jogos/Plataformas Digitais',
+          aliases: ['xbox', 'microsoft xbox', 'xbox store', 'xbox game pass'],
+          confidence_modifier: 0.95,
+          priority: 100
+        },
+        
+        // ========================================
+        // MORADIA - CONCESSIONÁRIAS EXPANDIDAS
+        // ========================================
+        
+        'saneago': {
+          entity_name: 'SANEAGO',
+          category: 'Moradia',
+          subcategory: 'Água e Esgoto',
+          aliases: ['saneago go', 'saneamento goias'],
+          confidence_modifier: 0.90,
+          priority: 95
+        },
+        'enel sao paulo': {
+          entity_name: 'Enel São Paulo',
+          category: 'Moradia',
+          subcategory: 'Energia Elétrica',
+          aliases: ['enel sp'],
+          confidence_modifier: 0.95,
+          priority: 100
         }
       },
 
@@ -1808,9 +1989,24 @@ export class BankDictionary {
             priority: 85
           },
           {
-            keywords: ['calcado', 'calçado', 'calcados', 'calçados', 'sapato', 'sapatos'],
+            keywords: ['calcado', 'calçado', 'calcados', 'calçados', 'sapato', 'sapatos', 'studio z'],
             category: 'Compras',
             subcategory: 'Calçados',
+            confidence_modifier: 0.80,
+            priority: 80
+          },
+          // E-COMMERCE DE MODA
+          {
+            keywords: ['dafiti', 'zattini', 'shein', 'asos', 'e-commerce moda'],
+            category: 'Compras',
+            subcategory: 'E-commerce Moda',
+            confidence_modifier: 0.85,
+            priority: 85
+          },
+          {
+            keywords: ['colcci', 'farm', 'osklen', 'marca premium', 'moda premium'],
+            category: 'Compras',
+            subcategory: 'Marcas de Moda Premium',
             confidence_modifier: 0.80,
             priority: 80
           },
@@ -1826,6 +2022,14 @@ export class BankDictionary {
             keywords: ['amazon', 'shopee', 'aliexpress', 'marketplace'],
             category: 'Compras',
             subcategory: 'Marketplace',
+            confidence_modifier: 0.85,
+            priority: 85
+          },
+          // E-COMMERCE ELETRÔNICOS
+          {
+            keywords: ['kabum', 'terabyteshop', 'pichau', 'eletronicos online', 'eletrônicos online'],
+            category: 'Compras',
+            subcategory: 'E-commerce Eletrônicos',
             confidence_modifier: 0.85,
             priority: 85
           },
@@ -1857,11 +2061,26 @@ export class BankDictionary {
             priority: 90
           },
           {
-            keywords: ['drogasil', 'raia', 'pague menos', 'drogaria sao paulo', 'dpsp', 'pacheco', 'panvel', 'araujo'],
+            keywords: ['drogasil', 'raia', 'pague menos', 'drogaria sao paulo', 'dpsp', 'pacheco', 'panvel', 'araujo', 'rd saude'],
             category: 'Saúde',
             subcategory: 'Farmácia',
             confidence_modifier: 0.85,
             priority: 85
+          },
+          // HOSPITAIS E CLÍNICAS
+          {
+            keywords: ['hospital', 'hosp', 'einstein', 'sirio', 'sírio-libanês', 'sirio libanes', 'hospital albert', 'pronto socorro'],
+            category: 'Saúde',
+            subcategory: 'Hospitais/Clínicas',
+            confidence_modifier: 0.90,
+            priority: 90
+          },
+          {
+            keywords: ['clinica', 'clínica', 'laboratorio', 'laboratório', 'exames', 'exame', 'checkup'],
+            category: 'Saúde',
+            subcategory: 'Hospitais/Clínicas',
+            confidence_modifier: 0.80,
+            priority: 80
           },
           // SERVIÇOS MÉDICOS
           {
@@ -1939,11 +2158,25 @@ export class BankDictionary {
             priority: 85
           },
           {
-            keywords: ['cinema', 'filme', 'teatro', 'show'],
+            keywords: ['cinema', 'filme', 'teatro', 'show', 'moviecom', 'cinemark'],
             category: 'Lazer e Entretenimento',
             subcategory: 'Cinema',
-            confidence_modifier: 0.75,
-            priority: 75
+            confidence_modifier: 0.85,
+            priority: 85
+          },
+          {
+            keywords: ['parque', 'parque tematico', 'parque temático', 'parque aquatico', 'parque aquático', 'beach park', 'thermas'],
+            category: 'Lazer e Entretenimento',
+            subcategory: 'Parques Temáticos',
+            confidence_modifier: 0.80,
+            priority: 80
+          },
+          {
+            keywords: ['psn', 'playstation', 'steam', 'xbox', 'xbox live', 'nintendo', 'jogos', 'games', 'game'],
+            category: 'Lazer e Entretenimento',
+            subcategory: 'Jogos/Plataformas Digitais',
+            confidence_modifier: 0.90,
+            priority: 90
           }
         ],
         
@@ -1960,15 +2193,23 @@ export class BankDictionary {
         'Bem Estar / Beleza': [
           // ACADEMIAS E FITNESS
           {
-            keywords: ['academia', 'gym', 'fitness', 'crossfit', 'musculação', 'treino', 'smart fit', 'blue fit', 'curves', 'fit life'],
+            keywords: ['academia', 'gym', 'fitness', 'crossfit', 'musculação', 'treino', 'smart fit', 'blue fit', 'bluefit', 'curves', 'fit life'],
             category: 'Bem Estar / Beleza',
             subcategory: 'Academia',
             confidence_modifier: 0.90,
             priority: 90
           },
-          // BELEZA E ESTÉTICA
+          // CLÍNICAS DE ESTÉTICA
           {
-            keywords: ['cabelereiro', 'cabeleireiro', 'barbearia', 'salao', 'salão', 'estetica', 'estética', 'spa'],
+            keywords: ['estetica', 'estética', 'clinica de estetica', 'clínica de estética', 'onodera', 'procedimento estetico', 'procedimento estético'],
+            category: 'Bem Estar / Beleza',
+            subcategory: 'Clínicas de Estética',
+            confidence_modifier: 0.85,
+            priority: 85
+          },
+          // BELEZA GERAL
+          {
+            keywords: ['cabelereiro', 'cabeleireiro', 'barbearia', 'salao', 'salão', 'spa', 'manicure', 'pedicure'],
             category: 'Bem Estar / Beleza',
             subcategory: 'Bem Estar / Beleza',
             confidence_modifier: 0.75,
@@ -2194,10 +2435,141 @@ export class BankDictionary {
       },
 
       banking: {
-        // TARIFAS E ENCARGOS BANCÁRIOS
+        // ========================================
+        // IOF (IMPOSTO SOBRE OPERAÇÕES FINANCEIRAS)
+        // ========================================
+        'iof saq rotativo diario': [
+          {
+            patterns: [/iof saq\/rotativo diario|iof saq\/rotativo diário|iof saq rotativo diario/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'IOF Nacional (Diário)',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'iof saq rotativo adicional': [
+          {
+            patterns: [/iof saq\/rotat adicional|iof saq rotativo adicional|iof adicional/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'IOF Nacional (Adicional)',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'iof operacao exterior': [
+          {
+            patterns: [/iof operação exterior|iof operacao exterior|iof internacional|iof compra internacional/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'IOF Internacional',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'iof de atraso': [
+          {
+            patterns: [/iof de atraso|iof atraso/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'IOF Nacional (Atraso)',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'iof': [
+          {
+            patterns: [/iof saq\/rotativo|imposto op\. financeira|^iof$/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'IOF',
+            confidence_modifier: 0.98,
+            priority: 95
+          }
+        ],
+        
+        // ========================================
+        // ANUIDADES E TARIFAS DE MANUTENÇÃO
+        // ========================================
+        'anuidade mastercard': [
+          {
+            patterns: [/anuidade mastercard/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Anuidade de Cartão',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'anuidade visa': [
+          {
+            patterns: [/anuidade visa/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Anuidade de Cartão',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'anuidade': [
+          {
+            patterns: [/anuidade|anuid/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Anuidade de Cartão',
+            confidence_modifier: 0.95,
+            priority: 95
+          }
+        ],
+        
+        // ========================================
+        // TARIFAS DE SAQUE
+        // ========================================
+        'saque banco24horas': [
+          {
+            patterns: [/saque banco24horas|saque banco 24 horas|saque 24h/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Tarifa de Saque',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'saque rede cirrus nacional': [
+          {
+            patterns: [/saque rede cirrus nacional|saque cirrus nacional/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Tarifa de Saque',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'saque rede cirrus exterior': [
+          {
+            patterns: [/saque rede cirrus exterior|saque cirrus exterior|saque internacional/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Tarifa de Saque',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'saque': [
+          {
+            patterns: [/saque|taxa de saque/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Tarifa de Saque',
+            confidence_modifier: 0.90,
+            priority: 85
+          }
+        ],
+        
+        // ========================================
+        // MULTAS E JUROS
+        // ========================================
+        'multa por atraso': [
+          {
+            patterns: [/multa por atraso/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Multa por Atraso',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
         'multa de atraso': [
           {
-            patterns: [/multa de atraso|multa por atraso|multa atraso/],
+            patterns: [/multa de atraso|multa atraso/],
             category: 'Tarifas Bancárias',
             subcategory: 'Multa',
             confidence_modifier: 0.98,
@@ -2206,31 +2578,124 @@ export class BankDictionary {
         ],
         'juros de atraso': [
           {
-            patterns: [/juros de atraso|juro sobre rotativo|juros atraso|juros de mora|juros de divida|juros de dívida/],
+            patterns: [/juros de atraso|juros atraso/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Juros de Mora',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'juro sobre rotativo': [
+          {
+            patterns: [/juro sobre rotativo|juros rotativo/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Juros de Rotativo',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'juro de mora': [
+          {
+            patterns: [/juro de mora|juros de mora/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Juros de Mora',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'juros de divida encerrada': [
+          {
+            patterns: [/juros de divida encerrada|juros de dívida encerrada|juros renegociacao|juros renegociação/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Juros de Renegociação',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'juros': [
+          {
+            patterns: [/juros de divida|juros de dívida|juros cobrados/],
             category: 'Tarifas Bancárias',
             subcategory: 'Juros',
-            confidence_modifier: 0.98,
-            priority: 100
+            confidence_modifier: 0.85,
+            priority: 85
           }
         ],
-        'iof': [
+        
+        // ========================================
+        // PARCELAMENTO E RENEGOCIAÇÃO
+        // ========================================
+        'parcelamento rotativo': [
           {
-            patterns: [/iof de atraso|iof atraso|iof saq\/rotativo|imposto op\. financeira|^iof$/],
+            patterns: [/parcelamento rotativ|parcelamento de rotativo|parcelamento de divida/],
             category: 'Tarifas Bancárias',
-            subcategory: 'Taxa Bancária',
-            confidence_modifier: 0.98,
+            subcategory: 'Parcelamento de Dívida',
+            confidence_modifier: 1.0,
             priority: 100
           }
         ],
-        'anuidade': [
+        'pagamento minimo': [
           {
-            patterns: [/anuidade mastercard|anuidade visa|anuidade|anuid/],
+            patterns: [/pagamento minimo|pagamento mínimo/],
             category: 'Tarifas Bancárias',
-            subcategory: 'Anuidade de Cartão',
-            confidence_modifier: 0.95,
+            subcategory: 'Financiamento',
+            confidence_modifier: 0.90,
+            priority: 95
+          }
+        ],
+        'encerramento de divida': [
+          {
+            patterns: [/encerramento de divida|encerramento de dívida/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Renegociação de Dívida',
+            confidence_modifier: 1.0,
             priority: 100
           }
         ],
+        'saldo em atraso': [
+          {
+            patterns: [/saldo em atraso|debito de divida|débito de dívida/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Débito de Dívida',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        
+        // ========================================
+        // PAGAMENTOS E LIQUIDAÇÃO
+        // ========================================
+        'pagamento boleto bancario': [
+          {
+            patterns: [/pagamento-boleto bancario|pagamento boleto bancário|pagamento de boleto/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Pagamento de Fatura/Boleto',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'pagamento recebido': [
+          {
+            patterns: [/pagamento recebido/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Pagamento de Fatura/Boleto',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        'credito de atraso': [
+          {
+            patterns: [/credito de atraso|crédito de atraso|ajuste de encargos|estorno de encargos/],
+            category: 'Tarifas Bancárias',
+            subcategory: 'Ajuste/Estorno de Encargos',
+            confidence_modifier: 1.0,
+            priority: 100
+          }
+        ],
+        
+        // ========================================
+        // TARIFAS GERAIS
+        // ========================================
         'tarifa bancaria': [
           {
             patterns: [/tarifa|taxa bancaria|manutencao conta|taxa mensal|cesta de servicos/],
@@ -2238,33 +2703,6 @@ export class BankDictionary {
             subcategory: 'Taxa Bancária',
             confidence_modifier: 0.90,
             priority: 95
-          }
-        ],
-        'pagamento minimo': [
-          {
-            patterns: [/pagamento minimo|pagamento mínimo|parcelamento rotativ|rotativo/],
-            category: 'Tarifas Bancárias',
-            subcategory: 'Financiamento',
-            confidence_modifier: 0.90,
-            priority: 95
-          }
-        ],
-        'saldo em atraso': [
-          {
-            patterns: [/saldo em atraso|atraso saldo/],
-            category: 'Tarifas Bancárias',
-            subcategory: 'Dívida',
-            confidence_modifier: 0.90,
-            priority: 92
-          }
-        ],
-        'encerramento de divida': [
-          {
-            patterns: [/encerramento de divida|encerramento de dívida|quitacao|quitação/],
-            category: 'Tarifas Bancárias',
-            subcategory: 'Quitação de Dívida',
-            confidence_modifier: 0.85,
-            priority: 90
           }
         ],
         
@@ -2323,26 +2761,6 @@ export class BankDictionary {
             subcategory: 'Transferência Bancária',
             confidence_modifier: 0.85,
             priority: 85
-          }
-        ],
-        
-        // RECEITAS E RECEBIMENTOS
-        'pagamento recebido': [
-          {
-            patterns: [/pagamento recebido|recebimento|valor recebido/],
-            category: 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-            subcategory: 'Recebimento',
-            confidence_modifier: 0.85,
-            priority: 90
-          }
-        ],
-        'credito de atraso': [
-          {
-            patterns: [/credito de atraso|crédito de atraso|estorno/],
-            category: 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-            subcategory: 'Estorno',
-            confidence_modifier: 0.90,
-            priority: 95
           }
         ],
         
