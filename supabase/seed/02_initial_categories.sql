@@ -19,6 +19,8 @@ INSERT INTO public.categories (user_id, name, category_type, icon, created_at) V
 ('00000000-0000-0000-0000-000000000000', 'Diarista / Prestadores Serv.', 'expense', 'wrench', NOW()),
 -- Despesas Pessoais
 ('00000000-0000-0000-0000-000000000000', 'Despesas Pessoais', 'expense', 'user', NOW()),
+-- Estudos
+('00000000-0000-0000-0000-000000000000', 'Estudos', 'expense', 'graduation-cap', NOW()),
 -- Empréstimos / Financiamentos
 ('00000000-0000-0000-0000-000000000000', 'Empréstimos / Financiamentos', 'expense', 'credit-card', NOW()),
 -- Férias / Viagens
@@ -45,8 +47,6 @@ INSERT INTO public.categories (user_id, name, category_type, icon, created_at) V
 ('00000000-0000-0000-0000-000000000000', 'Proteção Pessoal / Saúde / Farmácia', 'expense', 'heart', NOW()),
 -- Tarifas Bancárias / Juros / Impostos / Taxas
 ('00000000-0000-0000-0000-000000000000', 'Tarifas Bancárias / Juros / Impostos / Taxas', 'expense', 'receipt', NOW()),
--- Telefone / Apps
-('00000000-0000-0000-0000-000000000000', 'Telefone / Apps', 'expense', 'smartphone', NOW()),
 -- Transporte
 ('00000000-0000-0000-0000-000000000000', 'Transporte', 'expense', 'car', NOW());
 

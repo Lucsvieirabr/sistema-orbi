@@ -3,7 +3,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NumericInput } from '@/components/ui/numeric-input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { SelectWithAddButton } from '@/components/ui/select-with-add-button';
+import { SelectItem } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -11,6 +12,8 @@ import { Trash2, Save, AlertCircle, CheckCircle, TrendingUp, TrendingDown } from
 import { ParsedTransaction } from './CSVParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { useCategories } from '@/hooks/use-categories';
+import { useAccounts } from '@/hooks/use-accounts';
 import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
 
 interface ConfirmationDialogProps {
@@ -33,49 +36,22 @@ interface Account {
 
 export function ConfirmationDialog({ open, onOpenChange, transactions, onTransactionsSaved }: ConfirmationDialogProps) {
   const [editedTransactions, setEditedTransactions] = useState<ParsedTransaction[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [isSaving, setIsSaving] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
   const [classifier, setClassifier] = useState<IntelligentTransactionClassifier | null>(null);
   const [correctionsDetected, setCorrectionsDetected] = useState<Set<number>>(new Set());
   const { toast } = useToast();
-
-  const loadCategoriesAndAccounts = useCallback(async () => {
-    try {
-      // Carregar categorias
-      const { data: categoriesData } = await supabase
-        .from('categories')
-        .select('id, name, category_type')
-        .order('name');
-
-      if (categoriesData) {
-        setCategories(categoriesData as Category[]);
-      }
-
-      // Carregar contas
-      const { data: accountsData } = await supabase
-        .from('accounts')
-        .select('id, name')
-        .order('name');
-
-      if (accountsData) {
-        setAccounts(accountsData);
-      }
-    } catch (error) {
-      console.error('Erro ao carregar dados:', error);
-      toast({
-        title: "Erro",
-        description: "Erro ao carregar categorias e contas.",
-        variant: "destructive"
-      });
-    }
-  }, [toast]);
+  
+  // Usar hooks do React Query para carregar categorias e contas (auto-refresh)
+  const { categories: allCategories } = useCategories();
+  const { accounts } = useAccounts();
+  
+  const categories = (allCategories || []) as Category[];
+  const accountsList = (accounts || []) as Account[];
 
   useEffect(() => {
     if (open && transactions.length > 0) {
       setEditedTransactions([...transactions]);
-      loadCategoriesAndAccounts();
 
       // Inicializa o classificador para aprendizado
       const initializeClassifier = async () => {
@@ -86,30 +62,35 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
             setClassifier(intelligentClassifier);
           }
         } catch (error) {
-          console.error('Erro ao inicializar classificador:', error);
+          // Erro ao inicializar classificador
         }
       };
 
       initializeClassifier();
+    } else if (!open) {
+      // Limpar dados quando fechar
+      setEditedTransactions([]);
+      setCorrectionsDetected(new Set());
+      setErrors([]);
     }
-  }, [open, transactions, loadCategoriesAndAccounts]);
+  }, [open, transactions]);
 
-  const updateTransaction = (index: number, field: keyof ParsedTransaction, value: ParsedTransaction[keyof ParsedTransaction]) => {
+  const updateTransaction = (index: number, field: keyof ParsedTransaction, value: ParsedTransaction[keyof ParsedTransaction], additionalUpdates?: Partial<ParsedTransaction>) => {
     const updated = [...editedTransactions];
     const originalTransaction = updated[index];
-    updated[index] = { ...originalTransaction, [field]: value };
+    
+    // Aplicar atualização principal e atualizações adicionais de uma vez
+    updated[index] = { 
+      ...originalTransaction, 
+      [field]: value,
+      ...additionalUpdates
+    };
 
     // Detecta correções de categoria
     if (field === 'category_id' && originalTransaction.category_id !== value) {
       const newCorrections = new Set(correctionsDetected);
       newCorrections.add(index);
       setCorrectionsDetected(newCorrections);
-
-      console.log(`🔧 Correção detectada na linha ${index + 1}:`, {
-        descricao: originalTransaction.description,
-        categoria_anterior: originalTransaction.category_name,
-        categoria_nova: categories.find(c => c.id === value)?.name
-      });
     }
 
     setEditedTransactions(updated);
@@ -152,12 +133,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       const transactionsToSave = editedTransactions.map(transaction => ({
         user_id: user.id,
         description: transaction.description,
-        value: transaction.type === 'expense' ? -Math.abs(transaction.value) : Math.abs(transaction.value),
+        value: Math.abs(transaction.value), // Sempre positivo - o tipo indica se é expense/income
         date: transaction.date,
         type: transaction.type,
         category_id: transaction.category_id || null,
         account_id: transaction.account_id || null,
-        installments: transaction.installments || null,
         installment_number: transaction.installment_number || null,
         is_fixed: transaction.is_fixed || false,
         payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),
@@ -176,8 +156,6 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
 
       // APRENDIZADO AUTOMÁTICO DAS CORREÇÕES
       if (classifier && correctionsDetected.size > 0) {
-        console.log(`🧠 Iniciando aprendizado de ${correctionsDetected.size} correções...`);
-
         const learningPromises = Array.from(correctionsDetected).map(async (index) => {
           const transaction = editedTransactions[index];
           const category = categories.find(c => c.id === transaction.category_id);
@@ -190,27 +168,24 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                 transaction.subcategory,
                 transaction.type
               );
-              console.log(`✅ Aprendido: "${transaction.description}" → ${category.name}`);
             } catch (error) {
-              console.error(`❌ Erro no aprendizado de "${transaction.description}":`, error);
+              // Erro no aprendizado
             }
           }
         });
 
         await Promise.allSettled(learningPromises);
-        console.log(`🎓 Aprendizado concluído para ${correctionsDetected.size} correções`);
       }
 
       toast({
         title: "Sucesso",
-        description: `${data.length} transações importadas com sucesso!${correctionsDetected.size > 0 ? ` (${correctionsDetected.size} padrões aprendidos)` : ''}`,
+        description: `${data.length} transações importadas com sucesso!`,
       });
 
       onTransactionsSaved();
       onOpenChange(false);
 
     } catch (error) {
-      console.error('Erro ao salvar transações:', error);
       toast({
         title: "Erro",
         description: "Erro ao salvar transações. Tente novamente.",
@@ -286,29 +261,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
             </Alert>
           )}
 
-          {/* Alerta de aprendizado */}
-          {correctionsDetected.size > 0 && (
-            <Alert>
-              <CheckCircle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="flex items-center justify-between">
-                  <span>
-                    <strong>Aprendizado Inteligente:</strong> Detectadas {correctionsDetected.size} correções de categoria.
-                    O sistema aprenderá automaticamente com essas correções para melhorar futuras classificações.
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    🔧 Correções: {correctionsDetected.size}
-                  </span>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Lista de transações em formato compacto */}
           <ScrollArea className="h-[500px] w-full border rounded-md">
             <div className="divide-y">
               {editedTransactions.map((transaction, index) => (
-                <div key={transaction.id} className={`p-4 hover:bg-muted/30 transition-colors ${correctionsDetected.has(index) ? 'border-l-4 border-l-blue-500 bg-blue-50/30' : ''}`}>
+                <div key={transaction.id} className="p-4 hover:bg-muted/30 transition-colors">
                   {/* Linha 1: Ícone + Descrição + Data + Valor + Excluir */}
                   <div className="grid grid-cols-12 gap-2 items-center mb-2">
                     <div className="col-span-1 flex items-center gap-2">
@@ -320,9 +277,6 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
-                      {correctionsDetected.has(index) && (
-                        <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse" title="Correção detectada - será aprendida" />
-                      )}
                     </div>
 
                     <div className="col-span-6">
@@ -370,43 +324,38 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                     <div className="col-span-1"></div>
 
                     <div className="col-span-3">
-                      <Select
+                      <SelectWithAddButton
+                        entityType="categories"
                         value={transaction.category_id || ''}
                         onValueChange={(value) => {
                           const category = categories.find(c => c.id === value);
-                          updateTransaction(index, 'category_id', value);
-                          updateTransaction(index, 'category_name', category?.name);
+                          updateTransaction(index, 'category_id', value, {
+                            category_name: category?.name
+                          });
                         }}
+                        placeholder="Categoria"
                       >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue placeholder="Categoria" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {getCategoryOptions(transaction.type).map((category) => (
-                            <SelectItem key={category.id} value={category.id} className="text-xs">
-                              {category.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {getCategoryOptions(transaction.type).map((category) => (
+                          <SelectItem key={category.id} value={category.id}>
+                            {category.name}
+                          </SelectItem>
+                        ))}
+                      </SelectWithAddButton>
                     </div>
 
                     <div className="col-span-3">
-                      <Select
+                      <SelectWithAddButton
+                        entityType="accounts"
                         value={transaction.account_id || ''}
                         onValueChange={(value) => updateTransaction(index, 'account_id', value)}
+                        placeholder="Conta"
                       >
-                        <SelectTrigger className="h-7 text-xs">
-                          <SelectValue placeholder="Conta" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {accounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id} className="text-xs">
-                              {account.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                        {accountsList.map((account) => (
+                          <SelectItem key={account.id} value={account.id}>
+                            {account.name}
+                          </SelectItem>
+                        ))}
+                      </SelectWithAddButton>
                     </div>
 
                     <div className="col-span-5 flex items-center gap-3">

@@ -70,24 +70,27 @@ export type Database = {
           created_at: string | null
           icon: string | null
           id: string
+          is_system: boolean | null
           name: string
-          user_id: string
+          user_id: string | null
         }
         Insert: {
           category_type?: string
           created_at?: string | null
           icon?: string | null
           id?: string
+          is_system?: boolean | null
           name: string
-          user_id: string
+          user_id?: string | null
         }
         Update: {
           category_type?: string
           created_at?: string | null
           icon?: string | null
           id?: string
+          is_system?: boolean | null
           name?: string
-          user_id?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -149,6 +152,138 @@ export type Database = {
           },
         ]
       }
+      global_learned_patterns: {
+        Row: {
+          category: string
+          confidence: number
+          created_at: string | null
+          description: string
+          first_learned_at: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          metadata: Json | null
+          normalized_description: string
+          source_type: string
+          subcategory: string | null
+          usage_count: number
+          user_votes: number
+        }
+        Insert: {
+          category: string
+          confidence?: number
+          created_at?: string | null
+          description: string
+          first_learned_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          metadata?: Json | null
+          normalized_description: string
+          source_type?: string
+          subcategory?: string | null
+          usage_count?: number
+          user_votes?: number
+        }
+        Update: {
+          category?: string
+          confidence?: number
+          created_at?: string | null
+          description?: string
+          first_learned_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          metadata?: Json | null
+          normalized_description?: string
+          source_type?: string
+          subcategory?: string | null
+          usage_count?: number
+          user_votes?: number
+        }
+        Relationships: []
+      }
+      merchants_dictionary: {
+        Row: {
+          aliases: string[] | null
+          category: string
+          confidence_modifier: number
+          context: string | null
+          created_at: string | null
+          created_by: string | null
+          entity_name: string
+          entry_type: string
+          id: string
+          is_active: boolean | null
+          keywords: string[] | null
+          last_used_at: string | null
+          merchant_key: string
+          metadata: Json | null
+          priority: number
+          regex_patterns: string[] | null
+          region: string | null
+          source_type: string | null
+          state_specific: boolean | null
+          states: string[] | null
+          subcategory: string | null
+          updated_at: string | null
+          updated_by: string | null
+          usage_count: number | null
+        }
+        Insert: {
+          aliases?: string[] | null
+          category: string
+          confidence_modifier?: number
+          context?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          entity_name: string
+          entry_type?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          last_used_at?: string | null
+          merchant_key: string
+          metadata?: Json | null
+          priority?: number
+          regex_patterns?: string[] | null
+          region?: string | null
+          source_type?: string | null
+          state_specific?: boolean | null
+          states?: string[] | null
+          subcategory?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          usage_count?: number | null
+        }
+        Update: {
+          aliases?: string[] | null
+          category?: string
+          confidence_modifier?: number
+          context?: string | null
+          created_at?: string | null
+          created_by?: string | null
+          entity_name?: string
+          entry_type?: string
+          id?: string
+          is_active?: boolean | null
+          keywords?: string[] | null
+          last_used_at?: string | null
+          merchant_key?: string
+          metadata?: Json | null
+          priority?: number
+          regex_patterns?: string[] | null
+          region?: string | null
+          source_type?: string | null
+          state_specific?: boolean | null
+          states?: string[] | null
+          subcategory?: string | null
+          updated_at?: string | null
+          updated_by?: string | null
+          usage_count?: number | null
+        }
+        Relationships: []
+      }
       people: {
         Row: {
           created_at: string | null
@@ -172,52 +307,52 @@ export type Database = {
       }
       series: {
         Row: {
-          id: string
-          user_id: string
-          description: string
-          total_value: number
-          total_installments: number
-          is_fixed: boolean
           category_id: string | null
-          created_by_txn_id: string | null
           created_at: string | null
-          updated_at: string | null
-          frequency: string
-          start_date: string
+          created_by_txn_id: string | null
+          description: string
           end_date: string | null
+          frequency: string
+          id: string
+          is_fixed: boolean
           logo_url: string | null
+          start_date: string
+          total_installments: number
+          total_value: number
+          updated_at: string | null
+          user_id: string
         }
         Insert: {
-          id?: string
-          user_id: string
-          description: string
-          total_value: number
-          total_installments: number
-          is_fixed?: boolean
           category_id?: string | null
-          created_by_txn_id?: string | null
           created_at?: string | null
-          updated_at?: string | null
-          frequency?: string
-          start_date?: string
+          created_by_txn_id?: string | null
+          description: string
           end_date?: string | null
+          frequency?: string
+          id?: string
+          is_fixed?: boolean
           logo_url?: string | null
+          start_date?: string
+          total_installments: number
+          total_value: number
+          updated_at?: string | null
+          user_id: string
         }
         Update: {
-          id?: string
-          user_id?: string
-          description?: string
-          total_value?: number
-          total_installments?: number
-          is_fixed?: boolean
           category_id?: string | null
-          created_by_txn_id?: string | null
           created_at?: string | null
-          updated_at?: string | null
-          frequency?: string
-          start_date?: string
+          created_by_txn_id?: string | null
+          description?: string
           end_date?: string | null
+          frequency?: string
+          id?: string
+          is_fixed?: boolean
           logo_url?: string | null
+          start_date?: string
+          total_installments?: number
+          total_value?: number
+          updated_at?: string | null
+          user_id?: string
         }
         Relationships: [
           {
@@ -227,13 +362,6 @@ export type Database = {
             referencedRelation: "categories"
             referencedColumns: ["id"]
           },
-          {
-            foreignKeyName: "series_created_by_txn_id_fkey"
-            columns: ["created_by_txn_id"]
-            isOneToOne: false
-            referencedRelation: "transactions"
-            referencedColumns: ["id"]
-          },
         ]
       }
       transactions: {
@@ -241,70 +369,73 @@ export type Database = {
           account_id: string | null
           category_id: string | null
           compensation_value: number | null
+          composition_details: string | null
           created_at: string | null
           credit_card_id: string | null
           date: string
           description: string
-          linked_txn_id: string | null
-          person_id: string | null
           id: string
           installment_number: number | null
           is_fixed: boolean | null
           is_shared: boolean | null
+          linked_txn_id: string | null
+          liquidation_date: string | null
           payment_method: string | null
+          person_id: string | null
           series_id: string | null
           status: string
           type: string
+          updated_at: string | null
           user_id: string
           value: number
-          liquidation_date: string | null
-          composition_details: string | null
         }
         Insert: {
           account_id?: string | null
           category_id?: string | null
           compensation_value?: number | null
+          composition_details?: string | null
           created_at?: string | null
           credit_card_id?: string | null
           date: string
           description: string
-          family_member_id?: string | null
-          linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
           is_fixed?: boolean | null
           is_shared?: boolean | null
+          linked_txn_id?: string | null
+          liquidation_date?: string | null
           payment_method?: string | null
+          person_id?: string | null
           series_id?: string | null
           status?: string
           type: string
+          updated_at?: string | null
           user_id: string
           value: number
-          liquidation_date?: string | null
-          composition_details?: string | null
         }
         Update: {
           account_id?: string | null
           category_id?: string | null
           compensation_value?: number | null
+          composition_details?: string | null
           created_at?: string | null
           credit_card_id?: string | null
           date?: string
           description?: string
-          family_member_id?: string | null
-          linked_txn_id?: string | null
           id?: string
           installment_number?: number | null
           is_fixed?: boolean | null
           is_shared?: boolean | null
+          linked_txn_id?: string | null
+          liquidation_date?: string | null
           payment_method?: string | null
+          person_id?: string | null
           series_id?: string | null
           status?: string
           type?: string
+          updated_at?: string | null
           user_id?: string
           value?: number
-          liquidation_date?: string | null
-          composition_details?: string | null
         }
         Relationships: [
           {
@@ -343,16 +474,133 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "transactions_linked_txn_id_fkey"
+            columns: ["linked_txn_id"]
+            isOneToOne: false
+            referencedRelation: "transaction_installments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_linked_txn_id_fkey"
+            columns: ["linked_txn_id"]
+            isOneToOne: false
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "transactions_person_id_fkey"
             columns: ["person_id"]
             isOneToOne: false
             referencedRelation: "people"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "transactions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series_summary"
+            referencedColumns: ["id"]
+          },
         ]
       }
     }
     Views: {
+      mv_frequent_merchants: {
+        Row: {
+          aliases: string[] | null
+          category: string | null
+          confidence_modifier: number | null
+          entity_name: string | null
+          entry_type: string | null
+          id: string | null
+          last_used_at: string | null
+          merchant_key: string | null
+          priority: number | null
+          subcategory: string | null
+          usage_count: number | null
+        }
+        Relationships: []
+      }
+      mv_frequent_patterns: {
+        Row: {
+          category: string | null
+          confidence: number | null
+          last_used_at: string | null
+          normalized_description: string | null
+          subcategory: string | null
+          usage_count: number | null
+          user_votes: number | null
+        }
+        Relationships: []
+      }
+      series_summary: {
+        Row: {
+          category_id: string | null
+          created_at: string | null
+          created_installments: number | null
+          description: string | null
+          id: string | null
+          is_fixed: boolean | null
+          paid_installments: number | null
+          paid_value: number | null
+          pending_installments: number | null
+          pending_value: number | null
+          total_installments: number | null
+          total_value: number | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      transaction_installments: {
+        Row: {
+          date: string | null
+          description: string | null
+          id: string | null
+          installment_display: string | null
+          installment_number: number | null
+          series_description: string | null
+          series_id: string | null
+          series_is_fixed: boolean | null
+          series_total_value: number | null
+          status: string | null
+          total_installments: number | null
+          type: string | null
+          user_id: string | null
+          value: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series_summary"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vw_account_current_balance: {
         Row: {
           account_id: string | null
@@ -369,42 +617,263 @@ export type Database = {
         }
         Relationships: []
       }
-      series_summary: {
-        Row: {
-          id: string
-          user_id: string
-          description: string
-          total_value: number
-          total_installments: number
-          is_fixed: boolean
-          category_id: string | null
-          created_at: string | null
-          updated_at: string | null
-          created_installments: number
-          paid_installments: number
-          pending_installments: number
-          paid_value: number
-          pending_value: number
-        }
-        Relationships: []
-      }
-      vw_transaction_series: {
-        Row: {
-          description: string | null
-          first_date: string | null
-          installments: number | null
-          last_date: string | null
-          max_installment_number: number | null
-          series_id: string | null
-          status: string | null
-          total_installments: number | null
-          total_value: number | null
-        }
-        Relationships: []
-      }
     }
     Functions: {
-      [_ in never]: never
+      batch_update_learned_patterns: {
+        Args: { p_updates: Json[] }
+        Returns: number
+      }
+      cleanup_old_global_learned_patterns: {
+        Args: {
+          p_days_old?: number
+          p_min_usage?: number
+          p_min_user_votes?: number
+        }
+        Returns: number
+      }
+      cleanup_orphaned_series: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      create_installment_series: {
+        Args: {
+          p_account_id: string
+          p_category_id: string
+          p_credit_card_id: string
+          p_description: string
+          p_installments_data: Json
+          p_is_fixed: boolean
+          p_payment_method: string
+          p_person_id: string
+          p_type: string
+          p_user_id: string
+        }
+        Returns: string
+      }
+      delete_installment_series: {
+        Args: { p_series_id: string; p_user_id: string }
+        Returns: number
+      }
+      generate_future_fixed_transactions: {
+        Args: { count: number; from_date: string; target_series_id: string }
+        Returns: number
+      }
+      get_global_learned_patterns: {
+        Args: {
+          p_limit?: number
+          p_min_confidence?: number
+          p_min_user_votes?: number
+        }
+        Returns: {
+          category: string
+          confidence: number
+          description: string
+          id: string
+          last_used_at: string
+          subcategory: string
+          usage_count: number
+          user_votes: number
+        }[]
+      }
+      get_patterns_by_descriptions: {
+        Args: { p_descriptions: string[]; p_min_confidence?: number }
+        Returns: {
+          category: string
+          confidence: number
+          description: string
+          subcategory: string
+          usage_count: number
+          user_votes: number
+        }[]
+      }
+      get_top_merchants: {
+        Args: { p_limit?: number }
+        Returns: {
+          aliases: string[]
+          category: string
+          confidence_modifier: number
+          entity_name: string
+          entry_type: string
+          id: string
+          merchant_key: string
+          priority: number
+          subcategory: string
+          usage_count: number
+        }[]
+      }
+      get_top_patterns_by_category: {
+        Args: {
+          p_category: string
+          p_limit?: number
+          p_min_confidence?: number
+        }
+        Returns: {
+          category: string
+          confidence: number
+          description: string
+          subcategory: string
+          usage_count: number
+          user_votes: number
+        }[]
+      }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      maintain_fixed_transaction_series: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          generated_count: number
+          next_generation_date: string
+          series_id: string
+        }[]
+      }
+      record_merchant_usage: {
+        Args: { p_merchant_id: string }
+        Returns: undefined
+      }
+      refresh_frequent_merchants: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      refresh_frequent_patterns_view: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      run_fixed_transaction_maintenance: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          generated_transactions: number
+          processed_series: number
+        }[]
+      }
+      search_banking_pattern: {
+        Args: { p_context?: string; p_description: string }
+        Returns: {
+          category: string
+          confidence_modifier: number
+          id: string
+          merchant_key: string
+          priority: number
+          subcategory: string
+        }[]
+      }
+      search_by_keywords: {
+        Args: { p_description: string; p_type?: string }
+        Returns: {
+          category: string
+          confidence_modifier: number
+          id: string
+          merchant_key: string
+          priority: number
+          subcategory: string
+        }[]
+      }
+      search_merchant: {
+        Args: {
+          p_description: string
+          p_limit?: number
+          p_user_location?: string
+        }
+        Returns: {
+          category: string
+          confidence_modifier: number
+          entity_name: string
+          id: string
+          match_score: number
+          merchant_key: string
+          priority: number
+          subcategory: string
+        }[]
+      }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
+      update_global_learned_pattern: {
+        Args: {
+          p_category: string
+          p_confidence?: number
+          p_description: string
+          p_subcategory?: string
+          p_user_vote?: boolean
+        }
+        Returns: undefined
+      }
+      update_installment_series: {
+        Args: {
+          p_installments_data: Json
+          p_series_id: string
+          p_user_id: string
+        }
+        Returns: number
+      }
+      update_transaction_series_with_balance: {
+        Args: {
+          affected_account_id: string
+          from_date: string
+          new_account_id: string
+          new_category_id: string
+          new_credit_card_id: string
+          new_description: string
+          new_installments: number
+          new_is_fixed: boolean
+          new_payment_method: string
+          new_person_id: string
+          new_type: string
+          new_value: number
+          series_id: string
+          total_value_difference: number
+        }
+        Returns: number
+      }
+      update_transaction_with_balance: {
+        Args: {
+          affected_account_id: string
+          new_account_id: string
+          new_category_id: string
+          new_credit_card_id: string
+          new_date: string
+          new_description: string
+          new_installments: number
+          new_is_fixed: boolean
+          new_payment_method: string
+          new_person_id: string
+          new_type: string
+          new_value: number
+          transaction_id: string
+          value_difference: number
+        }
+        Returns: undefined
+      }
+      vote_on_learned_pattern: {
+        Args: { p_description: string; p_user_vote?: boolean }
+        Returns: boolean
+      }
     }
     Enums: {
       [_ in never]: never

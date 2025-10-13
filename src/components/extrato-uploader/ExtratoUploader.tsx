@@ -5,6 +5,7 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
 import { ConfirmationDialog } from './ConfirmationDialog';
+import { CSVParser } from './CSVParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 
@@ -35,25 +36,61 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [processedTransactions, setProcessedTransactions] = useState<any[]>([]);
   const [classifier, setClassifier] = useState<IntelligentTransactionClassifier | null>(null);
+  const [isInitializingClassifier, setIsInitializingClassifier] = useState(true);
   const [errors, setErrors] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Inicializa o classificador inteligente
   useEffect(() => {
     const initializeClassifier = async () => {
+      setIsInitializingClassifier(true);
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
-          setClassifier(intelligentClassifier);
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        
+        if (userError) {
+          console.error('Erro ao buscar usuário:', userError);
+          toast({
+            title: "Erro de autenticação",
+            description: "Não foi possível verificar o usuário. Faça login novamente.",
+            variant: "destructive"
+          });
+          setIsInitializingClassifier(false);
+          return;
         }
+
+        if (!user) {
+          console.error('Usuário não autenticado');
+          toast({
+            title: "Erro de autenticação",
+            description: "Você precisa estar autenticado para importar transações.",
+            variant: "destructive"
+          });
+          setIsInitializingClassifier(false);
+          return;
+        }
+
+        const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
+        
+        // Pré-carrega padrões frequentes
+        await intelligentClassifier.preloadFrequentPatterns();
+        
+        setClassifier(intelligentClassifier);
       } catch (error) {
         console.error('Erro ao inicializar classificador:', error);
+        toast({
+          title: "Erro na inicialização",
+          description: "Não foi possível inicializar o sistema de classificação. Tente recarregar a página.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsInitializingClassifier(false);
       }
     };
 
-    initializeClassifier();
-  }, []);
+    if (open) {
+      initializeClassifier();
+    }
+  }, [open, toast]);
 
   const processFile = useCallback(async (file: File) => {
     if (!classifier) {
@@ -98,7 +135,6 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo.';
-      console.error('Erro no processamento:', errorMessage);
       setErrors([errorMessage]);
       toast({
         title: "Erro",
@@ -115,21 +151,15 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       import('papaparse').then(({ default: Papa }) => {
         Papa.parse(file, {
           header: true,
-          delimiter: file.name.includes(';') ? ';' : ',',
           skipEmptyLines: true,
           encoding: 'utf-8',
           transformHeader: (header: string) => {
-            return header.trim().toLowerCase();
+            return header.trim();
           },
           transform: (value: string) => {
-            return value.trim();
+            return value ? value.trim() : '';
           },
           complete: (results: any) => {
-            if (results.errors.length > 0) {
-              reject(new Error(`Erro ao analisar CSV: ${results.errors[0].message}`));
-              return;
-            }
-
             if (results.data.length === 0) {
               reject(new Error('Arquivo CSV vazio ou sem dados válidos.'));
               return;
@@ -145,7 +175,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     });
   };
 
-  const processTransactionsWithAI = async (csvData: any[], classifier: IntelligentTransactionClassifier) => {
+  const processTransactionsWithAI = async (csvData: any[], _classifier: IntelligentTransactionClassifier) => {
     const stats: ProcessingStats = {
       total: 0,
       processed: 0,
@@ -157,6 +187,12 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       dictionaryMatches: 0,
       hybridDecisions: 0
     };
+
+    // Usar CSVParser para processar os dados
+    const csvParser = new CSVParser();
+    const parseResult = csvParser.parseCSVData(csvData);
+
+    const transactions: any[] = [];
 
     // Buscar categorias do banco para mapear nomes para IDs
     const { data: categoriesData } = await supabase
@@ -171,12 +207,12 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       'energia': 'Casa',
       'água/saneamento': 'Casa',
       'gás': 'Casa',
-      'assinaturas': 'Telefone / Apps',
-      'streaming': 'Telefone / Apps',
-      'telefonia': 'Telefone / Apps',
-      'internet': 'Telefone / Apps',
-      'telefonia móvel': 'Telefone / Apps',
-      'telefonia fixa': 'Telefone / Apps',
+      'assinaturas': 'Assinaturas',
+      'streaming': 'Assinaturas',
+      'telefonia': 'Assinaturas',
+      'internet': 'Assinaturas',
+      'telefonia móvel': 'Assinaturas',
+      'telefonia fixa': 'Assinaturas',
       'refeição': 'Alimentação',
       'comida': 'Alimentação',
       'supermercado': 'Alimentação',
@@ -237,65 +273,30 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       });
     }
 
-    const transactions: any[] = [];
+    // 🚀 OTIMIZAÇÃO: Classificar TODAS as transações em UMA única request via Edge Function
+    try {
+      // Importar BatchClassifier dinamicamente
+      const { BatchTransactionClassifier } = await import('./BatchClassifier');
+      const batchClassifier = new BatchTransactionClassifier('SP', 100);
 
-    for (let i = 0; i < csvData.length; i++) {
-      const row = csvData[i];
-      stats.total++;
+      // Preparar transações para classificação em batch
+      const transactionsToClassify = parseResult.transactions.map(t => ({
+        description: t.description,
+        type: t.type,
+        amount: t.value,
+        date: t.date
+      }));
 
-      try {
-        // Extrair dados básicos
-        const rawDate = row['data'] || row['date'] || row['data lançamento'];
-        const rawDescription = row['descrição'] || row['description'] || row['title'] || row['histórico'];
-        const rawValue = row['valor'] || row['value'] || row['amount'];
+      // ⚡ UMA ÚNICA REQUEST classifica TODAS as transações
+      const batchResponse = await batchClassifier.classifyBatch(transactionsToClassify);
 
-        if (!rawDate || !rawDescription || !rawValue) {
-          continue;
-        }
-
-        // Converter valor
-        let value = parseFloat(rawValue.replace(/[^\d.,-]/g, '').replace(',', '.'));
+      // Processar resultados
+      for (let i = 0; i < parseResult.transactions.length; i++) {
+        const parsedTransaction = parseResult.transactions[i];
+        const classification = batchResponse.results[i];
         
-        // Determinar tipo baseado em contexto e valor
-        let type: 'income' | 'expense';
-        
-        // Para CSV de cartão de crédito (Nubank), valores positivos são despesas
-        if (rawValue.includes('-') || value < 0) {
-          type = 'expense';
-          value = Math.abs(value);
-        } else {
-          // Verificar contexto do histórico/descrição
-          const descLower = rawDescription.toLowerCase();
-          
-          // Palavras-chave que indicam RECEITA
-          const incomeKeywords = ['recebido', 'recebimento', 'salario', 'salário', 'credito', 'crédito', 'deposito', 'depósito', 'entrada', 'rendimento', 'dividendo', 'reembolso'];
-          
-          // Palavras-chave que indicam DESPESA
-          const expenseKeywords = ['compra', 'pagamento', 'debito', 'débito', 'enviado', 'gasto', 'despesa', 'taxa', 'multa', 'juros', 'iof'];
-          
-          const isIncome = incomeKeywords.some(kw => descLower.includes(kw));
-          const isExpense = expenseKeywords.some(kw => descLower.includes(kw));
-          
-          if (isIncome && !isExpense) {
-            type = 'income';
-          } else if (isExpense && !isIncome) {
-            type = 'expense';
-          } else {
-            // Para CSV sem sinal, valores em arquivo de cartão de crédito são despesas por padrão
-            // A menos que seja explicitamente uma receita
-            const hasHistorico = row['histórico'] || row['historico'];
-            if (hasHistorico) {
-              const historicoLower = hasHistorico.toLowerCase();
-              type = historicoLower.includes('recebido') || historicoLower.includes('credito') ? 'income' : 'expense';
-            } else {
-              // Cartões de crédito: valores positivos são despesas (padrão)
-              type = 'expense';
-            }
-          }
-        }
-
-        // Classificar com IA
-        const classification = await classifier.classifyTransaction(rawDescription, type);
+        stats.total++;
+        stats.processed++;
 
         // Normalizar categoria usando aliases
         let normalizedCategory = classification.category.toLowerCase();
@@ -307,11 +308,11 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
         // Mapear categoria para ID
         const mappedCategory = categoryMap[normalizedCategory];
-        let category_id = mappedCategory && mappedCategory.type === type ? mappedCategory.id : undefined;
+        let category_id = mappedCategory && mappedCategory.type === parsedTransaction.type ? mappedCategory.id : undefined;
 
         // Se não encontrou categoria específica, usar categoria padrão baseada no tipo
         if (!category_id) {
-          const defaultCategoryName = type === 'income'
+          const defaultCategoryName = parsedTransaction.type === 'income'
             ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)'
             : 'Outros';
           const defaultCategory = categoryMap[defaultCategoryName.toLowerCase()];
@@ -319,23 +320,22 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         }
 
         const transaction = {
-          id: `temp_${i}_${Date.now()}`,
-          date: convertDateFormat(rawDate),
-          description: rawDescription.trim(),
-          value: Math.abs(value),
-          type,
+          id: parsedTransaction.id,
+          date: parsedTransaction.date,
+          description: parsedTransaction.description,
+          value: parsedTransaction.value,
+          type: parsedTransaction.type,
           category_id,
           category_name: classification.category,
           subcategory: classification.subcategory,
           confidence: classification.confidence,
           method: classification.method,
           learned_from_user: classification.learned_from_user,
-          ml_prediction: classification.ml_prediction,
-          dictionary_result: classification.dictionary_result
+          installments: parsedTransaction.installments,
+          installment_number: parsedTransaction.installment_number
         };
 
         transactions.push(transaction);
-        stats.processed++;
 
         // Atualizar estatísticas
         if (classification.confidence >= 90) stats.withHighConfidence++;
@@ -343,26 +343,18 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         else stats.withLowConfidence++;
 
         if (classification.learned_from_user) stats.learned++;
-        if (classification.ml_prediction) stats.mlPredictions++;
-        if (classification.dictionary_result) stats.dictionaryMatches++;
+        if (classification.method === 'ml_prediction') stats.mlPredictions++;
+        if (classification.method === 'merchant_specific' || classification.method === 'banking_pattern') stats.dictionaryMatches++;
         if (classification.method === 'hybrid') stats.hybridDecisions++;
-
-      } catch (error) {
-        console.error(`Erro ao processar linha ${i + 1}:`, error);
       }
+    } catch (error) {
+      console.error('❌ Erro na classificação em batch:', error);
+      throw error;
     }
 
     return { transactions, stats };
   };
 
-  const convertDateFormat = (dateStr: string): string => {
-    // Converte DD/MM/YYYY para YYYY-MM-DD
-    const parts = dateStr.split('/');
-    if (parts.length === 3) {
-      return `${parts[2]}-${parts[1].padStart(2, '0')}-${parts[0].padStart(2, '0')}`;
-    }
-    return dateStr; // Retorna original se não conseguir converter
-  };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -394,6 +386,9 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     setShowConfirmation(false);
     setProcessedTransactions([]);
     setUploadedFile(null);
+    setProcessingStats(null);
+    setProgress(0);
+    setErrors([]);
     onTransactionsImported();
     onOpenChange(false);
 
@@ -403,8 +398,23 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     });
   };
 
+  const handleDialogClose = (open: boolean) => {
+    if (!open) {
+      // Limpar todos os dados quando fechar
+      setShowConfirmation(false);
+      setProcessedTransactions([]);
+      setUploadedFile(null);
+      setProcessingStats(null);
+      setProgress(0);
+      setErrors([]);
+      setClassifier(null);
+      setIsInitializingClassifier(true);
+    }
+    onOpenChange(open);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleDialogClose}>
       <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -426,7 +436,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                 ? 'border-primary bg-primary/5'
                 : 'border-gray-300 hover:border-gray-400'
               }
-              ${isProcessing ? 'pointer-events-none opacity-50' : ''}
+              ${isProcessing || isInitializingClassifier ? 'pointer-events-none opacity-50' : ''}
             `}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -438,7 +448,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
               accept=".csv"
               onChange={handleFileInput}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              disabled={isProcessing}
+              disabled={isProcessing || isInitializingClassifier}
             />
 
             <div className="space-y-4">
@@ -452,18 +462,33 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
               <div className="space-y-2">
                 <p className="text-lg font-medium">
-                  {uploadedFile
+                  {isInitializingClassifier
+                    ? 'Inicializando sistema de classificação inteligente...'
+                    : uploadedFile
                     ? `Arquivo carregado: ${uploadedFile.name}`
                     : 'Arraste e solte seu arquivo CSV aqui ou clique para selecionar'
                   }
                 </p>
 
                 <p className="text-sm text-gray-500">
-                  Formatos suportados: CSV
+                  {isInitializingClassifier 
+                    ? 'Carregando padrões de classificação e modelos de IA...'
+                    : 'Formatos suportados: CSV'
+                  }
                 </p>
               </div>
 
-              {isProcessing && (
+              {isInitializingClassifier && (
+                <div className="space-y-2">
+                  <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
+                    <Brain className="h-4 w-4 animate-pulse text-blue-500" />
+                    Preparando classificador inteligente...
+                  </p>
+                  <Progress value={50} className="w-full animate-pulse" />
+                </div>
+              )}
+
+              {isProcessing && !isInitializingClassifier && (
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
                     <Brain className="h-4 w-4 animate-pulse" />
@@ -500,28 +525,6 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
             </Alert>
           )}
 
-          {/* Estatísticas de processamento */}
-          {processingStats && (
-            <Alert>
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                <div className="space-y-2">
-                  <div className="font-medium">Estatísticas da Classificação IA:</div>
-                  <div className="grid grid-cols-2 gap-4 text-sm">
-                    <div>Total processado: {processingStats.processed}/{processingStats.total}</div>
-                    <div>Alta confiança (≥90%): {processingStats.withHighConfidence}</div>
-                    <div>Média confiança (70-89%): {processingStats.withMediumConfidence}</div>
-                    <div>Baixa confiança (&lt;70%): {processingStats.withLowConfidence}</div>
-                    <div>Padrões aprendidos: {processingStats.learned}</div>
-                    <div>Predições ML: {processingStats.mlPredictions}</div>
-                    <div>Dicionário: {processingStats.dictionaryMatches}</div>
-                    <div>Híbrido: {processingStats.hybridDecisions}</div>
-                  </div>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-
           {/* Dialog de confirmação */}
           <ConfirmationDialog
             open={showConfirmation}
@@ -534,3 +537,4 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     </Dialog>
   );
 }
+

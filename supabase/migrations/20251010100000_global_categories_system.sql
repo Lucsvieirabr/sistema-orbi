@@ -41,6 +41,8 @@ INSERT INTO public.categories (user_id, name, category_type, icon, is_system, cr
 (NULL, 'Diarista / Prestadores Serv.', 'expense', 'wrench', TRUE, NOW()),
 -- Despesas Pessoais
 (NULL, 'Despesas Pessoais', 'expense', 'user', TRUE, NOW()),
+-- Estudos
+(NULL, 'Estudos', 'expense', 'graduation-cap', TRUE, NOW()),
 -- Empréstimos / Financiamentos
 (NULL, 'Empréstimos / Financiamentos', 'expense', 'credit-card', TRUE, NOW()),
 -- Férias / Viagens
@@ -67,8 +69,6 @@ INSERT INTO public.categories (user_id, name, category_type, icon, is_system, cr
 (NULL, 'Proteção Pessoal / Saúde / Farmácia', 'expense', 'heart', TRUE, NOW()),
 -- Tarifas Bancárias / Juros / Impostos / Taxas
 (NULL, 'Tarifas Bancárias / Juros / Impostos / Taxas', 'expense', 'receipt', TRUE, NOW()),
--- Telefone / Apps
-(NULL, 'Telefone / Apps', 'expense', 'smartphone', TRUE, NOW()),
 -- Transporte
 (NULL, 'Transporte', 'expense', 'car', TRUE, NOW())
 ON CONFLICT DO NOTHING;

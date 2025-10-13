@@ -394,18 +394,8 @@ export class GlobalCacheManager {
   private performMaintenance(): void {
     const cleaned = this.patternCache.cleanup();
 
-    if (cleaned > 0) {
-      console.log(`🧹 Cache cleanup: ${cleaned} entradas expiradas removidas`);
-    }
-
     // Otimiza cache baseado em padrões de uso
     this.patternCache.optimize();
-
-    // Log estatísticas se necessário
-    const stats = this.patternCache.getAllStats();
-    if (stats.totalHits + stats.totalMisses > 1000) { // Log a cada 1000 operações
-      console.log(`📊 Cache Stats - Hit Rate: ${(stats.overallHitRate * 100).toFixed(1)}%, Size: ${stats.pattern.size + stats.merchant.size + stats.category.size}`);
-    }
   }
 
   /**

@@ -1582,7 +1582,7 @@ export default function MonthlyStatement() {
       // Gerar até 6 meses de transações futuras inicialmente
       const monthsToGenerate = 6;
       for (let i = 1; i <= monthsToGenerate; i++) {
-        let futureDate = new Date(startDateObj);
+        const futureDate = new Date(startDateObj);
 
         // Calcular próxima data baseada na frequência
         switch (payload.frequency || "monthly") {
@@ -1703,7 +1703,7 @@ export default function MonthlyStatement() {
 
       // Gerar próximas transações conforme necessário
       const transactionsToAdd = [];
-      let nextDate = new Date(lastTransactionDate);
+      const nextDate = new Date(lastTransactionDate);
 
       for (let i = 1; i <= 6; i++) {
         // Gerar até 6 meses à frente
