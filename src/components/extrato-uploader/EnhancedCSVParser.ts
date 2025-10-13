@@ -27,8 +27,16 @@ export class EnhancedCSVParser {
       return { transactions: [], errors };
     }
 
+    // Filtrar linhas de metadata e saldos
+    const filteredData = csvData.filter(row => !this.isMetadataRow(row) && !this.isSaldoRow(row));
+
+    if (filteredData.length === 0) {
+      errors.push('Nenhuma linha de dados válida encontrada após filtrar metadata e saldos');
+      return { transactions: [], errors };
+    }
+
     // Identificar colunas automaticamente (mesma lógica do CSVParser original)
-    const headers = Object.keys(csvData[0]);
+    const headers = Object.keys(filteredData[0]);
     const columnMapping = this.identifyColumns(headers);
 
     if (!columnMapping.date || !columnMapping.description || !columnMapping.value) {
@@ -37,7 +45,7 @@ export class EnhancedCSVParser {
     }
 
     // Processar cada linha usando o dicionário pesado
-    csvData.forEach((row, index) => {
+    filteredData.forEach((row, index) => {
       try {
         const transaction = this.parseRowWithHeavyDictionary(row, columnMapping, index);
         if (transaction) {
@@ -49,6 +57,47 @@ export class EnhancedCSVParser {
     });
 
     return { transactions, errors };
+  }
+
+  /**
+   * Filtra linhas de metadata que não são transações
+   */
+  private isMetadataRow(row: Record<string, string>): boolean {
+    const values = Object.values(row).join(' ').toLowerCase();
+
+    // Padrões comuns de metadata
+    const metadataPatterns = [
+      'conta',
+      'período',
+      'saldo inicial',
+      'saldo final',
+      'extrato',
+      'banco',
+      'agência',
+      'conta corrente'
+    ];
+
+    return metadataPatterns.some(pattern => values.includes(pattern));
+  }
+
+  /**
+   * Verifica se a linha representa um saldo (não é uma transação real)
+   */
+  private isSaldoRow(row: Record<string, string>): boolean {
+    const values = Object.values(row).join(' ').toLowerCase();
+
+    // Padrões que indicam saldo (não transações reais)
+    const saldoPatterns = [
+      /\bs\s*a\s*l\s*d\s*o\b/i,     // "S A L D O" ou "saldo" (com ou sem espaços)
+      /^saldo\b/i,                  // "Saldo" no início
+      /\bsaldo anterior\b/i,        // "Saldo anterior"
+      /\bsaldo inicial\b/i,         // "Saldo inicial"
+      /\bsaldo final\b/i,           // "Saldo final"
+      /\bsaldo do dia\b/i,          // "Saldo do dia"
+      /\bsaldo atual\b/i            // "Saldo atual"
+    ];
+
+    return saldoPatterns.some(pattern => pattern.test(values));
   }
 
   /**

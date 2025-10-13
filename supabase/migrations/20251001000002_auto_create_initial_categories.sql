@@ -26,6 +26,8 @@ BEGIN
   (user_id, 'Diarista / Prestadores Serv.', 'expense', 'wrench', NOW()),
   -- Despesas Pessoais
   (user_id, 'Despesas Pessoais', 'expense', 'user', NOW()),
+  -- Estudos
+  (user_id, 'Estudos', 'expense', 'graduation-cap', NOW()),
   -- Empréstimos / Financiamentos
   (user_id, 'Empréstimos / Financiamentos', 'expense', 'credit-card', NOW()),
   -- Férias / Viagens
@@ -52,8 +54,6 @@ BEGIN
   (user_id, 'Proteção Pessoal / Saúde / Farmácia', 'expense', 'heart', NOW()),
   -- Tarifas Bancárias / Juros / Impostos / Taxas
   (user_id, 'Tarifas Bancárias / Juros / Impostos / Taxas', 'expense', 'receipt', NOW()),
-  -- Telefone / Apps
-  (user_id, 'Telefone / Apps', 'expense', 'smartphone', NOW()),
   -- Transporte
   (user_id, 'Transporte', 'expense', 'car', NOW());
 

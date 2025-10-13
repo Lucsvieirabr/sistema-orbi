@@ -1,0 +1,3064 @@
+[
+  {
+    "merchant_key": "assai atacadista",
+    "entity_name": "Assaí Atacadista",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "assai",
+      "assaí",
+      "atacadista assai"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "atacadao",
+    "entity_name": "Atacadão",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "carrefour atacadao",
+      "atacadão"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "tenda atacado",
+    "entity_name": "Tenda Atacado",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "tenda"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "fort atacadista",
+    "entity_name": "Fort Atacadista",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "fort",
+      "atacadista fort",
+      "fort ataca"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "komprao koch atacadista",
+    "entity_name": "Komprao Koch Atacadista",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "komprao",
+      "koch",
+      "koch atacadista",
+      "komprao koch",
+      "atacadista koch"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "atacadao dia a dia",
+    "entity_name": "Atacadão Dia a Dia",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "diaadia",
+      "dia a dia"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "novo atacarejo",
+    "entity_name": "Novo Atacarejo",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "novo atac"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "atakarejo",
+    "entity_name": "Atakarejo",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "atac",
+      "ataca"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "mart minas",
+    "entity_name": "Mart Minas",
+    "category": "Alimentação",
+    "subcategory": "Atacado",
+    "aliases": [
+      "dom atacadista"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "carrefour",
+    "entity_name": "Carrefour",
+    "category": "Alimentação",
+    "subcategory": "Hipermercado",
+    "aliases": [
+      "carfour"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pao de acucar",
+    "entity_name": "Pão de Açúcar",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "pao de acucar",
+      "paodeacu",
+      "pão de açucar",
+      "gpa"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "extra",
+    "entity_name": "Extra",
+    "category": "Alimentação",
+    "subcategory": "Hipermercado",
+    "aliases": [
+      "extra supermercado",
+      "hipermercado extra"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "comper",
+    "entity_name": "Comper Supermercados",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "supermercado comper",
+      "comper supermercado",
+      "grupo pereira"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "mateus supermercados",
+    "entity_name": "Mateus Supermercados",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "mateus",
+      "grupomateus",
+      "grupo mateus"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "supermercados bh",
+    "entity_name": "Supermercados BH",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "bh supermercado",
+      "super bh"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "muffato",
+    "entity_name": "Super Muffato",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "super muffato",
+      "supermercado muffato"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cencosud",
+    "entity_name": "Cencosud",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "gbarbosa",
+      "g barbosa",
+      "prezunic"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "zaffari",
+    "entity_name": "Zaffari",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "cia zaffari",
+      "companhia zaffari"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "savegnago",
+    "entity_name": "Savegnago",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "supermercado savegnago"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sonda supermercados",
+    "entity_name": "Sonda Supermercados",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "sonda"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "grupo abc",
+    "entity_name": "Grupo ABC",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "supermercado abc"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "bahamas supermercado",
+    "entity_name": "Bahamas Supermercado",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "bahamas",
+      "super bahamas"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "giassi",
+    "entity_name": "Giassi",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "supermercado giassi"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "mcdonalds",
+    "entity_name": "mcdonalds",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "mc donalds",
+      "mcdonald",
+      "mc",
+      "arcos dourados"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "burger king",
+    "entity_name": "Burger King",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "bk",
+      "burguer king",
+      "burguer"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "habibs",
+    "entity_name": "habibs",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "habib",
+      "habibs"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "subway",
+    "entity_name": "Subway",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "sub"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "kfc",
+    "entity_name": "KFC",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "kentucky",
+      "kentucky fried chicken"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "popeyes",
+    "entity_name": "Popeyes",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "popeye"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "bobs",
+    "entity_name": "bobs",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "bobs"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "giraffas",
+    "entity_name": "Giraffas",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "girafa"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "china in box",
+    "entity_name": "China in Box",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "china box",
+      "chinainbox"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ragazzo",
+    "entity_name": "Ragazzo",
+    "category": "Alimentação",
+    "subcategory": "Fast-Food",
+    "aliases": [
+      "ragazzo pizzaria"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pizza hut",
+    "entity_name": "Pizza Hut",
+    "category": "Alimentação",
+    "subcategory": "Pizzaria",
+    "aliases": [
+      "pizzahut"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "outback",
+    "entity_name": "Outback Steakhouse",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "outback steakhouse"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "coco bambu",
+    "entity_name": "Coco Bambu",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "cocobambu"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "spoleto",
+    "entity_name": "Spoleto",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "spoleto culinaria"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "madero",
+    "entity_name": "Madero",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "madero container",
+      "madero steak"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pampeana",
+    "entity_name": "Pampeana",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "pampeana restaurante",
+      "rest pampeana"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cantina cavallaris",
+    "entity_name": "Cantina Cavallaris",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "cavallaris",
+      "cantina"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "dalcoquio",
+    "entity_name": "Dalcoquio",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "rest dalcoquio"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "starbucks",
+    "entity_name": "Starbucks",
+    "category": "Alimentação",
+    "subcategory": "Cafeteria",
+    "aliases": [
+      "starbucks coffee"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "rei do mate",
+    "entity_name": "Rei do Mate",
+    "category": "Alimentação",
+    "subcategory": "Cafeteria",
+    "aliases": [
+      "reidomate"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cappi alley",
+    "entity_name": "Cappi Alley",
+    "category": "Alimentação",
+    "subcategory": "Cafeteria",
+    "aliases": [
+      "cappialley",
+      "cappi",
+      "cafeteria cappi"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cafe cultura",
+    "entity_name": "Cafe Cultura",
+    "category": "Alimentação",
+    "subcategory": "Cafeteria",
+    "aliases": [
+      "cafe cultura",
+      "cafeteria cultura",
+      "café cultura"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cake garden",
+    "entity_name": "Cake Garden",
+    "category": "Alimentação",
+    "subcategory": "Doceria",
+    "aliases": [
+      "confeitaria cake",
+      "cake"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "doceria armazem",
+    "entity_name": "Doceria Armazem",
+    "category": "Alimentação",
+    "subcategory": "Doceria",
+    "aliases": [
+      "doceria armazem",
+      "armazem doceria",
+      "doceria armazém"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ifood",
+    "entity_name": "iFood",
+    "category": "Alimentação",
+    "subcategory": "Delivery",
+    "aliases": [
+      "pedido ifood",
+      "ifood entrega",
+      "ifd"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "rappi",
+    "entity_name": "Rappi",
+    "category": "Alimentação",
+    "subcategory": "Delivery",
+    "aliases": [
+      "rappi entrega",
+      "rappi delivery"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "uber eats",
+    "entity_name": "Uber Eats",
+    "category": "Alimentação",
+    "subcategory": "Delivery",
+    "aliases": [
+      "ubereats",
+      "uber comida"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ze delivery",
+    "entity_name": "Zé Delivery",
+    "category": "Alimentação",
+    "subcategory": "Delivery",
+    "aliases": [
+      "ze delivery",
+      "zé delivery",
+      "ze bebidas"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "aiqfome",
+    "entity_name": "aiqfome",
+    "category": "Alimentação",
+    "subcategory": "Delivery",
+    "aliases": [
+      "aiq fome"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "uber",
+    "entity_name": "Uber",
+    "category": "Transporte",
+    "subcategory": "Ride-Hailing",
+    "aliases": [
+      "uber ride",
+      "corrida uber",
+      "uber taxi",
+      "uberbr",
+      "uber trip"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "99",
+    "entity_name": "99",
+    "category": "Transporte",
+    "subcategory": "Ride-Hailing",
+    "aliases": [
+      "99 taxi",
+      "99 pop",
+      "corrida 99",
+      "99app"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "wappa",
+    "entity_name": "Wappa",
+    "category": "Transporte",
+    "subcategory": "Ride-Hailing",
+    "aliases": [
+      "wappa taxi"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "tembici",
+    "entity_name": "Tembici",
+    "category": "Transporte",
+    "subcategory": "Aluguel de Bicicleta/Patinete",
+    "aliases": [
+      "bike itau",
+      "bike itaú",
+      "tembici bike"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "posto tucha",
+    "entity_name": "Posto Tucha",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "tucha",
+      "auto posto tucha"
+    ],
+    "confidence_modifier": 0.92,
+    "priority": 96,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "shell",
+    "entity_name": "Shell",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "posto shell"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ipiranga",
+    "entity_name": "Ipiranga",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "posto ipiranga"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "petrobras",
+    "entity_name": "Petrobras",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "posto petrobras",
+      "br",
+      "br petrobras"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sem parar",
+    "entity_name": "Sem Parar",
+    "category": "Transporte",
+    "subcategory": "Pedágio",
+    "aliases": [
+      "semparar"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "conectcar",
+    "entity_name": "ConectCar",
+    "category": "Transporte",
+    "subcategory": "Pedágio",
+    "aliases": [
+      "conecta car"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "veloe",
+    "entity_name": "Veloe",
+    "category": "Transporte",
+    "subcategory": "Pedágio",
+    "aliases": [
+      "veloe pedagio"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "itajaictnrp",
+    "entity_name": "Itajaí CT NRP",
+    "category": "Transporte",
+    "subcategory": "Pedágio",
+    "aliases": [
+      "itajai ctnrp"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "buser",
+    "entity_name": "Buser",
+    "category": "Transporte",
+    "subcategory": "Transporte Rodoviário",
+    "aliases": [
+      "buser onibus",
+      "buser viagens"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "4bus",
+    "entity_name": "4Bus",
+    "category": "Transporte",
+    "subcategory": "Transporte Rodoviário",
+    "aliases": [
+      "4 bus",
+      "quatro bus"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "clickbus",
+    "entity_name": "ClickBus",
+    "category": "Transporte",
+    "subcategory": "Transporte Rodoviário",
+    "aliases": [
+      "click bus"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "latam",
+    "entity_name": "LATAM Airlines",
+    "category": "Transporte",
+    "subcategory": "Companhia Aérea",
+    "aliases": [
+      "latam airlines",
+      "tam",
+      "tam linhas aereas"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "gol",
+    "entity_name": "Gol Linhas Aéreas",
+    "category": "Transporte",
+    "subcategory": "Companhia Aérea",
+    "aliases": [
+      "gol linhas aereas",
+      "voegol"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "azul",
+    "entity_name": "Azul Linhas Aéreas",
+    "category": "Transporte",
+    "subcategory": "Companhia Aérea",
+    "aliases": [
+      "azul linhas aereas",
+      "voeazul"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "voepass",
+    "entity_name": "Voepass",
+    "category": "Transporte",
+    "subcategory": "Companhia Aérea",
+    "aliases": [
+      "voepass linhas aereas"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "enel",
+    "entity_name": "Enel",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "enel sp",
+      "enel rj",
+      "eletropaulo"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cpfl",
+    "entity_name": "CPFL",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "cpfl paulista",
+      "cpfl energia",
+      "clfsc"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "neoenergia",
+    "entity_name": "Neoenergia",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "elektro",
+      "coelba",
+      "celpe",
+      "cosern",
+      "celesc"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "energisa",
+    "entity_name": "Energisa",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "energisa energia"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "light",
+    "entity_name": "Light",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "light energia",
+      "light rj"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cemig",
+    "entity_name": "CEMIG",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "cemig mg",
+      "cemig energia"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "copel",
+    "entity_name": "Copel",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "copel energia",
+      "copel pr"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sabesp",
+    "entity_name": "Sabesp",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "sabesp sp"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cedae",
+    "entity_name": "CEDAE",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "cedae rj"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "copasa",
+    "entity_name": "COPASA",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "copasa mg"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sanepar",
+    "entity_name": "Sanepar",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "sanepar pr"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "casan",
+    "entity_name": "Casan",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "casan sc"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "corsan",
+    "entity_name": "Corsan",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "corsan rs"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "comgas",
+    "entity_name": "Comgás",
+    "category": "Moradia",
+    "subcategory": "Gás",
+    "aliases": [
+      "comgas sp"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "naturgy",
+    "entity_name": "Naturgy",
+    "category": "Moradia",
+    "subcategory": "Gás",
+    "aliases": [
+      "naturgy gas",
+      "ceg"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "vivo",
+    "entity_name": "Vivo",
+    "category": "Moradia",
+    "subcategory": "Internet e TV",
+    "aliases": [
+      "vivo fibra",
+      "telefonica",
+      "vivo internet",
+      "vivo tv"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "claro",
+    "entity_name": "Claro",
+    "category": "Moradia",
+    "subcategory": "Internet e TV",
+    "aliases": [
+      "claro net",
+      "net",
+      "embratel",
+      "claro internet",
+      "claro tv"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "tim",
+    "entity_name": "TIM",
+    "category": "Moradia",
+    "subcategory": "Internet e TV",
+    "aliases": [
+      "tim live",
+      "tim internet",
+      "tim fibra"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "oi",
+    "entity_name": "Oi",
+    "category": "Moradia",
+    "subcategory": "Internet e TV",
+    "aliases": [
+      "oi fibra",
+      "oi internet",
+      "oi tv"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sky",
+    "entity_name": "Sky",
+    "category": "Moradia",
+    "subcategory": "Internet e TV",
+    "aliases": [
+      "sky tv",
+      "sky brasil"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "leroy merlin",
+    "entity_name": "Leroy Merlin",
+    "category": "Moradia",
+    "subcategory": "Material de Construção",
+    "aliases": [
+      "leroy"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "telhanorte",
+    "entity_name": "Telhanorte",
+    "category": "Moradia",
+    "subcategory": "Material de Construção",
+    "aliases": [
+      "saint-gobain",
+      "saintgobain"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cassol",
+    "entity_name": "Cassol",
+    "category": "Moradia",
+    "subcategory": "Material de Construção",
+    "aliases": [
+      "cassol materiais"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cec",
+    "entity_name": "CEC",
+    "category": "Moradia",
+    "subcategory": "Material de Construção",
+    "aliases": [
+      "cec materiais"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "tok&stok",
+    "entity_name": "Tok&Stok",
+    "category": "Moradia",
+    "subcategory": "Móveis e Decoração",
+    "aliases": [
+      "tokstok",
+      "tok stok"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "etna",
+    "entity_name": "Etna",
+    "category": "Moradia",
+    "subcategory": "Móveis e Decoração",
+    "aliases": [
+      "etna moveis"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "camicado",
+    "entity_name": "Camicado",
+    "category": "Moradia",
+    "subcategory": "Móveis e Decoração",
+    "aliases": [
+      "camicado casa"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "netflix",
+    "entity_name": "Netflix",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Vídeo",
+    "aliases": [
+      "netflix assinatura",
+      "netflix mensal",
+      "netflix anual",
+      "netflix premium",
+      "netflix básico"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "amazon prime",
+    "entity_name": "Amazon Prime",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Vídeo",
+    "aliases": [
+      "prime video",
+      "amazon prime video",
+      "prime assinatura"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "disney plus",
+    "entity_name": "Disney+",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Vídeo",
+    "aliases": [
+      "disney+",
+      "disneyplus",
+      "disney assinatura"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "hbo max",
+    "entity_name": "HBO Max",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Vídeo",
+    "aliases": [
+      "max",
+      "hbo assinatura",
+      "max assinatura"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "globoplay",
+    "entity_name": "Globoplay",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Vídeo",
+    "aliases": [
+      "globo play",
+      "globoplay assinatura"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "spotify",
+    "entity_name": "Spotify",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Música",
+    "aliases": [
+      "spotify premium",
+      "spotify assinatura",
+      "spotify mensal"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "deezer",
+    "entity_name": "Deezer",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Música",
+    "aliases": [
+      "deezer premium",
+      "deezer assinatura"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "apple music",
+    "entity_name": "Apple Music",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Música",
+    "aliases": [
+      "apple assinatura",
+      "itunes"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "amazon music",
+    "entity_name": "Amazon Music",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Música",
+    "aliases": [
+      "amazon music unlimited"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "youtube premium",
+    "entity_name": "YouTube Premium",
+    "category": "Assinaturas",
+    "subcategory": "Streaming de Música",
+    "aliases": [
+      "youtube music",
+      "youtube assinatura"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cursor ai",
+    "entity_name": "Cursor AI",
+    "category": "Assinaturas",
+    "subcategory": "Software",
+    "aliases": [
+      "cursor",
+      "cursor ai powered"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "microsoft 365",
+    "entity_name": "Microsoft 365",
+    "category": "Assinaturas",
+    "subcategory": "Software",
+    "aliases": [
+      "office 365",
+      "office365",
+      "microsoft office"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "adobe",
+    "entity_name": "Adobe",
+    "category": "Assinaturas",
+    "subcategory": "Software",
+    "aliases": [
+      "creative cloud",
+      "adobe cc",
+      "adobe creative"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "google workspace",
+    "entity_name": "Google Workspace",
+    "category": "Assinaturas",
+    "subcategory": "Software",
+    "aliases": [
+      "gsuite",
+      "g suite",
+      "google apps"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "aws",
+    "entity_name": "Amazon Web Services",
+    "category": "Assinaturas",
+    "subcategory": "Serviços de TI",
+    "aliases": [
+      "amazon web services",
+      "aws cloud"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "google cloud",
+    "entity_name": "Google Cloud",
+    "category": "Assinaturas",
+    "subcategory": "Serviços de TI",
+    "aliases": [
+      "gcp",
+      "google cloud platform"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "google one",
+    "entity_name": "Google One",
+    "category": "Assinaturas",
+    "subcategory": "Armazenamento",
+    "aliases": [
+      "google armazenamento"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "icloud",
+    "entity_name": "iCloud",
+    "category": "Assinaturas",
+    "subcategory": "Armazenamento",
+    "aliases": [
+      "icloud armazenamento",
+      "icloud+"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "dropbox",
+    "entity_name": "Dropbox",
+    "category": "Assinaturas",
+    "subcategory": "Armazenamento",
+    "aliases": [
+      "dropbox assinatura"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "nic br",
+    "entity_name": "NIC.br",
+    "category": "Assinaturas",
+    "subcategory": "Registro de Domínio",
+    "aliases": [
+      "registro.br",
+      "nic.br",
+      "registro br"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "godaddy",
+    "entity_name": "GoDaddy",
+    "category": "Assinaturas",
+    "subcategory": "Hospedagem e Domínio",
+    "aliases": [
+      "go daddy"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "hostgator",
+    "entity_name": "HostGator",
+    "category": "Assinaturas",
+    "subcategory": "Hospedagem e Domínio",
+    "aliases": [
+      "host gator"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "hostinger",
+    "entity_name": "Hostinger",
+    "category": "Assinaturas",
+    "subcategory": "Hospedagem e Domínio",
+    "aliases": [
+      "hostinger brasil"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "renner",
+    "entity_name": "Lojas Renner",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "lojas renner",
+      "renner lojas"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "riachuelo",
+    "entity_name": "Riachuelo",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "rchlo",
+      "lojas riachuelo"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "c&a",
+    "entity_name": "C&A",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "cea",
+      "c e a"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pernambucanas",
+    "entity_name": "Pernambucanas",
+    "category": "Compras",
+    "subcategory": "Loja de Departamento",
+    "aliases": [
+      "lojas pernambucanas"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "hering",
+    "entity_name": "Hering",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "hering store"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "zara",
+    "entity_name": "Zara",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "zara brasil"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "marisa",
+    "entity_name": "Marisa",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "lojas marisa"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "studio z",
+    "entity_name": "Studio Z",
+    "category": "Compras",
+    "subcategory": "Calçados",
+    "aliases": [
+      "studioz"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pdv cia da moda",
+    "entity_name": "Cia da Moda",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "cia da moda",
+      "companhia da moda"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "mercado livre",
+    "entity_name": "Mercado Livre",
+    "category": "Compras",
+    "subcategory": "Marketplace",
+    "aliases": [
+      "mercadolivre",
+      "mercadopago",
+      "mercado pago"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "amazon",
+    "entity_name": "Amazon",
+    "category": "Compras",
+    "subcategory": "Marketplace",
+    "aliases": [
+      "amz",
+      "amazon brasil",
+      "amazon.com.br"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "magazine luiza",
+    "entity_name": "Magazine Luiza",
+    "category": "Compras",
+    "subcategory": "Varejo",
+    "aliases": [
+      "magalu",
+      "magazine luiza",
+      "magaz luiza"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "casas bahia",
+    "entity_name": "Casas Bahia",
+    "category": "Compras",
+    "subcategory": "Varejo",
+    "aliases": [
+      "casasbahia"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ponto",
+    "entity_name": "Ponto",
+    "category": "Compras",
+    "subcategory": "Varejo",
+    "aliases": [
+      "pontofrio",
+      "ponto frio"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "americanas",
+    "entity_name": "Americanas",
+    "category": "Compras",
+    "subcategory": "Varejo",
+    "aliases": [
+      "lojas americanas",
+      "americanas.com",
+      "b2w"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "shopee",
+    "entity_name": "Shopee",
+    "category": "Compras",
+    "subcategory": "Marketplace",
+    "aliases": [
+      "shopee brasil"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "shein",
+    "entity_name": "Shein",
+    "category": "Compras",
+    "subcategory": "Vestuário e Acessórios",
+    "aliases": [
+      "shein brasil"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "aliexpress",
+    "entity_name": "AliExpress",
+    "category": "Compras",
+    "subcategory": "Marketplace",
+    "aliases": [
+      "ali express"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pix marketplace",
+    "entity_name": "Pix Marketplace",
+    "category": "Compras",
+    "subcategory": "Marketplace",
+    "aliases": [
+      "marketplace pix"
+    ],
+    "confidence_modifier": 0.7,
+    "priority": 75,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "drogasil",
+    "entity_name": "Drogasil",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "raia drogasil",
+      "raia",
+      "rd saude",
+      "rd saúde"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "drogaria sao paulo",
+    "entity_name": "Drogaria São Paulo",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "dpsp",
+      "drogaria sp"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pacheco",
+    "entity_name": "Drogarias Pacheco",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "drogarias pacheco"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pague menos",
+    "entity_name": "Pague Menos",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "paguemenos",
+      "extrafarma"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "panvel",
+    "entity_name": "Panvel",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "farmacias panvel"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "drogaria araujo",
+    "entity_name": "Drogaria Araujo",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "araujo"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "drogarias nissei",
+    "entity_name": "Drogarias Nissei",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "nissei"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "farmacias sao joao",
+    "entity_name": "Farmácias São João",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "sao joao",
+      "são joão"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "drogal",
+    "entity_name": "Drogal",
+    "category": "Saúde",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "drogal farmacias"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "dentista",
+    "entity_name": "Dentista",
+    "category": "Saúde",
+    "subcategory": "Serviços Médicos",
+    "aliases": [
+      "consulta dentista",
+      "dentista dr",
+      "odontologia",
+      "clínica dental",
+      "dr silva"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sympla",
+    "entity_name": "Sympla",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Ingressos e Eventos",
+    "aliases": [
+      "sympla ingressos"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ticketmaster",
+    "entity_name": "Ticketmaster",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Ingressos e Eventos",
+    "aliases": [
+      "ticket master"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "total acesso",
+    "entity_name": "Total Acesso",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Ingressos e Eventos",
+    "aliases": [
+      "totalacesso"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "eventim",
+    "entity_name": "Eventim",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Ingressos e Eventos",
+    "aliases": [
+      "eventim brasil"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ingresso.com",
+    "entity_name": "Ingresso.com",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Cinema",
+    "aliases": [
+      "ingresso",
+      "ingressocom"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "academia",
+    "entity_name": "Academia",
+    "category": "Bem Estar / Beleza",
+    "subcategory": "Academia",
+    "aliases": [
+      "academia fit",
+      "gym",
+      "fitness",
+      "crossfit",
+      "musculação",
+      "treino",
+      "fit life",
+      "smart fit"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cobasi",
+    "entity_name": "Cobasi",
+    "category": "Pets",
+    "subcategory": "Pet Shop",
+    "aliases": [
+      "cobasi pet"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "petz",
+    "entity_name": "Petz",
+    "category": "Pets",
+    "subcategory": "Pet Shop",
+    "aliases": [
+      "petz pet shop"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "petlove",
+    "entity_name": "Petlove",
+    "category": "Pets",
+    "subcategory": "Pet Shop",
+    "aliases": [
+      "pet love"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "petland",
+    "entity_name": "Petland",
+    "category": "Pets",
+    "subcategory": "Pet Shop",
+    "aliases": [
+      "pet land"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 80,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pay2all",
+    "entity_name": "Pay2all",
+    "category": "Outros",
+    "subcategory": "Gateway de Pagamento",
+    "aliases": [
+      "pay2all instituicao",
+      "pay2all pagamento",
+      "pay 2 all"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "ebanx",
+    "entity_name": "EBANX",
+    "category": "Outros",
+    "subcategory": "Gateway de Pagamento",
+    "aliases": [
+      "ebanx pagamentos"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 85,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "paypal",
+    "entity_name": "PayPal",
+    "category": "Outros",
+    "subcategory": "Gateway de Pagamento",
+    "aliases": [
+      "pay pal"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "pagseguro",
+    "entity_name": "PagSeguro",
+    "category": "Outros",
+    "subcategory": "Gateway de Pagamento",
+    "aliases": [
+      "pagbank",
+      "pag seguro"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "picpay",
+    "entity_name": "PicPay",
+    "category": "Outros",
+    "subcategory": "Gateway de Pagamento",
+    "aliases": [
+      "pic pay"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "receita federal",
+    "entity_name": "Receita Federal",
+    "category": "Impostos / Taxas",
+    "subcategory": "Imposto Federal",
+    "aliases": [
+      "receita federal",
+      "rf",
+      "imposto de renda",
+      "darf"
+    ],
+    "confidence_modifier": 0.98,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "codetime",
+    "entity_name": "Codetime Ltda",
+    "category": "Receitas de Trabalho (Salário / Honorário)",
+    "subcategory": "Salário",
+    "aliases": [
+      "codetime ltda",
+      "codetime",
+      "code time"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "dafiti",
+    "entity_name": "Dafiti",
+    "category": "Compras",
+    "subcategory": "E-commerce Moda",
+    "aliases": [
+      "dafiti brasil",
+      "dafiti.com.br"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "zattini",
+    "entity_name": "Zattini",
+    "category": "Compras",
+    "subcategory": "E-commerce Moda/Calçados",
+    "aliases": [
+      "zattini.com.br"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "colcci",
+    "entity_name": "Colcci",
+    "category": "Compras",
+    "subcategory": "Marcas de Moda Premium",
+    "aliases": [
+      "colcci store",
+      "loja colcci"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "kabum",
+    "entity_name": "KaBuM!",
+    "category": "Compras",
+    "subcategory": "E-commerce Eletrônicos",
+    "aliases": [
+      "kabum!",
+      "kabum.com.br"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "albert einstein",
+    "entity_name": "Hospital Albert Einstein",
+    "category": "Saúde",
+    "subcategory": "Hospitais/Clínicas",
+    "aliases": [
+      "einstein",
+      "hosp albert einstein",
+      "hospital israelita"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "sirio libanes",
+    "entity_name": "Hospital Sírio-Libanês",
+    "category": "Saúde",
+    "subcategory": "Hospitais/Clínicas",
+    "aliases": [
+      "sirio-libanes",
+      "sirio libanês",
+      "hosp sirio"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "bluefit",
+    "entity_name": "Bluefit",
+    "category": "Bem Estar / Beleza",
+    "subcategory": "Academia",
+    "aliases": [
+      "blue fit",
+      "bluefit academia"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "onodera estetica",
+    "entity_name": "Onodera Estética",
+    "category": "Bem Estar / Beleza",
+    "subcategory": "Clínicas de Estética",
+    "aliases": [
+      "onodera",
+      "clinica onodera"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "galo pp",
+    "entity_name": "GALO PP",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "galo",
+      "posto galo",
+      "auto posto galo"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "beach park",
+    "entity_name": "Beach Park",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Parques Temáticos",
+    "aliases": [
+      "beach park resort",
+      "beachpark"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "thermas laranjais",
+    "entity_name": "Thermas dos Laranjais",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Parques Temáticos",
+    "aliases": [
+      "thermas",
+      "laranjais",
+      "thermas olimpia"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "moviecom",
+    "entity_name": "Moviecom Cinemas",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Cinema",
+    "aliases": [
+      "moviecom",
+      "cinema moviecom"
+    ],
+    "confidence_modifier": 0.85,
+    "priority": 90,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "cinemark",
+    "entity_name": "Cinemark",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Cinema",
+    "aliases": [
+      "cinemark cinemas"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "psn",
+    "entity_name": "PlayStation Network",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Jogos/Plataformas Digitais",
+    "aliases": [
+      "playstation network",
+      "playstation store",
+      "ps store",
+      "sony playstation"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "steam",
+    "entity_name": "Steam",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Jogos/Plataformas Digitais",
+    "aliases": [
+      "steam store",
+      "valve steam",
+      "steam games"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "xbox live",
+    "entity_name": "Xbox Live",
+    "category": "Lazer e Entretenimento",
+    "subcategory": "Jogos/Plataformas Digitais",
+    "aliases": [
+      "xbox",
+      "microsoft xbox",
+      "xbox store",
+      "xbox game pass"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "saneago",
+    "entity_name": "SANEAGO",
+    "category": "Moradia",
+    "subcategory": "Água e Esgoto",
+    "aliases": [
+      "saneago go",
+      "saneamento goias"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "enel sao paulo",
+    "entity_name": "Enel São Paulo",
+    "category": "Moradia",
+    "subcategory": "Energia Elétrica",
+    "aliases": [
+      "enel sp"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 100,
+    "entry_type": "merchant",
+    "state_specific": false
+  },
+  {
+    "merchant_key": "SP",
+    "entity_name": "Enel SP",
+    "category": "Moradia",
+    "subcategory": "Energia",
+    "aliases": [
+      "enel",
+      "eletropaulo"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": true,
+    "states": [
+      "SP"
+    ]
+  },
+  {
+    "merchant_key": "RJ",
+    "entity_name": "Light",
+    "category": "Moradia",
+    "subcategory": "Energia",
+    "aliases": [
+      "light"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": true,
+    "states": [
+      "RJ"
+    ]
+  },
+  {
+    "merchant_key": "MG",
+    "entity_name": "CEMIG",
+    "category": "Moradia",
+    "subcategory": "Energia",
+    "aliases": [
+      "cemig"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": true,
+    "states": [
+      "MG"
+    ]
+  },
+  {
+    "merchant_key": "BA",
+    "entity_name": "COELBA",
+    "category": "Moradia",
+    "subcategory": "Energia",
+    "aliases": [
+      "coelba",
+      "neoenergia"
+    ],
+    "confidence_modifier": 0.9,
+    "priority": 95,
+    "entry_type": "merchant",
+    "state_specific": true,
+    "states": [
+      "BA"
+    ]
+  },
+  {
+    "merchant_key": "pix enviado",
+    "entity_name": "PIX Enviado",
+    "category": "Outros",
+    "subcategory": "Transferências",
+    "aliases": [
+      "pix enviado"
+    ],
+    "keywords": [
+      "pix",
+      "enviado"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "pix_enviado"
+  },
+  {
+    "merchant_key": "pix recebido",
+    "entity_name": "PIX Recebido",
+    "category": "Outras Receitas (Aluguéis, extras, reembolso etc.)",
+    "subcategory": "PIX Recebido",
+    "aliases": [
+      "pix recebido"
+    ],
+    "keywords": [
+      "pix",
+      "recebido"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "pix_recebido"
+  },
+  {
+    "merchant_key": "ted enviado",
+    "entity_name": "TED Enviado",
+    "category": "Outros",
+    "subcategory": "Transferências",
+    "aliases": [
+      "ted enviado"
+    ],
+    "keywords": [
+      "ted",
+      "enviado"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "transferencia"
+  },
+  {
+    "merchant_key": "doc enviado",
+    "entity_name": "DOC Enviado",
+    "category": "Outros",
+    "subcategory": "Transferências",
+    "aliases": [
+      "doc enviado"
+    ],
+    "keywords": [
+      "doc",
+      "enviado"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "transferencia"
+  },
+  {
+    "merchant_key": "transferencia",
+    "entity_name": "Transferência",
+    "category": "Outros",
+    "subcategory": "Transferências",
+    "aliases": [
+      "transferencia"
+    ],
+    "keywords": [
+      "transferencia"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "transferencia"
+  },
+  {
+    "merchant_key": "debito automatico",
+    "entity_name": "Débito Automático",
+    "category": "Outros",
+    "subcategory": "Débito Automático",
+    "aliases": [
+      "debito automatico"
+    ],
+    "keywords": [
+      "debito",
+      "automatico"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "debito_automatico"
+  },
+  {
+    "merchant_key": "tarifa bancaria",
+    "entity_name": "Tarifa Bancária",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Tarifa Bancária",
+    "aliases": [
+      "tarifa bancaria"
+    ],
+    "keywords": [
+      "tarifa",
+      "bancaria"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "tarifa"
+  },
+  {
+    "merchant_key": "tarifa",
+    "entity_name": "Tarifa",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Tarifa",
+    "aliases": [
+      "tarifa"
+    ],
+    "keywords": [
+      "tarifa"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "tarifa"
+  },
+  {
+    "merchant_key": "taxa",
+    "entity_name": "Taxa",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Taxa",
+    "aliases": [
+      "taxa"
+    ],
+    "keywords": [
+      "taxa"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "taxa"
+  },
+  {
+    "merchant_key": "juros",
+    "entity_name": "Juros",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Juros",
+    "aliases": [
+      "juros"
+    ],
+    "keywords": [
+      "juros"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "juros"
+  },
+  {
+    "merchant_key": "multa",
+    "entity_name": "Multa",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Multa",
+    "aliases": [
+      "multa"
+    ],
+    "keywords": [
+      "multa"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "multa"
+  },
+  {
+    "merchant_key": "iof",
+    "entity_name": "IOF",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "IOF",
+    "aliases": [
+      "iof"
+    ],
+    "keywords": [
+      "iof"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "imposto"
+  },
+  {
+    "merchant_key": "anuidade",
+    "entity_name": "Anuidade",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Anuidade de Cartão",
+    "aliases": [
+      "anuidade"
+    ],
+    "keywords": [
+      "anuidade"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "anuidade"
+  },
+  {
+    "merchant_key": "saque",
+    "entity_name": "Saque",
+    "category": "Tarifas Bancárias / Juros / Impostos / Taxas",
+    "subcategory": "Tarifa de Saque",
+    "aliases": [
+      "saque"
+    ],
+    "keywords": [
+      "saque"
+    ],
+    "confidence_modifier": 0.95,
+    "priority": 95,
+    "entry_type": "banking_pattern",
+    "context": "saque"
+  },
+  {
+    "merchant_key": "supermercado",
+    "entity_name": "Supermercado",
+    "category": "Alimentação",
+    "subcategory": "Supermercado",
+    "aliases": [
+      "super",
+      "mercado"
+    ],
+    "keywords": [
+      "supermercado",
+      "super",
+      "mercado"
+    ],
+    "confidence_modifier": 0.7,
+    "priority": 60,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "farmacia",
+    "entity_name": "Farmácia",
+    "category": "Proteção Pessoal / Saúde / Farmácia",
+    "subcategory": "Farmácia",
+    "aliases": [
+      "drogaria"
+    ],
+    "keywords": [
+      "farmacia",
+      "drogaria",
+      "remedios"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 65,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "restaurante",
+    "entity_name": "Restaurante",
+    "category": "Alimentação",
+    "subcategory": "Restaurante",
+    "aliases": [
+      "rest",
+      "lanchonete"
+    ],
+    "keywords": [
+      "restaurante",
+      "lanchonete",
+      "bar",
+      "lanches"
+    ],
+    "confidence_modifier": 0.7,
+    "priority": 60,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "posto",
+    "entity_name": "Posto de Combustível",
+    "category": "Transporte",
+    "subcategory": "Combustível",
+    "aliases": [
+      "auto posto"
+    ],
+    "keywords": [
+      "posto",
+      "combustivel",
+      "gasolina",
+      "etanol"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 65,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "padaria",
+    "entity_name": "Padaria",
+    "category": "Alimentação",
+    "subcategory": "Padaria",
+    "aliases": [
+      "panificadora"
+    ],
+    "keywords": [
+      "padaria",
+      "panificadora",
+      "paes"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 65,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "academia",
+    "entity_name": "Academia",
+    "category": "Bem Estar / Beleza",
+    "subcategory": "Academia",
+    "aliases": [
+      "gym",
+      "fitness"
+    ],
+    "keywords": [
+      "academia",
+      "gym",
+      "fitness"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 70,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "pet shop",
+    "entity_name": "Pet Shop",
+    "category": "Pet",
+    "subcategory": "Pet Shop",
+    "aliases": [
+      "petshop",
+      "pet"
+    ],
+    "keywords": [
+      "pet",
+      "petshop",
+      "animais"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 70,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "medico",
+    "entity_name": "Médico",
+    "category": "Proteção Pessoal / Saúde / Farmácia",
+    "subcategory": "Consultas Médicas",
+    "aliases": [
+      "dr",
+      "dra",
+      "doutor"
+    ],
+    "keywords": [
+      "medico",
+      "dr",
+      "consulta"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 70,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "dentista",
+    "entity_name": "Dentista",
+    "category": "Proteção Pessoal / Saúde / Farmácia",
+    "subcategory": "Dentista",
+    "aliases": [
+      "odonto"
+    ],
+    "keywords": [
+      "dentista",
+      "odonto"
+    ],
+    "confidence_modifier": 0.8,
+    "priority": 70,
+    "entry_type": "keyword"
+  },
+  {
+    "merchant_key": "salao",
+    "entity_name": "Salão de Beleza",
+    "category": "Bem Estar / Beleza",
+    "subcategory": "Salão",
+    "aliases": [
+      "cabelereiro"
+    ],
+    "keywords": [
+      "salao",
+      "beleza",
+      "cabelo"
+    ],
+    "confidence_modifier": 0.75,
+    "priority": 65,
+    "entry_type": "keyword"
+  }
+]

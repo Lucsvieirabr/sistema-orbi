@@ -165,6 +165,26 @@ export class CSVParser {
   }
 
   /**
+   * Verifica se a linha representa um saldo (não é uma transação real)
+   */
+  private isSaldoRow(row: RawCSVRow): boolean {
+    const values = Object.values(row).join(' ').toLowerCase();
+
+    // Padrões que indicam saldo (não transações reais)
+    const saldoPatterns = [
+      /\bs\s*a\s*l\s*d\s*o\b/i,     // "S A L D O" ou "saldo" (com ou sem espaços)
+      /^saldo\b/i,                  // "Saldo" no início
+      /\bsaldo anterior\b/i,        // "Saldo anterior"
+      /\bsaldo inicial\b/i,         // "Saldo inicial"
+      /\bsaldo final\b/i,           // "Saldo final"
+      /\bsaldo do dia\b/i,          // "Saldo do dia"
+      /\bsaldo atual\b/i            // "Saldo atual"
+    ];
+
+    return saldoPatterns.some(pattern => pattern.test(values));
+  }
+
+  /**
    * Carrega o mapeamento de categorias do banco de dados
    */
   private async loadCategoryMap() {
@@ -272,11 +292,11 @@ export class CSVParser {
       'loja': 'Roupas e acessórios',
 
       // Comunicação
-      'telefone': 'Telefone / Apps',
-      'celular': 'Telefone / Apps',
-      'internet': 'Telefone / Apps',
-      'app': 'Telefone / Apps',
-      'aplicativo': 'Telefone / Apps',
+      'telefone': 'Assinaturas',
+      'celular': 'Assinaturas',
+      'internet': 'Assinaturas',
+      'app': 'Assinaturas',
+      'aplicativo': 'Assinaturas',
 
       // Serviços
       'diarista': 'Diarista / Prestadores Serv.',
@@ -339,13 +359,12 @@ export class CSVParser {
 
     // ETAPA 1: Pré-processamento estrutural (Meta-Parser)
     const localeInfo = this.detectCSVLocale(csvData as RawCSVRow[]);
-    console.log('Locale detectado:', localeInfo);
 
     // Converter dados brutos para formato interno
     const rawRows = csvData as RawCSVRow[];
 
-    // Filtrar linhas de metadata
-    const dataRows = rawRows.filter(row => !this.isMetadataRow(row));
+    // Filtrar linhas de metadata e saldos
+    const dataRows = rawRows.filter(row => !this.isMetadataRow(row) && !this.isSaldoRow(row));
 
     if (dataRows.length === 0) {
       errors.push('Nenhuma linha de dados válida encontrada após filtrar metadata');

@@ -40,42 +40,9 @@ export class IntelligentTransactionClassifier {
     this.useML = useML;
     this.enableCache = enableCache;
 
-    // Alimenta o modelo de ML com dados do dicionário
-    this.initializeMLWithDictionaryData();
-  }
-
-  /**
-   * Inicializa modelo de ML com dados do dicionário existente
-   */
-  private initializeMLWithDictionaryData(): void {
-    const dictionaryData: MLTransaction[] = [];
-
-    // Converte estabelecimentos do dicionário para dados de treinamento
-    Object.entries(this.dictionary['dictionary'].merchants).forEach(([merchantKey, merchant]) => {
-      dictionaryData.push({
-        description: merchantKey,
-        category: merchant.category,
-        subcategory: merchant.subcategory,
-        type: 'expense' // Assume despesas por padrão
-      });
-    });
-
-    // Converte padrões bancários para dados de treinamento
-    Object.entries(this.dictionary['dictionary'].banking).forEach(([context, patterns]) => {
-      patterns.forEach(pattern => {
-        dictionaryData.push({
-          description: context,
-          category: pattern.category,
-          subcategory: pattern.subcategory,
-          type: 'expense'
-        });
-      });
-    });
-
-    // Adiciona dados ao modelo de ML
-    dictionaryData.forEach(data => {
-      this.mlClassifier.addTrainingData(data);
-    });
+    // Nota: O BankDictionary agora carrega dados do Supabase dinamicamente,
+    // então não precisamos mais pré-carregar dados no ML.
+    // O ML já tem dados de treinamento iniciais no TransactionMLClassifier.
   }
 
   /**
@@ -119,7 +86,7 @@ export class IntelligentTransactionClassifier {
     }
 
     // 3. USAR BANKDICTIONARY (que já faz a competição interna)
-    const dictionaryResult = this.dictionary.categorize(description, type);
+    const dictionaryResult = await this.dictionary.categorizeAsync(description, type);
     if (dictionaryResult && dictionaryResult.confidence >= 60) {
       // BankDictionary já retorna a melhor opção entre merchant/banking/keywords
       const priority = dictionaryResult.method === 'learned_pattern' ? 100 :
@@ -268,7 +235,7 @@ export class IntelligentTransactionClassifier {
    */
   private async getMerchantClassification(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification | null> {
     try {
-      const result = this.dictionary.categorize(description, type);
+      const result = await this.dictionary.categorizeAsync(description, type);
 
       // Só considera estabelecimentos específicos com confiança média-alta
       if (result.confidence >= 70 && result.category !== 'Outros' && result.category !== 'Outras Receitas (Aluguéis, extras, reembolso etc.)') {
@@ -331,7 +298,7 @@ export class IntelligentTransactionClassifier {
    */
   private async getKeywordClassification(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification | null> {
     try {
-      const result = this.dictionary.categorize(description, type);
+      const result = await this.dictionary.categorizeAsync(description, type);
 
       // Só considera palavras-chave com confiança média
       if (result.confidence >= 65 && result.confidence < 85) {
@@ -357,7 +324,7 @@ export class IntelligentTransactionClassifier {
    */
   private async getDictionaryClassification(description: string, type: 'income' | 'expense') {
     try {
-      const result = this.dictionary.categorize(description, type);
+      const result = await this.dictionary.categorizeAsync(description, type);
 
       // Mapeia categorias do dicionário para categorias padrão do banco
       const categoryMapping: { [key: string]: string } = {
@@ -372,7 +339,7 @@ export class IntelligentTransactionClassifier {
         'Alimentação': 'Alimentação',
         'Transporte': 'Transporte',
         'Casa': 'Casa',
-        'Telefone / Apps': 'Telefone / Apps',
+        'Assinaturas': 'Assinaturas',
         'Proteção Pessoal / Saúde / Farmácia': 'Proteção Pessoal / Saúde / Farmácia',
         'Bem Estar / Beleza': 'Bem Estar / Beleza',
         'Roupas e acessórios': 'Roupas e acessórios',
@@ -388,7 +355,7 @@ export class IntelligentTransactionClassifier {
         'Filhos / Dependentes': 'Filhos / Dependentes',
         'Investimentos (pelo menos 20% da receita)': 'Investimentos (pelo menos 20% da receita)',
         'Gastos com PJ / Profissionais Autônomos': 'Gastos com PJ / Profissionais Autônomos',
-        'Assinaturas': 'Telefone / Apps',
+        'Assinaturas': 'Assinaturas',
         'Refeição': 'Alimentação',
         'Moradia': 'Casa',
 
@@ -441,7 +408,7 @@ export class IntelligentTransactionClassifier {
         'Alimentação': 'Alimentação',
         'Transporte': 'Transporte',
         'Casa': 'Casa',
-        'Telefone / Apps': 'Telefone / Apps',
+        'Assinaturas': 'Assinaturas',
         'Proteção Pessoal / Saúde / Farmácia': 'Proteção Pessoal / Saúde / Farmácia',
         'Bem Estar / Beleza': 'Bem Estar / Beleza',
         'Roupas e acessórios': 'Roupas e acessórios',
@@ -457,7 +424,7 @@ export class IntelligentTransactionClassifier {
         'Filhos / Dependentes': 'Filhos / Dependentes',
         'Investimentos (pelo menos 20% da receita)': 'Investimentos (pelo menos 20% da receita)',
         'Gastos com PJ / Profissionais Autônomos': 'Gastos com PJ / Profissionais Autônomos',
-        'Assinaturas': 'Telefone / Apps',
+        'Assinaturas': 'Assinaturas',
         'Refeição': 'Alimentação',
         'Moradia': 'Casa',
 
@@ -606,8 +573,7 @@ export class IntelligentTransactionClassifier {
         p_category: category,
         p_subcategory: subcategory,
         p_confidence: 90,
-        p_user_vote: true,
-        p_pattern_type: type
+        p_user_vote: true
       });
 
     } catch (error) {

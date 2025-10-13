@@ -133,12 +133,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       const transactionsToSave = editedTransactions.map(transaction => ({
         user_id: user.id,
         description: transaction.description,
-        value: transaction.type === 'expense' ? -Math.abs(transaction.value) : Math.abs(transaction.value),
+        value: Math.abs(transaction.value), // Sempre positivo - o tipo indica se é expense/income
         date: transaction.date,
         type: transaction.type,
         category_id: transaction.category_id || null,
         account_id: transaction.account_id || null,
-        installments: transaction.installments || null,
         installment_number: transaction.installment_number || null,
         is_fixed: transaction.is_fixed || false,
         payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),

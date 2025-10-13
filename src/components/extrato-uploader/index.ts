@@ -6,3 +6,5 @@ export { EnhancedCSVParser } from './EnhancedCSVParser';
 export { TransactionMLClassifier, type MLTransaction, type MLPrediction, type MLFeatures } from './TransactionMLClassifier';
 export { IntelligentTransactionClassifier, type IntelligentClassification } from './IntelligentTransactionClassifier';
 export { IntelligentCache, type CacheEntry, type CacheStats, GlobalCacheManager, TransactionPatternCache } from './IntelligentCache';
+export { BatchTransactionClassifier, useBatchClassifier, type ClassificationResult, type BatchClassificationResponse } from './BatchClassifier';
+export { MerchantCache, getMerchantCache, resetMerchantCache, type CachedMerchant } from './MerchantCache';
