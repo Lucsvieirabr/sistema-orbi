@@ -8,3 +8,14 @@ export { IntelligentTransactionClassifier, type IntelligentClassification } from
 export { IntelligentCache, type CacheEntry, type CacheStats, GlobalCacheManager, TransactionPatternCache } from './IntelligentCache';
 export { BatchTransactionClassifier, useBatchClassifier, type ClassificationResult, type BatchClassificationResponse } from './BatchClassifier';
 export { MerchantCache, getMerchantCache, resetMerchantCache, type CachedMerchant } from './MerchantCache';
+export { 
+  generateNormalizedVariants,
+  identifyDescriptionType,
+  extractPossibleMerchantNames,
+  extractKeywords,
+  isCamelCase,
+  separateCamelCase,
+  normalizeForSearch,
+  calculateSimilarity,
+  type NormalizedVariants
+} from './DescriptionNormalizer';

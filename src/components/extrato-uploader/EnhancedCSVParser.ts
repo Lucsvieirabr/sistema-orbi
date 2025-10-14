@@ -157,11 +157,37 @@ export class EnhancedCSVParser {
    * Analisa uma linha específica usando dicionário pesado
    */
   private parseRowWithHeavyDictionary(row: Record<string, string>, columnMapping: Record<string, string>, index: number): ParsedTransaction | null {
-    // Extrair valores básicos (mesma lógica do CSVParser original)
+    // Extrair valores básicos
     const rawDate = row[columnMapping.date];
-    const rawDescription = row[columnMapping.description];
     const rawValue = row[columnMapping.value];
     const rawType = row[columnMapping.type];
+
+    // Construir descrição seguindo lógica de prioridade melhorada
+    let rawDescription = '';
+    const lancamento = row[columnMapping.description] || '';
+    const detalhes = row['Detalhes'] || '';
+
+    // PRIORIDADE 1: Extrair de 'Detalhes' tudo que vem após o horário (Pix, Compra com Cartão)
+    if (detalhes.trim()) {
+      const extractedFromDetails = this.extractDescriptionAfterTime(detalhes);
+      if (extractedFromDetails && extractedFromDetails.trim()) {
+        rawDescription = extractedFromDetails.trim();
+      }
+    }
+
+    // PRIORIDADE 2: Se não encontrou após horário, verificar se Detalhes tem conteúdo direto
+    // Útil para "Pagamento de Boleto", "Pagamento de Impostos", etc.
+    if (!rawDescription && detalhes.trim()) {
+      const directContent = this.extractDirectDetailsContent(detalhes, lancamento);
+      if (directContent && directContent.trim()) {
+        rawDescription = directContent.trim();
+      }
+    }
+
+    // PRIORIDADE 3: Se ainda não encontrou em Detalhes, usar coluna de descrição principal (Lançamento)
+    if (!rawDescription && lancamento) {
+      rawDescription = lancamento;
+    }
 
     if (!rawDate || !rawDescription || !rawValue) {
       throw new Error('Dados obrigatórios ausentes (data, descrição ou valor)');
@@ -336,6 +362,113 @@ export class EnhancedCSVParser {
     }
 
     return {};
+  }
+
+  /**
+   * Extrai descrição após o horário em formato DD/MM HH:MM ou HH:MM
+   * Exemplos:
+   * - "30/08 09:19 CULTURA FITNESS" -> "CULTURA FITNESS"
+   * - "14/09 21:00 KFC" -> "KFC"
+   * - "17/09 11:05 BISTEK SUPERMERCA" -> "BISTEK SUPERMERCA"
+   */
+  private extractDescriptionAfterTime(details: string): string {
+    // Procurar por padrão: DD/MM HH:MM ou apenas HH:MM
+    const timePattern = /(\d{1,2}\/\d{1,2}\s+)?(\d{1,2}):(\d{2})/;
+
+    const match = details.match(timePattern);
+    if (match) {
+      const timeText = match[0];
+      const timeIndex = details.indexOf(timeText);
+
+      // Pegar tudo que vem após o horário
+      const afterTime = details.substring(timeIndex + timeText.length).trim();
+
+      if (afterTime.length > 0) {
+        // Se há conteúdo após o horário, esse é o nome/entidade
+        return afterTime;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Extrai conteúdo direto do campo Detalhes quando não há horário
+   * Usado para transações como "Pagamento de Boleto" onde o Detalhes contém o nome da entidade
+   * Exemplos:
+   * - Lançamento: "Pagamento de Boleto", Detalhes: "NU PAGAMENTOS SA" -> "NU PAGAMENTOS SA"
+   * - Lançamento: "Pagamento de Impostos", Detalhes: "DAS - SIMPLES NACIONAL" -> "DAS - SIMPLES NACIONAL"
+   */
+  private extractDirectDetailsContent(details: string, lancamento: string): string {
+    if (!details || !details.trim()) {
+      return '';
+    }
+
+    const detailsClean = details.trim();
+    const lancamentoLower = lancamento.toLowerCase();
+
+    // Lista de tipos de lançamento que devem usar o campo Detalhes como descrição principal
+    const shouldUseDetails = [
+      'pagamento de boleto',
+      'pagamento boleto',
+      'pagamento de impostos',
+      'pagamento imposto',
+      'pagamento recebido',
+      'ted',
+      'tedinternet',
+      'doc',
+      'transferencia',
+      'transferência',
+      'debito automatico',
+      'débito automático'
+    ];
+
+    // Verificar se o lançamento está na lista de tipos que devem usar Detalhes
+    const shouldExtract = shouldUseDetails.some(type => lancamentoLower.includes(type));
+
+    if (shouldExtract) {
+      // Verificar se o conteúdo de Detalhes é útil (não é apenas descrição genérica)
+      const isUsefulContent = this.isUsefulDetailsContent(detailsClean);
+      
+      if (isUsefulContent) {
+        return detailsClean;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Verifica se o conteúdo do campo Detalhes é útil como descrição
+   * Retorna false para conteúdos genéricos ou vazios
+   */
+  private isUsefulDetailsContent(details: string): boolean {
+    if (!details || details.trim().length < 3) {
+      return false;
+    }
+
+    // Lista de padrões genéricos que NÃO são úteis como descrição principal
+    const genericPatterns = [
+      /^cobran[cç]a referente/i,
+      /^referente/i,
+      /^pagamento referente/i,
+      /^taxa referente/i,
+      /^tarifa referente/i,
+      /^\d+$/,  // Apenas números
+      /^[\d\s\-\/]+$/  // Apenas números, espaços e separadores
+    ];
+
+    // Se corresponder a algum padrão genérico, não é útil
+    const isGeneric = genericPatterns.some(pattern => pattern.test(details));
+    if (isGeneric) {
+      return false;
+    }
+
+    // Se contém pelo menos uma letra e tem tamanho razoável, é útil
+    const hasLetters = /[a-zA-Z]/.test(details);
+    const hasReasonableLength = details.length >= 3;
+
+    return hasLetters && hasReasonableLength;
   }
 
   /**

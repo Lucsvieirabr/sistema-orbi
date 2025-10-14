@@ -14,6 +14,13 @@ import { BankDictionary } from './BankDictionary';
 import { TransactionMLClassifier, MLPrediction, MLTransaction } from './TransactionMLClassifier';
 import { GlobalCacheManager, TransactionPatternCache } from './IntelligentCache';
 import { supabase } from '@/integrations/supabase/client';
+import { 
+  generateNormalizedVariants, 
+  identifyDescriptionType,
+  extractPossibleMerchantNames,
+  extractKeywords,
+  NormalizedVariants
+} from './DescriptionNormalizer';
 
 export interface IntelligentClassification {
   category: string;
@@ -49,13 +56,81 @@ export class IntelligentTransactionClassifier {
    * Classifica transação usando sistema híbrido avançado
    * AVALIA TODAS AS OPÇÕES E ESCOLHE A DE MAIOR CONFIANÇA
    *
-   * ESTRATÉGIA:
-   * - Coleta TODAS as classificações possíveis
+   * ESTRATÉGIA MELHORADA:
+   * - Tenta múltiplas variantes da descrição (camelCase, palavras compostas)
+   * - Coleta TODAS as classificações possíveis de cada variante
+   * - Analisa palavra por palavra se confiança for baixa
    * - Compara confiança e prioridade
    * - Retorna a melhor opção
    */
   async classifyTransaction(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification> {
     const normalizedDescription = description.toLowerCase().trim();
+
+    // PASSO 0: GERA VARIANTES NORMALIZADAS DA DESCRIÇÃO
+    const variants = generateNormalizedVariants(description);
+    const descriptionType = identifyDescriptionType(description);
+    
+    // PASSO 1: TENTA CLASSIFICAÇÃO COM DESCRIÇÃO ORIGINAL
+    const originalResult = await this.classifyWithDescription(description, type, normalizedDescription);
+    
+    // PASSO 2: SE TEM CAMELCASE, TENTA COM VERSÃO SEPARADA
+    let camelCaseResult: IntelligentClassification | null = null;
+    if (variants.camelCaseSeparated && descriptionType.needsSpecialProcessing) {
+      camelCaseResult = await this.classifyWithDescription(
+        variants.camelCaseSeparated, 
+        type, 
+        variants.camelCaseSeparated.toLowerCase().trim()
+      );
+    }
+    
+    // PASSO 3: SE CONFIANÇA AINDA É BAIXA, ANALISA PALAVRA POR PALAVRA
+    let wordByWordResult: IntelligentClassification | null = null;
+    const needsWordAnalysis = (
+      originalResult.confidence < 60 && 
+      (!camelCaseResult || camelCaseResult.confidence < 60) &&
+      variants.keywords.length > 0
+    );
+    
+    if (needsWordAnalysis) {
+      wordByWordResult = await this.classifyByIndividualKeywords(
+        variants.keywords,
+        type
+      );
+    }
+    
+    // PASSO 4: COMPARA TODAS AS VARIANTES E ESCOLHE A MELHOR
+    const allResults = [
+      { result: originalResult, source: 'original' as const },
+      camelCaseResult ? { result: camelCaseResult, source: 'camelCase' as const } : null,
+      wordByWordResult ? { result: wordByWordResult, source: 'wordByWord' as const } : null,
+    ].filter(Boolean) as Array<{ result: IntelligentClassification; source: 'original' | 'camelCase' | 'wordByWord' }>;
+    
+    // Ordena por confiança
+    allResults.sort((a, b) => b.result.confidence - a.result.confidence);
+    
+    const bestResult = allResults[0].result;
+    const bestSource = allResults[0].source;
+    
+    // Adiciona informação sobre qual variante foi usada
+    return {
+      ...bestResult,
+      features_used: [
+        ...bestResult.features_used,
+        `variant_${bestSource}`,
+        ...(descriptionType.needsSpecialProcessing ? ['special_processing'] : [])
+      ]
+    };
+  }
+
+  /**
+   * Classifica usando uma descrição específica (variante)
+   * Método auxiliar que implementa a lógica de classificação original
+   */
+  private async classifyWithDescription(
+    description: string, 
+    type: 'income' | 'expense',
+    normalizedDescription: string
+  ): Promise<IntelligentClassification> {
 
     // Array para armazenar TODAS as possibilidades
     const candidates: Array<IntelligentClassification & { priority: number }> = [];
@@ -174,19 +249,114 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Obtém padrões aprendidos globalmente do Supabase
+   * Classifica analisando palavras-chave individuais
+   * Útil quando a descrição completa falha mas contém palavras relevantes
+   * 
+   * Exemplo: "CATARINENSE COBRANCAS" -> analisa "COBRANCAS" -> "Taxas"
+   * Exemplo: "Empresa De Navegacao Santa" -> analisa "NAVEGACAO" -> "Transporte"
+   */
+  private async classifyByIndividualKeywords(
+    keywords: string[],
+    type: 'income' | 'expense'
+  ): Promise<IntelligentClassification | null> {
+    const keywordResults: Array<{
+      keyword: string;
+      classification: IntelligentClassification;
+    }> = [];
+
+    // Tenta classificar cada palavra-chave individualmente
+    for (const keyword of keywords) {
+      try {
+        // Busca no dicionário
+        const result = await this.dictionary.categorizeAsync(keyword, type);
+        
+        if (result && result.confidence >= 60) {
+          keywordResults.push({
+            keyword,
+            classification: {
+              category: result.category,
+              subcategory: result.subcategory,
+              confidence: result.confidence * 0.85, // Reduz um pouco a confiança (palavra isolada)
+              method: 'keyword_analysis',
+              features_used: ['individual_keyword', keyword],
+              learned_from_user: result.learned
+            }
+          });
+        }
+      } catch (error) {
+        // Continua para próxima palavra
+        continue;
+      }
+    }
+
+    // Se encontrou classificações, retorna a de maior confiança
+    if (keywordResults.length > 0) {
+      keywordResults.sort((a, b) => b.classification.confidence - a.classification.confidence);
+      
+      const best = keywordResults[0];
+      return {
+        ...best.classification,
+        features_used: [
+          ...best.classification.features_used,
+          'keyword_extraction',
+          `matched_${best.keyword}`
+        ]
+      };
+    }
+
+    return null;
+  }
+
+  /**
+   * Obtém padrões aprendidos (HÍBRIDO: usuário + global)
+   * 
+   * NOVA IMPLEMENTAÇÃO:
+   * - Prioriza padrões do próprio usuário (pode ter categorias customizadas)
+   * - Fallback para padrões globais (apenas categorias padrão)
+   * - Usa função RPC que implementa essa lógica no banco
    */
   private async getGlobalLearnedPattern(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification | null> {
     try {
-      // Busca padrões mais frequentes primeiro
-      const { data: frequentPatterns } = await supabase
-        .from('global_learned_patterns')
-        .select('description, category, subcategory, confidence, usage_count')
-        .eq('is_active', true)
-        .gte('confidence', 80)
-        .gte('usage_count', 3)
-        .order('usage_count', { ascending: false })
-        .limit(500);
+      // Usa nova função híbrida que busca user_learned_patterns + global_learned_patterns
+      const { data: pattern, error } = await supabase
+        .rpc('get_learned_pattern_for_user', {
+          p_description: description,
+          p_min_confidence: 75
+        })
+        .single();
+
+      if (error || !pattern) {
+        return null;
+      }
+
+      // Retorna classificação
+      return {
+        category: pattern.category,
+        subcategory: pattern.subcategory,
+        confidence: Math.min(
+          pattern.confidence + (pattern.usage_count * (pattern.source === 'user' ? 3 : 1.5)),
+          98
+        ),
+        method: pattern.source === 'user' ? 'user_learned' : 'global_exact_match',
+        features_used: [
+          pattern.source === 'user' ? 'user_learned_pattern' : 'global_learned_exact',
+          pattern.source === 'user' ? 'customizable_category' : 'standard_category'
+        ],
+        learned_from_user: true
+      };
+    } catch (error) {
+      console.error('Erro ao buscar padrão aprendido:', error);
+      
+      // FALLBACK: Tenta busca antiga (para compatibilidade durante transição)
+      try {
+        const { data: frequentPatterns } = await supabase
+          .from('global_learned_patterns')
+          .select('description, category, subcategory, confidence, usage_count')
+          .eq('is_active', true)
+          .gte('confidence', 80)
+          .gte('usage_count', 3)
+          .order('usage_count', { ascending: false })
+          .limit(500);
 
       if (frequentPatterns && frequentPatterns.length > 0) {
         // Busca por correspondência exata primeiro
@@ -223,10 +393,11 @@ export class IntelligentTransactionClassifier {
         }
       }
 
-      return null;
-    } catch (error) {
-      console.error('Erro ao buscar padrões aprendidos globalmente:', error);
-      return null;
+        return null;
+      } catch (fallbackError) {
+        console.error('Erro no fallback de padrões aprendidos:', fallbackError);
+        return null;
+      }
     }
   }
 
@@ -563,21 +734,44 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Salva padrão aprendido no banco global Supabase
+   * Salva padrão aprendido (HÍBRIDO: usuário ou global)
+   * 
+   * NOVA LÓGICA:
+   * 1. Se categoria é personalizada → salva em user_learned_patterns
+   * 2. Se categoria é padrão → salva em global_learned_patterns
+   * 3. A função RPC do banco faz essa validação automaticamente
    */
   private async saveToGlobalLearning(description: string, category: string, subcategory?: string, type: 'income' | 'expense' = 'expense', timestamp: string = new Date().toISOString()): Promise<void> {
     try {
-      // Usa a função RPC do banco para atualizar padrões aprendidos
-      await (supabase as any).rpc('update_global_learned_pattern', {
+      // Tenta salvar nos padrões do usuário primeiro (aceita qualquer categoria)
+      const { error: userError } = await supabase.rpc('update_user_learned_pattern', {
         p_description: description,
         p_category: category,
         p_subcategory: subcategory,
-        p_confidence: 90,
-        p_user_vote: true
+        p_confidence: 90
       });
 
+      if (userError) {
+        console.error('Erro ao salvar padrão do usuário:', userError);
+      }
+
+      // TAMBÉM tenta salvar em global (se for categoria padrão, será aceito)
+      // Se não for categoria padrão, a função RPC ignora silenciosamente
+      try {
+        await supabase.rpc('update_global_learned_pattern', {
+          p_description: description,
+          p_category: category,
+          p_subcategory: subcategory,
+          p_confidence: 85,
+          p_user_vote: true
+        });
+      } catch (globalError) {
+        // Ignora erro em global (pode ser categoria customizada)
+        // O importante é que salvou em user_learned_patterns
+      }
+
     } catch (error) {
-      console.error('Erro ao salvar no banco global:', error);
+      console.error('Erro ao salvar padrão aprendido:', error);
     }
   }
 

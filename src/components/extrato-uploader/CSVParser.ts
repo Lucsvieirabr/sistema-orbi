@@ -538,25 +538,31 @@ export class CSVParser {
     // Extrair valores básicos
     const rawDate = row[columnMapping.date];
 
-    // Construir descrição seguindo lógica de prioridade: Detalhes (após horário) > Lançamento
+    // Construir descrição seguindo lógica de prioridade melhorada
     let rawDescription = '';
+    const lancamento = row[columnMapping.description] || '';
+    const detalhes = row['Detalhes'] || '';
 
-    // PRIORIDADE 1: Extrair de 'Detalhes' tudo que vem após o horário
-    if (row['Detalhes'] && row['Detalhes'].trim()) {
-      const extractedFromDetails = this.extractDescriptionAfterTime(row['Detalhes']);
+    // PRIORIDADE 1: Extrair de 'Detalhes' tudo que vem após o horário (Pix, Compra com Cartão)
+    if (detalhes.trim()) {
+      const extractedFromDetails = this.extractDescriptionAfterTime(detalhes);
       if (extractedFromDetails && extractedFromDetails.trim()) {
         rawDescription = extractedFromDetails.trim();
       }
     }
 
-    // PRIORIDADE 2: Se não encontrou em Detalhes, usar coluna de descrição principal
-    if (!rawDescription && columnMapping.description && row[columnMapping.description]) {
-      rawDescription = row[columnMapping.description];
+    // PRIORIDADE 2: Se não encontrou após horário, verificar se Detalhes tem conteúdo direto
+    // Útil para "Pagamento de Boleto", "Pagamento de Impostos", etc.
+    if (!rawDescription && detalhes.trim()) {
+      const directContent = this.extractDirectDetailsContent(detalhes, lancamento);
+      if (directContent && directContent.trim()) {
+        rawDescription = directContent.trim();
+      }
     }
 
-    // PRIORIDADE 3: Se ainda não encontrou, tentar extrair de Detalhes sem horário
-    if (!rawDescription && row['Detalhes'] && row['Detalhes'].trim()) {
-      rawDescription = this.extractLastMeaningfulWord(row['Detalhes']);
+    // PRIORIDADE 3: Se ainda não encontrou em Detalhes, usar coluna de descrição principal (Lançamento)
+    if (!rawDescription && lancamento) {
+      rawDescription = lancamento;
     }
 
     const rawValue = row[columnMapping.value];
@@ -761,6 +767,88 @@ export class CSVParser {
   }
 
   /**
+   * Extrai conteúdo direto do campo Detalhes quando não há horário
+   * Usado para transações como "Pagamento de Boleto" onde o Detalhes contém o nome da entidade
+   * Exemplos:
+   * - Lançamento: "Pagamento de Boleto", Detalhes: "NU PAGAMENTOS SA" -> "NU PAGAMENTOS SA"
+   * - Lançamento: "Pagamento de Impostos", Detalhes: "DAS - SIMPLES NACIONAL" -> "DAS - SIMPLES NACIONAL"
+   * - Lançamento: "TEDinternet", Detalhes: "Cobran�a referente 25/09/2025" -> usa apenas se conteúdo útil
+   */
+  private extractDirectDetailsContent(details: string, lancamento: string): string {
+    if (!details || !details.trim()) {
+      return '';
+    }
+
+    const detailsClean = details.trim();
+    const lancamentoLower = lancamento.toLowerCase();
+
+    // Lista de tipos de lançamento que devem usar o campo Detalhes como descrição principal
+    const shouldUseDetails = [
+      'pagamento de boleto',
+      'pagamento boleto',
+      'pagamento de impostos',
+      'pagamento imposto',
+      'pagamento recebido',
+      'ted',
+      'tedinternet',
+      'doc',
+      'transferencia',
+      'transferência',
+      'debito automatico',
+      'débito automático'
+    ];
+
+    // Verificar se o lançamento está na lista de tipos que devem usar Detalhes
+    const shouldExtract = shouldUseDetails.some(type => lancamentoLower.includes(type));
+
+    if (shouldExtract) {
+      // Verificar se o conteúdo de Detalhes é útil (não é apenas descrição genérica)
+      const isUsefulContent = this.isUsefulDetailsContent(detailsClean);
+      
+      if (isUsefulContent) {
+        return detailsClean;
+      }
+    }
+
+    return '';
+  }
+
+  /**
+   * Verifica se o conteúdo do campo Detalhes é útil como descrição
+   * Retorna false para conteúdos genéricos ou vazios
+   */
+  private isUsefulDetailsContent(details: string): boolean {
+    if (!details || details.trim().length < 3) {
+      return false;
+    }
+
+    const detailsLower = details.toLowerCase();
+
+    // Lista de padrões genéricos que NÃO são úteis como descrição principal
+    const genericPatterns = [
+      /^cobran[cç]a referente/i,
+      /^referente/i,
+      /^pagamento referente/i,
+      /^taxa referente/i,
+      /^tarifa referente/i,
+      /^\d+$/,  // Apenas números
+      /^[\d\s\-\/]+$/  // Apenas números, espaços e separadores
+    ];
+
+    // Se corresponder a algum padrão genérico, não é útil
+    const isGeneric = genericPatterns.some(pattern => pattern.test(details));
+    if (isGeneric) {
+      return false;
+    }
+
+    // Se contém pelo menos uma letra e tem tamanho razoável, é útil
+    const hasLetters = /[a-zA-Z]/.test(details);
+    const hasReasonableLength = details.length >= 3;
+
+    return hasLetters && hasReasonableLength;
+  }
+
+  /**
    * Extrai a última palavra significativa de uma descrição
    * Remove códigos numéricos, horários e datas
    */
@@ -796,25 +884,31 @@ export class CSVParser {
     const rawValue = row[columnMapping.value];
     const rawType = row[columnMapping.type];
 
-    // Construir descrição seguindo lógica de prioridade
+    // Construir descrição seguindo lógica de prioridade melhorada
     let rawDescription = '';
+    const lancamento = row[columnMapping.description] || '';
+    const detalhes = row['Detalhes'] || '';
 
-    // PRIORIDADE 1: Extrair de 'Detalhes' tudo que vem após o horário
-    if (row['Detalhes'] && row['Detalhes'].trim()) {
-      const extractedFromDetails = this.extractDescriptionAfterTime(row['Detalhes']);
+    // PRIORIDADE 1: Extrair de 'Detalhes' tudo que vem após o horário (Pix, Compra com Cartão)
+    if (detalhes.trim()) {
+      const extractedFromDetails = this.extractDescriptionAfterTime(detalhes);
       if (extractedFromDetails && extractedFromDetails.trim()) {
         rawDescription = this.cleanText(extractedFromDetails.trim());
       }
     }
 
-    // PRIORIDADE 2: Se não encontrou em Detalhes, usar coluna de descrição principal
-    if (!rawDescription && columnMapping.description && row[columnMapping.description]) {
-      rawDescription = this.cleanText(row[columnMapping.description]);
+    // PRIORIDADE 2: Se não encontrou após horário, verificar se Detalhes tem conteúdo direto
+    // Útil para "Pagamento de Boleto", "Pagamento de Impostos", etc.
+    if (!rawDescription && detalhes.trim()) {
+      const directContent = this.extractDirectDetailsContent(detalhes, lancamento);
+      if (directContent && directContent.trim()) {
+        rawDescription = this.cleanText(directContent.trim());
+      }
     }
 
-    // PRIORIDADE 3: Se ainda não encontrou, tentar extrair de Detalhes sem horário
-    if (!rawDescription && row['Detalhes'] && row['Detalhes'].trim()) {
-      rawDescription = this.cleanText(this.extractLastMeaningfulWord(row['Detalhes']));
+    // PRIORIDADE 3: Se ainda não encontrou em Detalhes, usar coluna de descrição principal (Lançamento)
+    if (!rawDescription && lancamento) {
+      rawDescription = this.cleanText(lancamento);
     }
 
     // Filtrar linhas inválidas

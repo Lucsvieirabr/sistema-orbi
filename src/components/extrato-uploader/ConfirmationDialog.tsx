@@ -44,10 +44,10 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
   
   // Usar hooks do React Query para carregar categorias e contas (auto-refresh)
   const { categories: allCategories } = useCategories();
-  const { accounts } = useAccounts();
+  const { accountsWithBalance } = useAccounts();
   
   const categories = (allCategories || []) as Category[];
-  const accountsList = (accounts || []) as Account[];
+  const accountsList = (accountsWithBalance || []) as Account[];
 
   useEffect(() => {
     if (open && transactions.length > 0) {
@@ -101,6 +101,110 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
     setEditedTransactions(updated);
   };
 
+  const createSmartFixedTransaction = async (transaction: ParsedTransaction, userId: string) => {
+    // Sistema inteligente: criar série de transações fixas que se auto-renova
+    const seriesId = crypto.randomUUID();
+    const startDate = new Date(transaction.date);
+
+    // Transações importadas como fixas usam frequência mensal por padrão
+    const frequency = 'monthly';
+    const endDate = null; // Sem data final por padrão
+
+    // Criar registro na tabela series para controle inteligente
+    const { error: seriesError } = await supabase.from("series").insert({
+      id: seriesId,
+      user_id: userId,
+      description: transaction.description,
+      total_value: Math.abs(transaction.value),
+      total_installments: 1, // Será atualizado conforme necessário
+      is_fixed: true,
+      category_id: transaction.category_id,
+      frequency: frequency,
+      start_date: transaction.date,
+      end_date: endDate,
+      account_id: transaction.account_id,
+      logo_url: null,
+    });
+
+    if (seriesError) throw seriesError;
+
+    // Criar transação atual (primeira)
+    const { error: transactionError } = await supabase
+      .from("transactions")
+      .insert({
+        user_id: userId,
+        type: transaction.type,
+        account_id: transaction.account_id,
+        category_id: transaction.category_id,
+        value: Math.abs(transaction.value),
+        description: transaction.description,
+        date: transaction.date,
+        payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),
+        credit_card_id: transaction.credit_card_id || null,
+        person_id: null,
+        series_id: seriesId,
+        installment_number: 1, // Primeira parcela da série
+        is_fixed: true,
+        status: 'PENDING',
+      });
+
+    if (transactionError) throw transactionError;
+
+    // Gerar próximas transações baseadas na frequência (sistema inteligente)
+    const futureTransactions = [];
+    const startDateObj = new Date(transaction.date);
+
+    // Gerar até 6 meses de transações futuras inicialmente
+    const monthsToGenerate = 6;
+    for (let i = 1; i <= monthsToGenerate; i++) {
+      const futureDate = new Date(startDateObj);
+
+      // Calcular próxima data baseada na frequência
+      futureDate.setMonth(futureDate.getMonth() + i);
+
+      const formattedDate = futureDate.toISOString().slice(0, 10);
+
+      futureTransactions.push({
+        user_id: userId,
+        type: transaction.type,
+        account_id: transaction.account_id,
+        category_id: transaction.category_id,
+        value: Math.abs(transaction.value),
+        description: transaction.description,
+        date: formattedDate,
+        payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),
+        credit_card_id: transaction.credit_card_id || null,
+        person_id: null,
+        series_id: seriesId,
+        installment_number: i + 1, // Número da parcela (1, 2, 3, etc.)
+        is_fixed: true,
+        status: "PENDING",
+      });
+    }
+
+    // Inserir transações futuras (apenas se houver)
+    if (futureTransactions.length > 0) {
+      const { error: futureError } = await supabase
+        .from("transactions")
+        .insert(futureTransactions);
+
+      if (futureError) throw futureError;
+    }
+
+    // Atualizar série com total correto
+    const { error: updateSeriesError } = await supabase
+      .from("series")
+      .update({
+        total_installments: futureTransactions.length + 1, // 1 atual + futuras geradas
+        total_value: Math.abs(transaction.value) * (futureTransactions.length + 1),
+      })
+      .eq("id", seriesId);
+
+    if (updateSeriesError) throw updateSeriesError;
+
+    return seriesId;
+  };
+
   const handleSave = async () => {
     if (editedTransactions.length === 0) {
       toast({
@@ -129,29 +233,47 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
         throw new Error('Usuário não autenticado');
       }
 
-      // Converter para formato do banco
-      const transactionsToSave = editedTransactions.map(transaction => ({
-        user_id: user.id,
-        description: transaction.description,
-        value: Math.abs(transaction.value), // Sempre positivo - o tipo indica se é expense/income
-        date: transaction.date,
-        type: transaction.type,
-        category_id: transaction.category_id || null,
-        account_id: transaction.account_id || null,
-        installment_number: transaction.installment_number || null,
-        is_fixed: transaction.is_fixed || false,
-        payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),
-        credit_card_id: transaction.credit_card_id || null
-      }));
+      // Separar transações fixas das normais
+      const fixedTransactions = editedTransactions.filter(t => t.is_fixed);
+      const normalTransactions = editedTransactions.filter(t => !t.is_fixed);
 
-      // Inserir em lote
-      const { data, error } = await supabase
-        .from('transactions')
-        .insert(transactionsToSave)
-        .select();
+      let totalSaved = 0;
 
-      if (error) {
-        throw error;
+      // Processar transações normais em lote
+      if (normalTransactions.length > 0) {
+        const transactionsToSave = normalTransactions.map(transaction => ({
+          user_id: user.id,
+          description: transaction.description,
+          value: Math.abs(transaction.value), // Sempre positivo - o tipo indica se é expense/income
+          date: transaction.date,
+          type: transaction.type,
+          category_id: transaction.category_id || null,
+          account_id: transaction.account_id || null,
+          installment_number: transaction.installment_number || null,
+          is_fixed: false,
+          payment_method: transaction.payment_method || (transaction.type === 'expense' ? 'debit' : null),
+          credit_card_id: transaction.credit_card_id || null,
+          status: 'PENDING'
+        }));
+
+        const { data, error } = await supabase
+          .from('transactions')
+          .insert(transactionsToSave)
+          .select();
+
+        if (error) {
+          throw error;
+        }
+
+        totalSaved += data.length;
+      }
+
+      // Processar transações fixas individualmente (criar séries)
+      if (fixedTransactions.length > 0) {
+        for (const transaction of fixedTransactions) {
+          await createSmartFixedTransaction(transaction, user.id);
+          totalSaved += 1;
+        }
       }
 
       // APRENDIZADO AUTOMÁTICO DAS CORREÇÕES
@@ -165,7 +287,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
               await classifier.learnFromUserCorrection(
                 transaction.description,
                 category.name,
-                transaction.subcategory,
+                transaction.category_name,
                 transaction.type
               );
             } catch (error) {
@@ -179,7 +301,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
 
       toast({
         title: "Sucesso",
-        description: `${data.length} transações importadas com sucesso!`,
+        description: `${totalSaved} transações importadas com sucesso!${fixedTransactions.length > 0 ? ` (${fixedTransactions.length} fixas com recorrência mensal)` : ''}`,
       });
 
       onTransactionsSaved();
