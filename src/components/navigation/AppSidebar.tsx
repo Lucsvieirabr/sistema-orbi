@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -20,6 +20,7 @@ const menuItems: SidebarItem[] = [
   { title: "Categorias", icon: List, path: "/sistema/categories" },
   { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
   { title: "Pessoas", icon: Users, path: "/sistema/people" },
+  { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
 ];
 
 export function AppSidebar() {

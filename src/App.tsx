@@ -17,6 +17,7 @@ import CardStatements from "@/pages/CardStatements";
 import People from "@/pages/People";
 import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
+import MyAI from "@/pages/MyAI";
 import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
@@ -78,6 +79,7 @@ const App = () => {
                 <Route path="cards/:cardId/statements" element={<CardStatements />} />
                 <Route path="people" element={<People />} />
                 <Route path="people/:personId" element={<PersonDetail />} />
+                <Route path="my-ai" element={<MyAI />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 

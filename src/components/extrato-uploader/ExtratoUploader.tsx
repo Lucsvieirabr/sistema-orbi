@@ -504,9 +504,8 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Inteligência Artificial:</strong> Nosso sistema usa dicionário inteligente + Machine Learning
-              para categorizar automaticamente suas transações com alta precisão (95%+). Você pode revisar e editar
-              antes de importar.
+              <strong>Inteligência Artificial Personalizada:</strong>
+              Você pode treinar a IA do seu jeito corrigindo classificações - criando basicamente sua própria IA personalizada.
             </AlertDescription>
           </Alert>
 
