@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import orbiLogoDark from "@/assets/orbi-logo_dark.png";
 import orbiLogoLight from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -18,6 +19,7 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
+  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -28,14 +30,55 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setIsLoading(false);
     if (error) {
-      toast({ title: "Falha no login", description: error.message });
+      toast({ 
+        title: "Falha no login", 
+        description: error.message,
+        variant: "destructive"
+      });
       return;
     }
-    toast({ title: "Login realizado com sucesso!", description: "Redirecionando para o dashboard..." });
+    toast({ title: "Login realizado com sucesso!", description: "Redirecionando..." });
     onAuthSuccess();
   };
 
-  // Registration removed: users are provisioned in Supabase by admins
+  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setIsLoading(true);
+    const form = event.currentTarget;
+    const email = (form.querySelector('#register-email') as HTMLInputElement)?.value;
+    const password = (form.querySelector('#register-password') as HTMLInputElement)?.value;
+    const fullName = (form.querySelector('#register-name') as HTMLInputElement)?.value;
+    
+    // Criar conta no Supabase Auth
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+      options: {
+        data: {
+          full_name: fullName,
+        }
+      }
+    });
+    
+    setIsLoading(false);
+    
+    if (error) {
+      toast({ 
+        title: "Erro ao criar conta", 
+        description: error.message,
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (data.user) {
+      toast({ 
+        title: "Conta criada com sucesso!", 
+        description: "Redirecionando para escolher um plano..."
+      });
+      onAuthSuccess();
+    }
+  };
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20 p-4">
@@ -60,37 +103,93 @@ export function AuthForm({ onAuthSuccess }: AuthFormProps) {
         </CardHeader>
         
         <CardContent>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-mail</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                required
-                className="transition-all duration-200 focus:shadow-primary"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                required
-                className="transition-all duration-200 focus:shadow-primary"
-              />
-            </div>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")}>
+            <TabsList className="grid w-full grid-cols-2 mb-4">
+              <TabsTrigger value="login">Entrar</TabsTrigger>
+              <TabsTrigger value="register">Criar Conta</TabsTrigger>
+            </TabsList>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200 shadow-primary"
-              disabled={isLoading}
-            >
-              {isLoading ? "Entrando..." : "Entrar"}
-            </Button>
-          </form>
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="email">E-mail</Label>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    required
+                    className="transition-all duration-200 focus:shadow-primary"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    className="transition-all duration-200 focus:shadow-primary"
+                  />
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200 shadow-primary"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Entrando..." : "Entrar"}
+                </Button>
+              </form>
+            </TabsContent>
+
+            <TabsContent value="register">
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="register-name">Nome Completo</Label>
+                  <Input
+                    id="register-name"
+                    type="text"
+                    placeholder="Seu nome completo"
+                    required
+                    className="transition-all duration-200 focus:shadow-primary"
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="register-email">E-mail</Label>
+                  <Input
+                    id="register-email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    required
+                    className="transition-all duration-200 focus:shadow-primary"
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="register-password">Senha</Label>
+                  <Input
+                    id="register-password"
+                    type="password"
+                    placeholder="••••••••"
+                    required
+                    minLength={6}
+                    className="transition-all duration-200 focus:shadow-primary"
+                  />
+                  <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
+                </div>
+
+                <Button 
+                  type="submit" 
+                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200 shadow-primary"
+                  disabled={isLoading}
+                >
+                  {isLoading ? "Criando conta..." : "Criar Conta"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
     </div>
