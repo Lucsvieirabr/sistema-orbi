@@ -1735,7 +1735,7 @@ export default function MonthlyStatement() {
           .select("id")
           .eq("series_id", seriesIdToCheck)
           .eq("date", nextDate.toISOString().slice(0, 10))
-          .single();
+          .maybeSingle();
 
         if (!existingTransaction) {
           transactionsToAdd.push({
@@ -1854,7 +1854,7 @@ export default function MonthlyStatement() {
               .select("id")
               .eq("series_id", series.id)
               .eq("date", nextDate.toISOString().slice(0, 10))
-              .single();
+              .maybeSingle();
 
             if (!existingTransaction) {
               const installmentNumber = lastTransaction

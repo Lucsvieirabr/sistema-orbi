@@ -1,15 +1,13 @@
 /**
+ * WIP: Sistema migrado para user_learned_patterns apenas
+ * TODO: Futuro - adicionar sistema de admin para ensino global
+ * 
  * BankDictionary V2 - Versão com Banco de Dados
- * 
- * Nova implementação que busca merchants do Supabase ao invés de hardcoded.
- * Mantém compatibilidade com a API antiga mas usa banco de dados como fonte de verdade.
- * 
  * Features:
  * - Cache LRU inteligente
  * - Fallbacks essenciais em memória
- * - Busca no Supabase
+ * - Busca no Supabase (merchants_dictionary)
  * - Pré-carregamento de merchants frequentes
- * - Sistema de aprendizado global
  */
 
 import { supabase } from '@/integrations/supabase/client';
@@ -143,7 +141,7 @@ export class BankDictionary {
 
     this.initPromise = (async () => {
       try {
-        // Passo 1: Carregar padrões aprendidos globalmente
+        // Passo 1: Carregar padrões aprendidos do usuário
         await this.loadLearnedPatterns();
         
         // Passo 2: Pré-carregar merchants mais usados
@@ -170,18 +168,16 @@ export class BankDictionary {
   }
 
   /**
-   * Carrega padrões aprendidos globalmente do banco de dados
+   * Carrega padrões aprendidos do usuário
    */
   private async loadLearnedPatterns(): Promise<void> {
     try {
       const { data: patterns } = await supabase
-        .from('global_learned_patterns')
+        .from('user_learned_patterns')
         .select('description, category, subcategory, confidence, usage_count, last_used_at')
-        .eq('is_active', true)
         .gte('confidence', 75.00)
-        .gte('usage_count', 2)
         .order('usage_count', { ascending: false })
-        .limit(500);
+        .limit(200);
 
       if (patterns && Array.isArray(patterns) && patterns.length > 0) {
         patterns.forEach((pattern: any) => {
@@ -589,34 +585,20 @@ export class BankDictionary {
   }
 
   /**
-   * Aprende com correção do usuário
+   * Aprende com correção do usuário - mantém apenas padrões locais em memória
+   * A persistência é feita pelo IntelligentTransactionClassifier
    */
   async learnFromCorrection(description: string, category: string, subcategory?: string, confidence: number = 90): Promise<void> {
     await this.ensureInitialized();
 
-    // Atualiza padrões locais
     this.learnedPatterns[description] = {
       category,
-        subcategory,
-        confidence,
+      subcategory,
+      confidence,
       count: (this.learnedPatterns[description]?.count || 0) + 1,
       last_seen: new Date().toISOString()
     };
 
-    // Salva no banco global
-    try {
-      await supabase.rpc('update_global_learned_pattern', {
-        p_description: description,
-        p_category: category,
-        p_subcategory: subcategory,
-        p_confidence: confidence,
-        p_user_vote: true
-      });
-    } catch (error) {
-      console.error('Erro ao salvar padrão aprendido:', error);
-    }
-
-    // Invalida cache para forçar reload
     this.cache.clearSearchResults();
   }
 

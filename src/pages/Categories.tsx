@@ -24,6 +24,7 @@ export default function Categories() {
   const [icon, setIcon] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const v = (localStorage.getItem("categories:view") as "list" | "cards") || "list";
@@ -85,6 +86,11 @@ export default function Categories() {
     }
   };
 
+  // Filtra categorias por busca
+  const filteredCategories = categories?.filter((category) =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    category.category_type?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -104,6 +110,12 @@ export default function Categories() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Input
+                placeholder="Buscar por nome ou tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
                 <ToggleGroupItem
                   value="list"
@@ -175,24 +187,30 @@ export default function Categories() {
             <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
           ))}
         </div>
-      ) : view === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {categories.length === 0 ? (
-            <div className="col-span-full">
-              <Card className="border-dashed border-2 border-muted-foreground/25">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="p-4 bg-muted/50 rounded-full mb-4">
-                    <Tag className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma categoria cadastrada</h3>
-                  <p className="text-muted-foreground">
-                    Crie sua primeira categoria para organizar suas transações
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            categories.map((c) => (
+      ) : (
+        <>
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCategories.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="border-dashed border-2 border-muted-foreground/25">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="p-4 bg-muted/50 rounded-full mb-4">
+                        <Tag className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm
+                          ? `Nenhuma categoria encontrada para "${searchTerm}"`
+                          : "Crie sua primeira categoria para organizar suas transações"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                filteredCategories.map((c) => (
               <Card key={c.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between gap-2">
@@ -238,24 +256,30 @@ export default function Categories() {
                     </div>
                   </div>
                 </CardHeader>
-              </Card>
-            ))
-          )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            {categories.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <Tag className="h-6 w-6" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Nenhuma categoria cadastrada</h3>
-                <p>Crie sua primeira categoria para começar</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {categories.map((c) => (
+                  </Card>
+                ))
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                {filteredCategories.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <Tag className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
+                    </h3>
+                    <p>
+                      {searchTerm
+                        ? `Nenhuma categoria encontrada para "${searchTerm}"`
+                        : "Crie sua primeira categoria para começar"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {filteredCategories.map((c) => (
                   <div key={c.id} className="flex items-center justify-between p-6 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center gap-3">
                       {c.icon && (
@@ -297,15 +321,16 @@ export default function Categories() {
                         </>
                       )}
                     </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );
 }
-
 

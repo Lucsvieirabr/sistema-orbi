@@ -25,6 +25,7 @@ export default function Accounts() {
   const [initialBalance, setInitialBalance] = useState(0);
   const [color, setColor] = useState("#4f46e5");
   const [view, setView] = useState<"list" | "cards">("list");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const v = (localStorage.getItem("accounts:view") as "list" | "cards") || "list";
@@ -83,6 +84,12 @@ export default function Accounts() {
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 
+  // Filtra contas por busca
+  const filteredAccounts = accountsWithBalance?.filter((account) =>
+    account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    account.type.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       {/* Header Section */}
@@ -101,6 +108,12 @@ export default function Accounts() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Input
+                placeholder="Buscar por nome ou tipo..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
                 <ToggleGroupItem
                   value="list"
@@ -179,122 +192,135 @@ export default function Accounts() {
             <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
           ))}
         </div>
-      ) : view === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {accountsWithBalance.length === 0 ? (
-            <div className="col-span-full">
-              <Card className="border-dashed border-2 border-muted-foreground/25">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="p-4 bg-muted/50 rounded-full mb-4">
-                    <Wallet className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma conta cadastrada</h3>
-                  <p className="text-muted-foreground">
-                    Adicione sua primeira conta para começar a gerenciar suas finanças
-                  </p>
-                </CardContent>
-              </Card>
+      ) : (
+        <>
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredAccounts.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="border-dashed border-2 border-muted-foreground/25">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="p-4 bg-muted/50 rounded-full mb-4">
+                        <Wallet className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {searchTerm ? "Nenhuma conta encontrada" : "Nenhuma conta cadastrada"}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm 
+                          ? `Nenhuma conta encontrada para "${searchTerm}"`
+                          : "Adicione sua primeira conta para começar a gerenciar suas finanças"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                filteredAccounts.map((a) => (
+                  <Card key={a.id} className="group hover:shadow-lg transition-all duration-200" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ backgroundColor: a.color ?? "#e5e7eb" }}>
+                            <Wallet className="h-5 w-5 text-white" />
+                          </div>
+                          <div className="flex flex-col">
+                            <h3 className="font-semibold text-lg">{a.name}</h3>
+                            <span className="text-sm text-muted-foreground">{a.type}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(a.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(a.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </div>
+                      </div>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Saldo Atual</p>
+                        <p className="text-2xl font-bold">{formatCurrency(a.current_balance ?? 0)}</p>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))
+              )}
             </div>
           ) : (
-            accountsWithBalance.map((a) => (
-              <Card key={a.id} className="group hover:shadow-lg transition-all duration-200" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full flex items-center justify-center" style={{ backgroundColor: a.color ?? "#e5e7eb" }}>
-                        <Wallet className="h-5 w-5 text-white" />
-                      </div>
-                      <div className="flex flex-col">
-                        <h3 className="font-semibold text-lg">{a.name}</h3>
-                        <span className="text-sm text-muted-foreground">{a.type}</span>
-                      </div>
+            <Card>
+              <CardContent className="p-0 rounded-lg">
+                {filteredAccounts.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <Wallet className="h-6 w-6" />
                     </div>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(a.id)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                        confirmText="Excluir"
-                        onConfirm={() => onDelete(a.id)}
-                        variant="destructive"
-                      >
-                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </ConfirmationDialog>
-                    </div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {searchTerm ? "Nenhuma conta encontrada" : "Nenhuma conta cadastrada"}
+                    </h3>
+                    <p>
+                      {searchTerm 
+                        ? `Nenhuma conta encontrada para "${searchTerm}"`
+                        : "Adicione sua primeira conta para começar"}
+                    </p>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-right">
-                    <p className="text-sm text-muted-foreground">Saldo Atual</p>
-                    <p className="text-2xl font-bold">{formatCurrency(a.current_balance ?? 0)}</p>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {filteredAccounts.map((a) => (
+                      <div key={a.id} className="flex items-center rounded-lg justify-between p-4 hover:bg-muted/40 transition-colors" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                        <div className="flex items-center gap-3">
+                          <div className="h-8 w-8 rounded-full" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
+                          <div className="flex flex-col">
+                            <span className="font-medium">{a.name}</span>
+                            <span className="text-sm text-muted-foreground">{a.type}</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="font-semibold">{formatCurrency(a.current_balance ?? 0)}</span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(a.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(a.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                </CardContent>
-              </Card>
-            ))
+                )}
+              </CardContent>
+            </Card>
           )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0 rounded-lg">
-            {accountsWithBalance.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <Wallet className="h-6 w-6" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Nenhuma conta cadastrada</h3>
-                <p>Adicione sua primeira conta para começar</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {accountsWithBalance.map((a) => (
-                <div key={a.id} className="flex items-center rounded-lg justify-between p-4 hover:bg-muted/40 transition-colors" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
-                  <div className="flex items-center gap-3">
-                    <div className="h-8 w-8 rounded-full" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
-                    <div className="flex flex-col">
-                      <span className="font-medium">{a.name}</span>
-                      <span className="text-sm text-muted-foreground">{a.type}</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-semibold">{formatCurrency(a.current_balance ?? 0)}</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onEdit(a.id)}
-                      className="h-8 w-8 p-0"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <ConfirmationDialog
-                      title="Confirmar Exclusão"
-                      description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                      confirmText="Excluir"
-                      onConfirm={() => onDelete(a.id)}
-                      variant="destructive"
-                    >
-                      <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </ConfirmationDialog>
-                  </div>
-                </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        </>
       )}
     </div>
   );
 }
-
 

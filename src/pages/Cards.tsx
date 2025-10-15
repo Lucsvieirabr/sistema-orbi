@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
 import { SelectItem } from "@/components/ui/select";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -34,6 +35,7 @@ export default function Cards() {
     connectedAccountId: string;
   } | undefined>(undefined);
   const [view, setView] = useState<"list" | "cards">("cards");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const v = (localStorage.getItem("credit_cards:view") as "list" | "cards") || "cards";
@@ -99,6 +101,12 @@ export default function Cards() {
   const navigateToCardStatements = (cardId: string) => {
     navigate(`/sistema/cards/${cardId}/statements`);
   };
+
+  // Filtra cartões por busca
+  const filteredCreditCards = creditCards?.filter((card) =>
+    card.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    card.brand?.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   // Calcula o período da fatura atual baseado na data de fechamento
   const getCurrentStatementPeriod = (statementDay: number) => {
@@ -347,6 +355,12 @@ export default function Cards() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Input
+                placeholder="Buscar por nome ou bandeira..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
                 <ToggleGroupItem
                   value="list"
@@ -379,52 +393,70 @@ export default function Cards() {
             <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
           ))}
         </div>
-      ) : view === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {creditCards.length === 0 ? (
-            <div className="col-span-full">
-              <Card className="border-dashed border-2 border-muted-foreground/25">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="p-4 bg-muted/50 rounded-full mb-4">
-                    <CreditCard className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Nenhum cartão cadastrado</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Adicione seu primeiro cartão de crédito para começar a acompanhar suas faturas
-                  </p>
-                  <Button onClick={handleOpenDialog} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Adicionar Cartão
-                  </Button>
-                </CardContent>
-              </Card>
+      ) : (
+        <>
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredCreditCards.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="border-dashed border-2 border-muted-foreground/25">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="p-4 bg-muted/50 rounded-full mb-4">
+                        <CreditCard className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {searchTerm ? "Nenhum cartão encontrado" : "Nenhum cartão cadastrado"}
+                      </h3>
+                      <p className="text-muted-foreground mb-4">
+                        {searchTerm
+                          ? `Nenhum cartão encontrado para "${searchTerm}"`
+                          : "Adicione seu primeiro cartão de crédito para começar a acompanhar suas faturas"}
+                      </p>
+                      {!searchTerm && (
+                        <Button onClick={handleOpenDialog} className="gap-2">
+                          <Plus className="h-4 w-4" />
+                          Adicionar Cartão
+                        </Button>
+                      )}
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                filteredCreditCards.map((card) => <CreditCardItem key={card.id} card={card} />)
+              )}
             </div>
           ) : (
-            creditCards.map((card) => <CreditCardItem key={card.id} card={card} />)
+            <Card>
+              <CardContent className="p-0">
+                {filteredCreditCards.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <CreditCard className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {searchTerm ? "Nenhum cartão encontrado" : "Nenhum cartão cadastrado"}
+                    </h3>
+                    <p className="mb-4">
+                      {searchTerm
+                        ? `Nenhum cartão encontrado para "${searchTerm}"`
+                        : "Adicione seu primeiro cartão de crédito para começar"}
+                    </p>
+                    {!searchTerm && (
+                      <Button onClick={handleOpenDialog} className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Adicionar Cartão
+                      </Button>
+                    )}
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {filteredCreditCards.map((card) => <CreditCardListItem key={card.id} card={card} />)}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            {creditCards.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <CreditCard className="h-6 w-6" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Nenhum cartão cadastrado</h3>
-                <p className="mb-4">Adicione seu primeiro cartão de crédito para começar</p>
-                <Button onClick={handleOpenDialog} className="gap-2">
-                  <Plus className="h-4 w-4" />
-                  Adicionar Cartão
-                </Button>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {creditCards.map((card) => <CreditCardListItem key={card.id} card={card} />)}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+        </>
       )}
 
       {/* Dialog for Add/Edit Card */}

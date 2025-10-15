@@ -21,6 +21,7 @@ export default function People() {
   const [name, setName] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
+  const [searchTerm, setSearchTerm] = useState("");
 
   useEffect(() => {
     const v = (localStorage.getItem("people:view") as "list" | "cards") || "list";
@@ -75,6 +76,11 @@ export default function People() {
     navigate(`/sistema/people/${personId}`);
   };
 
+  // Filtra pessoas por busca
+  const filteredPeople = people?.filter((person) =>
+    person.name.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       {/* Header Section */}
@@ -93,6 +99,12 @@ export default function People() {
               </div>
             </div>
             <div className="flex items-center gap-3">
+              <Input
+                placeholder="Buscar por nome..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-64"
+              />
               <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
                 <ToggleGroupItem
                   value="list"
@@ -143,24 +155,30 @@ export default function People() {
             <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
           ))}
         </div>
-      ) : view === "cards" ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {people.length === 0 ? (
-            <div className="col-span-full">
-              <Card className="border-dashed border-2 border-muted-foreground/25">
-                <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                  <div className="p-4 bg-muted/50 rounded-full mb-4">
-                    <Users className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-semibold mb-2">Nenhuma pessoa cadastrada</h3>
-                  <p className="text-muted-foreground">
-                    Adicione pessoas para acompanhar transações individuais
-                  </p>
-                </CardContent>
-              </Card>
-            </div>
-          ) : (
-            people.map((member) => (
+      ) : (
+        <>
+          {view === "cards" ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filteredPeople.length === 0 ? (
+                <div className="col-span-full">
+                  <Card className="border-dashed border-2 border-muted-foreground/25">
+                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+                      <div className="p-4 bg-muted/50 rounded-full mb-4">
+                        <Users className="h-8 w-8 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-lg font-semibold mb-2">
+                        {searchTerm ? "Nenhuma pessoa encontrada" : "Nenhuma pessoa cadastrada"}
+                      </h3>
+                      <p className="text-muted-foreground">
+                        {searchTerm
+                          ? `Nenhuma pessoa encontrada para "${searchTerm}"`
+                          : "Adicione pessoas para acompanhar transações individuais"}
+                      </p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ) : (
+                filteredPeople.map((member) => (
               <Card key={member.id} className="group hover:shadow-lg transition-all duration-200">
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
@@ -203,24 +221,30 @@ export default function People() {
                     Ver Extrato
                   </Button>
                 </CardContent>
-              </Card>
-            ))
-          )}
-        </div>
-      ) : (
-        <Card>
-          <CardContent className="p-0">
-            {people.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                  <Users className="h-6 w-6" />
-                </div>
-                <h3 className="text-lg font-semibold mb-2">Nenhuma pessoa cadastrada</h3>
-                <p>Adicione sua primeira pessoa para começar</p>
-              </div>
-            ) : (
-              <div className="divide-y divide-border">
-                {people.map((member) => (
+                  </Card>
+                ))
+              )}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-0">
+                {filteredPeople.length === 0 ? (
+                  <div className="p-8 text-center text-muted-foreground">
+                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
+                      <Users className="h-6 w-6" />
+                    </div>
+                    <h3 className="text-lg font-semibold mb-2">
+                      {searchTerm ? "Nenhuma pessoa encontrada" : "Nenhuma pessoa cadastrada"}
+                    </h3>
+                    <p>
+                      {searchTerm
+                        ? `Nenhuma pessoa encontrada para "${searchTerm}"`
+                        : "Adicione sua primeira pessoa para começar"}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border">
+                    {filteredPeople.map((member) => (
                   <div key={member.id} className="p-6 hover:bg-muted/30 transition-colors">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-4">
@@ -260,12 +284,14 @@ export default function People() {
                         </ConfirmationDialog>
                       </div>
                     </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
+        </>
       )}
     </div>
   );

@@ -1,9 +1,10 @@
 /**
- * Classificador Inteligente de Transações - Sistema Híbrido Avançado
- *
- * Sistema de classificação hierárquica que integra:
- * 1. Padrões aprendidos globalmente (Supabase)
- * 2. Estabelecimentos específicos (BankDictionary)
+ * WIP: Sistema de aprendizado isolado por usuário (user_learned_patterns apenas)
+ * TODO: Futuro - adicionar sistema de admin para ensino global via tela de administração
+ * 
+ * Classificador Inteligente de Transações - Sistema Híbrido
+ * 1. Padrões aprendidos do usuário (user_learned_patterns)
+ * 2. Estabelecimentos específicos (merchants_dictionary)
  * 3. Padrões bancários contextuais
  * 4. Palavras-chave genéricas
  * 5. Machine Learning como fallback
@@ -135,13 +136,13 @@ export class IntelligentTransactionClassifier {
     // Array para armazenar TODAS as possibilidades
     const candidates: Array<IntelligentClassification & { priority: number }> = [];
 
-    // 1. PADROES APRENDIDOS GLOBALMENTE (MÁXIMA PRIORIDADE - 100)
-    const globalLearnedResult = await this.getGlobalLearnedPattern(description, type);
-    if (globalLearnedResult && globalLearnedResult.confidence >= 80) {
+    // 1. PADROES APRENDIDOS DO USUÁRIO (MÁXIMA PRIORIDADE - 100)
+    const userLearnedResult = await this.getUserLearnedPattern(description, type);
+    if (userLearnedResult && userLearnedResult.confidence >= 80) {
       candidates.push({
-        ...globalLearnedResult,
-        method: 'global_learned',
-        features_used: ['global_learned_patterns', 'user_confirmed'],
+        ...userLearnedResult,
+        method: 'user_learned',
+        features_used: ['user_learned_patterns', 'user_confirmed'],
         learned_from_user: true,
         priority: 100
       });
@@ -308,96 +309,33 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Obtém padrões aprendidos (HÍBRIDO: usuário + global)
-   * 
-   * NOVA IMPLEMENTAÇÃO:
-   * - Prioriza padrões do próprio usuário (pode ter categorias customizadas)
-   * - Fallback para padrões globais (apenas categorias padrão)
-   * - Usa função RPC que implementa essa lógica no banco
+   * Obtém padrões aprendidos do usuário (user_learned_patterns)
    */
-  private async getGlobalLearnedPattern(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification | null> {
+  private async getUserLearnedPattern(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification | null> {
     try {
-      // Usa nova função híbrida que busca user_learned_patterns + global_learned_patterns
+      const normalizedDesc = description.toLowerCase().trim();
+      
       const { data: pattern, error } = await supabase
-        .rpc('get_learned_pattern_for_user', {
-          p_description: description,
-          p_min_confidence: 75
-        })
+        .from('user_learned_patterns')
+        .select('description, category, subcategory, confidence, usage_count')
+        .eq('normalized_description', normalizedDesc)
+        .gte('confidence', 75)
         .single();
 
       if (error || !pattern) {
         return null;
       }
 
-      // Retorna classificação
       return {
         category: pattern.category,
         subcategory: pattern.subcategory,
-        confidence: Math.min(
-          pattern.confidence + (pattern.usage_count * (pattern.source === 'user' ? 3 : 1.5)),
-          98
-        ),
-        method: pattern.source === 'user' ? 'user_learned' : 'global_exact_match',
-        features_used: [
-          pattern.source === 'user' ? 'user_learned_pattern' : 'global_learned_exact',
-          pattern.source === 'user' ? 'customizable_category' : 'standard_category'
-        ],
+        confidence: Math.min(pattern.confidence + (pattern.usage_count * 3), 98),
+        method: 'user_learned',
+        features_used: ['user_learned_pattern', 'exact_match'],
         learned_from_user: true
       };
     } catch (error) {
-      console.error('Erro ao buscar padrão aprendido:', error);
-      
-      // FALLBACK: Tenta busca antiga (para compatibilidade durante transição)
-      try {
-        const { data: frequentPatterns } = await supabase
-          .from('global_learned_patterns')
-          .select('description, category, subcategory, confidence, usage_count')
-          .eq('is_active', true)
-          .gte('confidence', 80)
-          .gte('usage_count', 3)
-          .order('usage_count', { ascending: false })
-          .limit(500);
-
-      if (frequentPatterns && frequentPatterns.length > 0) {
-        // Busca por correspondência exata primeiro
-        const exactMatch = frequentPatterns.find(pattern =>
-          pattern.description.toLowerCase() === description.toLowerCase()
-        );
-
-        if (exactMatch) {
-          return {
-            category: exactMatch.category,
-            subcategory: exactMatch.subcategory,
-            confidence: Math.min(exactMatch.confidence + (exactMatch.usage_count * 2), 98),
-            method: 'global_exact_match',
-            features_used: ['global_learned_exact', 'high_frequency'],
-            learned_from_user: true
-          };
-        }
-
-        // Busca por correspondência parcial (contém)
-        const partialMatch = frequentPatterns.find(pattern =>
-          description.toLowerCase().includes(pattern.description.toLowerCase()) ||
-          pattern.description.toLowerCase().includes(description.toLowerCase())
-        );
-
-        if (partialMatch) {
-          return {
-            category: partialMatch.category,
-            subcategory: partialMatch.subcategory,
-            confidence: Math.min(partialMatch.confidence + (partialMatch.usage_count * 1.5), 95),
-            method: 'global_partial_match',
-            features_used: ['global_learned_partial', 'frequency_boosted'],
-            learned_from_user: true
-          };
-        }
-      }
-
-        return null;
-      } catch (fallbackError) {
-        console.error('Erro no fallback de padrões aprendidos:', fallbackError);
-        return null;
-      }
+      return null;
     }
   }
 
@@ -683,36 +621,25 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Aprende com correção do usuário - Sistema de Aprendizado Avançado
-   *
-   * Implementa múltiplas estratégias de aprendizado:
-   * 1. Persistência global no Supabase
-   * 2. Aprendizado local no BankDictionary
-   * 3. Treinamento do modelo de ML
-   * 4. Cache inteligente
-   * 5. Detecção de padrões recorrentes
+   * Aprende com correção do usuário - Salva apenas em user_learned_patterns
    */
   async learnFromUserCorrection(description: string, correctCategory: string, subcategory?: string, type: 'income' | 'expense' = 'expense'): Promise<void> {
     const normalizedDescription = description.toLowerCase().trim();
-    const currentTime = new Date().toISOString();
 
     try {
-      // 1. PERSISTÊNCIA GLOBAL NO SUPABASE (MÁXIMA PRIORIDADE)
-      await this.saveToGlobalLearning(description, correctCategory, subcategory, type, currentTime);
+      // 1. SALVAR EM USER_LEARNED_PATTERNS
+      await this.saveToUserLearning(description, correctCategory, subcategory);
 
-      // 2. APRENDIZADO LOCAL NO BANKDICTIONARY
-      await this.dictionary.learnFromCorrection(description, correctCategory, subcategory, 90);
-
-      // 3. TREINAMENTO DO MODELO DE ML
-    const newTrainingData: MLTransaction = {
-      description,
-      category: correctCategory,
-      subcategory,
+      // 2. TREINAMENTO DO MODELO DE ML
+      const newTrainingData: MLTransaction = {
+        description,
+        category: correctCategory,
+        subcategory,
         type
-    };
-    this.mlClassifier.addTrainingData(newTrainingData);
+      };
+      this.mlClassifier.addTrainingData(newTrainingData);
 
-      // 4. ATUALIZAÇÃO DO CACHE
+      // 3. ATUALIZAÇÃO DO CACHE
       if (this.enableCache) {
         const learnedResult = {
           category: correctCategory,
@@ -724,87 +651,31 @@ export class IntelligentTransactionClassifier {
         };
         this.cache.setCachedPattern(normalizedDescription, learnedResult);
       }
-
-      // 5. DETECÇÃO DE PADRÕES RECORRENTES
-      await this.detectRecurrentPatterns(description, correctCategory, subcategory, type);
-
     } catch (error) {
-      console.error('Erro no aprendizado avançado:', error);
+      console.error('Erro no aprendizado:', error);
     }
   }
 
   /**
-   * Salva padrão aprendido (HÍBRIDO: usuário ou global)
-   * 
-   * NOVA LÓGICA:
-   * 1. Se categoria é personalizada → salva em user_learned_patterns
-   * 2. Se categoria é padrão → salva em global_learned_patterns
-   * 3. A função RPC do banco faz essa validação automaticamente
+   * Salva padrão aprendido apenas em user_learned_patterns
    */
-  private async saveToGlobalLearning(description: string, category: string, subcategory?: string, type: 'income' | 'expense' = 'expense', timestamp: string = new Date().toISOString()): Promise<void> {
+  private async saveToUserLearning(description: string, category: string, subcategory?: string): Promise<void> {
     try {
-      // Tenta salvar nos padrões do usuário primeiro (aceita qualquer categoria)
-      const { error: userError } = await supabase.rpc('update_user_learned_pattern', {
+      const { error } = await supabase.rpc('update_user_learned_pattern', {
         p_description: description,
         p_category: category,
         p_subcategory: subcategory,
         p_confidence: 90
       });
 
-      if (userError) {
-        console.error('Erro ao salvar padrão do usuário:', userError);
+      if (error) {
+        console.error('Erro ao salvar padrão do usuário:', error);
       }
-
-      // TAMBÉM tenta salvar em global (se for categoria padrão, será aceito)
-      // Se não for categoria padrão, a função RPC ignora silenciosamente
-      try {
-        await supabase.rpc('update_global_learned_pattern', {
-          p_description: description,
-          p_category: category,
-          p_subcategory: subcategory,
-          p_confidence: 85,
-          p_user_vote: true
-        });
-      } catch (globalError) {
-        // Ignora erro em global (pode ser categoria customizada)
-        // O importante é que salvou em user_learned_patterns
-      }
-
     } catch (error) {
       console.error('Erro ao salvar padrão aprendido:', error);
     }
   }
 
-  /**
-   * Detecta e registra padrões recorrentes
-   */
-  private async detectRecurrentPatterns(description: string, category: string, subcategory?: string, type: 'income' | 'expense' = 'expense'): Promise<void> {
-    try {
-      // Busca transações similares no histórico recente (últimos 30 dias)
-      const thirtyDaysAgo = new Date();
-      thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-
-      const { data: similarTransactions } = await supabase
-        .from('transactions')
-        .select('description, category_id')
-        .ilike('description', `%${description.split(' ')[0]}%`)
-        .gte('date', thirtyDaysAgo.toISOString().split('T')[0])
-        .limit(10);
-
-      if (similarTransactions && similarTransactions.length >= 3) {
-        // Registra como padrão frequente
-        await this.saveToGlobalLearning(
-          description,
-          category,
-          subcategory,
-          type,
-          new Date().toISOString()
-        );
-      }
-    } catch (error) {
-      console.error('Erro na detecção de padrões recorrentes:', error);
-    }
-  }
 
   /**
    * Obtém estatísticas dos dois sistemas
@@ -997,73 +868,31 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Pré-carrega padrões frequentemente usados no cache e no dicionário local
+   * Pré-carrega padrões do usuário no cache
    */
   async preloadFrequentPatterns(): Promise<void> {
     if (!this.enableCache) return;
 
     try {
-      // 1. CARREGA PADRÕES GLOBAIS MAIS FREQUENTES
-      const { data: frequentPatterns } = await supabase
-        .from('global_learned_patterns')
+      const { data: userPatterns } = await supabase
+        .from('user_learned_patterns')
         .select('description, category, subcategory, confidence, usage_count')
-        .eq('is_active', true)
         .gte('confidence', 75)
-        .gte('usage_count', 2)
         .order('usage_count', { ascending: false })
-        .limit(300);
+        .limit(100);
 
-      if (frequentPatterns && frequentPatterns.length > 0) {
-        frequentPatterns.forEach(pattern => {
-          // Adiciona ao cache
-          const result = {
-            category: pattern.category,
-            subcategory: pattern.subcategory,
-            confidence: Math.min(pattern.confidence + (pattern.usage_count * 2), 98),
-            method: 'global_preloaded' as const,
-            features_used: ['global_preload', 'high_frequency'],
-            learned_from_user: true
-          };
-
-          this.cache.setCachedPattern(pattern.description, result);
-
-          // Também adiciona ao dicionário local para aprendizado
-          if (pattern.usage_count >= 5) {
-            this.dictionary.addLearnedPattern(
-              pattern.description,
-              pattern.category,
-              pattern.subcategory,
-              pattern.confidence,
-              new Date().toISOString()
-            );
-          }
-        });
-      }
-
-      // 2. CARREGA PADRÕES DE ESTABELECIMENTOS FREQUENTES
-      const { data: merchantPatterns } = await supabase
-        .from('global_learned_patterns')
-        .select('description, category, subcategory, confidence, usage_count')
-        .eq('is_active', true)
-        .gte('confidence', 85)
-        .gte('usage_count', 3)
-        .ilike('description', '%uber%|%ifood%|%mercado%|%farmacia%|%posto%|%netflix%|%spotify%|%academia%|%dentista%|%dr%')
-        .order('usage_count', { ascending: false })
-        .limit(200);
-
-      if (merchantPatterns && merchantPatterns.length > 0) {
-        merchantPatterns.forEach(pattern => {
+      if (userPatterns && userPatterns.length > 0) {
+        userPatterns.forEach(pattern => {
           this.cache.setCachedPattern(pattern.description, {
             category: pattern.category,
             subcategory: pattern.subcategory,
-            confidence: pattern.confidence,
-            method: 'merchant_preloaded' as const,
-            features_used: ['merchant_preload'],
+            confidence: Math.min(pattern.confidence + (pattern.usage_count * 3), 98),
+            method: 'user_preloaded' as const,
+            features_used: ['user_preload', 'high_frequency'],
             learned_from_user: true
           });
         });
       }
-
     } catch (error) {
       console.error('Erro no pré-carregamento:', error);
     }

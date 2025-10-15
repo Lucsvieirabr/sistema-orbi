@@ -32,7 +32,6 @@ export function useLearnedPatterns() {
       const { data, error } = await supabase
         .from('user_learned_patterns')
         .select('*')
-        .eq('is_active', true)
         .order('usage_count', { ascending: false });
 
       if (error) throw error;
@@ -85,7 +84,7 @@ export function useUpdateLearnedPattern() {
 }
 
 /**
- * Hook para deletar um padrão aprendido
+ * Hook para deletar um padrão aprendido (DELETE real)
  */
 export function useDeleteLearnedPattern() {
   const queryClient = useQueryClient();
@@ -95,7 +94,7 @@ export function useDeleteLearnedPattern() {
     mutationFn: async (id: string) => {
       const { error } = await supabase
         .from('user_learned_patterns')
-        .update({ is_active: false })
+        .delete()
         .eq('id', id);
 
       if (error) throw error;
@@ -126,8 +125,7 @@ export function useLearnedPatternsStats() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('user_learned_patterns')
-        .select('category, confidence, usage_count')
-        .eq('is_active', true);
+        .select('category, confidence, usage_count');
 
       if (error) throw error;
 

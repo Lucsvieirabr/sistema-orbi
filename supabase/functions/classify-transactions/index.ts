@@ -140,23 +140,21 @@ serve(async (req) => {
       throw new Error('Invalid request: transactions array is required');
     }
 
-    // Pré-carrega padrões aprendidos (HÍBRIDO: user + global)
-    // Usa nova função RPC que prioriza padrões do usuário
+    // Pré-carrega padrões aprendidos do usuário
+    const normalizedDescriptions = transactions.map(t => t.description.toLowerCase().trim());
     const { data: learnedPatterns } = await supabaseClient
-      .rpc('get_learned_patterns_batch', {
-        p_descriptions: transactions.map(t => t.description),
-        p_min_confidence: 70
-      });
+      .from('user_learned_patterns')
+      .select('description, normalized_description, category, subcategory, confidence, usage_count')
+      .in('normalized_description', normalizedDescriptions)
+      .gte('confidence', 70);
 
     // Cria mapa de padrões para lookup rápido
     const patternMap = new Map<string, any>();
     learnedPatterns?.forEach(pattern => {
-      patternMap.set(pattern.description.toLowerCase(), {
+      patternMap.set(pattern.normalized_description, {
         ...pattern,
-        // Boost de confiança se veio do usuário
-        confidence: pattern.source === 'user' 
-          ? Math.min(pattern.confidence + 5, 98)
-          : pattern.confidence
+        source: 'user',
+        confidence: Math.min(pattern.confidence + (pattern.usage_count * 3), 98)
       });
     });
 
@@ -212,7 +210,7 @@ serve(async (req) => {
 async function classifyTransaction(
   transaction: Transaction,
   supabaseClient: any,
-  globalPatterns: Map<string, any>,
+  userPatterns: Map<string, any>,
   userLocation: string
 ): Promise<ClassificationResult> {
   const { description, type } = transaction;
@@ -236,7 +234,7 @@ async function classifyTransaction(
     normalizedDesc,
     type,
     supabaseClient,
-    globalPatterns,
+    userPatterns,
     userLocation,
     'original'
   );
@@ -250,7 +248,7 @@ async function classifyTransaction(
       camelCaseDesc.toLowerCase().trim(),
       type,
       supabaseClient,
-      globalPatterns,
+      userPatterns,
       userLocation,
       'camelCase_separated'
     );
@@ -267,7 +265,7 @@ async function classifyTransaction(
       variants.keywords,
       type,
       supabaseClient,
-      globalPatterns,
+      userPatterns,
       userLocation
     );
     
@@ -293,58 +291,43 @@ async function classifyWithSpecificDescription(
   normalizedDesc: string,
   type: 'income' | 'expense',
   supabaseClient: any,
-  globalPatterns: Map<string, any>,
+  userPatterns: Map<string, any>,
   userLocation: string,
   variant: string
 ): Promise<ClassificationResult> {
   // Estratégia em camadas:
-  // 1. Padrões aprendidos globalmente (pré-carregados)
+  // 1. Padrões aprendidos do usuário (pré-carregados)
   // 2. Busca no dicionário de merchants
   // 3. Padrões bancários contextuais
   // 4. Fallback padrão
 
-  // 1. PADRÕES APRENDIDOS (HÍBRIDO: user + global) (MÁXIMA PRIORIDADE)
-  const exactMatch = globalPatterns.get(normalizedDesc);
+  // 1. PADRÕES APRENDIDOS DO USUÁRIO (MÁXIMA PRIORIDADE)
+  const exactMatch = userPatterns.get(normalizedDesc);
   if (exactMatch && exactMatch.confidence >= 80) {
-    const isUserPattern = exactMatch.source === 'user';
     return {
       description,
       category: exactMatch.category,
       subcategory: exactMatch.subcategory,
-      confidence: Math.min(
-        exactMatch.confidence + (exactMatch.usage_count * (isUserPattern ? 3 : 2)), 
-        98
-      ),
-      method: isUserPattern ? 'user_learned' : 'global_exact_match',
-      features_used: [
-        isUserPattern ? 'user_learned_exact' : 'global_learned_exact',
-        isUserPattern ? 'customizable_category' : 'standard_category',
-        'high_frequency'
-      ],
+      confidence: exactMatch.confidence,
+      method: 'user_learned',
+      features_used: ['user_learned_exact', 'high_frequency'],
       learned_from_user: true,
     };
   }
 
   // Busca parcial nos padrões aprendidos
-  for (const [patternDesc, pattern] of globalPatterns.entries()) {
+  for (const [patternDesc, pattern] of userPatterns.entries()) {
     if (
       (normalizedDesc.includes(patternDesc) || patternDesc.includes(normalizedDesc)) &&
       pattern.confidence >= 75
     ) {
-      const isUserPattern = pattern.source === 'user';
       return {
         description,
         category: pattern.category,
         subcategory: pattern.subcategory,
-        confidence: Math.min(
-          pattern.confidence + (pattern.usage_count * (isUserPattern ? 2 : 1.5)), 
-          95
-        ),
-        method: isUserPattern ? 'user_learned_partial' : 'global_partial_match',
-        features_used: [
-          isUserPattern ? 'user_learned_partial' : 'global_learned_partial',
-          'frequency_boosted'
-        ],
+        confidence: Math.min(pattern.confidence + (pattern.usage_count * 2), 95),
+        method: 'user_learned_partial',
+        features_used: ['user_learned_partial', 'frequency_boosted'],
         learned_from_user: true,
       };
     }
@@ -412,7 +395,7 @@ async function classifyByKeywords(
   keywords: string[],
   type: 'income' | 'expense',
   supabaseClient: any,
-  globalPatterns: Map<string, any>,
+  userPatterns: Map<string, any>,
   userLocation: string
 ): Promise<ClassificationResult | null> {
   const keywordResults: Array<{
@@ -422,16 +405,16 @@ async function classifyByKeywords(
 
   // Tenta classificar cada keyword individualmente
   for (const keyword of keywords) {
-    // Verifica nos padrões globais
-    const globalMatch = globalPatterns.get(keyword.toLowerCase());
-    if (globalMatch && globalMatch.confidence >= 70) {
+    // Verifica nos padrões do usuário
+    const userMatch = userPatterns.get(keyword.toLowerCase());
+    if (userMatch && userMatch.confidence >= 70) {
       keywordResults.push({
         keyword,
         result: {
           description: keyword,
-          category: globalMatch.category,
-          subcategory: globalMatch.subcategory,
-          confidence: globalMatch.confidence * 0.85, // Reduz um pouco (palavra isolada)
+          category: userMatch.category,
+          subcategory: userMatch.subcategory,
+          confidence: userMatch.confidence * 0.85, // Reduz um pouco (palavra isolada)
           method: 'keyword_analysis',
           features_used: ['individual_keyword', keyword],
           learned_from_user: true,
