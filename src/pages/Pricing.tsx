@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles } from "lucide-react";
+import { Check, Sparkles, X } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -57,28 +57,26 @@ export default function Pricing() {
   // Organizar planos por display_order
   const sortedPlans = [...(plans || [])].sort((a, b) => a.display_order - b.display_order);
 
-  const getFeaturesList = (features: Record<string, boolean>) => {
-    const featureLabels: Record<string, string> = {
-      basic_dashboard: 'Dashboard Básico',
-      manual_categorization: 'Categorização Manual',
-      csv_export: 'Exportação CSV',
-      ml_classification: 'Classificação com IA',
-      advanced_reports: 'Relatórios Avançados',
-      api_access: 'Acesso à API',
-      priority_support: 'Suporte Prioritário',
-      logo_customization: 'Personalização de Logos',
-      custom_categories: 'Categorias Personalizadas',
-      multi_currency: 'Múltiplas Moedas',
-      white_label: 'Marca Branca',
-      bulk_import: 'Importação em Massa',
-      scheduled_reports: 'Relatórios Agendados',
-      team_sharing: 'Compartilhamento em Equipe',
-    };
+  // Obter lista de features simplificadas
+  const getSimplifiedFeatures = (features: Record<string, boolean>) => {
+    // Definir todas as features possíveis do sistema
+    const allPossibleFeatures = [
+      { key: 'extrato', label: 'Extrato', icon: '📝' },
+      { key: 'contas', label: 'Contas', icon: '🏦' },
+      { key: 'categorias', label: 'Categorias', icon: '📂' },
+      { key: 'cartoes', label: 'Cartões', icon: '💳' },
+      { key: 'pessoas', label: 'Pessoas', icon: '👥' },
+      { key: 'ia_classificador', label: 'IA Classificador', icon: '🤖' },
+      { key: 'transacoes_importar_csv', label: 'Importar CSV', icon: '📤' },
+      { key: 'ia_classificacao_automatica', label: 'Classificação Automática', icon: '✨' },
+      { key: 'ia_deteccao_logos', label: 'Detecção de Assinaturas', icon: '🔄' },
+    ];
 
-    return Object.entries(features)
-      .filter(([_, enabled]) => enabled)
-      .map(([key]) => featureLabels[key] || key)
-      .slice(0, 8); // Mostrar até 8 features
+    // Retornar features com status (tem ou não tem)
+    return allPossibleFeatures.map(feature => ({
+      ...feature,
+      enabled: features[feature.key] === true,
+    }));
   };
 
   const handleSelectPlan = (planSlug: string) => {
@@ -206,29 +204,55 @@ export default function Pricing() {
                     )}
                   </div>
 
-                  {/* Features */}
+                  {/* Features Simplificadas */}
                   <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
-                    {getFeaturesList(plan.features).map((feature) => (
-                      <div key={feature} className="flex items-center gap-1.5">
-                        <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
-                        <span className="text-xs">{feature}</span>
+                    {getSimplifiedFeatures(plan.features).map((feature) => (
+                      <div key={feature.key} className="flex items-center gap-1.5">
+                        {feature.enabled ? (
+                          <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                        ) : (
+                          <X className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                        )}
+                        <span className={`text-xs ${feature.enabled ? 'text-foreground' : 'text-muted-foreground opacity-60'}`}>
+                          {feature.label}
+                        </span>
                       </div>
                     ))}
                   </div>
 
                   {/* Limites principais */}
                   <div className="pt-3 border-t text-xs text-muted-foreground space-y-0.5">
-                    <div>
-                      <strong>Limites:</strong>
+                    <div className="font-semibold mb-1">
+                      Limites:
                     </div>
-                    {plan.limits.max_accounts !== undefined && (
+                    {plan.limits.max_contas !== undefined && (
                       <div>
-                        • Contas: {plan.limits.max_accounts === -1 ? 'Ilimitado' : plan.limits.max_accounts}
+                        • Contas: {plan.limits.max_contas === -1 ? 'Ilimitado' : plan.limits.max_contas}
                       </div>
                     )}
-                    {plan.limits.max_transactions_per_month !== undefined && (
+                    {plan.limits.max_cartoes !== undefined && (
                       <div>
-                        • Transações/mês: {plan.limits.max_transactions_per_month === -1 ? 'Ilimitado' : plan.limits.max_transactions_per_month}
+                        • Cartões: {plan.limits.max_cartoes === -1 ? 'Ilimitado' : plan.limits.max_cartoes}
+                      </div>
+                    )}
+                    {plan.limits.max_transacoes_mes !== undefined && (
+                      <div>
+                        • Transações/mês: {plan.limits.max_transacoes_mes === -1 ? 'Ilimitado' : plan.limits.max_transacoes_mes}
+                      </div>
+                    )}
+                    {plan.limits.max_pessoas !== undefined && (
+                      <div>
+                        • Pessoas: {plan.limits.max_pessoas === -1 ? 'Ilimitado' : plan.limits.max_pessoas}
+                      </div>
+                    )}
+                    {plan.limits.max_categorias !== undefined && (
+                      <div>
+                        • Categorias: {plan.limits.max_categorias === -1 ? 'Ilimitado' : plan.limits.max_categorias}
+                      </div>
+                    )}
+                    {plan.limits.retencao_dados_meses !== undefined && (
+                      <div>
+                        • Retenção de dados: {plan.limits.retencao_dados_meses === -1 ? 'Ilimitado' : `${plan.limits.retencao_dados_meses} meses`}
                       </div>
                     )}
                   </div>

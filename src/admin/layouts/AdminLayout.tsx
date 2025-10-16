@@ -65,11 +65,9 @@ export default function AdminLayout() {
     <SidebarProvider>
       <AdminSidebar />
       <SidebarInset>
+        <AdminHeader />
         <div className="p-4">
-          <AdminHeader />
-          <div className="mt-4">
-            <Outlet />
-          </div>
+          <Outlet />
         </div>
       </SidebarInset>
     </SidebarProvider>
