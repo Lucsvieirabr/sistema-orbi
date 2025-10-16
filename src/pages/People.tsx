@@ -12,8 +12,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Users, Eye, Receipt, Edit, Trash2 } from "lucide-react";
+import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function People() {
+  return (
+    <FeaturePageGuard feature="pessoas">
+      <PeopleContent />
+    </FeaturePageGuard>
+  );
+}
+
+function PeopleContent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { people, createPerson, updatePerson, deletePerson, isLoading } = usePeople();
@@ -22,6 +32,10 @@ export default function People() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Verificar permissões
+  const features = useFeatures(['pessoas_criar', 'pessoas_editar', 'pessoas_excluir']);
+  const { canUse: canCreateMore, limit, remaining } = useLimit('max_pessoas', people?.length || 0);
 
   useEffect(() => {
     const v = (localStorage.getItem("people:view") as "list" | "cards") || "list";
@@ -121,13 +135,18 @@ export default function People() {
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Nova Pessoa
-                  </Button>
-                </DialogTrigger>
+              <FeatureGuard feature="pessoas_criar">
+                <LimitGuard limit="max_pessoas" currentValue={people?.length || 0}>
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Pessoa
+                        {canCreateMore && remaining < 3 && (
+                          <span className="ml-1 text-xs">({remaining} restantes)</span>
+                        )}
+                      </Button>
+                    </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
@@ -142,7 +161,9 @@ export default function People() {
                 <Button onClick={onSubmit}>Salvar</Button>
               </DialogFooter>
             </DialogContent>
-              </Dialog>
+                  </Dialog>
+                </LimitGuard>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -189,25 +210,29 @@ export default function People() {
                       <h3 className="font-semibold text-lg">{member.name}</h3>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onEdit(member.id, member.name)}
-                        className="h-8 w-8 p-0"
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                        confirmText="Excluir"
-                        onConfirm={() => onDelete(member.id)}
-                        variant="destructive"
-                      >
-                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                          <Trash2 className="h-4 w-4" />
+                      <FeatureGuard feature="pessoas_editar">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEdit(member.id, member.name)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      </ConfirmationDialog>
+                      </FeatureGuard>
+                      <FeatureGuard feature="pessoas_excluir">
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => onDelete(member.id)}
+                          variant="destructive"
+                        >
+                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmationDialog>
+                      </FeatureGuard>
                     </div>
                   </div>
                 </CardHeader>
@@ -263,25 +288,29 @@ export default function People() {
                           <Eye className="h-4 w-4" />
                           Ver Detalhes
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEdit(member.id, member.name)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <ConfirmationDialog
-                          title="Confirmar Exclusão"
-                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                          confirmText="Excluir"
-                          onConfirm={() => onDelete(member.id)}
-                          variant="destructive"
-                        >
-                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                            <Trash2 className="h-4 w-4" />
+                        <FeatureGuard feature="pessoas_editar">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(member.id, member.name)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
                           </Button>
-                        </ConfirmationDialog>
+                        </FeatureGuard>
+                        <FeatureGuard feature="pessoas_excluir">
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(member.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </FeatureGuard>
                       </div>
                     </div>
                       </div>

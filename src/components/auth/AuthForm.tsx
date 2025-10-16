@@ -8,76 +8,41 @@ import orbiLogoDark from "@/assets/orbi-logo_dark.png";
 import orbiLogoLight from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTheme } from "@/hooks/use-theme";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
-interface AuthFormProps {
-  onAuthSuccess: () => void;
-}
-
-export function AuthForm({ onAuthSuccess }: AuthFormProps) {
-  const { toast } = useToast();
+/**
+ * Formulário de autenticação simplificado
+ * Usa o hook useAuth para toda lógica de login/cadastro e redirecionamento
+ */
+export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const { login, register } = useAuth();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
+    
     const form = event.currentTarget;
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    
+    await login(email, password);
     setIsLoading(false);
-    if (error) {
-      toast({ 
-        title: "Falha no login", 
-        description: error.message,
-        variant: "destructive"
-      });
-      return;
-    }
-    toast({ title: "Login realizado com sucesso!", description: "Redirecionando..." });
-    onAuthSuccess();
   };
 
   const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
+    
     const form = event.currentTarget;
     const email = (form.querySelector('#register-email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#register-password') as HTMLInputElement)?.value;
     const fullName = (form.querySelector('#register-name') as HTMLInputElement)?.value;
     
-    // Criar conta no Supabase Auth
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          full_name: fullName,
-        }
-      }
-    });
-    
+    await register(email, password, fullName);
     setIsLoading(false);
-    
-    if (error) {
-      toast({ 
-        title: "Erro ao criar conta", 
-        description: error.message,
-        variant: "destructive"
-      });
-      return;
-    }
-
-    if (data.user) {
-      toast({ 
-        title: "Conta criada com sucesso!", 
-        description: "Redirecionando para escolher um plano..."
-      });
-      onAuthSuccess();
-    }
   };
 
   return (

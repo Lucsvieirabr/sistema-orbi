@@ -64,6 +64,72 @@ export type Database = {
         }
         Relationships: []
       }
+      admin_users: {
+        Row: {
+          created_at: string | null
+          id: string
+          is_active: boolean | null
+          permissions: Json | null
+          role: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          is_active?: boolean | null
+          permissions?: Json | null
+          role?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      audit_logs: {
+        Row: {
+          action: string
+          created_at: string | null
+          entity_id: string | null
+          entity_type: string
+          id: string
+          metadata: Json | null
+          new_data: Json | null
+          old_data: Json | null
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type: string
+          id?: string
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          entity_id?: string | null
+          entity_type?: string
+          id?: string
+          metadata?: Json | null
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       categories: {
         Row: {
           category_type: string
@@ -152,57 +218,6 @@ export type Database = {
           },
         ]
       }
-      global_learned_patterns: {
-        Row: {
-          category: string
-          confidence: number
-          created_at: string | null
-          description: string
-          first_learned_at: string | null
-          id: string
-          is_active: boolean
-          last_used_at: string | null
-          metadata: Json | null
-          normalized_description: string
-          source_type: string
-          subcategory: string | null
-          usage_count: number
-          user_votes: number
-        }
-        Insert: {
-          category: string
-          confidence?: number
-          created_at?: string | null
-          description: string
-          first_learned_at?: string | null
-          id?: string
-          is_active?: boolean
-          last_used_at?: string | null
-          metadata?: Json | null
-          normalized_description: string
-          source_type?: string
-          subcategory?: string | null
-          usage_count?: number
-          user_votes?: number
-        }
-        Update: {
-          category?: string
-          confidence?: number
-          created_at?: string | null
-          description?: string
-          first_learned_at?: string | null
-          id?: string
-          is_active?: boolean
-          last_used_at?: string | null
-          metadata?: Json | null
-          normalized_description?: string
-          source_type?: string
-          subcategory?: string | null
-          usage_count?: number
-          user_votes?: number
-        }
-        Relationships: []
-      }
       merchants_dictionary: {
         Row: {
           aliases: string[] | null
@@ -284,6 +299,62 @@ export type Database = {
         }
         Relationships: []
       }
+      payment_history: {
+        Row: {
+          amount: number
+          asaas_invoice_url: string | null
+          asaas_payment_id: string | null
+          created_at: string | null
+          currency: string | null
+          due_date: string | null
+          id: string
+          metadata: Json | null
+          paid_at: string | null
+          payment_method: string | null
+          status: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          asaas_invoice_url?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          asaas_invoice_url?: string | null
+          asaas_payment_id?: string | null
+          created_at?: string | null
+          currency?: string | null
+          due_date?: string | null
+          id?: string
+          metadata?: Json | null
+          paid_at?: string | null
+          payment_method?: string | null
+          status?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_history_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "user_subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       people: {
         Row: {
           created_at: string | null
@@ -363,6 +434,63 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      subscription_plans: {
+        Row: {
+          asaas_plan_id: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          features: Json | null
+          id: string
+          is_active: boolean | null
+          is_featured: boolean | null
+          limits: Json | null
+          metadata: Json | null
+          name: string
+          price_monthly: number
+          price_yearly: number
+          slug: string
+          trial_days: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          asaas_plan_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          limits?: Json | null
+          metadata?: Json | null
+          name: string
+          price_monthly?: number
+          price_yearly?: number
+          slug: string
+          trial_days?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          asaas_plan_id?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          features?: Json | null
+          id?: string
+          is_active?: boolean | null
+          is_featured?: boolean | null
+          limits?: Json | null
+          metadata?: Json | null
+          name?: string
+          price_monthly?: number
+          price_yearly?: number
+          slug?: string
+          trial_days?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       transactions: {
         Row: {
@@ -510,6 +638,194 @@ export type Database = {
           },
         ]
       }
+      user_learned_patterns: {
+        Row: {
+          category: string
+          confidence: number
+          created_at: string | null
+          description: string
+          first_learned_at: string | null
+          id: string
+          is_active: boolean
+          last_used_at: string | null
+          metadata: Json | null
+          normalized_description: string
+          source_type: string
+          subcategory: string | null
+          usage_count: number
+          user_id: string
+        }
+        Insert: {
+          category: string
+          confidence?: number
+          created_at?: string | null
+          description: string
+          first_learned_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          metadata?: Json | null
+          normalized_description: string
+          source_type?: string
+          subcategory?: string | null
+          usage_count?: number
+          user_id: string
+        }
+        Update: {
+          category?: string
+          confidence?: number
+          created_at?: string | null
+          description?: string
+          first_learned_at?: string | null
+          id?: string
+          is_active?: boolean
+          last_used_at?: string | null
+          metadata?: Json | null
+          normalized_description?: string
+          source_type?: string
+          subcategory?: string | null
+          usage_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string | null
+          email: string | null
+          full_name: string | null
+          id: string
+          metadata: Json | null
+          onboarding_completed: boolean | null
+          preferences: Json | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json | null
+          onboarding_completed?: boolean | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string | null
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          metadata?: Json | null
+          onboarding_completed?: boolean | null
+          preferences?: Json | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_subscriptions: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_subscription_id: string | null
+          billing_cycle: string
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          current_period_end: string
+          current_period_start: string
+          id: string
+          metadata: Json | null
+          plan_id: string
+          status: string
+          trial_end: string | null
+          trial_start: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          billing_cycle?: string
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          metadata?: Json | null
+          plan_id: string
+          status?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_subscription_id?: string | null
+          billing_cycle?: string
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          current_period_end?: string
+          current_period_start?: string
+          id?: string
+          metadata?: Json | null
+          plan_id?: string
+          status?: string
+          trial_end?: string | null
+          trial_start?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "subscription_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_usage: {
+        Row: {
+          count: number | null
+          created_at: string | null
+          id: string
+          metadata: Json | null
+          metric: string
+          period_end: string
+          period_start: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          metric: string
+          period_end: string
+          period_start: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          count?: number | null
+          created_at?: string | null
+          id?: string
+          metadata?: Json | null
+          metric?: string
+          period_end?: string
+          period_start?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_frequent_merchants: {
@@ -525,18 +841,6 @@ export type Database = {
           priority: number | null
           subcategory: string | null
           usage_count: number | null
-        }
-        Relationships: []
-      }
-      mv_frequent_patterns: {
-        Row: {
-          category: string | null
-          confidence: number | null
-          last_used_at: string | null
-          normalized_description: string | null
-          subcategory: string | null
-          usage_count: number | null
-          user_votes: number | null
         }
         Relationships: []
       }
@@ -619,17 +923,23 @@ export type Database = {
       }
     }
     Functions: {
-      batch_update_learned_patterns: {
-        Args: { p_updates: Json[] }
-        Returns: number
+      admin_list_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          current_period_end: string
+          email: string
+          full_name: string
+          onboarding_completed: boolean
+          plan_name: string
+          plan_slug: string
+          subscription_status: string
+          user_id: string
+        }[]
       }
-      cleanup_old_global_learned_patterns: {
-        Args: {
-          p_days_old?: number
-          p_min_usage?: number
-          p_min_user_votes?: number
-        }
-        Returns: number
+      check_usage_limit: {
+        Args: { current_value: number; limit_name: string }
+        Returns: boolean
       }
       cleanup_orphaned_series: {
         Args: Record<PropertyKey, never>
@@ -658,32 +968,14 @@ export type Database = {
         Args: { count: number; from_date: string; target_series_id: string }
         Returns: number
       }
-      get_global_learned_patterns: {
-        Args: {
-          p_limit?: number
-          p_min_confidence?: number
-          p_min_user_votes?: number
-        }
+      get_admin_user: {
+        Args: Record<PropertyKey, never>
         Returns: {
-          category: string
-          confidence: number
-          description: string
           id: string
-          last_used_at: string
-          subcategory: string
-          usage_count: number
-          user_votes: number
-        }[]
-      }
-      get_patterns_by_descriptions: {
-        Args: { p_descriptions: string[]; p_min_confidence?: number }
-        Returns: {
-          category: string
-          confidence: number
-          description: string
-          subcategory: string
-          usage_count: number
-          user_votes: number
+          is_active: boolean
+          permissions: Json
+          role: string
+          user_id: string
         }[]
       }
       get_top_merchants: {
@@ -701,19 +993,15 @@ export type Database = {
           usage_count: number
         }[]
       }
-      get_top_patterns_by_category: {
-        Args: {
-          p_category: string
-          p_limit?: number
-          p_min_confidence?: number
-        }
+      get_user_plan: {
+        Args: { p_user_id?: string }
         Returns: {
-          category: string
-          confidence: number
-          description: string
-          subcategory: string
-          usage_count: number
-          user_votes: number
+          features: Json
+          limits: Json
+          plan_id: string
+          plan_name: string
+          plan_slug: string
+          status: string
         }[]
       }
       gtrgm_compress: {
@@ -736,6 +1024,14 @@ export type Database = {
         Args: { "": unknown }
         Returns: unknown
       }
+      is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
+      is_super_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       maintain_fixed_transaction_series: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -749,10 +1045,6 @@ export type Database = {
         Returns: undefined
       }
       refresh_frequent_merchants: {
-        Args: Record<PropertyKey, never>
-        Returns: undefined
-      }
-      refresh_frequent_patterns_view: {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
@@ -802,6 +1094,24 @@ export type Database = {
           subcategory: string
         }[]
       }
+      search_merchant_compound_words: {
+        Args: {
+          p_description: string
+          p_min_score?: number
+          p_user_location?: string
+        }
+        Returns: {
+          category: string
+          confidence_modifier: number
+          entity_name: string
+          id: string
+          match_score: number
+          matched_tokens: string[]
+          merchant_key: string
+          priority: number
+          subcategory: string
+        }[]
+      }
       set_limit: {
         Args: { "": number }
         Returns: number
@@ -814,16 +1124,6 @@ export type Database = {
         Args: { "": string }
         Returns: string[]
       }
-      update_global_learned_pattern: {
-        Args: {
-          p_category: string
-          p_confidence?: number
-          p_description: string
-          p_subcategory?: string
-          p_user_vote?: boolean
-        }
-        Returns: undefined
-      }
       update_installment_series: {
         Args: {
           p_installments_data: Json
@@ -831,6 +1131,10 @@ export type Database = {
           p_user_id: string
         }
         Returns: number
+      }
+      update_profile_emails: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       update_transaction_series_with_balance: {
         Args: {
@@ -870,8 +1174,17 @@ export type Database = {
         }
         Returns: undefined
       }
-      vote_on_learned_pattern: {
-        Args: { p_description: string; p_user_vote?: boolean }
+      update_user_learned_pattern: {
+        Args: {
+          p_category: string
+          p_confidence?: number
+          p_description: string
+          p_subcategory?: string
+        }
+        Returns: undefined
+      }
+      user_has_feature: {
+        Args: { feature_name: string }
         Returns: boolean
       }
     }
@@ -886,146 +1199,27 @@ export type Database = {
     Tables: {
       buckets: {
         Row: {
-          allowed_mime_types: string[] | null
-          avif_autodetection: boolean | null
           created_at: string | null
-          file_size_limit: number | null
           id: string
           name: string
           owner: string | null
-          owner_id: string | null
-          public: boolean | null
-          type: Database["storage"]["Enums"]["buckettype"]
           updated_at: string | null
         }
         Insert: {
-          allowed_mime_types?: string[] | null
-          avif_autodetection?: boolean | null
           created_at?: string | null
-          file_size_limit?: number | null
           id: string
           name: string
           owner?: string | null
-          owner_id?: string | null
-          public?: boolean | null
-          type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
         }
         Update: {
-          allowed_mime_types?: string[] | null
-          avif_autodetection?: boolean | null
           created_at?: string | null
-          file_size_limit?: number | null
           id?: string
           name?: string
           owner?: string | null
-          owner_id?: string | null
-          public?: boolean | null
-          type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
         }
         Relationships: []
-      }
-      buckets_analytics: {
-        Row: {
-          created_at: string
-          format: string
-          id: string
-          type: Database["storage"]["Enums"]["buckettype"]
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          format?: string
-          id: string
-          type?: Database["storage"]["Enums"]["buckettype"]
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          format?: string
-          id?: string
-          type?: Database["storage"]["Enums"]["buckettype"]
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      iceberg_namespaces: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          id: string
-          name: string
-          updated_at: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          id?: string
-          name: string
-          updated_at?: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          id?: string
-          name?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "iceberg_namespaces_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets_analytics"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      iceberg_tables: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          id: string
-          location: string
-          name: string
-          namespace_id: string
-          updated_at: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          id?: string
-          location: string
-          name: string
-          namespace_id: string
-          updated_at?: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          id?: string
-          location?: string
-          name?: string
-          namespace_id?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "iceberg_tables_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets_analytics"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "iceberg_tables_namespace_id_fkey"
-            columns: ["namespace_id"]
-            isOneToOne: false
-            referencedRelation: "iceberg_namespaces"
-            referencedColumns: ["id"]
-          },
-        ]
       }
       migrations: {
         Row: {
@@ -1054,45 +1248,30 @@ export type Database = {
           created_at: string | null
           id: string
           last_accessed_at: string | null
-          level: number | null
           metadata: Json | null
           name: string | null
           owner: string | null
-          owner_id: string | null
-          path_tokens: string[] | null
           updated_at: string | null
-          user_metadata: Json | null
-          version: string | null
         }
         Insert: {
           bucket_id?: string | null
           created_at?: string | null
           id?: string
           last_accessed_at?: string | null
-          level?: number | null
           metadata?: Json | null
           name?: string | null
           owner?: string | null
-          owner_id?: string | null
-          path_tokens?: string[] | null
           updated_at?: string | null
-          user_metadata?: Json | null
-          version?: string | null
         }
         Update: {
           bucket_id?: string | null
           created_at?: string | null
           id?: string
           last_accessed_at?: string | null
-          level?: number | null
           metadata?: Json | null
           name?: string | null
           owner?: string | null
-          owner_id?: string | null
-          path_tokens?: string[] | null
           updated_at?: string | null
-          user_metadata?: Json | null
-          version?: string | null
         }
         Relationships: [
           {
@@ -1104,157 +1283,11 @@ export type Database = {
           },
         ]
       }
-      prefixes: {
-        Row: {
-          bucket_id: string
-          created_at: string | null
-          level: number
-          name: string
-          updated_at: string | null
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string | null
-          level?: number
-          name: string
-          updated_at?: string | null
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string | null
-          level?: number
-          name?: string
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "prefixes_bucketId_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      s3_multipart_uploads: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          id: string
-          in_progress_size: number
-          key: string
-          owner_id: string | null
-          upload_signature: string
-          user_metadata: Json | null
-          version: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          id: string
-          in_progress_size?: number
-          key: string
-          owner_id?: string | null
-          upload_signature: string
-          user_metadata?: Json | null
-          version: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          id?: string
-          in_progress_size?: number
-          key?: string
-          owner_id?: string | null
-          upload_signature?: string
-          user_metadata?: Json | null
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "s3_multipart_uploads_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      s3_multipart_uploads_parts: {
-        Row: {
-          bucket_id: string
-          created_at: string
-          etag: string
-          id: string
-          key: string
-          owner_id: string | null
-          part_number: number
-          size: number
-          upload_id: string
-          version: string
-        }
-        Insert: {
-          bucket_id: string
-          created_at?: string
-          etag: string
-          id?: string
-          key: string
-          owner_id?: string | null
-          part_number: number
-          size?: number
-          upload_id: string
-          version: string
-        }
-        Update: {
-          bucket_id?: string
-          created_at?: string
-          etag?: string
-          id?: string
-          key?: string
-          owner_id?: string | null
-          part_number?: number
-          size?: number
-          upload_id?: string
-          version?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "s3_multipart_uploads_parts_bucket_id_fkey"
-            columns: ["bucket_id"]
-            isOneToOne: false
-            referencedRelation: "buckets"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "s3_multipart_uploads_parts_upload_id_fkey"
-            columns: ["upload_id"]
-            isOneToOne: false
-            referencedRelation: "s3_multipart_uploads"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      add_prefixes: {
-        Args: { _bucket_id: string; _name: string }
-        Returns: undefined
-      }
-      can_insert_object: {
-        Args: { bucketid: string; metadata: Json; name: string; owner: string }
-        Returns: undefined
-      }
-      delete_leaf_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
-        Returns: undefined
-      }
-      delete_prefix: {
-        Args: { _bucket_id: string; _name: string }
-        Returns: boolean
-      }
       extension: {
         Args: { name: string }
         Returns: string
@@ -1267,64 +1300,6 @@ export type Database = {
         Args: { name: string }
         Returns: string[]
       }
-      get_level: {
-        Args: { name: string }
-        Returns: number
-      }
-      get_prefix: {
-        Args: { name: string }
-        Returns: string
-      }
-      get_prefixes: {
-        Args: { name: string }
-        Returns: string[]
-      }
-      get_size_by_bucket: {
-        Args: Record<PropertyKey, never>
-        Returns: {
-          bucket_id: string
-          size: number
-        }[]
-      }
-      list_multipart_uploads_with_delimiter: {
-        Args: {
-          bucket_id: string
-          delimiter_param: string
-          max_keys?: number
-          next_key_token?: string
-          next_upload_token?: string
-          prefix_param: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          key: string
-        }[]
-      }
-      list_objects_with_delimiter: {
-        Args: {
-          bucket_id: string
-          delimiter_param: string
-          max_keys?: number
-          next_token?: string
-          prefix_param: string
-          start_after?: string
-        }
-        Returns: {
-          id: string
-          metadata: Json
-          name: string
-          updated_at: string
-        }[]
-      }
-      lock_top_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
-        Returns: undefined
-      }
-      operation: {
-        Args: Record<PropertyKey, never>
-        Returns: string
-      }
       search: {
         Args: {
           bucketname: string
@@ -1332,74 +1307,10 @@ export type Database = {
           limits?: number
           offsets?: number
           prefix: string
-          search?: string
-          sortcolumn?: string
-          sortorder?: string
         }
         Returns: {
           created_at: string
           id: string
-          last_accessed_at: string
-          metadata: Json
-          name: string
-          updated_at: string
-        }[]
-      }
-      search_legacy_v1: {
-        Args: {
-          bucketname: string
-          levels?: number
-          limits?: number
-          offsets?: number
-          prefix: string
-          search?: string
-          sortcolumn?: string
-          sortorder?: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          last_accessed_at: string
-          metadata: Json
-          name: string
-          updated_at: string
-        }[]
-      }
-      search_v1_optimised: {
-        Args: {
-          bucketname: string
-          levels?: number
-          limits?: number
-          offsets?: number
-          prefix: string
-          search?: string
-          sortcolumn?: string
-          sortorder?: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          last_accessed_at: string
-          metadata: Json
-          name: string
-          updated_at: string
-        }[]
-      }
-      search_v2: {
-        Args: {
-          bucket_name: string
-          levels?: number
-          limits?: number
-          prefix: string
-          sort_column?: string
-          sort_column_after?: string
-          sort_order?: string
-          start_after?: string
-        }
-        Returns: {
-          created_at: string
-          id: string
-          key: string
           last_accessed_at: string
           metadata: Json
           name: string
@@ -1408,7 +1319,7 @@ export type Database = {
       }
     }
     Enums: {
-      buckettype: "STANDARD" | "ANALYTICS"
+      [_ in never]: never
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1541,9 +1452,7 @@ export const Constants = {
     Enums: {},
   },
   storage: {
-    Enums: {
-      buckettype: ["STANDARD", "ANALYTICS"],
-    },
+    Enums: {},
   },
 } as const
 

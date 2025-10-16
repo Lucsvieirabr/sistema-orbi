@@ -12,11 +12,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { Shield, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-interface AdminAuthFormProps {
-  onAuthSuccess: () => void;
-}
-
-export function AdminAuthForm({ onAuthSuccess }: AdminAuthFormProps) {
+/**
+ * Formulário de login para administradores
+ * Verifica permissões de admin antes de permitir acesso
+ */
+export function AdminAuthForm() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
@@ -25,24 +25,23 @@ export function AdminAuthForm({ onAuthSuccess }: AdminAuthFormProps) {
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setIsLoading(true);
+    
     const form = event.currentTarget;
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
     
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setIsLoading(false);
     
     if (error) {
       toast({ title: "Falha no login", description: error.message, variant: "destructive" });
+      setIsLoading(false);
       return;
     }
 
-    // Verificar se o usuário é admin usando a função RPC
+    // Verificar se o usuário é admin
     const { data: { user } } = await supabase.auth.getUser();
     if (user) {
       const { data: adminData } = await supabase.rpc('get_admin_user');
-
-      // Verificar se retornou dados (usuário é admin)
       const isAdmin = adminData && (Array.isArray(adminData) ? adminData.length > 0 : true);
 
       if (!isAdmin) {
@@ -58,7 +57,10 @@ export function AdminAuthForm({ onAuthSuccess }: AdminAuthFormProps) {
     }
 
     toast({ title: "Login realizado com sucesso!", description: "Bem-vindo ao painel administrativo" });
-    onAuthSuccess();
+    setIsLoading(false);
+    
+    // Navegar para o dashboard admin
+    navigate('/admin/dashboard', { replace: true });
   };
 
   return (

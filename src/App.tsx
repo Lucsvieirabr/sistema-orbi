@@ -29,27 +29,40 @@ import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
 
+/**
+ * App refatorado com fluxo simplificado
+ * 
+ * Casos de uso:
+ * - C1: Cadastro → /pricing
+ * - C2: Login com plano ativo → /sistema
+ * - C3: Login com plano inativo → /pricing
+ * - C4: Acesso /sistema com plano ativo → /sistema
+ * - C5: Acesso /sistema sem plano → /pricing (via SubscriptionGuard)
+ * - C6: /pricing não autenticado → visualiza
+ * - C7: /pricing clica plano sem auth → /login
+ */
 const App = () => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authReady, setAuthReady] = useState(false);
 
-  const handleAuthSuccess = () => {
-    setIsAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    supabase.auth.signOut().finally(() => setIsAuthenticated(false));
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    setIsAuthenticated(false);
   };
 
   useEffect(() => {
     let isMounted = true;
+    
+    // Verificar sessão inicial
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
       setIsAuthenticated(Boolean(data.session));
       setAuthReady(true);
     });
 
+    // Escutar mudanças de autenticação
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!isMounted) return;
       setIsAuthenticated(Boolean(session));
     });
 
@@ -59,6 +72,15 @@ const App = () => {
     };
   }, []);
 
+  // Mostrar loading enquanto verifica autenticação
+  if (!authReady) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
@@ -67,24 +89,37 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Default redirect based on auth */}
-              <Route path="/" element={authReady ? (<Navigate to={isAuthenticated ? "/sistema" : "/pricing"} replace />) : null} />
+              {/* Root: redireciona para /pricing ou /sistema */}
+              <Route 
+                path="/" 
+                element={<Navigate to={isAuthenticated ? "/sistema" : "/pricing"} replace />} 
+              />
 
-              {/* Public routes */}
+              {/* Rotas públicas */}
               <Route path="/pricing" element={<Pricing />} />
-              <Route path="/login" element={authReady ? (isAuthenticated ? <Navigate to="/sistema" replace /> : <AuthForm onAuthSuccess={handleAuthSuccess} />) : null} />
+              <Route 
+                path="/login" 
+                element={isAuthenticated ? <Navigate to="/sistema" replace /> : <AuthForm />} 
+              />
 
-              {/* Admin login route */}
-              <Route path="/admin" element={authReady ? (isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <AdminAuthForm onAuthSuccess={handleAuthSuccess} />) : null} />
+              {/* Rota de login admin */}
+              <Route 
+                path="/admin" 
+                element={isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <AdminAuthForm />} 
+              />
 
-              {/* Protected app routes under /sistema */}
+              {/* Rotas protegidas do sistema */}
               <Route
                 path="/sistema"
-                element={authReady ? (isAuthenticated ? (
-                  <SubscriptionGuard>
-                    <AppLayout onLogout={handleLogout} />
-                  </SubscriptionGuard>
-                ) : <Navigate to="/login" replace />) : null}
+                element={
+                  isAuthenticated ? (
+                    <SubscriptionGuard>
+                      <AppLayout onLogout={handleLogout} />
+                    </SubscriptionGuard>
+                  ) : (
+                    <Navigate to="/login" replace />
+                  )
+                }
               >
                 <Route index element={<Dashboard onLogout={handleLogout} />} />
                 <Route path="statement" element={<MonthlyStatement />} />
@@ -98,10 +133,10 @@ const App = () => {
                 <Route path="settings" element={<Settings />} />
               </Route>
 
-              {/* Protected admin routes */}
+              {/* Rotas protegidas do admin */}
               <Route
                 path="/admin"
-                element={authReady ? (isAuthenticated ? <AdminLayout /> : <Navigate to="/admin" replace />) : null}
+                element={isAuthenticated ? <AdminLayout /> : <Navigate to="/admin" replace />}
               >
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
@@ -113,6 +148,7 @@ const App = () => {
                 <Route path="settings" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
               </Route>
 
+              {/* 404 */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </BrowserRouter>

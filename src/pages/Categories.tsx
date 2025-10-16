@@ -14,8 +14,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Tag, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function Categories() {
+  return (
+    <FeaturePageGuard feature="categorias">
+      <CategoriesContent />
+    </FeaturePageGuard>
+  );
+}
+
+function CategoriesContent() {
   const queryClient = useQueryClient();
   const { categories, createCategory, updateCategory, deleteCategory, isLoading } = useCategories();
   const [open, setOpen] = useState(false);
@@ -25,6 +35,11 @@ export default function Categories() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Verificar permissões
+  const features = useFeatures(['categorias_criar', 'categorias_editar', 'categorias_excluir']);
+  const userCategoriesCount = categories?.filter(c => !c.is_system).length || 0;
+  const { canUse: canCreateMore, limit, remaining } = useLimit('max_categorias', userCategoriesCount);
 
   useEffect(() => {
     const v = (localStorage.getItem("categories:view") as "list" | "cards") || "list";
@@ -132,13 +147,18 @@ export default function Categories() {
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Nova Categoria
-                  </Button>
-                </DialogTrigger>
+              <FeatureGuard feature="categorias_criar">
+                <LimitGuard limit="max_categorias" currentValue={userCategoriesCount}>
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Categoria
+                        {canCreateMore && remaining < 5 && (
+                          <span className="ml-1 text-xs">({remaining} restantes)</span>
+                        )}
+                      </Button>
+                    </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>{title}</DialogTitle>
@@ -174,7 +194,9 @@ export default function Categories() {
                   <Button onClick={onSubmit}>Salvar</Button>
                 </DialogFooter>
               </DialogContent>
-              </Dialog>
+                  </Dialog>
+                </LimitGuard>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -232,25 +254,29 @@ export default function Categories() {
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {!c.is_system && (
                         <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                            confirmText="Excluir"
-                            onConfirm={() => onDelete(c.id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
+                          <FeatureGuard feature="categorias_editar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </ConfirmationDialog>
+                          </FeatureGuard>
+                          <FeatureGuard feature="categorias_excluir">
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              onConfirm={() => onDelete(c.id)}
+                              variant="destructive"
+                            >
+                              <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
                         </>
                       )}
                     </div>
@@ -299,25 +325,29 @@ export default function Categories() {
                     <div className="flex items-center gap-2">
                       {!c.is_system && (
                         <>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                            confirmText="Excluir"
-                            onConfirm={() => onDelete(c.id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
+                          <FeatureGuard feature="categorias_editar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </ConfirmationDialog>
+                          </FeatureGuard>
+                          <FeatureGuard feature="categorias_excluir">
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              onConfirm={() => onDelete(c.id)}
+                              variant="destructive"
+                            >
+                              <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
                         </>
                       )}
                     </div>

@@ -14,8 +14,18 @@ import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Wallet, Edit, Trash2 } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
+import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function Accounts() {
+  return (
+    <FeaturePageGuard feature="contas">
+      <AccountsContent />
+    </FeaturePageGuard>
+  );
+}
+
+function AccountsContent() {
   const queryClient = useQueryClient();
   const { accountsWithBalance, createAccount, updateAccount, deleteAccount, isLoading } = useAccounts();
   const [open, setOpen] = useState(false);
@@ -26,6 +36,10 @@ export default function Accounts() {
   const [color, setColor] = useState("#4f46e5");
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Verificar permissões
+  const features = useFeatures(['contas_criar', 'contas_editar', 'contas_excluir']);
+  const { canUse: canCreateMore, limit, remaining } = useLimit('max_contas', accountsWithBalance?.length || 0);
 
   useEffect(() => {
     const v = (localStorage.getItem("accounts:view") as "list" | "cards") || "list";
@@ -130,13 +144,18 @@ export default function Accounts() {
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Nova Conta
-                  </Button>
-                </DialogTrigger>
+              <FeatureGuard feature="contas_criar">
+                <LimitGuard limit="max_contas" currentValue={accountsWithBalance?.length || 0}>
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Conta
+                        {!canCreateMore && (
+                          <span className="ml-1 text-xs">({remaining} restantes)</span>
+                        )}
+                      </Button>
+                    </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
@@ -179,7 +198,9 @@ export default function Accounts() {
                 <Button onClick={onSubmit}>Salvar</Button>
               </DialogFooter>
             </DialogContent>
-              </Dialog>
+                  </Dialog>
+                </LimitGuard>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -229,25 +250,29 @@ export default function Accounts() {
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(a.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                            confirmText="Excluir"
-                            onConfirm={() => onDelete(a.id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
+                          <FeatureGuard feature="contas_editar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onEdit(a.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </ConfirmationDialog>
+                          </FeatureGuard>
+                          <FeatureGuard feature="contas_excluir">
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                              confirmText="Excluir"
+                              onConfirm={() => onDelete(a.id)}
+                              variant="destructive"
+                            >
+                              <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
                         </div>
                       </div>
                     </CardHeader>
@@ -291,25 +316,29 @@ export default function Accounts() {
                         </div>
                         <div className="flex items-center gap-3">
                           <span className="font-semibold">{formatCurrency(a.current_balance ?? 0)}</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(a.id)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                            confirmText="Excluir"
-                            onConfirm={() => onDelete(a.id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
+                          <FeatureGuard feature="contas_editar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onEdit(a.id)}
+                              className="h-8 w-8 p-0"
+                            >
+                              <Edit className="h-4 w-4" />
                             </Button>
-                          </ConfirmationDialog>
+                          </FeatureGuard>
+                          <FeatureGuard feature="contas_excluir">
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
+                              confirmText="Excluir"
+                              onConfirm={() => onDelete(a.id)}
+                              variant="destructive"
+                            >
+                              <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
                         </div>
                       </div>
                     ))}

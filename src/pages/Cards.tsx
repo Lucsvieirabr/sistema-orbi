@@ -18,8 +18,18 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, CreditCard, Receipt, TrendingUp, TrendingDown, Calendar, Wallet, Edit, Trash2 } from "lucide-react";
+import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function Cards() {
+  return (
+    <FeaturePageGuard feature="cartoes">
+      <CardsContent />
+    </FeaturePageGuard>
+  );
+}
+
+function CardsContent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { creditCards, deleteCreditCard, isLoading } = useCreditCards();
@@ -36,6 +46,10 @@ export default function Cards() {
   } | undefined>(undefined);
   const [view, setView] = useState<"list" | "cards">("cards");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Verificar permissões
+  const features = useFeatures(['cartoes_criar', 'cartoes_editar', 'cartoes_excluir', 'cartoes_faturas']);
+  const { canUse: canCreateMore, limit, remaining } = useLimit('max_cartoes', creditCards?.length || 0);
 
   useEffect(() => {
     const v = (localStorage.getItem("credit_cards:view") as "list" | "cards") || "cards";
@@ -161,25 +175,29 @@ export default function Cards() {
               </div>
             </div>
             <div className="flex items-center gap-1">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onEdit(card.id)}
-                className="h-8 w-8 p-0"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-              <ConfirmationDialog
-                title="Confirmar Exclusão"
-                description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
-                confirmText="Excluir"
-                onConfirm={() => onDelete(card.id)}
-                variant="destructive"
-              >
-                <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                  <Trash2 className="h-4 w-4" />
+              <FeatureGuard feature="cartoes_editar">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onEdit(card.id)}
+                  className="h-8 w-8 p-0"
+                >
+                  <Edit className="h-4 w-4" />
                 </Button>
-              </ConfirmationDialog>
+              </FeatureGuard>
+              <FeatureGuard feature="cartoes_excluir">
+                <ConfirmationDialog
+                  title="Confirmar Exclusão"
+                  description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
+                  confirmText="Excluir"
+                  onConfirm={() => onDelete(card.id)}
+                  variant="destructive"
+                >
+                  <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </ConfirmationDialog>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -254,14 +272,16 @@ export default function Cards() {
 
           {/* Actions */}
           <div className="pt-2">
-            <Button
-              variant="outline"
-              className="w-full gap-2"
-              onClick={() => navigateToCardStatements(card.id)}
-            >
-              <Receipt className="h-4 w-4" />
-              Ver Faturas
-            </Button>
+            <FeatureGuard feature="cartoes_faturas">
+              <Button
+                variant="outline"
+                className="w-full gap-2"
+                onClick={() => navigateToCardStatements(card.id)}
+              >
+                <Receipt className="h-4 w-4" />
+                Ver Faturas
+              </Button>
+            </FeatureGuard>
           </div>
         </CardContent>
       </Card>
@@ -303,34 +323,40 @@ export default function Cards() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => onEdit(card.id)}
-              className="h-8 w-8 p-0"
-            >
-              <Edit className="h-4 w-4" />
-            </Button>
-            <ConfirmationDialog
-              title="Confirmar Exclusão"
-              description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
-              confirmText="Excluir"
-              onConfirm={() => onDelete(card.id)}
-              variant="destructive"
-            >
-              <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                <Trash2 className="h-4 w-4" />
+            <FeatureGuard feature="cartoes_editar">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onEdit(card.id)}
+                className="h-8 w-8 p-0"
+              >
+                <Edit className="h-4 w-4" />
               </Button>
-            </ConfirmationDialog>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigateToCardStatements(card.id)}
-              className="gap-2"
-            >
-              <Receipt className="h-4 w-4" />
-              Faturas
-            </Button>
+            </FeatureGuard>
+            <FeatureGuard feature="cartoes_excluir">
+              <ConfirmationDialog
+                title="Confirmar Exclusão"
+                description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
+                confirmText="Excluir"
+                onConfirm={() => onDelete(card.id)}
+                variant="destructive"
+              >
+                <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </ConfirmationDialog>
+            </FeatureGuard>
+            <FeatureGuard feature="cartoes_faturas">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigateToCardStatements(card.id)}
+                className="gap-2"
+              >
+                <Receipt className="h-4 w-4" />
+                Faturas
+              </Button>
+            </FeatureGuard>
           </div>
         </div>
       </div>
@@ -377,10 +403,17 @@ export default function Cards() {
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Button onClick={handleOpenDialog} className="gap-2">
-                <Plus className="h-4 w-4" />
-                Novo Cartão
-              </Button>
+              <FeatureGuard feature="cartoes_criar">
+                <LimitGuard limit="max_cartoes" currentValue={creditCards?.length || 0}>
+                  <Button onClick={handleOpenDialog} className="gap-2">
+                    <Plus className="h-4 w-4" />
+                    Novo Cartão
+                    {canCreateMore && remaining < 3 && (
+                      <span className="ml-1 text-xs">({remaining} restantes)</span>
+                    )}
+                  </Button>
+                </LimitGuard>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
