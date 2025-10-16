@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Tables } from "@/integrations/supabase/types";
+import { featureRegistry } from "@/lib/features/feature-registry";
 
 type Series = Tables<"series">;
 type Category = Tables<"categories">;
@@ -60,6 +61,40 @@ export async function searchCompanyLogo(companyName: string): Promise<LogoSearch
   
   if (!session) {
     throw new Error("User not authenticated");
+  }
+
+  // Verificar se o usuário tem permissão para detecção de logos
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    throw new Error("User not found");
+  }
+
+  // Buscar subscription ativa
+  const { data: subscription } = await supabase
+    .from("user_subscriptions")
+    .select(`
+      *,
+      subscription_plans (
+        features
+      )
+    `)
+    .eq("user_id", user.id)
+    .eq("status", "active")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .single();
+
+  // Verificar se tem a feature de detecção de logos
+  const planFeatures = subscription?.subscription_plans?.features || {};
+  const hasLogoDetection = planFeatures['ia_deteccao_logos'] === true;
+
+  if (!hasLogoDetection) {
+    console.log("Logo detection disabled: feature not available in current plan");
+    return {
+      logo_url: undefined,
+      domain: undefined,
+      error: "Feature not available in your plan"
+    };
   }
 
   // Call the new Edge Function that handles caching

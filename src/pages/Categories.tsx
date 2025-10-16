@@ -14,7 +14,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Tag, Edit, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function Categories() {
@@ -109,6 +109,13 @@ function CategoriesContent() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Aviso de Limite */}
+      <LimitWarningBanner 
+        limit="max_categorias" 
+        currentValue={userCategoriesCount}
+        resourceName="categorias"
+      />
+      
       {/* Header Section */}
       <Card className="shadow-lg">
         <CardHeader>
@@ -154,9 +161,6 @@ function CategoriesContent() {
                       <Button className="gap-2">
                         <Plus className="h-4 w-4" />
                         Nova Categoria
-                        {canCreateMore && remaining < 5 && (
-                          <span className="ml-1 text-xs">({remaining} restantes)</span>
-                        )}
                       </Button>
                     </DialogTrigger>
               <DialogContent>

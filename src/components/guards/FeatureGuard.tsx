@@ -97,63 +97,84 @@ export function LimitGuard({
   currentValue, 
   children, 
   fallback,
-  showUpgradeMessage = true
+  showUpgradeMessage = false // Mudado para false por padrão para não quebrar layout
 }: LimitGuardProps) {
-  const { canUse, limit: maxLimit, remaining, isUnlimited } = useLimit(limit, currentValue);
-  const navigate = useNavigate();
+  const { canUse } = useLimit(limit, currentValue);
 
+  // Se não pode usar, simplesmente não mostra o componente
   if (!canUse) {
-    if (showUpgradeMessage) {
-      return (
-        <Alert variant="destructive" className="border-orange-500/50 bg-orange-50 dark:bg-orange-950/20">
-          <Lock className="h-4 w-4" />
-          <AlertTitle>Limite Atingido</AlertTitle>
-          <AlertDescription className="space-y-2">
-            <p>
-              Você atingiu o limite de <strong>{maxLimit}</strong> permitido no seu plano.
-            </p>
-            <Button 
-              size="sm" 
-              variant="default"
-              onClick={() => navigate('/pricing')}
-              className="mt-2"
-            >
-              <Sparkles className="mr-2 h-4 w-4" />
-              Fazer Upgrade
-            </Button>
-          </AlertDescription>
-        </Alert>
-      );
-    }
     return <>{fallback || null}</>;
   }
 
-  // Mostrar aviso quando estiver perto do limite (80%)
-  const isNearLimit = !isUnlimited && remaining <= maxLimit * 0.2;
-  
-  if (isNearLimit && showUpgradeMessage) {
+  // Se pode usar, mostra o conteúdo normalmente
+  return <>{children}</>;
+}
+
+/**
+ * Banner de aviso de limite que fica fixo no topo da página
+ * Use este componente no topo da página para mostrar avisos de limites
+ */
+interface LimitWarningBannerProps {
+  limit: string;
+  currentValue: number;
+  resourceName?: string; // Nome do recurso para mensagem personalizada
+}
+
+export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitWarningBannerProps) {
+  const { canUse, limit: maxLimit, remaining, isUnlimited } = useLimit(limit, currentValue);
+  const navigate = useNavigate();
+
+  // Não mostra nada se for ilimitado
+  if (isUnlimited) {
+    return null;
+  }
+
+  // Limite atingido
+  if (!canUse) {
     return (
-      <div className="space-y-4">
-        <Alert className="border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
-          <AlertDescription className="flex items-center justify-between">
-            <span className="text-sm">
-              ⚠️ Restam <strong>{remaining}</strong> de <strong>{maxLimit}</strong> disponíveis
-            </span>
-            <Button 
-              size="sm" 
-              variant="outline"
-              onClick={() => navigate('/pricing')}
-            >
-              Fazer Upgrade
-            </Button>
-          </AlertDescription>
-        </Alert>
-        {children}
-      </div>
+      <Alert variant="destructive" className="mb-4">
+        <Lock className="h-4 w-4" />
+        <AlertTitle>Limite Atingido</AlertTitle>
+        <AlertDescription className="flex items-center justify-between">
+          <span>
+            Você atingiu o limite de <strong>{maxLimit} {resourceName || 'itens'}</strong> do seu plano.
+          </span>
+          <Button 
+            size="sm" 
+            variant="default"
+            onClick={() => navigate('/pricing')}
+          >
+            <Sparkles className="mr-2 h-4 w-4" />
+            Fazer Upgrade
+          </Button>
+        </AlertDescription>
+      </Alert>
     );
   }
 
-  return <>{children}</>;
+  // Próximo do limite (80%)
+  const isNearLimit = remaining <= maxLimit * 0.2;
+  
+  if (isNearLimit) {
+    return (
+      <Alert className="mb-4 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+        <AlertDescription className="flex items-center justify-between">
+          <span className="text-sm">
+            ⚠️ Restam <strong>{remaining}</strong> de <strong>{maxLimit} {resourceName || 'itens'}</strong> disponíveis no seu plano.
+          </span>
+          <Button 
+            size="sm" 
+            variant="outline"
+            onClick={() => navigate('/pricing')}
+          >
+            Fazer Upgrade
+          </Button>
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return null;
 }
 
 interface FeaturePageGuardProps {

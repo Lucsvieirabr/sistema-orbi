@@ -34,18 +34,84 @@ serve(async (req) => {
       )
     }
 
-    // Normalize company name for file naming
-    const normalizedName = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')
-    const fileName = `${normalizedName}.png`
-    const storagePath = `logos/${fileName}`
-
     // Initialize Supabase client
     // Edge Functions run in Docker, so they need to use internal URLs (kong:8000)
     // But we return public URLs (127.0.0.1:54331) to the frontend
     const internalUrl = 'http://kong:8000'  // Internal Docker URL for API calls
-    const publicBaseUrl = 'http://127.0.0.1:54331'  // Public URL for fronten
+    const publicBaseUrl = 'http://127.0.0.1:54331'  // Public URL for frontend
     const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')     
     const supabase = createClient(internalUrl, supabaseServiceKey)
+
+    // Verificar autenticação
+    const authHeader = req.headers.get('Authorization')
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Obter usuário do token
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token)
+    
+    if (userError || !user) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { 
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Verificar se o usuário tem a feature de detecção de logos
+    const { data: subscription, error: subError } = await supabase
+      .from('user_subscriptions')
+      .select(`
+        id,
+        status,
+        subscription_plans (
+          features
+        )
+      `)
+      .eq('user_id', user.id)
+      .eq('status', 'active')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+
+    if (subError || !subscription) {
+      return new Response(
+        JSON.stringify({ error: 'No active subscription found' }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Verificar feature
+    const planFeatures = subscription.subscription_plans?.features || {}
+    const hasLogoDetection = planFeatures['ia_deteccao_logos'] === true
+
+    if (!hasLogoDetection) {
+      return new Response(
+        JSON.stringify({ error: 'Logo detection feature not available in your plan. Upgrade to access this feature.' }),
+        { 
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
+    // Normalize company name for file naming
+    const normalizedName = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')
+    const fileName = `${normalizedName}.png`
+    const storagePath = `logos/${fileName}`
 
     // Step 1: Check if logo exists in storage (CACHE FIRST!)
     const { data: existingFile } = await supabase

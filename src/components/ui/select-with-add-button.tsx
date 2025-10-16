@@ -19,6 +19,9 @@ import { useCategories } from "@/hooks/use-categories";
 import { usePeople } from "@/hooks/use-people";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { useLimit } from "@/hooks/use-feature";
+import { useNavigate } from "react-router-dom";
+import { Lock, Sparkles } from "lucide-react";
 
 export interface SelectWithAddButtonProps {
   entityType: 'accounts' | 'categories' | 'creditCards' | 'people';
@@ -257,6 +260,30 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+
+  // Buscar dados para verificar limites
+  const { accountsWithBalance } = useAccounts();
+  const { categories } = useCategories();
+  const { people } = usePeople();
+
+  // Verificar limites baseado no tipo de entidade
+  const getLimitInfo = () => {
+    switch (entityType) {
+      case 'accounts':
+        return { limit: 'max_contas', currentValue: accountsWithBalance?.length || 0, resourceName: 'contas' };
+      case 'categories':
+        const userCategories = categories?.filter(c => !c.is_system).length || 0;
+        return { limit: 'max_categorias', currentValue: userCategories, resourceName: 'categorias' };
+      case 'people':
+        return { limit: 'max_pessoas', currentValue: people?.length || 0, resourceName: 'pessoas' };
+      default:
+        return null;
+    }
+  };
+
+  const limitInfo = getLimitInfo();
+  const { canUse } = useLimit(limitInfo?.limit || '', limitInfo?.currentValue || 0);
 
   const onSuccess = (id: string) => {
     setRefreshTrigger(prev => prev + 1);
@@ -305,6 +332,36 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const handleAddClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
+    
+    // Verificar limite antes de abrir dialog (apenas para entidades com limite)
+    if (limitInfo && !canUse) {
+      toast({
+        variant: "destructive",
+        duration: 6000,
+        title: (
+          <div className="flex items-center gap-2">
+            <Lock className="h-4 w-4" />
+            <span>Limite Atingido</span>
+          </div>
+        ) as any,
+        description: (
+          <div className="space-y-3">
+            <p>Você atingiu o limite de <strong>{limitInfo.resourceName}</strong> do seu plano.</p>
+            <Button 
+              size="sm" 
+              variant="secondary" 
+              onClick={() => navigate('/pricing')}
+              className="w-full"
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              Ver Planos e Fazer Upgrade
+            </Button>
+          </div>
+        ) as any,
+      });
+      return;
+    }
+    
     setDialogOpen(true);
   };
 

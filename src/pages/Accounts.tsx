@@ -14,7 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Wallet, Edit, Trash2 } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
-import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 export default function Accounts() {
@@ -106,6 +106,13 @@ function AccountsContent() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Aviso de Limite */}
+      <LimitWarningBanner 
+        limit="max_contas" 
+        currentValue={accountsWithBalance?.length || 0}
+        resourceName="contas"
+      />
+      
       {/* Header Section */}
       <Card className="shadow-lg">
         <CardHeader>
@@ -151,9 +158,6 @@ function AccountsContent() {
                       <Button className="gap-2">
                         <Plus className="h-4 w-4" />
                         Nova Conta
-                        {!canCreateMore && (
-                          <span className="ml-1 text-xs">({remaining} restantes)</span>
-                        )}
                       </Button>
                     </DialogTrigger>
             <DialogContent>

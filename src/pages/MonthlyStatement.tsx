@@ -52,7 +52,7 @@ import {
 } from "@/components/ui/composition-dialog";
 import { CompositionViewDialog } from "@/components/ui/composition-view-dialog";
 import { ExtratoUploader } from "@/components/extrato-uploader";
-import { FeaturePageGuard, FeatureGuard, LimitGuard } from "@/components/guards/FeatureGuard";
+import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 interface Installment {
@@ -1518,7 +1518,10 @@ function MonthlyStatementContent() {
 
           const isSubscription = category?.name?.toLowerCase().includes("assinatura");
           
-          if (isSubscription) {
+          // Verificar se usuário tem permissão para detecção de logos
+          const hasLogoDetection = features.ia_deteccao_logos?.hasFeature;
+          
+          if (isSubscription && hasLogoDetection) {
             // Search for company logo (with local caching)
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
@@ -1544,6 +1547,8 @@ function MonthlyStatementContent() {
                 console.log(`Logo obtained from: ${logoData.source}`);
               }
             }
+          } else if (isSubscription && !hasLogoDetection) {
+            console.log("Logo detection disabled: feature not available in current plan");
           }
         }
       } catch (logoError) {
@@ -2291,6 +2296,13 @@ function MonthlyStatementContent() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Aviso de Limite */}
+      <LimitWarningBanner 
+        limit="max_transacoes_mes" 
+        currentValue={transactionsCount}
+        resourceName="transações neste mês"
+      />
+      
       {/* Header with month selector and filters */}
       <Card>
         <CardHeader>
