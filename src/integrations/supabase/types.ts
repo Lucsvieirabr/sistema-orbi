@@ -473,6 +473,7 @@ export type Database = {
       }
       subscription_plans: {
         Row: {
+          annual_payment_url: string | null
           asaas_plan_id: string | null
           created_at: string | null
           description: string | null
@@ -483,6 +484,7 @@ export type Database = {
           is_featured: boolean | null
           limits: Json | null
           metadata: Json | null
+          monthly_payment_url: string | null
           name: string
           price_monthly: number
           price_yearly: number
@@ -491,6 +493,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          annual_payment_url?: string | null
           asaas_plan_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -501,6 +504,7 @@ export type Database = {
           is_featured?: boolean | null
           limits?: Json | null
           metadata?: Json | null
+          monthly_payment_url?: string | null
           name: string
           price_monthly?: number
           price_yearly?: number
@@ -509,6 +513,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          annual_payment_url?: string | null
           asaas_plan_id?: string | null
           created_at?: string | null
           description?: string | null
@@ -519,6 +524,7 @@ export type Database = {
           is_featured?: boolean | null
           limits?: Json | null
           metadata?: Json | null
+          monthly_payment_url?: string | null
           name?: string
           price_monthly?: number
           price_yearly?: number

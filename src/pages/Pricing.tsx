@@ -123,7 +123,7 @@ export default function Pricing() {
    * Fluxo:
    * 1. Se não autenticado → salvar plano e redirecionar para /login (C7)
    * 2. Se autenticado e já tem plano ativo → avisar
-   * 3. Se autenticado sem plano → ativar plano
+   * 3. Se autenticado sem plano → ativar plano (gratuito) ou redirecionar para pagamento (pago)
    */
   const handleSelectPlan = useCallback(async (planId: string, planSlug: string, isFree: boolean) => {
     setIsProcessing(true);
@@ -198,14 +198,36 @@ export default function Pricing() {
           navigate('/sistema');
         }, 500);
       } else {
-        // Plano pago → redirecionar para fluxo de pagamento
-        toast({
-          title: "Redirecionando para pagamento",
-          description: "Você será redirecionado para completar o pagamento.",
-        });
-        
-        // TODO: Implementar integração com ASAAS
-        navigate(`/sistema/settings?upgrade=${planSlug}&billing=${billingCycle}`);
+        // Plano pago → verificar se tem URL de pagamento configurada
+        const { data: planData } = await supabase
+          .from('subscription_plans')
+          .select('monthly_payment_url, annual_payment_url')
+          .eq('id', planId)
+          .single();
+
+        // Determinar URL baseado no ciclo de cobrança
+        const paymentUrl = billingCycle === 'monthly' 
+          ? planData?.monthly_payment_url 
+          : planData?.annual_payment_url;
+
+        if (paymentUrl) {
+          // Se tem URL configurada, redirecionar para página de pagamento externa
+          toast({
+            title: "Redirecionando para pagamento",
+            description: "Você será redirecionado para completar o pagamento.",
+          });
+          
+          // Redirecionar para URL externa
+          window.location.href = paymentUrl;
+        } else {
+          // Se não tem URL, usar fluxo interno (settings)
+          toast({
+            title: "Redirecionando para pagamento",
+            description: "Você será redirecionado para completar o pagamento.",
+          });
+          
+          navigate(`/sistema/settings?upgrade=${planSlug}&billing=${billingCycle}`);
+        }
       }
     } catch (error: any) {
       console.error('Erro ao processar plano:', error);
