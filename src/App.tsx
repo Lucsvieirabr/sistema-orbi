@@ -25,6 +25,8 @@ import MyAI from "@/pages/MyAI";
 import AdminDashboard from "@/admin/pages/AdminDashboard";
 import PlanManagement from "@/admin/pages/PlanManagement";
 import UserManagement from "@/admin/pages/UserManagement";
+import SubscriptionManagement from "@/admin/pages/SubscriptionManagement";
+import AdminManagement from "@/admin/pages/AdminManagement";
 import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
@@ -141,11 +143,8 @@ const App = () => {
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />
                 <Route path="plans" element={<PlanManagement />} />
-                <Route path="subscriptions" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
-                <Route path="payments" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
-                <Route path="analytics" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
-                <Route path="admins" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
-                <Route path="settings" element={<div className="p-8 text-center text-muted-foreground">Em desenvolvimento</div>} />
+                <Route path="subscriptions" element={<SubscriptionManagement />} />
+                <Route path="admins" element={<AdminManagement />} />
               </Route>
 
               {/* 404 */}

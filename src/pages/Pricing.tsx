@@ -161,6 +161,9 @@ export default function Pricing() {
         .from('user_subscriptions')
         .select('id, plan_id, status')
         .eq('user_id', user.id)
+        .in('status', ['trial', 'active', 'past_due']) // Apenas assinaturas ativas
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       // Se já tem plano ativo, não deixar trocar (ir para settings)
@@ -232,6 +235,9 @@ export default function Pricing() {
             .from('user_subscriptions')
             .select('plan_id, status')
             .eq('user_id', session.user.id)
+            .in('status', ['trial', 'active', 'past_due']) // Apenas assinaturas ativas
+            .order('created_at', { ascending: false })
+            .limit(1)
             .maybeSingle();
           
           if (subscription && (subscription.status === 'active' || subscription.status === 'trial')) {

@@ -52,11 +52,13 @@ export function useSubscription() {
           subscription_plans (*)
         `)
         .eq('user_id', user.id)
-        .single();
+        .in('status', ['trial', 'active', 'past_due']) // Apenas assinaturas ativas ou em trial
+        .order('created_at', { ascending: false }) // Mais recente primeiro
+        .limit(1)
+        .maybeSingle(); // maybeSingle ao invés de single (permite 0 ou 1 resultado)
 
       if (error) {
-        // Se não encontrar assinatura, retornar null (não é erro)
-        if (error.code === 'PGRST116') return null;
+        console.error('Error fetching subscription:', error);
         throw error;
       }
 
@@ -128,14 +130,24 @@ export function useSubscription() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
+      // Primeiro, cancelar assinaturas anteriores
+      await supabase
+        .from('user_subscriptions')
+        .update({ status: 'canceled' })
+        .eq('user_id', user.id)
+        .in('status', ['trial', 'active', 'past_due']);
+
+      // Criar nova assinatura
       const { data, error } = await supabase
         .from('user_subscriptions')
-        .update({
+        .insert({
+          user_id: user.id,
           plan_id: planId,
           billing_cycle: billingCycle,
-          updated_at: new Date().toISOString(),
+          status: 'active',
+          current_period_start: new Date().toISOString(),
+          current_period_end: new Date(Date.now() + (billingCycle === 'yearly' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString(),
         })
-        .eq('user_id', user.id)
         .select()
         .single();
 

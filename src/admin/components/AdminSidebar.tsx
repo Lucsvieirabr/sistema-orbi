@@ -7,8 +7,6 @@ import {
   Receipt, 
   Settings,
   Shield,
-  BarChart3,
-  FileText,
   ArrowLeft
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -29,10 +27,7 @@ const menuItems: SidebarItem[] = [
   { title: "Usuários", icon: Users, path: "/admin/users" },
   { title: "Assinaturas", icon: CreditCard, path: "/admin/subscriptions" },
   { title: "Planos", icon: Receipt, path: "/admin/plans" },
-  { title: "Pagamentos", icon: FileText, path: "/admin/payments" },
-  { title: "Analytics", icon: BarChart3, path: "/admin/analytics" },
   { title: "Administradores", icon: Shield, path: "/admin/admins" },
-  { title: "Configurações", icon: Settings, path: "/admin/settings" },
 ];
 
 export function AdminSidebar() {

@@ -1,8 +1,11 @@
+import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Users, CreditCard, DollarSign, TrendingUp, UserPlus, Activity } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Users, CreditCard, DollarSign, TrendingUp, UserPlus, Activity, PieChart, List, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 
 interface DashboardMetrics {
   total_users: number;
@@ -14,6 +17,8 @@ interface DashboardMetrics {
 }
 
 export default function AdminDashboard() {
+  const [planViewMode, setPlanViewMode] = useState<'list' | 'chart'>('list');
+
   const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
     queryKey: ['admin-dashboard-metrics'],
     queryFn: async () => {
@@ -57,6 +62,35 @@ export default function AdminDashboard() {
     },
     refetchInterval: 30000, // Atualiza a cada 30 segundos
   });
+
+  // Buscar distribuição de planos
+  const { data: planDistribution } = useQuery({
+    queryKey: ['admin-plan-distribution'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_subscriptions')
+        .select('plan_id, subscription_plans(name)')
+        .in('status', ['trial', 'active', 'past_due']);
+
+      if (error) throw error;
+
+      // Agrupar por plano
+      const distribution: Record<string, number> = {};
+      data?.forEach((sub: any) => {
+        const planName = sub.subscription_plans?.name || 'Sem Plano';
+        distribution[planName] = (distribution[planName] || 0) + 1;
+      });
+
+      return Object.entries(distribution)
+        .map(([plan, count]) => ({ plan, count }))
+        .sort((a, b) => b.count - a.count);
+    },
+    refetchInterval: 30000,
+  });
+
+  const planDistributionData = useMemo(() => {
+    return planDistribution || [];
+  }, [planDistribution]);
 
   const metricCards = [
     {
@@ -149,30 +183,129 @@ export default function AdminDashboard() {
         })}
       </div>
 
-      {/* Gráficos e tabelas podem ser adicionados aqui */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Atividade Recente</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Implementação de gráficos e listas será adicionada em breve
-            </p>
-          </CardContent>
-        </Card>
+      {/* Distribuição de Planos */}
+      <Card className="shadow-md">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <PieChart className="h-5 w-5 text-primary" />
+              Distribuição de Planos
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              <Button
+                variant={planViewMode === 'list' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPlanViewMode('list')}
+                className="h-8 px-3"
+              >
+                <List className="h-4 w-4 mr-1" />
+                Lista
+              </Button>
+              <Button
+                variant={planViewMode === 'chart' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setPlanViewMode('chart')}
+                className="h-8 px-3"
+              >
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Gráfico
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <div className="flex items-center justify-center h-48">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            </div>
+          ) : planViewMode === 'list' ? (
+            planDistributionData.length > 0 ? (
+              <div className="space-y-3">
+                {planDistributionData.map((item, index) => {
+                  const total = planDistributionData.reduce((sum, p) => sum + p.count, 0);
+                  const percentage = (item.count / total) * 100;
+                  const colors = [
+                    'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
+                    'bg-red-500', 'bg-purple-500', 'bg-pink-500'
+                  ];
+                  const colorClass = colors[index % colors.length];
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Distribuição de Planos</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground">
-              Gráfico de pizza mostrando distribuição será adicionado
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+                  return (
+                    <div key={item.plan} className="flex items-center gap-3">
+                      <div className={`w-3 h-3 rounded-full ${colorClass}`} />
+                      <div className="flex-1">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm font-medium text-foreground">
+                            {item.plan}
+                          </span>
+                          <span className="text-sm text-muted-foreground">
+                            {item.count} {item.count === 1 ? 'usuário' : 'usuários'}
+                          </span>
+                        </div>
+                        <div className="w-full bg-muted/30 rounded-full h-2">
+                          <div
+                            className={`h-2 rounded-full ${colorClass}`}
+                            style={{ width: `${percentage}%` }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg">
+                <div className="text-center">
+                  <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-muted-foreground">Nenhuma assinatura ativa</p>
+                  <p className="text-sm text-muted-foreground mt-2">
+                    Quando houver assinaturas ativas, a distribuição aparecerá aqui
+                  </p>
+                </div>
+              </div>
+            )
+          ) : planDistributionData.length > 0 ? (
+            <div className="h-[300px] w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <RechartsPieChart>
+                  <Pie
+                    data={planDistributionData}
+                    cx="50%"
+                    cy="50%"
+                    outerRadius={100}
+                    dataKey="count"
+                    nameKey="plan"
+                    label={({ plan, percent }) => `${plan} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {planDistributionData.map((entry, index) => {
+                      const colors = [
+                        '#3b82f6', '#10b981', '#f59e0b',
+                        '#ef4444', '#8b5cf6', '#ec4899'
+                      ];
+                      return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
+                    })}
+                  </Pie>
+                  <Tooltip
+                    formatter={(value: number) => [value, 'Usuários']}
+                    labelFormatter={(label) => `Plano: ${label}`}
+                  />
+                  <Legend />
+                </RechartsPieChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-[300px] bg-muted/20 rounded-lg">
+              <div className="text-center">
+                <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
+                <p className="text-muted-foreground">Nenhuma assinatura ativa</p>
+                <p className="text-sm text-muted-foreground mt-2">
+                  Quando houver assinaturas ativas, o gráfico aparecerá aqui
+                </p>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }
