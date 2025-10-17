@@ -13,7 +13,7 @@ export function usePeople() {
     if (userError) throw userError;
     const { data, error } = await supabase
       .from("people")
-      .select("id, user_id, name, created_at")
+      .select("id, user_id, name, pix, created_at")
       .eq("user_id", user?.id ?? "");
     if (error) throw error;
     return data ?? [];
@@ -38,16 +38,23 @@ export function usePeople() {
     };
   }, [queryClient]);
 
-  const createPerson = async (values: Pick<TablesInsert<"people">, "name">) => {
+  const createPerson = async (values: Pick<TablesInsert<"people">, "name"> & { pix?: string | null }) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const payload: TablesInsert<"people"> = { name: values.name, user_id: user!.id };
+    const payload: TablesInsert<"people"> = { 
+      name: values.name, 
+      pix: values.pix || null, 
+      user_id: user!.id 
+    };
     const { data, error } = await supabase.from("people").insert(payload).select().single();
     if (error) throw error;
     return data;
   };
 
-  const updatePerson = async (id: string, values: Pick<TablesUpdate<"people">, "name">) => {
-    const { error } = await supabase.from("people").update({ name: values.name }).eq("id", id);
+  const updatePerson = async (id: string, values: Pick<TablesUpdate<"people">, "name"> & { pix?: string | null }) => {
+    const { error } = await supabase.from("people").update({ 
+      name: values.name, 
+      pix: values.pix || null 
+    }).eq("id", id);
     if (error) throw error;
   };
 

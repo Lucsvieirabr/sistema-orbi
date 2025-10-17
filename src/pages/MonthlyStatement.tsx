@@ -52,6 +52,8 @@ import {
 } from "@/components/ui/composition-dialog";
 import { CompositionViewDialog } from "@/components/ui/composition-view-dialog";
 import { ExtratoUploader } from "@/components/extrato-uploader";
+import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
 
 interface Installment {
   id: string;
@@ -86,6 +88,14 @@ import {
 } from "lucide-react";
 
 export default function MonthlyStatement() {
+  return (
+    <FeaturePageGuard feature="extrato">
+      <MonthlyStatementContent />
+    </FeaturePageGuard>
+  );
+}
+
+function MonthlyStatementContent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const [search, setSearch] = useSearchParams();
@@ -218,6 +228,11 @@ export default function MonthlyStatement() {
     refetch,
     indicators,
   } = monthlyData;
+
+  // Verificar permissões (após declarar transactions)
+  const features = useFeatures(['transacoes_criar', 'transacoes_editar', 'transacoes_excluir', 'transacoes_importar_csv']);
+  const transactionsCount = transactions?.length || 0;
+  const { canUse: canCreateMore, limit: maxTransactions, remaining: remainingTransactions } = useLimit('max_transacoes_mes', transactionsCount);
 
   const { toast } = useToast();
   const {
@@ -1503,7 +1518,10 @@ export default function MonthlyStatement() {
 
           const isSubscription = category?.name?.toLowerCase().includes("assinatura");
           
-          if (isSubscription) {
+          // Verificar se usuário tem permissão para detecção de logos
+          const hasLogoDetection = features.ia_deteccao_logos?.hasFeature;
+          
+          if (isSubscription && hasLogoDetection) {
             // Search for company logo (with local caching)
             const { data: { session } } = await supabase.auth.getSession();
             if (session) {
@@ -1529,6 +1547,8 @@ export default function MonthlyStatement() {
                 console.log(`Logo obtained from: ${logoData.source}`);
               }
             }
+          } else if (isSubscription && !hasLogoDetection) {
+            console.log("Logo detection disabled: feature not available in current plan");
           }
         }
       } catch (logoError) {
@@ -2276,6 +2296,13 @@ export default function MonthlyStatement() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Aviso de Limite */}
+      <LimitWarningBanner 
+        limit="max_transacoes_mes" 
+        currentValue={transactionsCount}
+        resourceName="transações neste mês"
+      />
+      
       {/* Header with month selector and filters */}
       <Card>
         <CardHeader>
@@ -2780,33 +2807,37 @@ export default function MonthlyStatement() {
                                   <Info className="h-4 w-4" />
                                 </Button>
                               )}
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => {
-                                  setEditingId(transaction.id);
-                                  setOpen(true);
-                                }}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <ConfirmationDialog
-                                title="Confirmar Exclusão"
-                                description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                                confirmText="Excluir"
-                                onConfirm={() =>
-                                  deleteTransaction(transaction.id)
-                                }
-                                variant="destructive"
-                              >
+                              <FeatureGuard feature="transacoes_editar">
                                 <Button
                                   size="sm"
                                   variant="outline"
+                                  onClick={() => {
+                                    setEditingId(transaction.id);
+                                    setOpen(true);
+                                  }}
+                                >
+                                  <Edit className="h-4 w-4" />
+                                </Button>
+                              </FeatureGuard>
+                              <FeatureGuard feature="transacoes_excluir">
+                                <ConfirmationDialog
+                                  title="Confirmar Exclusão"
+                                  description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                                  confirmText="Excluir"
+                                  onConfirm={() =>
+                                    deleteTransaction(transaction.id)
+                                  }
+                                  variant="destructive"
+                                >
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
                                   className="text-red-600 hover:text-red-700 hover:bg-red-50"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </ConfirmationDialog>
+                              </FeatureGuard>
                             </div>
                           </div>
                         );
@@ -4029,25 +4060,31 @@ export default function MonthlyStatement() {
       />
 
       {/* Floating Button for Import */}
-      <button
-        aria-label="Importar Extrato"
-        onClick={() => setImportDialogOpen(true)}
-        className="fixed bottom-6 right-20 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-green-400 text-green-400 shadow-lg hover:bg-green-400/10 hover:border-green-300 hover:text-green-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
-      >
-        <Upload className="h-4 w-4" />
-      </button>
+      <FeatureGuard feature="transacoes_importar_csv">
+        <button
+          aria-label="Importar Extrato"
+          onClick={() => setImportDialogOpen(true)}
+          className="fixed bottom-6 right-20 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-green-400 text-green-400 shadow-lg hover:bg-green-400/10 hover:border-green-300 hover:text-green-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+        >
+          <Upload className="h-4 w-4" />
+        </button>
+      </FeatureGuard>
 
       {/* Floating Button for New Transaction */}
-      <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-        <DialogTrigger asChild>
-          <button
-            aria-label="Nova Transação"
-            className="fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
-        </DialogTrigger>
-      </Dialog>
+      <FeatureGuard feature="transacoes_criar">
+        <LimitGuard limit="max_transacoes_mes" currentValue={transactionsCount}>
+          <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+            <DialogTrigger asChild>
+              <button
+                aria-label="Nova Transação"
+                className="fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </DialogTrigger>
+          </Dialog>
+        </LimitGuard>
+      </FeatureGuard>
 
       {/* Modal para gerenciar parcelas */}
       <Dialog open={showInstallmentForm} onOpenChange={setShowInstallmentForm}>

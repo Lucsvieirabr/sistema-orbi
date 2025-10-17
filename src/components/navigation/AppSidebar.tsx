@@ -1,10 +1,11 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain, StickyNote } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
+import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
 interface SidebarItem {
@@ -20,6 +21,7 @@ const menuItems: SidebarItem[] = [
   { title: "Categorias", icon: List, path: "/sistema/categories" },
   { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
   { title: "Pessoas", icon: Users, path: "/sistema/people" },
+  { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
   { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
 ];
 
@@ -76,7 +78,9 @@ export function AppSidebar() {
         </div>
       </nav>
 
-      <div className="p-4" />
+      <div className="p-4 border-t border-sidebar-border">
+        <ReportBugDialog />
+      </div>
     </Sidebar>
   );
 }

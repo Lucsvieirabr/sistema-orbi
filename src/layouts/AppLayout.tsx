@@ -1,9 +1,11 @@
-import { Outlet, NavLink, useNavigate } from "react-router-dom";
+import { Outlet, NavLink, useNavigate, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { LogOut } from "lucide-react";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect } from "react";
 
 interface AppLayoutProps {
   onLogout: () => void;
@@ -11,6 +13,24 @@ interface AppLayoutProps {
 
 export default function AppLayout({ onLogout }: AppLayoutProps) {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const { toast } = useToast();
+
+  // Detectar retorno de pagamento bem-sucedido
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    if (paymentStatus === 'success') {
+      toast({
+        title: "🎉 Pagamento Confirmado!",
+        description: "Seu pagamento foi processado com sucesso. Sua assinatura será ativada em breve.",
+        duration: 8000,
+      });
+      
+      // Limpar parâmetro da URL
+      searchParams.delete('payment');
+      setSearchParams(searchParams, { replace: true });
+    }
+  }, [searchParams, setSearchParams, toast]);
 
   const handleLogout = () => {
     onLogout();

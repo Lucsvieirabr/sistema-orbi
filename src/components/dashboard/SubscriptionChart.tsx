@@ -1,10 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSubscriptions, searchCompanyLogo, updateSeriesLogo } from "@/hooks/use-subscriptions";
-import { Smartphone, Building2, Captions, Loader2, ExternalLink } from "lucide-react";
-import { useMemo, useState, useEffect } from "react";
+import { Smartphone, Building2, Captions, Loader2, ExternalLink, Lock, Sparkles } from "lucide-react";
+import { useMemo, useState, useEffect, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { useFeature } from "@/hooks/use-feature";
+import { useNavigate } from "react-router-dom";
 
 interface SubscriptionChartProps {
   className?: string;
@@ -15,6 +17,9 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [fetchingLogos, setFetchingLogos] = useState<Set<string>>(new Set());
   const { toast } = useToast();
+  const navigate = useNavigate();
+  const { hasFeature: hasLogoDetection, isLoading: isLoadingFeature } = useFeature('ia_deteccao_logos');
+  const processedSubscriptionsRef = useRef<Set<string>>(new Set()); // Track processed subscriptions
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -25,16 +30,20 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
 
   // Buscar logos faltantes automaticamente
   useEffect(() => {
-    if (!subscriptions) return;
+    if (!subscriptions || !hasLogoDetection) return;
 
     const fetchMissingLogos = async () => {
       const subsWithoutLogo = subscriptions.filter(
-        sub => !sub.logo_url && !fetchingLogos.has(sub.id)
+        sub => !sub.logo_url && 
+               !fetchingLogos.has(sub.id) && 
+               !processedSubscriptionsRef.current.has(sub.id)
       );
 
-      for (const sub of subsWithoutLogo) {
-        if (fetchingLogos.has(sub.id)) continue;
+      if (subsWithoutLogo.length === 0) return;
 
+      for (const sub of subsWithoutLogo) {
+        // Marcar como processado imediatamente para evitar duplicatas
+        processedSubscriptionsRef.current.add(sub.id);
         setFetchingLogos(prev => new Set(prev).add(sub.id));
 
         try {
@@ -57,7 +66,7 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
     };
 
     fetchMissingLogos();
-  }, [subscriptions, fetchingLogos, refetch]);
+  }, [subscriptions, hasLogoDetection]); // Removido fetchingLogos e refetch das dependências
 
   // Calculate total monthly cost
   const totalMonthlyCost = useMemo(() => {
@@ -86,7 +95,8 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
   const visibleSubscriptions = subscriptions?.slice(0, 2) || [];
   const hasMore = (subscriptions?.length || 0) > 2;
 
-  if (isLoading) {
+  // Verificar se está carregando a feature
+  if (isLoadingFeature || isLoading) {
     return (
       <Card className={`bg-gradient-card shadow-md h-full flex flex-col ${className}`}>
         <CardHeader className="flex-shrink-0 pb-3">
@@ -97,6 +107,37 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
         </CardHeader>
         <CardContent className="flex-1 flex items-center justify-center">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Se não tem a feature, mostrar card de upgrade
+  if (!hasLogoDetection) {
+    return (
+      <Card className={`bg-gradient-card shadow-md h-full flex flex-col border-primary/20 ${className}`}>
+        <CardHeader className="flex-shrink-0 pb-3">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Captions className="h-4 w-4 text-primary" />
+            Assinaturas Ativas
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex-1 flex flex-col items-center justify-center text-center p-6">
+          <div className="mb-4 h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+            <Lock className="h-6 w-6 text-primary" />
+          </div>
+          <h3 className="font-semibold text-lg mb-2">Feature Premium</h3>
+          <p className="text-sm text-muted-foreground mb-4">
+            Acompanhe suas assinaturas com detecção automática de logos e organização inteligente.
+          </p>
+          <Button 
+            size="sm" 
+            onClick={() => navigate('/pricing')}
+            className="gap-2"
+          >
+            <Sparkles className="h-4 w-4" />
+            Fazer Upgrade
+          </Button>
         </CardContent>
       </Card>
     );

@@ -122,7 +122,6 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       frequency: frequency,
       start_date: transaction.date,
       end_date: endDate,
-      account_id: transaction.account_id,
       logo_url: null,
     });
 

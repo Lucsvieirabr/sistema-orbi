@@ -42,8 +42,18 @@ import {
 } from '@/hooks/use-learned-patterns';
 import { useCategories } from '@/hooks/use-categories';
 import { Skeleton } from '@/components/ui/skeleton';
+import { FeaturePageGuard, FeatureGuard } from '@/components/guards/FeatureGuard';
+import { useFeature } from '@/hooks/use-feature';
 
 export default function MyAI() {
+  return (
+    <FeaturePageGuard feature="ia_classificador">
+      <MyAIContent />
+    </FeaturePageGuard>
+  );
+}
+
+function MyAIContent() {
   const [searchTerm, setSearchTerm] = useState('');
   const [categoryViewMode, setCategoryViewMode] = useState<'list' | 'chart'>('list');
   const [editingPattern, setEditingPattern] = useState<LearnedPattern | null>(null);
@@ -54,6 +64,9 @@ export default function MyAI() {
   const { categories } = useCategories();
   const updatePattern = useUpdateLearnedPattern();
   const deletePattern = useDeleteLearnedPattern();
+
+  // Verificar permissões para detecção de logos
+  const { hasFeature: hasLogoDetection } = useFeature('ia_deteccao_logos');
 
   // Filtra padrões por busca
   const filteredPatterns = patterns?.filter((pattern) =>
@@ -281,27 +294,31 @@ export default function MyAI() {
                       </TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(pattern)}
-                          >
-                            <Edit2 className="h-4 w-4" />
-                          </Button>
-                          <ConfirmationDialog
-                            title="Remover Regra de Classificação"
-                            description={`Tem certeza que deseja remover esta regra? A IA não irá mais classificar "${pattern.description}" automaticamente como "${pattern.category}".`}
-                            confirmText="Remover Regra"
-                            onConfirm={() => handleDelete(pattern.id)}
-                            variant="destructive"
-                          >
+                          <FeatureGuard feature="ia_classificacao_automatica">
                             <Button
                               variant="ghost"
                               size="sm"
+                              onClick={() => handleEdit(pattern)}
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Edit2 className="h-4 w-4" />
                             </Button>
-                          </ConfirmationDialog>
+                          </FeatureGuard>
+                          <FeatureGuard feature="ia_classificacao_automatica">
+                            <ConfirmationDialog
+                              title="Remover Regra de Classificação"
+                              description={`Tem certeza que deseja remover esta regra? A IA não irá mais classificar "${pattern.description}" automaticamente como "${pattern.category}".`}
+                              confirmText="Remover Regra"
+                              onConfirm={() => handleDelete(pattern.id)}
+                              variant="destructive"
+                            >
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
                         </div>
                       </TableCell>
                     </TableRow>

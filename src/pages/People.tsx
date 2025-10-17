@@ -12,16 +12,36 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Users, Eye, Receipt, Edit, Trash2 } from "lucide-react";
+import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
+import { useFeatures, useLimit } from "@/hooks/use-feature";
+import { useTheme } from "@/hooks/use-theme";
+import PixIconDark from "@/assets/pix-dark.svg";
+import PixIconWhite from "@/assets/pix-white.svg";
 
 export default function People() {
+  return (
+    <FeaturePageGuard feature="pessoas">
+      <PeopleContent />
+    </FeaturePageGuard>
+  );
+}
+
+function PeopleContent() {
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { people, createPerson, updatePerson, deletePerson, isLoading } = usePeople();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [pix, setPix] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
+
+  // Verificar permissões
+  const features = useFeatures(['pessoas_criar', 'pessoas_editar', 'pessoas_excluir']);
+  const { canUse: canCreateMore, limit, remaining } = useLimit('max_pessoas', people?.length || 0);
+  const { theme } = useTheme();
+  const PixIcon = theme === "dark" ? PixIconWhite : PixIconDark;
 
   useEffect(() => {
     const v = (localStorage.getItem("people:view") as "list" | "cards") || "list";
@@ -41,9 +61,9 @@ export default function People() {
     toast({ title: "Salvando...", description: "Aguarde" });
     try {
       if (editingId) {
-        await updatePerson(editingId, { name });
+        await updatePerson(editingId, { name, pix: pix.trim() || null });
       } else {
-        await createPerson({ name });
+        await createPerson({ name, pix: pix.trim() || null });
       }
       toast({ title: "Sucesso", description: "Pessoa salva" });
     } catch (e: any) {
@@ -51,13 +71,15 @@ export default function People() {
     }
     setOpen(false);
     setName("");
+    setPix("");
     setEditingId(null);
     queryClient.invalidateQueries({ queryKey: ["people"] });
   };
 
-  const onEdit = (id: string, currentName: string) => {
+  const onEdit = (id: string, currentName: string, currentPix?: string | null) => {
     setEditingId(id);
     setName(currentName);
+    setPix(currentPix || "");
     setOpen(true);
   };
 
@@ -76,6 +98,15 @@ export default function People() {
     navigate(`/sistema/people/${personId}`);
   };
 
+  const onCopyPix = async (pixKey: string, personName: string) => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      toast({ title: "PIX copiado!", description: `Chave PIX de ${personName} copiada para a área de transferência` });
+    } catch (e) {
+      toast({ title: "Erro", description: "Não foi possível copiar o PIX", variant: "destructive" });
+    }
+  };
+
   // Filtra pessoas por busca
   const filteredPeople = people?.filter((person) =>
     person.name.toLowerCase().includes(searchTerm.toLowerCase())
@@ -83,6 +114,13 @@ export default function People() {
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      {/* Aviso de Limite */}
+      <LimitWarningBanner 
+        limit="max_pessoas" 
+        currentValue={people?.length || 0}
+        resourceName="pessoas"
+      />
+      
       {/* Header Section */}
       <Card className="shadow-lg">
         <CardHeader>
@@ -121,13 +159,15 @@ export default function People() {
                   <LayoutGrid className="h-4 w-4" />
                 </ToggleGroupItem>
               </ToggleGroup>
-              <Dialog open={open} onOpenChange={setOpen}>
-                <DialogTrigger asChild>
-                  <Button className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Nova Pessoa
-                  </Button>
-                </DialogTrigger>
+              <FeatureGuard feature="pessoas_criar">
+                <LimitGuard limit="max_pessoas" currentValue={people?.length || 0}>
+                  <Dialog open={open} onOpenChange={setOpen}>
+                    <DialogTrigger asChild>
+                      <Button className="gap-2">
+                        <Plus className="h-4 w-4" />
+                        Nova Pessoa
+                      </Button>
+                    </DialogTrigger>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>{title}</DialogTitle>
@@ -137,12 +177,18 @@ export default function People() {
                   <Label htmlFor="name">Nome da Pessoa</Label>
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pix">Chave PIX (Opcional)</Label>
+                  <Input id="pix" value={pix} onChange={(e) => setPix(e.target.value)} placeholder="CPF, e-mail, telefone ou chave aleatória" />
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={onSubmit}>Salvar</Button>
               </DialogFooter>
             </DialogContent>
-              </Dialog>
+                  </Dialog>
+                </LimitGuard>
+              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -192,22 +238,36 @@ export default function People() {
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => onEdit(member.id, member.name)}
+                        onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                        disabled={!member.pix}
                         className="h-8 w-8 p-0"
+                        title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
                       >
-                        <Edit className="h-4 w-4" />
+                        <img src={PixIcon} alt="PIX" className="h-4 w-4" />
                       </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                        confirmText="Excluir"
-                        onConfirm={() => onDelete(member.id)}
-                        variant="destructive"
-                      >
-                        <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                          <Trash2 className="h-4 w-4" />
+                      <FeatureGuard feature="pessoas_editar">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => onEdit(member.id, member.name, member.pix)}
+                          className="h-8 w-8 p-0"
+                        >
+                          <Edit className="h-4 w-4" />
                         </Button>
-                      </ConfirmationDialog>
+                      </FeatureGuard>
+                      <FeatureGuard feature="pessoas_excluir">
+                        <ConfirmationDialog
+                          title="Confirmar Exclusão"
+                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => onDelete(member.id)}
+                          variant="destructive"
+                        >
+                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmationDialog>
+                      </FeatureGuard>
                     </div>
                   </div>
                 </CardHeader>
@@ -266,22 +326,36 @@ export default function People() {
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => onEdit(member.id, member.name)}
+                          onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                          disabled={!member.pix}
                           className="h-8 w-8 p-0"
+                          title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
                         >
-                          <Edit className="h-4 w-4" />
+                          <img src={PixIcon} alt="PIX" className="h-4 w-4" />
                         </Button>
-                        <ConfirmationDialog
-                          title="Confirmar Exclusão"
-                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                          confirmText="Excluir"
-                          onConfirm={() => onDelete(member.id)}
-                          variant="destructive"
-                        >
-                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                            <Trash2 className="h-4 w-4" />
+                        <FeatureGuard feature="pessoas_editar">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => onEdit(member.id, member.name, member.pix)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Edit className="h-4 w-4" />
                           </Button>
-                        </ConfirmationDialog>
+                        </FeatureGuard>
+                        <FeatureGuard feature="pessoas_excluir">
+                          <ConfirmationDialog
+                            title="Confirmar Exclusão"
+                            description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                            confirmText="Excluir"
+                            onConfirm={() => onDelete(member.id)}
+                            variant="destructive"
+                          >
+                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </ConfirmationDialog>
+                        </FeatureGuard>
                       </div>
                     </div>
                       </div>
