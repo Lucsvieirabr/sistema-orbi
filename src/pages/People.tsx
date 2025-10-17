@@ -14,6 +14,9 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Users, Eye, Receipt, Edit, Trash2 } from "lucide-react";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
+import { useTheme } from "@/hooks/use-theme";
+import PixIconDark from "@/assets/pix-dark.svg";
+import PixIconWhite from "@/assets/pix-white.svg";
 
 export default function People() {
   return (
@@ -29,6 +32,7 @@ function PeopleContent() {
   const { people, createPerson, updatePerson, deletePerson, isLoading } = usePeople();
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
+  const [pix, setPix] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
@@ -36,6 +40,8 @@ function PeopleContent() {
   // Verificar permissões
   const features = useFeatures(['pessoas_criar', 'pessoas_editar', 'pessoas_excluir']);
   const { canUse: canCreateMore, limit, remaining } = useLimit('max_pessoas', people?.length || 0);
+  const { theme } = useTheme();
+  const PixIcon = theme === "dark" ? PixIconWhite : PixIconDark;
 
   useEffect(() => {
     const v = (localStorage.getItem("people:view") as "list" | "cards") || "list";
@@ -55,9 +61,9 @@ function PeopleContent() {
     toast({ title: "Salvando...", description: "Aguarde" });
     try {
       if (editingId) {
-        await updatePerson(editingId, { name });
+        await updatePerson(editingId, { name, pix: pix.trim() || null });
       } else {
-        await createPerson({ name });
+        await createPerson({ name, pix: pix.trim() || null });
       }
       toast({ title: "Sucesso", description: "Pessoa salva" });
     } catch (e: any) {
@@ -65,13 +71,15 @@ function PeopleContent() {
     }
     setOpen(false);
     setName("");
+    setPix("");
     setEditingId(null);
     queryClient.invalidateQueries({ queryKey: ["people"] });
   };
 
-  const onEdit = (id: string, currentName: string) => {
+  const onEdit = (id: string, currentName: string, currentPix?: string | null) => {
     setEditingId(id);
     setName(currentName);
+    setPix(currentPix || "");
     setOpen(true);
   };
 
@@ -88,6 +96,15 @@ function PeopleContent() {
 
   const onViewDetails = (personId: string) => {
     navigate(`/sistema/people/${personId}`);
+  };
+
+  const onCopyPix = async (pixKey: string, personName: string) => {
+    try {
+      await navigator.clipboard.writeText(pixKey);
+      toast({ title: "PIX copiado!", description: `Chave PIX de ${personName} copiada para a área de transferência` });
+    } catch (e) {
+      toast({ title: "Erro", description: "Não foi possível copiar o PIX", variant: "destructive" });
+    }
   };
 
   // Filtra pessoas por busca
@@ -160,6 +177,10 @@ function PeopleContent() {
                   <Label htmlFor="name">Nome da Pessoa</Label>
                   <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="pix">Chave PIX (Opcional)</Label>
+                  <Input id="pix" value={pix} onChange={(e) => setPix(e.target.value)} placeholder="CPF, e-mail, telefone ou chave aleatória" />
+                </div>
               </div>
               <DialogFooter>
                 <Button onClick={onSubmit}>Salvar</Button>
@@ -214,11 +235,21 @@ function PeopleContent() {
                       <h3 className="font-semibold text-lg">{member.name}</h3>
                     </div>
                     <div className="flex items-center gap-1">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                        disabled={!member.pix}
+                        className="h-8 w-8 p-0"
+                        title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
+                      >
+                        <img src={PixIcon} alt="PIX" className="h-4 w-4" />
+                      </Button>
                       <FeatureGuard feature="pessoas_editar">
                         <Button
                           variant="outline"
                           size="sm"
-                          onClick={() => onEdit(member.id, member.name)}
+                          onClick={() => onEdit(member.id, member.name, member.pix)}
                           className="h-8 w-8 p-0"
                         >
                           <Edit className="h-4 w-4" />
@@ -292,11 +323,21 @@ function PeopleContent() {
                           <Eye className="h-4 w-4" />
                           Ver Detalhes
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                          disabled={!member.pix}
+                          className="h-8 w-8 p-0"
+                          title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
+                        >
+                          <img src={PixIcon} alt="PIX" className="h-4 w-4" />
+                        </Button>
                         <FeatureGuard feature="pessoas_editar">
                           <Button
                             variant="outline"
                             size="sm"
-                            onClick={() => onEdit(member.id, member.name)}
+                            onClick={() => onEdit(member.id, member.name, member.pix)}
                             className="h-8 w-8 p-0"
                           >
                             <Edit className="h-4 w-4" />
