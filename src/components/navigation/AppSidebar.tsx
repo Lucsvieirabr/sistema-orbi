@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
+import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
 interface SidebarItem {
@@ -76,7 +77,9 @@ export function AppSidebar() {
         </div>
       </nav>
 
-      <div className="p-4" />
+      <div className="p-4 border-t border-sidebar-border">
+        <ReportBugDialog />
+      </div>
     </Sidebar>
   );
 }

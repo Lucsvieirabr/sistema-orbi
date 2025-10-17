@@ -7,7 +7,8 @@ import {
   Receipt, 
   Settings,
   Shield,
-  ArrowLeft
+  ArrowLeft,
+  Bug
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -28,6 +29,7 @@ const menuItems: SidebarItem[] = [
   { title: "Assinaturas", icon: CreditCard, path: "/admin/subscriptions" },
   { title: "Planos", icon: Receipt, path: "/admin/plans" },
   { title: "Administradores", icon: Shield, path: "/admin/admins" },
+  { title: "Defeitos & Sugestões", icon: Bug, path: "/admin/bug-reports" },
 ];
 
 export function AdminSidebar() {

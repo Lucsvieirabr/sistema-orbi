@@ -27,6 +27,7 @@ import PlanManagement from "@/admin/pages/PlanManagement";
 import UserManagement from "@/admin/pages/UserManagement";
 import SubscriptionManagement from "@/admin/pages/SubscriptionManagement";
 import AdminManagement from "@/admin/pages/AdminManagement";
+import BugReportsManagement from "@/admin/pages/BugReportsManagement";
 import { supabase } from "@/integrations/supabase/client";
 
 const queryClient = new QueryClient();
@@ -145,6 +146,7 @@ const App = () => {
                 <Route path="plans" element={<PlanManagement />} />
                 <Route path="subscriptions" element={<SubscriptionManagement />} />
                 <Route path="admins" element={<AdminManagement />} />
+                <Route path="bug-reports" element={<BugReportsManagement />} />
               </Route>
 
               {/* 404 */}

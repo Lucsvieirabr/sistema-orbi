@@ -155,6 +155,7 @@ async function checkUserHasActivePlan(userId: string): Promise<boolean> {
     .from("user_subscriptions")
     .select("status")
     .eq("user_id", userId)
+    .in("status", ["trial", "active", "past_due"])
     .maybeSingle();
 
   if (error || !data) return false;
