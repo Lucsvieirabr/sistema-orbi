@@ -22,6 +22,7 @@ import People from "@/pages/People";
 import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
 import MyAI from "@/pages/MyAI";
+import Notes from "@/pages/Notes";
 import AdminDashboard from "@/admin/pages/AdminDashboard";
 import PlanManagement from "@/admin/pages/PlanManagement";
 import UserManagement from "@/admin/pages/UserManagement";
@@ -133,6 +134,7 @@ const App = () => {
                 <Route path="people" element={<People />} />
                 <Route path="people/:personId" element={<PersonDetail />} />
                 <Route path="my-ai" element={<MyAI />} />
+                <Route path="notes" element={<Notes />} />
                 <Route path="settings" element={<Settings />} />
               </Route>
 
