@@ -11,6 +11,8 @@ import orbiLogo from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { usePayment } from "@/hooks/use-payment";
+import { PaymentDialog } from "@/components/payment";
 
 /**
  * Página de Pricing simplificada
@@ -27,9 +29,11 @@ export default function Pricing() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [userActivePlan, setUserActivePlan] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { createPayment, paymentData, isLoading: isPaymentLoading } = usePayment();
 
   // Formatar preço
   const formatPrice = (price: number) => {
@@ -166,16 +170,49 @@ export default function Pricing() {
         .limit(1)
         .maybeSingle();
 
-      // Se já tem plano ativo, não deixar trocar (ir para settings)
-      if (existingSubscription && (existingSubscription.status === 'active' || existingSubscription.status === 'trial')) {
+      // Se já tem o MESMO plano ativo, bloquear
+      if (existingSubscription && 
+          existingSubscription.plan_id === planId &&
+          (existingSubscription.status === 'active' || existingSubscription.status === 'trial')) {
         toast({
-          title: "Você já tem um plano ativo",
-          description: "Acesse suas configurações para alterar seu plano.",
+          title: "Você já tem este plano ativo",
+          description: "Este é o seu plano atual.",
           variant: "destructive",
         });
-        navigate('/sistema');
         setIsProcessing(false);
         return;
+      }
+
+      // Se tem plano diferente ativo, fazer upgrade/downgrade
+      if (existingSubscription && 
+          existingSubscription.plan_id !== planId &&
+          (existingSubscription.status === 'active' || existingSubscription.status === 'trial')) {
+        
+        // Cancelar plano antigo antes de ativar o novo
+        const { error: cancelError } = await supabase
+          .from('user_subscriptions')
+          .update({ 
+            status: 'canceled',
+            cancel_at_period_end: false,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingSubscription.id);
+
+        if (cancelError) {
+          console.error('Erro ao cancelar plano anterior:', cancelError);
+          toast({
+            title: "Erro ao processar mudança de plano",
+            description: "Não foi possível cancelar seu plano anterior.",
+            variant: "destructive",
+          });
+          setIsProcessing(false);
+          return;
+        }
+
+        toast({
+          title: "Alterando seu plano...",
+          description: "Processando mudança de plano.",
+        });
       }
 
       // Ativar plano
@@ -186,9 +223,13 @@ export default function Pricing() {
         // Invalidar cache do useSubscription para refletir plano ativo imediatamente
         queryClient.invalidateQueries({ queryKey: ['user-subscription'] });
         
+        const message = existingSubscription 
+          ? "Seu plano foi alterado com sucesso!"
+          : "Seu plano gratuito foi ativado. Bem-vindo ao Orbi!";
+        
         toast({
           title: "Plano ativado com sucesso!",
-          description: "Seu plano gratuito foi ativado. Bem-vindo ao Orbi!",
+          description: message,
         });
 
         setUserActivePlan(planId);
@@ -198,35 +239,38 @@ export default function Pricing() {
           navigate('/sistema');
         }, 500);
       } else {
-        // Plano pago → verificar se tem URL de pagamento configurada
-        const { data: planData } = await supabase
-          .from('subscription_plans')
-          .select('monthly_payment_url, annual_payment_url')
-          .eq('id', planId)
-          .single();
+        // Plano pago → criar pagamento via Edge Function
+        const isUpgrade = existingSubscription !== null;
+        
+        toast({
+          title: isUpgrade ? "Processando upgrade..." : "Criando pagamento...",
+          description: isUpgrade 
+            ? "Gerando cobrança para seu novo plano."
+            : "Estamos gerando sua cobrança, por favor aguarde.",
+        });
 
-        // Determinar URL baseado no ciclo de cobrança
-        const paymentUrl = billingCycle === 'monthly' 
-          ? planData?.monthly_payment_url 
-          : planData?.annual_payment_url;
+        const result = await createPayment({
+          planId,
+          billingCycle: billingCycle === 'yearly' ? 'annual' : 'monthly'
+        });
 
-        if (paymentUrl) {
-          // Se tem URL configurada, redirecionar para página de pagamento externa
-          toast({
-            title: "Redirecionando para pagamento",
-            description: "Você será redirecionado para completar o pagamento.",
-          });
+        if (result.success && result.payment) {
+          // Mostrar dialog com dados de pagamento
+          setShowPaymentDialog(true);
           
-          // Redirecionar para URL externa
-          window.location.href = paymentUrl;
+          if (isUpgrade) {
+            toast({
+              title: "Upgrade iniciado!",
+              description: "Complete o pagamento para ativar seu novo plano.",
+            });
+          }
+        } else if (result.success && result.free_plan) {
+          // Plano gratuito ativado
+          queryClient.invalidateQueries({ queryKey: ['user-subscription'] });
+          navigate('/sistema');
         } else {
-          // Se não tem URL, usar fluxo interno (settings)
-          toast({
-            title: "Redirecionando para pagamento",
-            description: "Você será redirecionado para completar o pagamento.",
-          });
-          
-          navigate(`/sistema/settings?upgrade=${planSlug}&billing=${billingCycle}`);
+          // Erro já foi tratado pelo hook
+          console.error('Payment creation failed:', result.error);
         }
       }
     } catch (error: any) {
@@ -334,7 +378,15 @@ export default function Pricing() {
   const maxSavingsPercentage = getMaxSavingsPercentage();
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
+    <>
+      {/* Dialog de Pagamento */}
+      <PaymentDialog 
+        open={showPaymentDialog}
+        onOpenChange={setShowPaymentDialog}
+        paymentData={paymentData}
+      />
+
+      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
       {/* Header */}
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
@@ -409,6 +461,15 @@ export default function Pricing() {
               : null;
             const isUserCurrentPlan = userActivePlan === plan.id;
             const isFree = plan.price_monthly === 0 && plan.price_yearly === 0;
+            
+            // Determinar se é upgrade ou downgrade
+            const currentPlan = sortedPlans.find(p => p.id === userActivePlan);
+            const currentPlanPrice = currentPlan 
+              ? (billingCycle === 'yearly' ? currentPlan.price_yearly : currentPlan.price_monthly)
+              : 0;
+            const thisPlanPrice = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+            const isUpgrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice > currentPlanPrice;
+            const isDowngrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice < currentPlanPrice;
 
             return (
               <Card
@@ -526,14 +587,18 @@ export default function Pricing() {
                 <CardFooter className="pt-4">
                   <Button
                     className="w-full"
-                    variant={isUserCurrentPlan ? 'secondary' : plan.is_featured ? 'default' : 'outline'}
+                    variant={isUserCurrentPlan ? 'secondary' : isUpgrade ? 'default' : plan.is_featured ? 'default' : 'outline'}
                     onClick={() => handleSelectPlan(plan.id, plan.slug, isFree)}
-                    disabled={isProcessing || isUserCurrentPlan}
+                    disabled={isProcessing || isUserCurrentPlan || isPaymentLoading}
                   >
                     {isUserCurrentPlan 
                       ? '✓ Plano Atual' 
-                      : isProcessing 
+                      : (isProcessing || isPaymentLoading)
                       ? 'Processando...' 
+                      : isUpgrade
+                      ? 'Fazer Upgrade'
+                      : isDowngrade
+                      ? 'Mudar Plano'
                       : (isFree ? 'Começar Grátis' : 'Assinar Agora')
                     }
                   </Button>
@@ -553,5 +618,6 @@ export default function Pricing() {
         )}
       </div>
     </div>
+    </>
   );
 }

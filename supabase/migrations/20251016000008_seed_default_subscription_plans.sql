@@ -81,9 +81,7 @@ INSERT INTO public.subscription_plans (
   is_featured,
   display_order,
   features,
-  limits,
-  monthly_payment_url,
-  annual_payment_url
+  limits
 ) VALUES (
   'Pro',
   'pro',
@@ -128,9 +126,7 @@ INSERT INTO public.subscription_plans (
     "max_pessoas": -1,
     "max_categorias": -1,
     "retencao_dados_meses": -1
-  }'::jsonb,
-  'https://www.asaas.com/c/b6lnd8t48oct93o4',
-  'https://www.asaas.com/c/n5wfqxxxytwlhkms'
+  }'::jsonb
 );
 
 -- ============================================================================
