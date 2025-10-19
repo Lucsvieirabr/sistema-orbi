@@ -69,7 +69,7 @@ export function CompositionViewDialog({
                       </div>
                       <div className="text-sm truncate">{item.description}</div>
                       <div className="text-sm text-muted-foreground text-right">
-                        {new Date(item.date).toLocaleDateString('pt-BR')}
+                        {new Date(item.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                       </div>
                     </div>
                   </div>

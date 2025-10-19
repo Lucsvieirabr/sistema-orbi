@@ -194,7 +194,7 @@ export function CompositionDialog({
                       </div>
                       <div className="truncate">{item.description}</div>
                       <div className="text-muted-foreground text-xs">
-                        {new Date(item.date).toLocaleDateString('pt-BR')}
+                        {new Date(item.date + 'T00:00:00').toLocaleDateString('pt-BR')}
                       </div>
                     </div>
                     <Button

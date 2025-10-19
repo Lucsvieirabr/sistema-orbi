@@ -185,7 +185,7 @@ export function UserDetailDialog({ userId, open, onOpenChange }: UserDetailDialo
                   <div>
                     <label className="text-xs text-muted-foreground">Período até</label>
                     <p className="text-sm font-medium">
-                      {format(new Date(userDetails.current_period_end), 'dd/MM/yyyy', { locale: ptBR })}
+                      {format(new Date(userDetails.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                     </p>
                   </div>
                 )}

@@ -227,8 +227,8 @@ export default function SubscriptionManagement() {
 
                           {/* Período */}
                           <div className="pt-2 border-t text-xs text-muted-foreground">
-                            <div>Início: {format(new Date(sub.current_period_start), 'dd/MM/yyyy', { locale: ptBR })}</div>
-                            <div>Fim: {format(new Date(sub.current_period_end), 'dd/MM/yyyy', { locale: ptBR })}</div>
+                            <div>Início: {format(new Date(sub.current_period_start + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</div>
+                            <div>Fim: {format(new Date(sub.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}</div>
                           </div>
 
                           {/* Ações */}
@@ -310,7 +310,7 @@ export default function SubscriptionManagement() {
                           <div className="flex items-center gap-3 flex-shrink-0">
                             <div className="text-right mr-4">
                               <div className="text-sm text-muted-foreground">
-                                Até: {format(new Date(sub.current_period_end), 'dd/MM/yyyy', { locale: ptBR })}
+                                Até: {format(new Date(sub.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
                               </div>
                             </div>
                             {sub.status !== 'canceled' && (

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -63,6 +64,7 @@ const priorityLabels = {
 
 export default function Notes() {
   const { notes, isLoading, createNote, updateNote, toggleNote, deleteNote } = useNotes();
+  const isMobile = useIsMobile();
   
   const [newNoteContent, setNewNoteContent] = useState("");
   const [newNoteDueDate, setNewNoteDueDate] = useState<Date>();
@@ -141,13 +143,14 @@ export default function Notes() {
 
   const isNoteOverdue = (note: Note) => {
     if (!note.due_date || note.is_completed) return false;
-    const dueDate = new Date(note.due_date);
+    const dueDate = new Date(note.due_date + 'T00:00:00');
     return isPast(dueDate) && !isToday(dueDate);
   };
 
-  const truncateText = (text: string, maxLength: number = 80) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
+  const truncateText = (text: string, maxLength?: number) => {
+    const limit = maxLength ?? (isMobile ? 25 : 80);
+    if (text.length <= limit) return text;
+    return text.substring(0, limit) + "...";
   };
 
   const filteredNotes = notes.filter((note) => {
@@ -292,7 +295,8 @@ export default function Notes() {
               {filteredNotes.map((note) => {
                 const isOverdue = isNoteOverdue(note);
                 const isExpanded = expandedNotes.has(note.id);
-                const shouldTruncate = note.content.length > 50;
+                const truncateLimit = isMobile ? 23 : 80;
+                const shouldTruncate = note.content.length > truncateLimit;
                 
                 return (
                   <Card
@@ -337,7 +341,7 @@ export default function Notes() {
                           </div>
                         ) : (
                           <>
-                            <div className="flex items-start gap-2">
+                            <div className="flex items-center gap-2">
                               <p
                                 className={cn(
                                   "text-sm leading-relaxed flex-1",
@@ -345,7 +349,7 @@ export default function Notes() {
                                 )}
                               >
                                 {shouldTruncate && !isExpanded 
-                                  ? truncateText(note.content, 50)
+                                  ? truncateText(note.content, truncateLimit)
                                   : note.content
                                 }
                               </p>
@@ -354,7 +358,7 @@ export default function Notes() {
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => toggleExpandNote(note.id)}
-                                  className="h-6 w-6 flex-shrink-0"
+                                  className="h-7 w-7 flex-shrink-0"
                                   title={isExpanded ? "Ver menos" : "Ver mais"}
                                 >
                                   <Info className="h-3.5 w-3.5" />
@@ -387,7 +391,7 @@ export default function Notes() {
                                   )}
                                 >
                                   <CalendarDays className="h-3 w-3 mr-1" />
-                                  {format(new Date(note.due_date), "dd/MM/yyyy", { locale: ptBR })}
+                                  {format(new Date(note.due_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
                                 </Badge>
                               )}
 
