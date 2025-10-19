@@ -44,13 +44,13 @@ export function PaymentDialog({ open, onOpenChange, paymentData }: PaymentDialog
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="w-[95vw] sm:max-w-[500px] p-4 lg:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
             <CreditCard className="h-5 w-5" />
             Finalizar Pagamento
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs lg:text-sm">
             Redirecionando para a página de pagamento segura...
           </DialogDescription>
         </DialogHeader>

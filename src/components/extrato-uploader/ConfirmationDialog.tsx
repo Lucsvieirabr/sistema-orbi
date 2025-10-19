@@ -356,18 +356,18 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-7xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-7xl max-h-[90vh] overflow-y-auto p-4 lg:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
             <CheckCircle className="h-5 w-5 text-green-500" />
             Confirmar Importação de Transações
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-xs lg:text-sm">
             Revise e edite as transações antes de importar. Você pode alterar categorias, valores, datas e marcar como fixas.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 lg:space-y-4">
           {/* Alertas de erro */}
           {errors.length > 0 && (
             <Alert variant="destructive">
@@ -383,12 +383,62 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
           )}
 
           {/* Lista de transações em formato compacto */}
-          <ScrollArea className="h-[500px] w-full border rounded-md">
+          <ScrollArea className="h-[400px] lg:h-[500px] w-full border rounded-md">
             <div className="divide-y">
               {editedTransactions.map((transaction, index) => (
-                <div key={transaction.id} className="p-4 hover:bg-muted/30 transition-colors">
-                  {/* Linha 1: Ícone + Descrição + Data + Valor + Excluir */}
-                  <div className="grid grid-cols-12 gap-2 items-center mb-2">
+                <div key={transaction.id} className="p-3 lg:p-4 hover:bg-muted/30 transition-colors">
+                  {/* Mobile: Layout em Stack */}
+                  <div className="lg:hidden space-y-2">
+                    {/* Header: Ícone + Número + Excluir */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                          {transaction.type === 'income' ? (
+                            <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
+                          ) : (
+                            <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
+                          )}
+                        </div>
+                        <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeTransaction(index)}
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
+                    </div>
+
+                    {/* Descrição */}
+                    <Input
+                      value={transaction.description}
+                      onChange={(e) => updateTransaction(index, 'description', e.target.value)}
+                      placeholder="Descrição da transação"
+                      className="h-9 text-sm w-full"
+                    />
+
+                    {/* Data e Valor */}
+                    <div className="grid grid-cols-2 gap-2">
+                      <Input
+                        type="date"
+                        value={transaction.date}
+                        onChange={(e) => updateTransaction(index, 'date', e.target.value)}
+                        className="h-9 text-sm"
+                      />
+                      <NumericInput
+                        currency
+                        value={transaction.value}
+                        onChange={(value) => updateTransaction(index, 'value', value)}
+                        placeholder="0,00"
+                        className="h-9 text-sm font-medium"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Desktop: Layout em Grid */}
+                  <div className="hidden lg:grid grid-cols-12 gap-2 items-center mb-2">
                     <div className="col-span-1 flex items-center gap-2">
                       <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
                         {transaction.type === 'income' ? (
@@ -440,8 +490,74 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                     </div>
                   </div>
 
-                  {/* Linha 2: Categoria + Conta + Parcelas + Fixo */}
-                  <div className="grid grid-cols-12 gap-2 items-center">
+                  {/* Mobile: Linha 2 - Categoria e Conta */}
+                  <div className="lg:hidden space-y-2">
+                    <SelectWithAddButton
+                      entityType="categories"
+                      value={transaction.category_id || ''}
+                      onValueChange={(value) => {
+                        const category = categories.find(c => c.id === value);
+                        updateTransaction(index, 'category_id', value, {
+                          category_name: category?.name
+                        });
+                      }}
+                      placeholder="Categoria"
+                    >
+                      {getCategoryOptions(transaction.type).map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
+                          {category.name}
+                        </SelectItem>
+                      ))}
+                    </SelectWithAddButton>
+
+                    <SelectWithAddButton
+                      entityType="accounts"
+                      value={transaction.account_id || ''}
+                      onValueChange={(value) => updateTransaction(index, 'account_id', value)}
+                      placeholder="Conta"
+                    >
+                      {accountsList.map((account) => (
+                        <SelectItem key={account.id} value={account.id}>
+                          {account.name}
+                        </SelectItem>
+                      ))}
+                    </SelectWithAddButton>
+
+                    {/* Parcelas e Switch Fixo */}
+                    <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1 flex-1">
+                        <Input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={transaction.installment_number || ''}
+                          onChange={(e) => updateTransaction(index, 'installment_number', parseInt(e.target.value) || undefined)}
+                          placeholder="Nº"
+                          className="h-9 text-sm w-16 text-center"
+                        />
+                        <span className="text-xs">/</span>
+                        <Input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={transaction.installments || ''}
+                          onChange={(e) => updateTransaction(index, 'installments', parseInt(e.target.value) || undefined)}
+                          placeholder="Tot"
+                          className="h-9 text-sm w-16 text-center"
+                        />
+                      </div>
+                      <div className="flex items-center gap-2 bg-muted/50 px-3 py-2 rounded-md flex-shrink-0">
+                        <Switch
+                          checked={transaction.is_fixed || false}
+                          onCheckedChange={(checked) => updateTransaction(index, 'is_fixed', checked)}
+                        />
+                        <span className="text-xs font-medium whitespace-nowrap">Fixo</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Desktop: Linha 2 - Categoria + Conta + Parcelas + Fixo */}
+                  <div className="hidden lg:grid grid-cols-12 gap-2 items-center">
                     <div className="col-span-1"></div>
 
                     <div className="col-span-3">

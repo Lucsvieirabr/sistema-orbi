@@ -108,29 +108,29 @@ export default function SubscriptionManagement() {
       {/* Header Section */}
       <Card className="shadow-lg">
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 bg-primary/10 rounded-lg">
-                <CreditCard className="h-6 w-6 text-primary" />
+                <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-2xl">Assinaturas</CardTitle>
-                <p className="text-muted-foreground mt-1">
+                <CardTitle className="text-xl lg:text-2xl">Assinaturas</CardTitle>
+                <p className="text-muted-foreground mt-1 text-sm">
                   Total de {subscriptions?.length || 0} assinaturas
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
-              <div className="relative">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+              <div className="relative w-full sm:w-auto">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                 <Input
-                  placeholder="Buscar por email, nome ou plano..."
+                  placeholder="Buscar..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-64 pl-10"
+                  className="w-full sm:w-48 lg:w-64 pl-10"
                 />
               </div>
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
+              <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
                 <ToggleGroupItem
                   value="list"
                   aria-label="Lista"

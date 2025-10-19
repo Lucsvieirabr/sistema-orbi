@@ -107,13 +107,19 @@ function PeopleContent() {
     }
   };
 
+  const truncateText = (text: string, maxLength: number = 15) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
   // Filtra pessoas por busca
   const filteredPeople = people?.filter((person) =>
     person.name.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
       {/* Aviso de Limite */}
       <LimitWarningBanner 
         limit="max_pessoas" 
@@ -122,73 +128,75 @@ function PeopleContent() {
       />
       
       {/* Header Section */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Users className="h-6 w-6 text-primary" />
+      <Card className="shadow-lg max-w-full">
+        <CardHeader className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                <Users className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
               </div>
-              <div>
-                <CardTitle className="text-2xl">Pessoas</CardTitle>
-                <p className="text-muted-foreground mt-1">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-xl lg:text-2xl truncate">Pessoas</CardTitle>
+                <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                   Gerencie pessoas e acompanhe transações individuais
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <Input
-                placeholder="Buscar por nome..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
+                className="w-full sm:w-48 lg:w-64"
               />
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem
-                  value="list"
-                  aria-label="Lista"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="cards"
-                  aria-label="Cards"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <FeatureGuard feature="pessoas_criar">
-                <LimitGuard limit="max_pessoas" currentValue={people?.length || 0}>
-                  <Dialog open={open} onOpenChange={setOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Nova Pessoa
-                      </Button>
-                    </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>{title}</DialogTitle>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="name">Nome da Pessoa</Label>
-                  <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="pix">Chave PIX (Opcional)</Label>
-                  <Input id="pix" value={pix} onChange={(e) => setPix(e.target.value)} placeholder="CPF, e-mail, telefone ou chave aleatória" />
-                </div>
+              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
+                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
+                  <ToggleGroupItem
+                    value="list"
+                    aria-label="Lista"
+                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <List className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="cards"
+                    aria-label="Cards"
+                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <FeatureGuard feature="pessoas_criar">
+                  <LimitGuard limit="max_pessoas" currentValue={people?.length || 0}>
+                    <Dialog open={open} onOpenChange={setOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="gap-2 w-full sm:w-auto">
+                          <Plus className="h-4 w-4" />
+                          <span className="sm:inline">Nova Pessoa</span>
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>{title}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4">
+                          <div className="space-y-2">
+                            <Label htmlFor="name">Nome da Pessoa</Label>
+                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
+                          </div>
+                          <div className="space-y-2">
+                            <Label htmlFor="pix">Chave PIX (Opcional)</Label>
+                            <Input id="pix" value={pix} onChange={(e) => setPix(e.target.value)} placeholder="CPF, e-mail, telefone ou chave aleatória" />
+                          </div>
+                        </div>
+                        <DialogFooter>
+                          <Button onClick={onSubmit}>Salvar</Button>
+                        </DialogFooter>
+                      </DialogContent>
+                    </Dialog>
+                  </LimitGuard>
+                </FeatureGuard>
               </div>
-              <DialogFooter>
-                <Button onClick={onSubmit}>Salvar</Button>
-              </DialogFooter>
-            </DialogContent>
-                  </Dialog>
-                </LimitGuard>
-              </FeatureGuard>
             </div>
           </div>
         </CardHeader>
@@ -225,68 +233,70 @@ function PeopleContent() {
                 </div>
               ) : (
                 filteredPeople.map((member) => (
-              <Card key={member.id} className="group hover:shadow-lg transition-all duration-200">
-                <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                        <Users className="h-5 w-5 text-primary" />
+                  <Card key={member.id} className="group hover:shadow-lg transition-all duration-200 w-full overflow-hidden">
+                    <CardHeader className="pb-3 p-4 w-full overflow-hidden">
+                      <div className="flex flex-col gap-3 w-full overflow-hidden">
+                        <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
+                          <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <h3 className="font-semibold text-base" title={member.name}>{truncateText(member.name, 20)}</h3>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                            disabled={!member.pix}
+                            className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                            title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
+                          >
+                            <img src={PixIcon} alt="PIX" className="h-3 w-3 lg:h-4 lg:w-4" />
+                          </Button>
+                          <FeatureGuard feature="pessoas_editar">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onEdit(member.id, member.name, member.pix)}
+                              className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                            >
+                              <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                            </Button>
+                          </FeatureGuard>
+                          <FeatureGuard feature="pessoas_excluir">
+                            <ConfirmationDialog
+                              title="Confirmar Exclusão"
+                              description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                              confirmText="Excluir"
+                              onConfirm={() => onDelete(member.id)}
+                              variant="destructive"
+                            >
+                              <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
+                                <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                              </Button>
+                            </ConfirmationDialog>
+                          </FeatureGuard>
+                        </div>
                       </div>
-                      <h3 className="font-semibold text-lg">{member.name}</h3>
-                    </div>
-                    <div className="flex items-center gap-1">
+                    </CardHeader>
+                    <CardContent>
                       <Button
                         variant="outline"
-                        size="sm"
-                        onClick={() => member.pix && onCopyPix(member.pix, member.name)}
-                        disabled={!member.pix}
-                        className="h-8 w-8 p-0"
-                        title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
+                        className="w-full gap-2 text-sm"
+                        onClick={() => onViewDetails(member.id)}
                       >
-                        <img src={PixIcon} alt="PIX" className="h-4 w-4" />
+                        <Receipt className="h-4 w-4" />
+                        Ver Extrato
                       </Button>
-                      <FeatureGuard feature="pessoas_editar">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onEdit(member.id, member.name, member.pix)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                      </FeatureGuard>
-                      <FeatureGuard feature="pessoas_excluir">
-                        <ConfirmationDialog
-                          title="Confirmar Exclusão"
-                          description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                          confirmText="Excluir"
-                          onConfirm={() => onDelete(member.id)}
-                          variant="destructive"
-                        >
-                          <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </ConfirmationDialog>
-                      </FeatureGuard>
-                    </div>
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <Button
-                    variant="outline"
-                    className="w-full gap-2"
-                    onClick={() => onViewDetails(member.id)}
-                  >
-                    <Receipt className="h-4 w-4" />
-                    Ver Extrato
-                  </Button>
-                </CardContent>
+                    </CardContent>
                   </Card>
                 ))
               )}
             </div>
           ) : (
-            <Card>
+            <Card className="max-w-full overflow-hidden">
               <CardContent className="p-0">
                 {filteredPeople.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
@@ -303,61 +313,61 @@ function PeopleContent() {
                     </p>
                   </div>
                 ) : (
-                  <div className="divide-y divide-border">
+                  <div className="divide-y divide-border w-full">
                     {filteredPeople.map((member) => (
-                  <div key={member.id} className="p-6 hover:bg-muted/30 transition-colors">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Users className="h-5 w-5 text-primary" />
-                        </div>
-                        <span className="font-semibold">{member.name}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => onViewDetails(member.id)}
-                          className="gap-2"
-                        >
-                          <Eye className="h-4 w-4" />
-                          Ver Detalhes
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => member.pix && onCopyPix(member.pix, member.name)}
-                          disabled={!member.pix}
-                          className="h-8 w-8 p-0"
-                          title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
-                        >
-                          <img src={PixIcon} alt="PIX" className="h-4 w-4" />
-                        </Button>
-                        <FeatureGuard feature="pessoas_editar">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => onEdit(member.id, member.name, member.pix)}
-                            className="h-8 w-8 p-0"
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                        </FeatureGuard>
-                        <FeatureGuard feature="pessoas_excluir">
-                          <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
-                            confirmText="Excluir"
-                            onConfirm={() => onDelete(member.id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
+                      <div key={member.id} className="p-4 hover:bg-muted/30 transition-colors w-full overflow-hidden">
+                        <div className="flex items-center justify-between gap-3 w-full overflow-hidden">
+                          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                              <Users className="h-5 w-5 text-primary" />
+                            </div>
+                            <span className="font-semibold" title={member.name}>{truncateText(member.name, 25)}</span>
+                          </div>
+                          <div className="flex items-center gap-1 lg:gap-2 justify-end">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => onViewDetails(member.id)}
+                              className="gap-2 flex-1 lg:flex-initial"
+                            >
+                              <Eye className="h-4 w-4" />
+                              <span className="hidden sm:inline">Ver Detalhes</span>
                             </Button>
-                          </ConfirmationDialog>
-                        </FeatureGuard>
-                      </div>
-                    </div>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => member.pix && onCopyPix(member.pix, member.name)}
+                              disabled={!member.pix}
+                              className="h-8 w-8 p-0 flex-shrink-0"
+                              title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
+                            >
+                              <img src={PixIcon} alt="PIX" className="h-4 w-4" />
+                            </Button>
+                            <FeatureGuard feature="pessoas_editar">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => onEdit(member.id, member.name, member.pix)}
+                                className="h-8 w-8 p-0 flex-shrink-0"
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                            </FeatureGuard>
+                            <FeatureGuard feature="pessoas_excluir">
+                              <ConfirmationDialog
+                                title="Confirmar Exclusão"
+                                description="Tem certeza que deseja excluir esta pessoa? Esta ação não pode ser desfeita."
+                                confirmText="Excluir"
+                                onConfirm={() => onDelete(member.id)}
+                                variant="destructive"
+                              >
+                                <Button variant="destructive" size="sm" className="h-8 w-8 p-0 flex-shrink-0 hidden lg:flex">
+                                  <Trash2 className="h-4 w-4" />
+                                </Button>
+                              </ConfirmationDialog>
+                            </FeatureGuard>
+                          </div>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -367,6 +377,7 @@ function PeopleContent() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

@@ -11,6 +11,15 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
@@ -107,6 +116,7 @@ function MonthlyStatementContent() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isMobile = useIsMobile();
 
   // Form state
   const [type, setType] = useState<"income" | "expense" | "transfer" | "fixed">(
@@ -2295,9 +2305,10 @@ function MonthlyStatementContent() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Aviso de Limite */}
-      <LimitWarningBanner 
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+        {/* Aviso de Limite */}
+        <LimitWarningBanner 
         limit="max_transacoes_mes" 
         currentValue={transactionsCount}
         resourceName="transações neste mês"
@@ -2306,29 +2317,32 @@ function MonthlyStatementContent() {
       {/* Header with month selector and filters */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleMonthChange("prev")}
+                className="h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0"
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                Anterior
+                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:mr-2" />
+                <span className="hidden lg:inline">Anterior</span>
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowMonthSelector(!showMonthSelector)}
-                className="relative h-9"
+                className="relative h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0 min-w-[140px] lg:min-w-0"
               >
-                <Calendar className="h-4 w-4 mr-2" />
-                {currentDate.toLocaleDateString("pt-BR", {
-                  month: "long",
-                  year: "numeric",
-                })}
+                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:mr-2" />
+                <span className="truncate">
+                  {currentDate.toLocaleDateString("pt-BR", {
+                    month: isMobile ? "short" : "long",
+                    year: "numeric",
+                  })}
+                </span>
                 {showMonthSelector && (
-                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-50 p-4 min-w-64">
+                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-50 p-3 lg:p-4 min-w-[240px] lg:min-w-64">
                     <div className="grid grid-cols-3 gap-2">
                       {Array.from({ length: 12 }, (_, i) => {
                         const month = i;
@@ -2338,7 +2352,7 @@ function MonthlyStatementContent() {
                             key={month}
                             variant="outline"
                             size="sm"
-                            className="text-xs"
+                            className="text-[10px] lg:text-xs h-7 lg:h-auto"
                             onClick={() => setMonthYear(year, month + 1)}
                           >
                             {new Date(year, month).toLocaleDateString("pt-BR", {
@@ -2356,7 +2370,7 @@ function MonthlyStatementContent() {
                             key={year}
                             variant="outline"
                             size="sm"
-                            className="text-xs"
+                            className="text-[10px] lg:text-xs h-7 lg:h-auto"
                             onClick={() =>
                               setMonthYear(year, currentDate.getMonth() + 1)
                             }
@@ -2373,9 +2387,10 @@ function MonthlyStatementContent() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleMonthChange("next")}
+                className="h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0"
               >
-                Próximo
-                <Calendar className="h-4 w-4 ml-2" />
+                <span className="hidden lg:inline">Próximo</span>
+                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:ml-2" />
               </Button>
             </div>
 
@@ -2384,16 +2399,16 @@ function MonthlyStatementContent() {
                 value={filterType}
                 onValueChange={(value: any) => setFilterType(value)}
               >
-                <SelectTrigger className="w-40">
+                <SelectTrigger className="w-full lg:w-40 h-8 lg:h-9 text-xs lg:text-sm">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="income">Apenas Ganhos</SelectItem>
-                  <SelectItem value="expense">Apenas Gastos</SelectItem>
-                  <SelectItem value="fixed">Apenas Fixas</SelectItem>
-                  <SelectItem value="pending">Apenas Pendentes</SelectItem>
-                  <SelectItem value="paid">Apenas Pagas</SelectItem>
+                  <SelectItem value="income">Ganhos</SelectItem>
+                  <SelectItem value="expense">Gastos</SelectItem>
+                  <SelectItem value="fixed">Fixas</SelectItem>
+                  <SelectItem value="pending">Pendentes</SelectItem>
+                  <SelectItem value="paid">Pagas</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -2401,75 +2416,75 @@ function MonthlyStatementContent() {
         </CardHeader>
       </Card>
 
-      {/* Indicators Dashboard */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+      {/* Indicators Dashboard - 2 colunas no mobile */}
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-3 lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
-                <p className="text-sm text-muted-foreground">
-                  Ganhos Recebidos
+                <p className="text-[10px] lg:text-sm text-muted-foreground">
+                  Ganhos
                 </p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-base lg:text-2xl font-bold text-green-600">
                   {formatCurrencyBRL(indicators.incomeReceived)}
                 </p>
               </div>
-              <TrendingUp className="h-8 w-8 text-green-500" />
+              <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-green-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-3 lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
-                <p className="text-sm text-muted-foreground">Gastos Pagos</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-[10px] lg:text-sm text-muted-foreground">Gastos</p>
+                <p className="text-base lg:text-2xl font-bold text-red-600">
                   {formatCurrencyBRL(indicators.expensesPaid)}
                 </p>
               </div>
-              <TrendingDown className="h-8 w-8 text-red-500" />
+              <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-red-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-3 lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
-                <p className="text-sm text-muted-foreground">
-                  Contas a Receber
+                <p className="text-[10px] lg:text-sm text-muted-foreground">
+                  A Receber
                 </p>
-                <p className="text-2xl font-bold text-blue-600">
+                <p className="text-base lg:text-2xl font-bold text-blue-600">
                   {formatCurrencyBRL(indicators.incomePending)}
                 </p>
               </div>
-              <Clock10Icon className="h-8 w-8 text-blue-500" />
+              <Clock10Icon className="h-5 w-5 lg:h-8 lg:w-8 text-blue-500" />
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-3 lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
-                <p className="text-sm text-muted-foreground">Contas a Pagar</p>
-                <p className="text-2xl font-bold text-red-600">
+                <p className="text-[10px] lg:text-sm text-muted-foreground">A Pagar</p>
+                <p className="text-base lg:text-2xl font-bold text-red-600">
                   {formatCurrencyBRL(indicators.expensesPending)}
                 </p>
               </div>
-              <DollarSign className="h-6 w-6 text-red-600 dark:text-red-400" />
+              <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-red-600 dark:text-red-400" />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
+        <Card className="col-span-2 lg:col-span-1">
+          <CardContent className="p-3 lg:p-4">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
-                <p className="text-sm text-muted-foreground">Saldo Líquido</p>
+                <p className="text-[10px] lg:text-sm text-muted-foreground">Saldo Líquido</p>
                 <p
-                  className={`text-2xl font-bold ${
+                  className={`text-base lg:text-2xl font-bold ${
                     indicators.netBalance >= 0
                       ? "text-green-600"
                       : "text-red-600"
@@ -2479,9 +2494,9 @@ function MonthlyStatementContent() {
                 </p>
               </div>
               {indicators.netBalance >= 0 ? (
-                <TrendingUp className="h-8 w-8 text-green-500" />
+                <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-green-500" />
               ) : (
-                <TrendingDown className="h-8 w-8 text-red-500" />
+                <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-red-500" />
               )}
             </div>
           </CardContent>
@@ -2494,24 +2509,24 @@ function MonthlyStatementContent() {
           className="cursor-pointer hover:shadow-lg transition-shadow"
           onClick={() => setShowPendingIncomeDialog(true)}
         >
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 lg:p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                  <Receipt className="h-6 w-6 text-green-600 dark:text-green-400" />
+                <div className="p-1.5 lg:p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
+                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Receber
                   </p>
-                  <p className="text-2xl font-bold text-green-600">
+                  <p className="text-xl lg:text-2xl font-bold text-green-600">
                     {pendingIncomeTransactions.length}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-lg font-semibold text-green-600">
+              <div className="text-left lg:text-right">
+                <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
+                <p className="text-base lg:text-lg font-semibold text-green-600">
                   {formatCurrencyBRL(
                     roundCurrency(
                       pendingIncomeTransactions.reduce(
@@ -2523,10 +2538,10 @@ function MonthlyStatementContent() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
+            <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t">
+              <p className="text-xs lg:text-sm text-muted-foreground">
                 {pendingIncomeTransactions.length > 0
-                  ? `Clique e gerencie suas ${pendingIncomeTransactions.length} contas a receber pendentes`
+                  ? `Clique para gerenciar ${pendingIncomeTransactions.length} conta${pendingIncomeTransactions.length > 1 ? 's' : ''}`
                   : "Não há contas a receber pendentes"}
               </p>
             </div>
@@ -2541,37 +2556,36 @@ function MonthlyStatementContent() {
           }`}
           onClick={() => setShowPendingExpenseDialog(true)}
         >
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
+          <CardContent className="p-4 lg:p-6">
+            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                    <DollarSign className="h-6 w-6 text-red-600 dark:text-red-400" />
+                  <div className="p-1.5 lg:p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
+                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-red-600 dark:text-red-400" />
                   </div>
                   {overdueExpenseTransactions.length > 0 && (
-                    <div className="absolute -top-1 -right-1 p-1 bg-red-500 rounded-full">
-                      <AlertTriangle className="h-3 w-3 text-white" />
+                    <div className="absolute -top-1 -right-1 p-0.5 lg:p-1 bg-red-500 rounded-full">
+                      <AlertTriangle className="h-2 w-2 lg:h-3 lg:w-3 text-white" />
                     </div>
                   )}
                 </div>
                 <div>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Pagar
                   </p>
-                  <p className="text-2xl font-bold text-red-600">
+                  <p className="text-xl lg:text-2xl font-bold text-red-600">
                     {pendingExpenseTransactions.length}
                     {overdueExpenseTransactions.length > 0 && (
-                      <span className="ml-2 text-sm font-normal text-red-500">
-                        ({overdueExpenseTransactions.length} vencida
-                        {overdueExpenseTransactions.length > 1 ? "s" : ""})
+                      <span className="ml-2 text-xs lg:text-sm font-normal text-red-500">
+                        ({overdueExpenseTransactions.length})
                       </span>
                     )}
                   </p>
                 </div>
               </div>
-              <div className="text-right">
-                <p className="text-sm text-muted-foreground">Total</p>
-                <p className="text-lg font-semibold text-red-600">
+              <div className="text-left lg:text-right">
+                <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
+                <p className="text-base lg:text-lg font-semibold text-red-600">
                   {formatCurrencyBRL(
                     roundCurrency(
                       pendingExpenseTransactions.reduce(
@@ -2583,10 +2597,10 @@ function MonthlyStatementContent() {
                 </p>
               </div>
             </div>
-            <div className="mt-4 pt-4 border-t">
-              <p className="text-sm text-muted-foreground">
+            <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t">
+              <p className="text-xs lg:text-sm text-muted-foreground">
                 {pendingExpenseTransactions.length > 0
-                  ? `Clique e gerencie suas ${pendingExpenseTransactions.length} contas a pagar pendentes`
+                  ? `Clique para gerenciar ${pendingExpenseTransactions.length} conta${pendingExpenseTransactions.length > 1 ? 's' : ''}`
                   : "Não há contas a pagar pendentes"}
               </p>
             </div>
@@ -2597,9 +2611,9 @@ function MonthlyStatementContent() {
       {/* Transactions List */}
       <Card>
         <CardHeader>
-          <CardTitle>Extrato Mensal</CardTitle>
+          <CardTitle className="text-lg lg:text-xl">Extrato Mensal</CardTitle>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-2 lg:px-6">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -2625,16 +2639,16 @@ function MonthlyStatementContent() {
               {Object.entries(filteredGroupedTransactions).map(
                 ([date, dayTransactions]) => (
                   <div key={date}>
-                    <div className="flex items-center gap-2 mb-3">
-                      <Calendar className="h-4 w-4 text-muted-foreground" />
-                      <span className="font-medium text-muted-foreground">
+                    <div className="flex items-center gap-2 mb-2 lg:mb-3 px-1">
+                      <Calendar className="h-3 w-3 lg:h-4 lg:w-4 text-muted-foreground" />
+                      <span className="font-medium text-xs lg:text-sm text-muted-foreground">
                         {(() => {
                           const formattedDate = new Date(
                             date + "T12:00:00"
                           ).toLocaleDateString("pt-BR", {
-                            weekday: "long",
+                            weekday: isMobile ? "short" : "long",
                             day: "numeric",
-                            month: "long",
+                            month: isMobile ? "short" : "long",
                           });
                           // Capitalizar primeira letra
                           return (
@@ -2662,29 +2676,32 @@ function MonthlyStatementContent() {
                         return (
                           <div
                             key={transaction.id}
-                            className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors ${
+                            className={`flex flex-col lg:flex-row lg:items-center lg:justify-between p-3 lg:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 ${
                               transaction.status === "PAID" && isPendingIncome
                                 ? "opacity-60"
                                 : ""
                             }`}
                           >
-                            <div className="flex items-center gap-3 flex-1">
+                            {/* Mobile: Layout vertical */}
+                            <div className="flex items-start gap-3 flex-1">
                               {isPendingIncome ? (
-                                <div className="p-2 rounded-full bg-yellow-100">
-                                  <BanknoteXIcon className="h-4 w-4 text-yellow-600" />
+                                <div className="p-1.5 lg:p-2 rounded-full bg-yellow-100 flex-shrink-0">
+                                  <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4 text-yellow-600" />
                                 </div>
                               ) : (
-                                getTransactionIcon(transaction)
+                                <div className="flex-shrink-0">
+                                  {getTransactionIcon(transaction)}
+                                </div>
                               )}
-                              <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium">
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-start gap-2 flex-wrap">
+                                  <span className="font-medium text-sm lg:text-base">
                                     {transaction.description}
                                   </span>
                                   {isPartOfShared && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-xs bg-purple-100 text-purple-800"
+                                      className="text-[10px] lg:text-xs bg-purple-100 text-purple-800"
                                     >
                                       Rateio
                                     </Badge>
@@ -2692,7 +2709,7 @@ function MonthlyStatementContent() {
                                   {(transaction as any).is_fixed && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                      className="text-[10px] lg:text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
                                     >
                                       Fixa
                                     </Badge>
@@ -2700,7 +2717,7 @@ function MonthlyStatementContent() {
                                   {isLinkedTransaction && (
                                     <Badge
                                       variant="outline"
-                                      className="text-xs"
+                                      className="text-[10px] lg:text-xs"
                                     >
                                       Ligada
                                     </Badge>
@@ -2712,44 +2729,36 @@ function MonthlyStatementContent() {
                                     !(transaction as any).is_fixed && (
                                       <Badge
                                         variant="secondary"
-                                        className="text-xs"
+                                        className="text-[10px] lg:text-xs"
                                       >
                                         {transaction.installmentNumber}/
                                         {transaction.totalInstallments}
                                       </Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                  <span>{getAccountName(transaction)}</span>
+                                <div className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm text-muted-foreground mt-1 flex-wrap">
+                                  <span className="truncate max-w-[120px] lg:max-w-none">{getAccountName(transaction)}</span>
                                   {transaction.categories?.name && (
                                     <>
-                                      <span>•</span>
-                                      <span>{transaction.categories.name}</span>
+                                      <span className="hidden lg:inline">•</span>
+                                      <span className="truncate max-w-[100px] lg:max-w-none">{transaction.categories.name}</span>
                                     </>
                                   )}
                                   {transaction.people?.name && (
                                     <>
-                                      <span>•</span>
-                                      <span>{transaction.people.name}</span>
-                                    </>
-                                  )}
-                                  {isPaidExpense && (
-                                    <>
-                                      <span>•</span>
-                                      <span className="text-purple-600">
-                                        Minha parte:{" "}
-                                        {formatCurrencyBRL(transaction.value)}
-                                      </span>
+                                      <span className="hidden lg:inline">•</span>
+                                      <span className="truncate max-w-[80px] lg:max-w-none">{transaction.people.name}</span>
                                     </>
                                   )}
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-3">
-                              <div className="text-right">
+                            {/* Valor e Ações */}
+                            <div className="flex items-center justify-between lg:justify-end gap-2 lg:gap-3">
+                              <div className="text-left lg:text-right">
                                 <div
-                                  className={`font-semibold ${
+                                  className={`font-semibold text-sm lg:text-base ${
                                     transaction.type === "income"
                                       ? "text-green-600"
                                       : "text-red-600"
@@ -2758,86 +2767,84 @@ function MonthlyStatementContent() {
                                   {transaction.type === "income" ? "+" : "-"}
                                   {formatCurrencyBRL(transaction.value)}
                                 </div>
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-[10px] lg:text-xs text-muted-foreground">
                                   {transaction.status === "PAID"
                                     ? (transaction.type === "income"
                                         ? "Recebido"
-                                        : "Pago") +
-                                      ((transaction as any).liquidation_date
-                                        ? ` em ${new Date(
-                                            (
-                                              transaction as any
-                                            ).liquidation_date
-                                          ).toLocaleDateString("pt-BR")}`
-                                        : "")
+                                        : "Pago")
                                     : "Pendente"}
                                 </div>
                               </div>
 
-                              {transaction.status === "PENDING" ? (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => markAsPaid(transaction.id)}
-                                >
-                                  <CheckCircle className="h-4 w-4" />
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => markAsPending(transaction.id)}
-                                >
-                                  <BanknoteXIcon className="h-4 w-4" />
-                                </Button>
-                              )}
-
-                              {(transaction as any).composition_details && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() =>
-                                    viewComposition(
-                                      (transaction as any).composition_details
-                                    )
-                                  }
-                                  className="text-white-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30"
-                                  title="Ver detalhes da composição"
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
-                              )}
-                              <FeatureGuard feature="transacoes_editar">
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  onClick={() => {
-                                    setEditingId(transaction.id);
-                                    setOpen(true);
-                                  }}
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </FeatureGuard>
-                              <FeatureGuard feature="transacoes_excluir">
-                                <ConfirmationDialog
-                                  title="Confirmar Exclusão"
-                                  description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                                  confirmText="Excluir"
-                                  onConfirm={() =>
-                                    deleteTransaction(transaction.id)
-                                  }
-                                  variant="destructive"
-                                >
+                              <div className="flex items-center gap-1">
+                                {transaction.status === "PENDING" ? (
                                   <Button
-                                    size="sm"
+                                    size="icon"
                                     variant="outline"
-                                  className="text-red-600 hover:text-red-700 hover:bg-red-50"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </ConfirmationDialog>
-                              </FeatureGuard>
+                                    onClick={() => markAsPaid(transaction.id)}
+                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                  >
+                                    <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() => markAsPending(transaction.id)}
+                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                  >
+                                    <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  </Button>
+                                )}
+
+                                {(transaction as any).composition_details && (
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() =>
+                                      viewComposition(
+                                        (transaction as any).composition_details
+                                      )
+                                    }
+                                    className="text-white-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
+                                    title="Ver detalhes da composição"
+                                  >
+                                    <Info className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  </Button>
+                                )}
+                                <FeatureGuard feature="transacoes_editar">
+                                  <Button
+                                    size="icon"
+                                    variant="outline"
+                                    onClick={() => {
+                                      setEditingId(transaction.id);
+                                      setOpen(true);
+                                    }}
+                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                  >
+                                    <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  </Button>
+                                </FeatureGuard>
+                                <FeatureGuard feature="transacoes_excluir">
+                                  <ConfirmationDialog
+                                    title="Confirmar Exclusão"
+                                    description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                                    confirmText="Excluir"
+                                    onConfirm={() =>
+                                      deleteTransaction(transaction.id)
+                                    }
+                                    variant="destructive"
+                                  >
+                                    <Button
+                                      size="icon"
+                                      variant="outline"
+                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
+                                    >
+                                      <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                                    </Button>
+                                  </ConfirmationDialog>
+                                </FeatureGuard>
+                              </div>
                             </div>
                           </div>
                         );
@@ -2853,42 +2860,42 @@ function MonthlyStatementContent() {
 
       {/* Transaction Creation Modal */}
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-[95vw] lg:max-w-2xl max-h-[95vh] lg:max-h-[90vh] overflow-y-auto p-4 lg:p-6">
           <DialogHeader>
-            <DialogTitle>{title}</DialogTitle>
+            <DialogTitle className="text-base lg:text-lg">{title}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-6">
+          <div className="space-y-4 lg:space-y-6">
             {/* Tipo de Transação - IMUTÁVEL em edição */}
             <div className="space-y-2">
               {editingId ? (
-                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                  <div className="mt-2 flex gap-2">
+                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 lg:p-3">
+                  <div className="mt-2 grid grid-cols-2 lg:flex gap-2">
                     <Button
                       type="button"
                       variant={type === "income" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-2 flex-1"
+                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
                     >
-                      <ArrowUpCircle className="h-4 w-4" />
-                      Ganho
+                      <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden sm:inline">Ganho</span>
                     </Button>
                     <Button
                       type="button"
                       variant={type === "expense" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-2 flex-1"
+                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
                     >
-                      <ArrowDownCircle className="h-4 w-4" />
-                      Gasto
+                      <ArrowDownCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden sm:inline">Gasto</span>
                     </Button>
                     <Button
                       type="button"
                       variant={type === "transfer" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-2 flex-1"
+                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
                     >
-                      <ArrowUpCircle className="h-4 w-4" />
-                      Transferência
+                      <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden sm:inline">Transfer</span>
                     </Button>
                     <Button
                       type="button"
@@ -2898,70 +2905,71 @@ function MonthlyStatementContent() {
                           : "outline"
                       }
                       disabled
-                      className={`flex items-center gap-2 flex-1 ${
+                      className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                         type === "fixed" || (editingId && isFixed)
                           ? "border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30"
                           : "hover:border-blue-500/30 hover:bg-blue-500/5 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
                       }`}
                     >
-                      <ArrowUpCircle className="h-4 w-4" />
-                      {isFixed ? "Fixa" : "Fixo"}
+                      <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                      <span className="hidden sm:inline">{isFixed ? "Fixa" : "Fixo"}</span>
                     </Button>
                   </div>
                 </div>
               ) : (
-                <div className="flex gap-2">
+                <div className="grid grid-cols-2 lg:flex gap-2">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("income")}
-                    className={`flex items-center gap-2 flex-1 ${
+                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                       type === "income"
                         ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
-                    <ArrowUpCircle className="h-4 w-4" />
-                    Ganho
+                    <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                    <span>Ganho</span>
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("expense")}
-                    className={`flex items-center gap-2 flex-1 ${
+                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                       type === "expense"
                         ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
                         : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                     }`}
                   >
-                    <ArrowDownCircle className="h-4 w-4" />
-                    Gasto
+                    <ArrowDownCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                    <span>Gasto</span>
                   </Button>
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("transfer")}
-                    className={`flex items-center gap-2 flex-1 ${
+                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                       type === "transfer"
                         ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
-                    <ArrowUpCircle className="h-4 w-4" />
-                    Transferência
+                    <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                    <span className="hidden sm:inline">Transfer</span>
+                    <span className="sm:hidden">Transf</span>
                   </Button>
                   <Button
                     type="button"
                     variant={type === "fixed" ? "default" : "outline"}
                     onClick={() => handleTypeChange("fixed")}
-                    className={`flex items-center gap-2 flex-1 ${
+                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                       type === "fixed"
                         ? "border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30"
                         : "hover:border-blue-500/30 hover:bg-blue-500/5 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
                     }`}
                   >
-                    <ArrowUpCircle className="h-4 w-4" />
-                    Fixo
+                    <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                    <span>Fixo</span>
                   </Button>
                 </div>
               )}
@@ -2973,17 +2981,17 @@ function MonthlyStatementContent() {
                 {type === "expense" && (
                   <div className="space-y-2">
                     {editingId ? (
-                      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
-                        <div className="flex gap-2">
+                      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 lg:p-3">
+                        <div className="flex flex-wrap lg:flex-nowrap gap-2">
                           <Button
                             type="button"
                             variant={
                               !isLoan && !isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-9 text-xs"
+                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
                           >
-                            Gasto Normal
+                            Normal
                           </Button>
                           <Button
                             type="button"
@@ -2991,9 +2999,9 @@ function MonthlyStatementContent() {
                               isLoan && !isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-9 text-xs"
+                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
                           >
-                            Empréstimo
+                            Emprést.
                           </Button>
                           <Button
                             type="button"
@@ -3001,7 +3009,7 @@ function MonthlyStatementContent() {
                               !isLoan && isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-9 text-xs"
+                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
                           >
                             Rateio
                           </Button>
@@ -3017,13 +3025,13 @@ function MonthlyStatementContent() {
                             setIsRateio(false);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-9 text-xs ${
+                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
                             !isLoan && !isRateio
                               ? "border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
                               : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                           }`}
                         >
-                          Gasto Normal
+                          Normal
                         </Button>
                         <Button
                           type="button"
@@ -3033,13 +3041,13 @@ function MonthlyStatementContent() {
                             setIsRateio(false);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-9 text-xs ${
+                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
                             isLoan && !isRateio
                               ? "border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30"
                               : "hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400"
                           }`}
                         >
-                          Empréstimo
+                          Emprést.
                         </Button>
                         <Button
                           type="button"
@@ -3049,7 +3057,7 @@ function MonthlyStatementContent() {
                             setIsRateio(true);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-9 text-xs ${
+                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
                             !isLoan && isRateio
                               ? "border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                               : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -3063,25 +3071,25 @@ function MonthlyStatementContent() {
                 )}
 
                 {/* Campo de Descrição */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-sm">Descrição</Label>
+                    <Label className="text-xs lg:text-sm">Descrição</Label>
                     <Input
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ex: Salário, Aluguel, etc..."
-                      className="h-9"
+                      placeholder="Ex: Salário, Aluguel..."
+                      className="h-8 lg:h-9"
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Data</Label>
+                    <Label className="text-xs lg:text-sm">Data</Label>
                     <Input
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
                       min={getMinAllowedDate()}
                       max={getMaxAllowedDate()}
-                      className="h-9"
+                      className="h-8 lg:h-9"
                     />
                   </div>
                 </div>
@@ -3091,9 +3099,9 @@ function MonthlyStatementContent() {
             {/* Campos principais com lógica de visibilidade dinâmica */}
             {type === "transfer" ? (
               /* Transferência: Conta Origem + Conta Destino */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">Conta de Origem</Label>
+                  <Label className="text-xs lg:text-sm">Conta de Origem</Label>
                   <SelectWithAddButton
                     entityType="accounts"
                     value={fromAccountId}
@@ -3108,7 +3116,7 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Conta de Destino</Label>
+                  <Label className="text-xs lg:text-sm">Conta de Destino</Label>
                   <SelectWithAddButton
                     entityType="accounts"
                     value={toAccountId}
@@ -3136,9 +3144,9 @@ function MonthlyStatementContent() {
               </div>
             ) : type === "income" ? (
               /* Ganho: Conta + Categoria + Valor */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">Conta</Label>
+                  <Label className="text-xs lg:text-sm">Conta</Label>
                   <SelectWithAddButton
                     entityType="accounts"
                     value={accountId}
@@ -3168,21 +3176,21 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Valor</Label>
+                  <Label className="text-xs lg:text-sm">Valor</Label>
                   <NumericInput
                     currency
                     value={value}
                     onChange={setValue}
                     placeholder="0,00"
-                    className="h-9"
+                    className="h-8 lg:h-9"
                   />
                 </div>
               </div>
             ) : type === "expense" ? (
               /* Gasto: Conta + Categoria + Valor (método de pagamento será tratado abaixo) */
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">Conta</Label>
+                  <Label className="text-xs lg:text-sm">Conta</Label>
                   <SelectWithAddButton
                     entityType="accounts"
                     value={accountId}
@@ -3961,7 +3969,7 @@ function MonthlyStatementContent() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
             {editingId && (
               <ConfirmationDialog
                 title="Confirmar Exclusão"
@@ -3974,13 +3982,13 @@ function MonthlyStatementContent() {
                 }}
                 variant="destructive"
               >
-                <Button variant="destructive">
+                <Button variant="destructive" className="w-full sm:w-auto">
                   <Trash2 className="h-4 w-4 mr-2" />
                   Excluir
                 </Button>
               </ConfirmationDialog>
             )}
-            <Button onClick={onSubmit} disabled={isSubmitting}>
+            <Button onClick={onSubmit} disabled={isSubmitting} className="w-full sm:w-auto">
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -4203,6 +4211,7 @@ function MonthlyStatementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

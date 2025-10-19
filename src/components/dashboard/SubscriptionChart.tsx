@@ -263,14 +263,14 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
 
        {/* Dialog com todas as assinaturas */}
        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-         <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col">
+         <DialogContent className="w-[95vw] max-w-2xl max-h-[85vh] flex flex-col p-4 lg:p-6">
            <DialogHeader className="flex-shrink-0">
-             <DialogTitle className="flex items-center gap-2">
+             <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
                <Captions className="h-5 w-5 text-primary" />
                Todas as Assinaturas Ativas
              </DialogTitle>
            </DialogHeader>
-           <div className="flex-1 overflow-hidden flex flex-col gap-4">
+           <div className="flex-1 overflow-hidden flex flex-col gap-3 lg:gap-4">
              {/* Total */}
              <div className="flex-shrink-0 p-4 bg-primary/5 rounded-lg border border-primary/10">
                <p className="text-sm text-muted-foreground mb-1">Total Mensal</p>

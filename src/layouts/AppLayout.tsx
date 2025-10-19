@@ -5,7 +5,8 @@ import { LogOut } from "lucide-react";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface AppLayoutProps {
   onLogout: () => void;
@@ -15,6 +16,8 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Detectar retorno de pagamento bem-sucedido
   useEffect(() => {
@@ -39,20 +42,30 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      <AppSidebar />
+      {/* Desktop Sidebar - hidden on mobile */}
+      {!isMobile && <AppSidebar />}
+      
+      {/* Mobile Sidebar - in Sheet */}
+      {isMobile && (
+        <AppSidebar 
+          open={mobileMenuOpen} 
+          onOpenChange={setMobileMenuOpen}
+        />
+      )}
+      
       <SidebarInset>
-        <div className="p-4">
-          <AppHeader title="Orbi" subtitle="Sua visão financeira" onLogout={handleLogout} />
-          <Outlet />
+        <div className="flex flex-col min-h-screen">
+          <AppHeader 
+            title="Orbi" 
+            subtitle="Sua visão financeira" 
+            onLogout={handleLogout}
+            onMenuClick={() => setMobileMenuOpen(true)}
+            showMenuButton={isMobile}
+          />
+          <main className="flex-1 p-4">
+            <Outlet />
+          </main>
         </div>
-        {/* Mobile FAB for new transaction */}
-        <button
-          aria-label="Nova Transação"
-          onClick={() => navigate("/sistema/statement?new=1")}
-          className="md:hidden fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300"
-        >
-          +
-        </button>
       </SidebarInset>
     </SidebarProvider>
   );

@@ -5,7 +5,10 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
 interface SidebarItem {
@@ -25,15 +28,28 @@ const menuItems: SidebarItem[] = [
   { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
 ];
 
-export function AppSidebar() {
+interface AppSidebarProps {
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+}
+
+export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
+  const isMobile = useIsMobile();
 
   const items = useMemo(() => menuItems, []);
 
-  return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border">
+  const handleNavigate = (path: string) => {
+    navigate(path);
+    if (isMobile && onOpenChange) {
+      onOpenChange(false);
+    }
+  };
+
+  const SidebarContent = () => (
+    <>
       <div className="flex h-16 items-center justify-between px-6">
         <div className="flex items-center gap-2">
           <img src={orbiLogo} alt="Orbi" className="h-8 w-8" />
@@ -49,7 +65,7 @@ export function AppSidebar() {
             variant="outline"
             size="lg"
             className="w-full justify-center gap-3 mb-6 bg-transparent border-2 border-dashed border-blue-400 text-blue-400 hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 shadow-lg font-semibold text-base transition-all duration-300"
-            onClick={() => navigate("/sistema/statement?new=1")}
+            onClick={() => handleNavigate("/sistema/statement?new=1")}
           >
             <Plus className="h-5 w-5" />
             Nova Transação
@@ -68,7 +84,7 @@ export function AppSidebar() {
                     ? "border-blue-400 text-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]"
                     : "text-sidebar-foreground hover:border-blue-400 hover:text-blue-400 hover:shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]",
                 )}
-                onClick={() => navigate(item.path)}
+                onClick={() => handleNavigate(item.path)}
               >
                 <Icon className="h-4 w-4" />
                 {item.title}
@@ -81,6 +97,27 @@ export function AppSidebar() {
       <div className="p-4 border-t border-sidebar-border">
         <ReportBugDialog />
       </div>
+    </>
+  );
+
+  // Mobile: Render in Sheet
+  if (isMobile && open !== undefined && onOpenChange) {
+    return (
+      <Sheet open={open} onOpenChange={onOpenChange}>
+        <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+          <VisuallyHidden>
+            <SheetTitle>Menu de Navegação</SheetTitle>
+          </VisuallyHidden>
+          <SidebarContent />
+        </SheetContent>
+      </Sheet>
+    );
+  }
+
+  // Desktop: Render as Sidebar
+  return (
+    <Sidebar collapsible="none" className="border-r border-sidebar-border hidden lg:flex">
+      <SidebarContent />
     </Sidebar>
   );
 }

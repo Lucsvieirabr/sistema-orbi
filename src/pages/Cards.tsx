@@ -162,27 +162,27 @@ function CardsContent() {
     return (
       <Card className="group hover:shadow-lg transition-all duration-200">
         <CardHeader className="pb-3">
-          <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
-              {getBrandIcon(card.brand)}
-              <div>
-                <h3 className="font-semibold text-lg">{card.name}</h3>
+          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
+            <div className="flex items-center gap-3 flex-1">
+              <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
+              <div className="min-w-0 flex-1">
+                <h3 className="font-semibold text-base lg:text-lg truncate">{card.name}</h3>
                 {card.brand && (
-                  <Badge variant="secondary" className="mt-1">
+                  <Badge variant="secondary" className="mt-1 text-xs">
                     {card.brand}
                   </Badge>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center gap-1 justify-end lg:justify-start">
               <FeatureGuard feature="cartoes_editar">
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => onEdit(card.id)}
-                  className="h-8 w-8 p-0"
+                  className="h-7 w-7 lg:h-8 lg:w-8 p-0"
                 >
-                  <Edit className="h-4 w-4" />
+                  <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
                 </Button>
               </FeatureGuard>
               <FeatureGuard feature="cartoes_excluir">
@@ -193,8 +193,8 @@ function CardsContent() {
                   onConfirm={() => onDelete(card.id)}
                   variant="destructive"
                 >
-                  <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                    <Trash2 className="h-4 w-4" />
+                  <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
+                    <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
                   </Button>
                 </ConfirmationDialog>
               </FeatureGuard>
@@ -259,9 +259,9 @@ function CardsContent() {
               {card.connected_account_id && (
                 <div className="flex items-center gap-2">
                   <Wallet className="h-4 w-4 text-muted-foreground" />
-                  <div>
+                  <div className="min-w-0 flex-1">
                     <p className="text-muted-foreground">Conta Vinculada</p>
-                    <p className="font-medium text-xs">
+                    <p className="font-medium text-xs truncate" title={accountsWithBalance.find(acc => acc.id === card.connected_account_id)?.name}>
                       {accountsWithBalance.find(acc => acc.id === card.connected_account_id)?.name}
                     </p>
                   </div>
@@ -299,18 +299,18 @@ function CardsContent() {
     const usagePercentage = (usage / card.limit) * 100;
 
     return (
-      <div className="p-6 hover:bg-muted/30 transition-colors">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            {getBrandIcon(card.brand)}
-            <div className="flex-1">
+      <div className="p-4 lg:p-6 hover:bg-muted/30 transition-colors">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
+            <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
+            <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold">{card.name}</h3>
+                <h3 className="font-semibold truncate">{card.name}</h3>
                 {card.brand && (
-                  <Badge variant="secondary">{card.brand}</Badge>
+                  <Badge variant="secondary" className="text-xs">{card.brand}</Badge>
                 )}
               </div>
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:gap-4 text-xs lg:text-sm text-muted-foreground gap-1">
                 <span>Limite: {formatCurrency(card.limit)}</span>
                 <span>Uso: {formatCurrency(usage)}</span>
                 <span className={`font-medium ${
@@ -322,7 +322,7 @@ function CardsContent() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 lg:gap-2 justify-end">
             <FeatureGuard feature="cartoes_editar">
               <Button 
                 variant="outline" 
@@ -341,7 +341,7 @@ function CardsContent() {
                 onConfirm={() => onDelete(card.id)}
                 variant="destructive"
               >
-                <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
+                <Button variant="destructive" size="sm" className="h-8 w-8 p-0 hidden lg:flex">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </ConfirmationDialog>
@@ -354,7 +354,7 @@ function CardsContent() {
                 className="gap-2"
               >
                 <Receipt className="h-4 w-4" />
-                Faturas
+                <span className="hidden sm:inline">Faturas</span>
               </Button>
             </FeatureGuard>
           </div>
@@ -364,7 +364,8 @@ function CardsContent() {
   };
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
       {/* Aviso de Limite */}
       <LimitWarningBanner 
         limit="max_cartoes" 
@@ -373,51 +374,53 @@ function CardsContent() {
       />
       
       {/* Header Section */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <CreditCard className="h-6 w-6 text-primary" />
+      <Card className="shadow-lg max-w-full">
+        <CardHeader className="p-4">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+            <div className="flex items-center gap-3 min-w-0 flex-1">
+              <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
+                <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
               </div>
-              <div>
-                <CardTitle className="text-2xl">Cartões de Crédito</CardTitle>
-                <p className="text-muted-foreground mt-1">
+              <div className="min-w-0 flex-1">
+                <CardTitle className="text-xl lg:text-2xl truncate">Cartões</CardTitle>
+                <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                   Gerencie seus cartões e acompanhe suas faturas mensais
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
               <Input
-                placeholder="Buscar por nome ou bandeira..."
+                placeholder="Buscar..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
+                className="w-full sm:w-48 lg:w-64"
               />
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem
-                  value="list"
-                  aria-label="Lista"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="cards"
-                  aria-label="Cards"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <FeatureGuard feature="cartoes_criar">
-                <LimitGuard limit="max_cartoes" currentValue={creditCards?.length || 0}>
-                  <Button onClick={handleOpenDialog} className="gap-2">
-                    <Plus className="h-4 w-4" />
-                    Novo Cartão
-                  </Button>
-                </LimitGuard>
-              </FeatureGuard>
+              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
+                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
+                  <ToggleGroupItem
+                    value="list"
+                    aria-label="Lista"
+                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <List className="h-4 w-4" />
+                  </ToggleGroupItem>
+                  <ToggleGroupItem
+                    value="cards"
+                    aria-label="Cards"
+                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+                  >
+                    <LayoutGrid className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                <FeatureGuard feature="cartoes_criar">
+                  <LimitGuard limit="max_cartoes" currentValue={creditCards?.length || 0}>
+                    <Button onClick={handleOpenDialog} className="gap-2 w-full sm:w-auto">
+                      <Plus className="h-4 w-4" />
+                      <span className="sm:inline">Novo Cartão</span>
+                    </Button>
+                  </LimitGuard>
+                </FeatureGuard>
+              </div>
             </div>
           </div>
         </CardHeader>
@@ -526,6 +529,7 @@ function CardsContent() {
           />
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

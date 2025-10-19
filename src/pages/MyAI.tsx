@@ -109,18 +109,19 @@ function MyAIContent() {
   }, [stats]);
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Header */}
-      <div className="space-y-2">
-        <div className="flex items-center gap-2">
-          <Brain className="h-8 w-8 text-primary" />
-          <h1 className="text-3xl font-bold">IA de Classificação de Transações</h1>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+        {/* Header */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <Brain className="h-8 w-8 text-primary flex-shrink-0" />
+            <h1 className="text-3xl font-bold truncate">IA de Classificação de Transações</h1>
+          </div>
+          <p className="text-muted-foreground">
+            Sua IA pessoal aprende como você prefere categorizar cada transação. 
+            Cada vez que você corrige uma classificação durante a importação, a IA memoriza e aplica automaticamente nas próximas vezes!
+          </p>
         </div>
-        <p className="text-muted-foreground">
-          Sua IA pessoal aprende como você prefere categorizar cada transação. 
-          Cada vez que você corrige uma classificação durante a importação, a IA memoriza e aplica automaticamente nas próximas vezes!
-        </p>
-      </div>
     
       {/* Padrões por Categoria */}
       {stats && stats.total > 0 && (
@@ -281,12 +282,14 @@ function MyAIContent() {
                 <TableBody>
                   {filteredPatterns.map((pattern) => (
                     <TableRow key={pattern.id}>
-                      <TableCell className="font-medium">
-                        {pattern.description}
+                      <TableCell className="font-medium max-w-xs">
+                        <div className="truncate" title={pattern.description}>
+                          {pattern.description}
+                        </div>
                       </TableCell>
-                      <TableCell>
-                        <div>
-                          <div>{pattern.category}</div>
+                      <TableCell className="max-w-[150px]">
+                        <div className="truncate" title={pattern.category}>
+                          {pattern.category}
                         </div>
                       </TableCell>
                       <TableCell className="text-center">
@@ -385,6 +388,7 @@ function MyAIContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }

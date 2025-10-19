@@ -168,17 +168,18 @@ export default function Notes() {
   }
 
   return (
-    <div className="px-6 py-6">
-      {/* Header */}
-      <div className="mb-6">
-        <div className="flex items-center gap-3 mb-2">
-          <StickyNote className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl font-bold">Minhas Notas</h1>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="px-0 lg:px-6 lg:py-6 max-w-full">
+        {/* Header */}
+        <div className="mb-6">
+          <div className="flex items-center gap-3 mb-2">
+            <StickyNote className="h-6 w-6 lg:h-7 lg:w-7 text-primary" />
+            <h1 className="text-xl lg:text-2xl font-bold truncate">Minhas Notas</h1>
+          </div>
+          <p className="text-xs lg:text-sm text-muted-foreground truncate">
+            Organize suas tarefas e lembretes financeiros em um só lugar
+          </p>
         </div>
-        <p className="text-sm text-muted-foreground">
-          Organize suas tarefas e lembretes financeiros em um só lugar
-        </p>
-      </div>
       {/* Create Note Card */}
       <Card className="p-4 mb-6 border-2 border-dashed">
         <div className="space-y-3">
@@ -196,14 +197,14 @@ export default function Notes() {
             />
           </div>
           
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   size="sm"
                   className={cn(
-                    "justify-start text-left font-normal",
+                    "justify-start text-left font-normal w-full sm:w-auto",
                     !newNoteDueDate && "text-muted-foreground"
                   )}
                 >
@@ -225,7 +226,7 @@ export default function Notes() {
               value={newNotePriority.toString()}
               onValueChange={(value) => setNewNotePriority(parseInt(value))}
             >
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-full sm:w-[140px]">
                 <Flag className="mr-2 h-4 w-4" />
                 <SelectValue />
               </SelectTrigger>
@@ -242,15 +243,13 @@ export default function Notes() {
               </SelectContent>
             </Select>
 
-            <div className="flex-1" />
-
-            <Button onClick={handleCreateNote} disabled={!newNoteContent.trim()} size="sm">
+            <Button onClick={handleCreateNote} disabled={!newNoteContent.trim()} size="sm" className="w-full sm:w-auto sm:ml-auto">
               <Plus className="mr-2 h-4 w-4" />
               Adicionar Nota
             </Button>
           </div>
 
-          <p className="text-xs text-muted-foreground">
+          <p className="text-xs text-muted-foreground hidden lg:block">
             Dica: Pressione <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Ctrl + Enter</kbd> para adicionar rapidamente
           </p>
         </div>
@@ -259,17 +258,17 @@ export default function Notes() {
       {/* Notes List with Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all" className="gap-2">
+          <TabsTrigger value="all" className="gap-1">
             Todas
-            <Badge variant="secondary" className="ml-1">{notes.length}</Badge>
+            <Badge variant="secondary">{notes.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="pending" className="gap-2">
+          <TabsTrigger value="pending" className="gap-1">
             Pendentes
-            <Badge variant="secondary" className="ml-1">{pendingCount}</Badge>
+            <Badge variant="secondary">{pendingCount}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-2">
+          <TabsTrigger value="completed" className="gap-1">
             Concluídas
-            <Badge variant="secondary" className="ml-1">{completedCount}</Badge>
+            <Badge variant="secondary">{completedCount}</Badge>
           </TabsTrigger>
         </TabsList>
 
@@ -448,6 +447,7 @@ export default function Notes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      </div>
     </div>
   );
 }

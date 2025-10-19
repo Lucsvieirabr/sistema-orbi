@@ -415,23 +415,23 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
   return (
     <Dialog open={open} onOpenChange={handleDialogClose}>
-      <DialogContent className="max-w-6xl max-h-[95vh] overflow-y-auto">
+      <DialogContent className="w-[95vw] max-w-6xl max-h-[95vh] overflow-y-auto p-4 lg:p-6">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
             <Brain className="h-5 w-5 text-blue-500" />
             Importar Extrato Bancário com IA
           </DialogTitle>
-          <p className="text-sm text-muted-foreground">
+          <p className="text-xs lg:text-sm text-muted-foreground">
             Selecione um arquivo CSV do seu banco. Nossa IA analisará e categorizará automaticamente as transações.
           </p>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-3 lg:space-y-4">
 
           {/* Área de Drop */}
           <div
             className={`
-              relative border-2 border-dashed rounded-lg p-8 text-center transition-colors
+              relative border-2 border-dashed rounded-lg p-4 lg:p-8 text-center transition-colors
               ${isDragActive
                 ? 'border-primary bg-primary/5'
                 : 'border-gray-300 hover:border-gray-400'

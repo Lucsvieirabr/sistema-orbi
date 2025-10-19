@@ -150,6 +150,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
     return new Date(dateString).toLocaleDateString('pt-BR');
   };
 
+  const truncateText = (text: string, maxLength: number = 15) => {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
   const handleStatusChange = async (transactionId: string, newStatus: TransactionStatus) => {
     setUpdatingStatus(transactionId);
     const loadingToast = toast({
@@ -292,7 +297,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
   if (transactionsLoading && transactions.length === 0) {
     return (
       <div className="min-h-screen bg-background">
-        <main className="container mx-auto p-4 space-y-6">
+        <main className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6">
           {/* Loading Statistics Cards */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
             <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -330,75 +335,75 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   return (
     <div className="min-h-screen bg-background">
-      <main className="container mx-auto p-4 space-y-6">
+      <main className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6">
         {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left Side: 2x2 Summary Cards */}
-          <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Left Side: 2x2 Summary Cards - 2 colunas em mobile */}
+          <div className="lg:col-span-2 grid grid-cols-2 gap-3 lg:gap-4">
             <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
                   Saldo Atual
                 </CardTitle>
-                <DollarSign className={`h-4 w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+                <DollarSign className={`h-3 w-3 lg:h-4 lg:w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                <div className={`text-lg lg:text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
                   {formatCurrency(indicators.netBalance)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Saldo líquido do mês atual
+                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
+                  Saldo líquido do mês
                 </p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
                   Ganhos do Mês
                 </CardTitle>
-                <TrendingUp className="h-4 w-4 text-success" />
+                <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-success" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-success">
+                <div className="text-lg lg:text-2xl font-bold text-success">
                   {formatCurrency(indicators.incomeReceived)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Recebidos este mês
+                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
+                  Recebidos
                 </p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
                   Gastos do Mês
                 </CardTitle>
-                <TrendingDown className="h-4 w-4 text-destructive" />
+                <TrendingDown className="h-3 w-3 lg:h-4 lg:w-4 text-destructive" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-destructive">
+                <div className="text-lg lg:text-2xl font-bold text-destructive">
                   {formatCurrency(indicators.expensesPaid)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Pagos este mês
+                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
+                  Pagos
                 </p>
               </CardContent>
             </Card>
 
             <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
                   Saldo de Dívidas
                 </CardTitle>
-                <DollarSign className="h-4 w-4 text-purple-500" />
+                <DollarSign className="h-3 w-3 lg:h-4 lg:w-4 text-purple-500" />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
+                <div className={`text-lg lg:text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
                   {formatCurrency(debtStats?.netBalance || 0)}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  A receber: <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | A pagar: <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
+                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
+                  <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
                 </p>
               </CardContent>
             </Card>
@@ -414,7 +419,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
           {/* Expense Chart */}
           <Card className="bg-gradient-card shadow-md">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="h-5 w-5 text-primary" />
                   Gastos por Categoria
@@ -537,7 +542,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
           {/* Upcoming Transactions */}
           <Card className="bg-gradient-card shadow-md">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Calendar className="h-5 w-5 text-primary" />
                   Próximos Lançamentos
@@ -583,23 +588,23 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 <div className="space-y-2">
                   {upcomingTransactions.map((transaction) => (
                     <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3 flex-1">
-                        <div className={`w-2 h-8 rounded-full ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium text-foreground">{transaction.description}</p>
+                      <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
+                        <div className={`w-2 h-8 rounded-full flex-shrink-0 ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                            <p className="font-medium text-foreground" title={transaction.description}>{truncateText(transaction.description, 30)}</p>
                             {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{formatDateForDisplay(transaction.date)}</span>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                            <span className="whitespace-nowrap">{formatDateForDisplay(transaction.date)}</span>
                             {transaction.categories?.name && (
                               <>
                                 <span>•</span>
-                                <span>{transaction.categories.name}</span>
+                                <span className="truncate" title={transaction.categories.name}>{transaction.categories.name}</span>
                               </>
                             )}
                           </div>
@@ -710,46 +715,46 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         ) : (
                           getTransactionIcon(transaction)
                         )}
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{transaction.description}</span>
+                        <div className="flex-1 min-w-0 overflow-hidden">
+                          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
+                            <span className="font-medium" title={transaction.description}>{truncateText(transaction.description, 35)}</span>
                             {transaction.series_id && transaction.is_shared && (
-                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800">
+                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800 flex-shrink-0">
                                 Rateio
                               </Badge>
                             )}
                             {transaction.linked_txn_id && (
-                              <Badge variant="outline" className="text-xs">
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
                                 Ligada
                               </Badge>
                             )}
                             {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
-                              <Badge variant="secondary" className="text-xs">
+                              <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 {transaction.installmentNumber}/{transaction.totalInstallments}
                               </Badge>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                            <span>{getAccountName(transaction)}</span>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                            <span title={getAccountName(transaction)}>{truncateText(getAccountName(transaction), 15)}</span>
                             {transaction.categories?.name && (
                               <>
                                 <span>•</span>
-                                <span>{transaction.categories.name}</span>
+                                <span title={transaction.categories.name}>{truncateText(transaction.categories.name, 15)}</span>
 
                               </>
                             )}
                             {transaction.people?.name && (
                               <>
                                 <span>•</span>
-                                <span>{transaction.people.name}</span>
+                                <span title={transaction.people.name}>{truncateText(transaction.people.name, 15)}</span>
                               </>
                             )}
                              <span>•</span>
-                             <span>{formatDateForDisplay(transaction.date)}</span>
+                             <span className="whitespace-nowrap">{formatDateForDisplay(transaction.date)}</span>
                             {isPaidExpense && (
                               <>
                                 <span>•</span>
-                                <span className="text-purple-600">
+                                <span className="text-purple-600 whitespace-nowrap">
                                   Minha parte: {formatCurrency(transaction.value)}
                                 </span>
                               </>

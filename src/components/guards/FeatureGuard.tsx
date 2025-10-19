@@ -135,7 +135,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
       <Alert variant="destructive" className="mb-4">
         <Lock className="h-4 w-4" />
         <AlertTitle>Limite Atingido</AlertTitle>
-        <AlertDescription className="flex items-center justify-between">
+        <AlertDescription className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <span>
             Você atingiu o limite de <strong>{maxLimit} {resourceName || 'itens'}</strong> do seu plano.
           </span>
@@ -143,6 +143,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
             size="sm" 
             variant="default"
             onClick={() => navigate('/pricing')}
+            className="w-full lg:w-auto flex-shrink-0"
           >
             <Sparkles className="mr-2 h-4 w-4" />
             Fazer Upgrade
@@ -158,7 +159,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
   if (isNearLimit) {
     return (
       <Alert className="mb-4 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
-        <AlertDescription className="flex items-center justify-between">
+        <AlertDescription className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <span className="text-sm">
             ⚠️ Restam <strong>{remaining}</strong> de <strong>{maxLimit} {resourceName || 'itens'}</strong> disponíveis no seu plano.
           </span>
@@ -166,6 +167,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
             size="sm" 
             variant="outline"
             onClick={() => navigate('/pricing')}
+            className="w-full lg:w-auto flex-shrink-0"
           >
             Fazer Upgrade
           </Button>

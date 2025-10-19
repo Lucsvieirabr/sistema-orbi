@@ -314,26 +314,27 @@ export default function CardStatements() {
   }
 
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      {/* Header */}
-      <Card className="shadow-lg">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button variant="outline" size="sm" onClick={goBack}>
-                <ArrowLeft className="h-4 w-4 mr-2" />
-                Voltar
-              </Button>
-              <div className="flex items-center gap-3">
-                {getCardBrandIcon(currentCard.brand)}
-                <div>
-                  <h1 className="text-2xl font-bold">{currentCard.name}</h1>
-                  <p className="text-muted-foreground">
-                    Faturas mensais • {currentCard.brand || "Cartão de Crédito"}
-                  </p>
+    <div className="w-full max-w-full overflow-x-hidden">
+      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+        {/* Header */}
+        <Card className="shadow-lg max-w-full">
+          <CardHeader className="p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+              <div className="flex items-center gap-4 min-w-0 flex-1">
+                <Button variant="outline" size="sm" onClick={goBack} className="flex-shrink-0">
+                  <ArrowLeft className="h-4 w-4 mr-2" />
+                  Voltar
+                </Button>
+                <div className="flex items-center gap-3 min-w-0 flex-1">
+                  {getCardBrandIcon(currentCard.brand)}
+                  <div className="min-w-0 flex-1">
+                    <h1 className="text-2xl font-bold truncate" title={currentCard.name}>{currentCard.name}</h1>
+                    <p className="text-muted-foreground truncate">
+                      Faturas mensais • {currentCard.brand || "Cartão de Crédito"}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
             <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
               <Button
                 variant="ghost"
@@ -609,7 +610,7 @@ export default function CardStatements() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="font-medium">
+                        <div className="font-medium truncate max-w-xs" title={transaction.description}>
                           {transaction.description}
                         </div>
                         {transaction.person_id && (
@@ -619,7 +620,9 @@ export default function CardStatements() {
                         )}
                       </TableCell>
                       <TableCell>
-                        {transaction.categories?.name || "Sem categoria"}
+                        <span className="truncate block max-w-[150px]" title={transaction.categories?.name || "Sem categoria"}>
+                          {transaction.categories?.name || "Sem categoria"}
+                        </span>
                       </TableCell>
                       <TableCell>
                         <span
@@ -673,6 +676,7 @@ export default function CardStatements() {
           )}
         </CardContent>
       </Card>
+      </div>
     </div>
   );
 }
