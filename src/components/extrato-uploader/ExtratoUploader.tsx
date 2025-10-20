@@ -6,8 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { CSVParser } from './CSVParser';
+import { StatementParser } from './StatementParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { processPdfFile } from '@/integrations/parser_api';
 
 interface ExtratoUploaderProps {
   open: boolean;
@@ -108,20 +110,60 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     setProcessingStats(null);
 
     try {
-      // Verificar se é um arquivo CSV
-      if (!file.name.toLowerCase().endsWith('.csv')) {
-        throw new Error('Por favor, selecione apenas arquivos CSV.');
+      const fileExtension = file.name.toLowerCase().split('.').pop();
+
+      // Verificar se é arquivo suportado (CSV ou PDF)
+      if (!fileExtension || (!fileExtension.includes('csv') && !fileExtension.includes('pdf'))) {
+        throw new Error('Por favor, selecione apenas arquivos CSV ou PDF.');
       }
 
       setProgress(10);
 
-      // Para arquivos CSV, usar papaparse
-      const csvData = await parseCSVFile(file);
+      let rawTransactions: any[] = [];
 
-      setProgress(30);
+      if (fileExtension.includes('csv')) {
+        // Para arquivos CSV, usar processamento existente
+        const csvData = await parseCSVFile(file);
+        setProgress(30);
 
-      // Processar transações com IA
-      const results = await processTransactionsWithAI(csvData, classifier);
+        const csvParser = new CSVParser();
+        const parseResult = csvParser.parseCSVData(csvData);
+        rawTransactions = parseResult.transactions;
+
+      } else if (fileExtension.includes('pdf')) {
+        // Para arquivos PDF, usar novo processamento com OCR
+        setProgress(20);
+
+        // Extrair texto do PDF (com OCR para PDFs de imagem)
+        const extractedText = await processPdfFile(file, (ocrProgress) => {
+          // Mapear progresso do OCR (20-60) para a barra de progresso geral
+          const mappedProgress = 20 + (ocrProgress * 0.4);
+          setProgress(mappedProgress);
+        });
+        
+        // LOG TEMPORÁRIO: Ver texto extraído
+        console.log('📄 TEXTO EXTRAÍDO DO PDF (primeiros 2000 chars):');
+        console.log(extractedText.substring(0, 2000));
+        console.log('...');
+        console.log('📄 TEXTO EXTRAÍDO DO PDF (últimos 1000 chars):');
+        console.log(extractedText.substring(extractedText.length - 1000));
+        
+        setProgress(65);
+
+        // Usar StatementParser para interpretar texto bruto
+        const statementParser = new StatementParser();
+        rawTransactions = await statementParser.parseRawTextStatement(extractedText);
+        
+        setProgress(75);
+      }
+
+      // Verificar se há transações para processar
+      if (rawTransactions.length === 0) {
+        throw new Error('Nenhuma transação foi detectada no arquivo. Verifique o formato do extrato.');
+      }
+
+      // Processar transações com IA (fluxo comum para ambos os tipos)
+      const results = await processTransactionsWithAI(rawTransactions, classifier);
 
       setProgress(90);
 
@@ -175,7 +217,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     });
   };
 
-  const processTransactionsWithAI = async (csvData: any[], _classifier: IntelligentTransactionClassifier) => {
+  const processTransactionsWithAI = async (parsedTransactions: any[], _classifier: IntelligentTransactionClassifier) => {
     const stats: ProcessingStats = {
       total: 0,
       processed: 0,
@@ -187,10 +229,6 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       dictionaryMatches: 0,
       hybridDecisions: 0
     };
-
-    // Usar CSVParser para processar os dados
-    const csvParser = new CSVParser();
-    const parseResult = csvParser.parseCSVData(csvData);
 
     const transactions: any[] = [];
 
@@ -280,19 +318,25 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       const batchClassifier = new BatchTransactionClassifier('SP', 100);
 
       // Preparar transações para classificação em batch
-      const transactionsToClassify = parseResult.transactions.map(t => ({
+      const transactionsToClassify = parsedTransactions.map(t => ({
         description: t.description,
         type: t.type,
         amount: t.value,
         date: t.date
       }));
 
+      console.log('🤖 Enviando para IA:', transactionsToClassify.length, 'transações');
+      console.log('Primeira transação:', transactionsToClassify[0]);
+
       // ⚡ UMA ÚNICA REQUEST classifica TODAS as transações
       const batchResponse = await batchClassifier.classifyBatch(transactionsToClassify);
+      
+      console.log('📥 Resposta da IA:', batchResponse.results.length, 'classificações');
+      console.log('Primeira classificação:', batchResponse.results[0]);
 
       // Processar resultados
-      for (let i = 0; i < parseResult.transactions.length; i++) {
-        const parsedTransaction = parseResult.transactions[i];
+      for (let i = 0; i < parsedTransactions.length; i++) {
+        const parsedTransaction = parsedTransactions[i];
         const classification = batchResponse.results[i];
         
         stats.total++;
@@ -309,6 +353,17 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         // Mapear categoria para ID
         const mappedCategory = categoryMap[normalizedCategory];
         let category_id = mappedCategory && mappedCategory.type === parsedTransaction.type ? mappedCategory.id : undefined;
+
+        // Log de mapeamento
+        if (i === 0) {
+          console.log('🗺️ Mapeamento de categoria:', {
+            categoria_ia: classification.category,
+            normalizada: normalizedCategory,
+            mapeada: mappedCategory,
+            category_id,
+            tipo_transacao: parsedTransaction.type
+          });
+        }
 
         // Se não encontrou categoria específica, usar categoria padrão baseada no tipo
         if (!category_id) {
@@ -422,7 +477,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
             Importar Extrato Bancário com IA
           </DialogTitle>
           <p className="text-xs lg:text-sm text-muted-foreground">
-            Selecione um arquivo CSV do seu banco. Nossa IA analisará e categorizará automaticamente as transações.
+            Selecione um arquivo CSV ou PDF do seu banco. Nossa IA analisará e categorizará automaticamente as transações.
           </p>
         </DialogHeader>
 
@@ -445,7 +500,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           >
             <input
               type="file"
-              accept=".csv"
+              accept=".csv,.pdf"
               onChange={handleFileInput}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={isProcessing || isInitializingClassifier}
@@ -466,14 +521,14 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                     ? 'Inicializando sistema de classificação inteligente...'
                     : uploadedFile
                     ? `Arquivo carregado: ${uploadedFile.name}`
-                    : 'Arraste e solte seu arquivo CSV aqui ou clique para selecionar'
+                    : 'Arraste e solte seu arquivo CSV ou PDF aqui ou clique para selecionar'
                   }
                 </p>
 
                 <p className="text-sm text-gray-500">
-                  {isInitializingClassifier 
+                  {isInitializingClassifier
                     ? 'Carregando padrões de classificação e modelos de IA...'
-                    : 'Formatos suportados: CSV'
+                    : 'Formatos suportados: CSV, PDF'
                   }
                 </p>
               </div>
@@ -492,9 +547,17 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                 <div className="space-y-2">
                   <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
                     <Brain className="h-4 w-4 animate-pulse" />
-                    Processando com IA...
+                    {progress < 65 && uploadedFile?.name.toLowerCase().includes('.pdf')
+                      ? 'Extraindo texto do PDF (OCR)...'
+                      : progress < 80
+                      ? 'Interpretando transações...'
+                      : 'Classificando com IA...'
+                    }
                   </p>
                   <Progress value={progress} className="w-full" />
+                  <p className="text-xs text-gray-500 text-center">
+                    {Math.round(progress)}%
+                  </p>
                 </div>
               )}
             </div>

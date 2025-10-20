@@ -936,11 +936,19 @@ export class CSVParser {
       throw new Error(`Valor inválido: ${rawValue}`);
     }
 
-    // Determinar sinal baseado no valor (conforme especificação técnica)
-    const sinal = numericValue < 0 ? '-' : '+';
+    // Determinar tipo baseado na coluna 'Tipo' se disponível, senão usar sinal do valor
+    let tipoMovimentacao: 'CRÉDITO' | 'DÉBITO';
 
-    // Tipo de movimentação baseado no sinal
-    const tipoMovimentacao = numericValue < 0 ? 'DÉBITO' : 'CRÉDITO';
+    if (rawType) {
+      // Usar coluna Tipo se disponível (vem do StatementParser)
+      tipoMovimentacao = rawType.toUpperCase().includes('CRÉDITO') ? 'CRÉDITO' : 'DÉBITO';
+    } else {
+      // Fallback: determinar baseado no sinal do valor
+      tipoMovimentacao = numericValue < 0 ? 'DÉBITO' : 'CRÉDITO';
+    }
+
+    // Sinal baseado no tipo de movimentação
+    const sinal = tipoMovimentacao === 'CRÉDITO' ? '+' : '-';
 
     // Instituição de origem (tentar detectar do contexto)
     const instituicaoOrigem = this.detectInstitution(rawDescription);

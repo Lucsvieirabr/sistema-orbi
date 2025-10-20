@@ -42,3 +42,13 @@ out/
 # Temporary files
 *.tmp
 *.temp
+
+# Python virtual environments
+.venv/
+venv/
+env/
+ENV/
+
+# PDF.js worker files (generated/copied during build)
+public/pdf.worker.config.js
+public/pdf.worker.min.mjs
