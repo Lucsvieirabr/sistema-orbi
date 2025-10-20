@@ -181,11 +181,18 @@ export function UserDetailDialog({ userId, open, onOpenChange }: UserDetailDialo
                   <label className="text-xs text-muted-foreground">Plano</label>
                   <p className="text-sm font-medium">{userDetails.plan_name || 'Sem plano'}</p>
                 </div>
-                {userDetails.current_period_end && (
+                {userDetails.current_period_end && userDetails.current_period_end.trim() !== '' && (
                   <div>
                     <label className="text-xs text-muted-foreground">Período até</label>
                     <p className="text-sm font-medium">
-                      {format(new Date(userDetails.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                      {(() => {
+                        try {
+                          const date = new Date(userDetails.current_period_end + 'T00:00:00');
+                          return format(date, 'dd/MM/yyyy', { locale: ptBR });
+                        } catch (error) {
+                          return '-';
+                        }
+                      })()}
                     </p>
                   </div>
                 )}
