@@ -1,14 +1,19 @@
 /**
- * WIP: Sistema de aprendizado isolado por usuário (user_learned_patterns apenas)
- * TODO: Futuro - adicionar sistema de admin para ensino global via tela de administração
+ * LIMPEZA ESTRATÉGICA EM DUAS PASSAGENS
  * 
- * Classificador Inteligente de Transações - Sistema Híbrido
- * 1. Padrões aprendidos do usuário (user_learned_patterns)
- * 2. Estabelecimentos específicos (merchants_dictionary)
- * 3. Padrões bancários contextuais
- * 4. Palavras-chave genéricas
- * 5. Machine Learning como fallback
- * 6. Cache inteligente para performance
+ * NOVA ARQUITETURA:
+ * - Camada 0 (100): Padrões do Usuário (PRIORIDADE ABSOLUTA)
+ * - Camada 1 (95):  Entidades Nomeadas (merchants_dictionary)
+ * - Camada 2 (85):  Padrões Bancários Contextuais
+ * - Camada 3 (70):  Keywords genéricos
+ * - Camada 4 (65):  Machine Learning
+ * - Fallback (40):  Categoria padrão
+ * 
+ * PROCESSO:
+ * 1. Passagem de CONTEXTO (string original) → detecta contexto bancário
+ * 2. Limpeza estratégica → remove ruídos bancários
+ * 3. Passagem de ENTIDADE (string limpa) → identifica estabelecimento
+ * 4. Decisão final → escolhe melhor resultado por prioridade
  */
 
 import { BankDictionary } from './BankDictionary';
@@ -22,6 +27,12 @@ import {
   extractKeywords,
   NormalizedVariants
 } from './DescriptionNormalizer';
+import {
+  cleanTransactionDescription,
+  hasHighPriorityBankingContext,
+  extractBankingContext,
+  isCleanedDescriptionValid
+} from './TransactionCleaner';
 
 export interface IntelligentClassification {
   category: string;
@@ -54,72 +65,198 @@ export class IntelligentTransactionClassifier {
   }
 
   /**
-   * Classifica transação usando sistema híbrido avançado
-   * AVALIA TODAS AS OPÇÕES E ESCOLHE A DE MAIOR CONFIANÇA
-   *
-   * ESTRATÉGIA MELHORADA:
-   * - Tenta múltiplas variantes da descrição (camelCase, palavras compostas)
-   * - Coleta TODAS as classificações possíveis de cada variante
-   * - Analisa palavra por palavra se confiança for baixa
-   * - Compara confiança e prioridade
-   * - Retorna a melhor opção
+   * ============================================================================
+   * LIMPEZA ESTRATÉGICA EM DUAS PASSAGENS
+   * ============================================================================
+   * 
+   * NOVA ARQUITETURA:
+   * 
+   * Passagem 1 (CONTEXTO): Usa string ORIGINAL para detectar contexto bancário
+   * Passagem 2 (ENTIDADE): Usa string LIMPA para identificar estabelecimento real
+   * 
+   * PRIORIDADES:
+   * - Camada 0 (100): Padrões do Usuário (ABSOLUTA)
+   * - Camada 1 (95):  Entidades Nomeadas (merchants_dictionary)
+   * - Camada 2 (85):  Padrões Bancários Contextuais
+   * - Camada 3 (70):  Keywords genéricos
+   * - Camada 4 (65):  Machine Learning
+   * - Fallback (40):  Categoria padrão
    */
   async classifyTransaction(description: string, type: 'income' | 'expense'): Promise<IntelligentClassification> {
     const normalizedDescription = description.toLowerCase().trim();
 
-    // PASSO 0: GERA VARIANTES NORMALIZADAS DA DESCRIÇÃO
-    const variants = generateNormalizedVariants(description);
-    const descriptionType = identifyDescriptionType(description);
-    
-    // PASSO 1: TENTA CLASSIFICAÇÃO COM DESCRIÇÃO ORIGINAL
-    const originalResult = await this.classifyWithDescription(description, type, normalizedDescription);
-    
-    // PASSO 2: SE TEM CAMELCASE, TENTA COM VERSÃO SEPARADA
-    let camelCaseResult: IntelligentClassification | null = null;
-    if (variants.camelCaseSeparated && descriptionType.needsSpecialProcessing) {
-      camelCaseResult = await this.classifyWithDescription(
-        variants.camelCaseSeparated, 
-        type, 
-        variants.camelCaseSeparated.toLowerCase().trim()
-      );
+    // =========================================================================
+    // ETAPA 0: LIMPEZA ESTRATÉGICA
+    // =========================================================================
+    const cleaningResult = cleanTransactionDescription(description);
+    const { cleaned, tokens, removedPatterns } = cleaningResult;
+    const hasValidCleanedDesc = isCleanedDescriptionValid(cleaned);
+
+    // =========================================================================
+    // ETAPA 1: CAMADA 0 - PADRÕES DO USUÁRIO (PRIORIDADE ABSOLUTA)
+    // =========================================================================
+    // Testa AMBAS: original e limpa
+    const userResultOriginal = await this.getUserLearnedPattern(description, type);
+    const userResultCleaned = hasValidCleanedDesc 
+      ? await this.getUserLearnedPattern(cleaned, type)
+      : null;
+
+    // Se encontrou match do usuário com confiança alta, retorna IMEDIATAMENTE
+    const userResult = userResultOriginal || userResultCleaned;
+    if (userResult && userResult.confidence >= 80) {
+      return {
+        ...userResult,
+        method: 'hybrid',
+        features_used: ['user_learned_absolute_priority', 'layer_0'],
+        learned_from_user: true
+      };
     }
+
+    // =========================================================================
+    // ETAPA 2: PASSAGEM DE CONTEXTO (String ORIGINAL)
+    // =========================================================================
+    let bankingContextResult: IntelligentClassification | null = null;
     
-    // PASSO 3: SE CONFIANÇA AINDA É BAIXA, ANALISA PALAVRA POR PALAVRA
-    let wordByWordResult: IntelligentClassification | null = null;
-    const needsWordAnalysis = (
-      originalResult.confidence < 60 && 
-      (!camelCaseResult || camelCaseResult.confidence < 60) &&
-      variants.keywords.length > 0
-    );
+    // Detecta contexto bancário na string original
+    const bankingContext = extractBankingContext(description);
     
-    if (needsWordAnalysis) {
-      wordByWordResult = await this.classifyByIndividualKeywords(
-        variants.keywords,
-        type
-      );
+    if (bankingContext) {
+      const contextClassification = await this.getBankingPatternClassification(description, type);
+      
+      if (contextClassification) {
+        bankingContextResult = contextClassification;
+
+        // Se é contexto de ALTA PRIORIDADE (TARIFA, JUROS, MULTA), retorna imediatamente
+        if (hasHighPriorityBankingContext(description)) {
+          return bankingContextResult;
+        }
+      }
     }
+
+    // =========================================================================
+    // ETAPA 3: PASSAGEM DE ENTIDADE (String LIMPA)
+    // =========================================================================
+    const entityCandidates: Array<IntelligentClassification & { priority: number }> = [];
+
+    if (hasValidCleanedDesc) {
+      // CAMADA 1: ENTIDADES NOMEADAS (Merchants Dictionary)
+      const merchantResult = await this.getMerchantClassification(cleaned, type);
+      if (merchantResult && merchantResult.confidence >= 60) {
+        entityCandidates.push({
+          ...merchantResult,
+          method: 'hybrid',
+          features_used: ['merchant_entity', 'cleaned_description', 'layer_1'],
+          priority: 95
+        });
+      }
+
+      // CAMADA 3: KEYWORDS (Busca por palavras-chave nos tokens limpos)
+      if (tokens.length > 0) {
+        const keywordResult = await this.classifyByIndividualKeywords(tokens, type);
+        if (keywordResult) {
+          entityCandidates.push({
+            ...keywordResult,
+            priority: 70
+          });
+        }
+      }
+
+      // Tenta também com variantes camelCase se aplicável
+      const variants = generateNormalizedVariants(cleaned);
+      if (variants.camelCaseSeparated) {
+        const camelResult = await this.getMerchantClassification(variants.camelCaseSeparated, type);
+        if (camelResult && camelResult.confidence >= 60) {
+          entityCandidates.push({
+            ...camelResult,
+            confidence: camelResult.confidence * 0.95,
+            method: 'hybrid',
+            features_used: ['merchant_entity_camel', 'layer_1'],
+            priority: 93
+          });
+        }
+      }
+    }
+
+    // CAMADA 4: MACHINE LEARNING (se habilitado)
+    if (this.useML) {
+      const mlResult = this.getMLClassification(hasValidCleanedDesc ? cleaned : description, type);
+      if (mlResult && mlResult.confidence >= 50) {
+        entityCandidates.push({
+          category: mlResult.category,
+          subcategory: mlResult.subcategory,
+          confidence: mlResult.confidence,
+          method: 'ml',
+          features_used: [...mlResult.features_used, 'layer_4'],
+          ml_prediction: mlResult,
+          priority: 65
+        });
+      }
+    }
+
+    // =========================================================================
+    // ETAPA 4: DECISÃO FINAL (Escolhe o melhor resultado)
+    // =========================================================================
     
-    // PASSO 4: COMPARA TODAS AS VARIANTES E ESCOLHE A MELHOR
-    const allResults = [
-      { result: originalResult, source: 'original' as const },
-      camelCaseResult ? { result: camelCaseResult, source: 'camelCase' as const } : null,
-      wordByWordResult ? { result: wordByWordResult, source: 'wordByWord' as const } : null,
-    ].filter(Boolean) as Array<{ result: IntelligentClassification; source: 'original' | 'camelCase' | 'wordByWord' }>;
-    
-    // Ordena por confiança
-    allResults.sort((a, b) => b.result.confidence - a.result.confidence);
-    
-    const bestResult = allResults[0].result;
-    const bestSource = allResults[0].source;
-    
-    // Adiciona informação sobre qual variante foi usada
+    // Adiciona resultado bancário aos candidatos (se houver)
+    if (bankingContextResult) {
+      entityCandidates.push({
+        ...bankingContextResult,
+        priority: 85
+      });
+    }
+
+    // Adiciona resultado do usuário com confiança média (se houver)
+    if (userResult) {
+      entityCandidates.push({
+        ...userResult,
+        method: 'hybrid',
+        features_used: ['user_learned_medium', 'layer_0'],
+        learned_from_user: true,
+        priority: 100
+      });
+    }
+
+    // Se tem candidatos, escolhe o melhor
+    if (entityCandidates.length > 0) {
+      // Ordena por: 1) Prioridade, 2) Confiança
+      entityCandidates.sort((a, b) => {
+        if (b.priority !== a.priority) {
+          return b.priority - a.priority;
+        }
+        return b.confidence - a.confidence;
+      });
+
+      const bestMatch = entityCandidates[0];
+      const { priority, ...result } = bestMatch;
+
+      // Salva no cache se confiança for boa
+      if (this.enableCache && bestMatch.confidence >= 70) {
+        this.cache.setCachedPattern(normalizedDescription, result);
+      }
+
+      return {
+        ...result,
+        features_used: [
+          ...result.features_used,
+          `removed_patterns:${removedPatterns.length}`,
+          `cleaned_valid:${hasValidCleanedDesc}`
+        ]
+      };
+    }
+
+    // =========================================================================
+    // FALLBACK: Categoria padrão
+    // =========================================================================
+    const defaultCategory = type === 'income'
+      ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)'
+      : 'Outros';
+
     return {
-      ...bestResult,
-      features_used: [
-        ...bestResult.features_used,
-        `variant_${bestSource}`,
-        ...(descriptionType.needsSpecialProcessing ? ['special_processing'] : [])
-      ]
+      category: defaultCategory,
+      confidence: 40,
+      method: 'hybrid',
+      features_used: ['type_based_default', 'no_match_found'],
+      learned_from_user: false
     };
   }
 

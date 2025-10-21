@@ -1,5 +1,6 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { cleanTransactionDescription, hasHighPriorityBankingContext, extractBankingContext, isCleanedDescriptionValid } from './description-cleaner.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -204,8 +205,21 @@ serve(async (req) => {
 });
 
 /**
- * Classifica uma única transação usando estratégia híbrida
- * AGORA COM SUPORTE A VARIANTES DE DESCRIÇÃO
+ * ============================================================================
+ * LIMPEZA ESTRATÉGICA EM DUAS PASSAGENS
+ * ============================================================================
+ * 
+ * NOVA ARQUITETURA:
+ * 
+ * Passagem 1 (CONTEXTO): Usa string ORIGINAL para detectar contexto bancário
+ * Passagem 2 (ENTIDADE): Usa string LIMPA para identificar estabelecimento real
+ * 
+ * PRIORIDADES:
+ * - Camada 0 (100): Padrões do Usuário (ABSOLUTA)
+ * - Camada 1 (95):  Entidades Nomeadas (merchants_dictionary)
+ * - Camada 2 (85):  Padrões Bancários Contextuais
+ * - Camada 3 (70):  Keywords genéricos
+ * - Fallback (40):  Categoria padrão
  */
 async function classifyTransaction(
   transaction: Transaction,
@@ -216,124 +230,251 @@ async function classifyTransaction(
   const { description, type } = transaction;
   const normalizedDesc = description.toLowerCase().trim();
 
-  // Gera variantes da descrição (camelCase, keywords, etc)
-  const variants = generateDescriptionVariants(description);
+  // =========================================================================
+  // ETAPA 0: LIMPEZA ESTRATÉGICA
+  // =========================================================================
+  const cleaningResult = cleanTransactionDescription(description);
+  const { cleaned, tokens, removedPatterns } = cleaningResult;
 
-  // Estratégia em camadas MELHORADA:
-  // 1. Tenta com descrição original
-  // 2. Se tem camelCase, tenta com versão separada
-  // 3. Se confiança baixa, analisa palavra por palavra
-  // 4. Compara resultados e retorna o melhor
+  // Verifica se a descrição limpa é válida
+  const hasValidCleanedDesc = isCleanedDescriptionValid(cleaned);
 
-  // Array para armazenar todas as tentativas
-  const candidates: ClassificationResult[] = [];
+  // =========================================================================
+  // ETAPA 1: CAMADA 0 - PADRÕES DO USUÁRIO (PRIORIDADE ABSOLUTA)
+  // =========================================================================
+  // Testa AMBAS: original e limpa
+  const userResultOriginal = await getUserLearnedPattern(normalizedDesc, userPatterns);
+  const userResultCleaned = hasValidCleanedDesc 
+    ? await getUserLearnedPattern(cleaned.toLowerCase().trim(), userPatterns)
+    : null;
 
-  // TENTATIVA 1: Classificação com descrição original
-  const result1 = await classifyWithSpecificDescription(
-    description,
-    normalizedDesc,
-    type,
-    supabaseClient,
-    userPatterns,
-    userLocation,
-    'original'
-  );
-  candidates.push(result1);
-
-  // TENTATIVA 2: Se tem camelCase, tenta com versão separada
-  if (variants.camelCaseSeparated) {
-    const camelCaseDesc = variants.camelCaseSeparated;
-    const result2 = await classifyWithSpecificDescription(
-      camelCaseDesc,
-      camelCaseDesc.toLowerCase().trim(),
-      type,
-      supabaseClient,
-      userPatterns,
-      userLocation,
-      'camelCase_separated'
-    );
-    candidates.push(result2);
-  }
-
-  // TENTATIVA 3: Se confiança ainda é baixa, analisa palavras individuais
-  const bestSoFar = candidates.reduce((best, current) => 
-    current.confidence > best.confidence ? current : best
-  );
-
-  if (bestSoFar.confidence < 60 && variants.keywords.length > 0) {
-    const result3 = await classifyByKeywords(
-      variants.keywords,
-      type,
-      supabaseClient,
-      userPatterns,
-      userLocation
-    );
-    
-    if (result3) {
-      result3.description = description; // Mantém descrição original
-      candidates.push(result3);
-    }
-  }
-
-  // Escolhe o melhor resultado (maior confiança)
-  const bestResult = candidates.reduce((best, current) => 
-    current.confidence > best.confidence ? current : best
-  );
-
-  return bestResult;
-}
-
-/**
- * Classifica usando uma descrição específica (variante)
- */
-async function classifyWithSpecificDescription(
-  description: string,
-  normalizedDesc: string,
-  type: 'income' | 'expense',
-  supabaseClient: any,
-  userPatterns: Map<string, any>,
-  userLocation: string,
-  variant: string
-): Promise<ClassificationResult> {
-  // Estratégia em camadas:
-  // 1. Padrões aprendidos do usuário (pré-carregados)
-  // 2. Busca no dicionário de merchants
-  // 3. Padrões bancários contextuais
-  // 4. Fallback padrão
-
-  // 1. PADRÕES APRENDIDOS DO USUÁRIO (MÁXIMA PRIORIDADE)
-  const exactMatch = userPatterns.get(normalizedDesc);
-  if (exactMatch && exactMatch.confidence >= 80) {
+  // Se encontrou match do usuário com confiança alta, retorna IMEDIATAMENTE
+  const userResult = userResultOriginal || userResultCleaned;
+  if (userResult && userResult.confidence >= 80) {
     return {
       description,
-      category: exactMatch.category,
-      subcategory: exactMatch.subcategory,
-      confidence: exactMatch.confidence,
+      category: userResult.category,
+      subcategory: userResult.subcategory,
+      confidence: userResult.confidence,
       method: 'user_learned',
-      features_used: ['user_learned_exact', 'high_frequency'],
-      learned_from_user: true,
+      features_used: ['user_learned_absolute_priority', 'layer_0'],
+      learned_from_user: true
     };
   }
 
-  // Busca parcial nos padrões aprendidos
+  // =========================================================================
+  // ETAPA 2: PASSAGEM DE CONTEXTO (String ORIGINAL)
+  // =========================================================================
+  let bankingContextResult: ClassificationResult | null = null;
+  
+  // Detecta contexto bancário na string original
+  const bankingContext = extractBankingContext(description);
+  
+  if (bankingContext) {
+    const contextClassification = getBankingPatternClassification(description, type);
+    
+    if (contextClassification) {
+      bankingContextResult = {
+        description,
+        ...contextClassification
+      };
+
+      // Se é contexto de ALTA PRIORIDADE (TARIFA, JUROS, MULTA), retorna imediatamente
+      if (hasHighPriorityBankingContext(description)) {
+        return bankingContextResult;
+      }
+    }
+  }
+
+  // =========================================================================
+  // ETAPA 3: PASSAGEM DE ENTIDADE (String LIMPA)
+  // =========================================================================
+  const entityCandidates: Array<ClassificationResult & { priority: number }> = [];
+
+  if (hasValidCleanedDesc) {
+    // CAMADA 1: ENTIDADES NOMEADAS (Merchants Dictionary)
+    try {
+      const merchantResult = await searchMerchantInDB(
+        cleaned,
+        supabaseClient,
+        userLocation
+      );
+
+      if (merchantResult && merchantResult.confidence >= 60) {
+        entityCandidates.push({
+          description,
+          category: merchantResult.category,
+          subcategory: merchantResult.subcategory,
+          confidence: merchantResult.confidence,
+          method: 'merchant_entity',
+          features_used: ['merchant_dictionary', 'cleaned_description', 'layer_1'],
+          priority: 95
+        });
+      }
+    } catch (error) {
+      console.error('Error searching merchant:', error);
+    }
+
+    // CAMADA 3: KEYWORDS (Busca por palavras-chave nos tokens limpos)
+    if (tokens.length > 0) {
+      const keywordResult = await classifyByKeywords(
+        tokens,
+        type,
+        supabaseClient,
+        userPatterns,
+        userLocation
+      );
+
+      if (keywordResult) {
+        entityCandidates.push({
+          ...keywordResult,
+          description,
+          priority: 70
+        });
+      }
+    }
+
+    // Tenta também com variantes camelCase se aplicável
+    const variants = generateDescriptionVariants(cleaned);
+    if (variants.camelCaseSeparated) {
+      try {
+        const camelResult = await searchMerchantInDB(
+          variants.camelCaseSeparated,
+          supabaseClient,
+          userLocation
+        );
+
+        if (camelResult && camelResult.confidence >= 60) {
+          entityCandidates.push({
+            description,
+            category: camelResult.category,
+            subcategory: camelResult.subcategory,
+            confidence: camelResult.confidence * 0.95, // Leve penalidade por ser variante
+            method: 'merchant_entity_camel',
+            features_used: ['merchant_dictionary', 'camelcase_variant', 'layer_1'],
+            priority: 93
+          });
+        }
+      } catch (error) {
+        console.error('Error searching camelCase variant:', error);
+      }
+    }
+  }
+
+  // =========================================================================
+  // ETAPA 4: DECISÃO FINAL (Escolhe o melhor resultado)
+  // =========================================================================
+  
+  // Adiciona resultado bancário aos candidatos (se houver)
+  if (bankingContextResult) {
+    entityCandidates.push({
+      ...bankingContextResult,
+      priority: 85
+    });
+  }
+
+  // Adiciona resultado do usuário com confiança média (se houver)
+  if (userResult) {
+    entityCandidates.push({
+      description,
+      category: userResult.category,
+      subcategory: userResult.subcategory,
+      confidence: userResult.confidence,
+      method: 'user_learned',
+      features_used: ['user_learned_medium', 'layer_0'],
+      learned_from_user: true,
+      priority: 100 // Usuário sempre tem prioridade
+    });
+  }
+
+  // Se tem candidatos, escolhe o melhor
+  if (entityCandidates.length > 0) {
+    // Ordena por: 1) Prioridade, 2) Confiança
+    entityCandidates.sort((a, b) => {
+      if (b.priority !== a.priority) {
+        return b.priority - a.priority;
+      }
+      return b.confidence - a.confidence;
+    });
+
+    const bestMatch = entityCandidates[0];
+    const { priority, ...result } = bestMatch;
+
+    return {
+      ...result,
+      features_used: [
+        ...result.features_used,
+        `removed_patterns:${removedPatterns.length}`,
+        `cleaned_valid:${hasValidCleanedDesc}`
+      ]
+    };
+  }
+
+  // =========================================================================
+  // FALLBACK: Categoria padrão
+  // =========================================================================
+  const defaultCategory = type === 'income'
+    ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)'
+    : 'Outros';
+
+  return {
+    description,
+    category: defaultCategory,
+    confidence: 40,
+    method: 'default_fallback',
+    features_used: ['type_based_default', 'no_match_found'],
+    learned_from_user: false
+  };
+}
+
+/**
+ * ============================================================================
+ * FUNÇÕES AUXILIARES DA NOVA ARQUITETURA
+ * ============================================================================
+ */
+
+/**
+ * CAMADA 0: Busca nos padrões aprendidos do usuário
+ */
+async function getUserLearnedPattern(
+  normalizedDesc: string,
+  userPatterns: Map<string, any>
+): Promise<{ category: string; subcategory?: string; confidence: number } | null> {
+  // Match exato
+  const exactMatch = userPatterns.get(normalizedDesc);
+  if (exactMatch && exactMatch.confidence >= 70) {
+    return {
+      category: exactMatch.category,
+      subcategory: exactMatch.subcategory,
+      confidence: exactMatch.confidence
+    };
+  }
+
+  // Match parcial (descrição contida ou contém)
   for (const [patternDesc, pattern] of userPatterns.entries()) {
     if (
       (normalizedDesc.includes(patternDesc) || patternDesc.includes(normalizedDesc)) &&
-      pattern.confidence >= 75
+      pattern.confidence >= 70
     ) {
       return {
-        description,
         category: pattern.category,
         subcategory: pattern.subcategory,
-        confidence: Math.min(pattern.confidence + (pattern.usage_count * 2), 95),
-        method: 'user_learned_partial',
-        features_used: ['user_learned_partial', 'frequency_boosted'],
-        learned_from_user: true,
+        confidence: Math.min(pattern.confidence + (pattern.usage_count * 2), 95)
       };
     }
   }
 
-  // 2. BUSCA NO DICIONÁRIO DE MERCHANTS
+  return null;
+}
+
+/**
+ * CAMADA 1: Busca no dicionário de merchants (Entidades Nomeadas)
+ */
+async function searchMerchantInDB(
+  description: string,
+  supabaseClient: any,
+  userLocation: string
+): Promise<{ category: string; subcategory?: string; confidence: number } | null> {
   try {
     const { data: merchantResults, error } = await supabaseClient
       .rpc('search_merchant', {
@@ -344,15 +485,12 @@ async function classifyWithSpecificDescription(
 
     if (!error && merchantResults && merchantResults.length > 0) {
       const merchant = merchantResults[0];
-      if (merchant.match_score >= 0.6) {
+      if (merchant.match_score >= 0.5) {
         const confidence = Math.min(merchant.match_score * 100 * merchant.confidence_modifier, 98);
         return {
-          description,
           category: merchant.category,
           subcategory: merchant.subcategory,
-          confidence,
-          method: 'merchant_specific',
-          features_used: ['merchant_dictionary', 'supabase_search'],
+          confidence
         };
       }
     }
@@ -360,28 +498,7 @@ async function classifyWithSpecificDescription(
     console.error('Error searching merchant:', error);
   }
 
-  // 3. PADRÕES BANCÁRIOS CONTEXTUAIS
-  const bankingPattern = getBankingPatternClassification(normalizedDesc, type);
-  if (bankingPattern) {
-    return {
-      description,
-      ...bankingPattern,
-    };
-  }
-
-  // 4. CATEGORIA PADRÃO (FALLBACK)
-  const defaultCategory = type === 'income'
-    ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)'
-    : 'Outros';
-
-  return {
-    description,
-    category: defaultCategory,
-    confidence: 40,
-    method: 'default_fallback',
-    features_used: ['type_based_default', variant],
-    learned_from_user: false,
-  };
+  return null;
 }
 
 /**
@@ -473,8 +590,8 @@ async function classifyByKeywords(
 }
 
 /**
- * Classificação por padrões bancários contextuais
- * Usa apenas palavras-chave genéricas - entidades específicas estão em merchants_dictionary
+ * CAMADA 2: Classificação por padrões bancários contextuais
+ * Detecta contexto bancário na string ORIGINAL (antes da limpeza)
  */
 function getBankingPatternClassification(
   description: string,
@@ -482,42 +599,48 @@ function getBankingPatternClassification(
 ): Omit<ClassificationResult, 'description'> | null {
   const descLower = description.toLowerCase();
 
-  // Palavras-chave bancárias genéricas
-  const bankingKeywords: Record<string, { category: string; subcategory?: string }> = {
-    'pix enviado': { category: 'Outros', subcategory: 'Transferências' },
-    'pix recebido': {
-      category: 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-      subcategory: 'PIX Recebido',
+  // Palavras-chave bancárias genéricas (prioridade de matching)
+  const bankingKeywords: Record<string, { category: string; subcategory?: string; priority: number }> = {
+    // ALTA PRIORIDADE (devem retornar imediatamente)
+    'tarifa': {
+      category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
+      subcategory: 'Tarifas Bancárias',
+      priority: 100
     },
-    'pagamento efetuado': { category: 'Outros', subcategory: 'Pagamentos' },
-    'transferencia': { category: 'Outros', subcategory: 'Transferências' },
-    'debito automatico': { category: 'Outros', subcategory: 'Débitos Automáticos' },
     'juros': {
       category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
       subcategory: 'Juros',
+      priority: 100
     },
     'multa': {
       category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
       subcategory: 'Multas',
-    },
-    'taxa': {
-      category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
-      subcategory: 'Taxas',
-    },
-    'tarifa': {
-      category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
-      subcategory: 'Tarifas Bancárias',
+      priority: 100
     },
     'iof': {
       category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
       subcategory: 'IOF',
+      priority: 100
     },
     'anuidade': {
       category: 'Tarifas Bancárias / Juros / Impostos / Taxas',
       subcategory: 'Anuidade',
+      priority: 100
     },
+
+    // MÉDIA PRIORIDADE (contexto bancário, mas pode ter entidade)
+    'pix enviado': { category: 'Outros', subcategory: 'Transferências', priority: 85 },
+    'pix recebido': {
+      category: 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
+      subcategory: 'PIX Recebido',
+      priority: 85
+    },
+    'pagamento efetuado': { category: 'Outros', subcategory: 'Pagamentos', priority: 80 },
+    'transferencia': { category: 'Outros', subcategory: 'Transferências', priority: 80 },
+    'debito automatico': { category: 'Outros', subcategory: 'Débitos Automáticos', priority: 80 },
   };
 
+  // Busca o primeiro match (ordem importa)
   for (const [keyword, categoryInfo] of Object.entries(bankingKeywords)) {
     if (descLower.includes(keyword)) {
       return {
@@ -525,7 +648,7 @@ function getBankingPatternClassification(
         subcategory: categoryInfo.subcategory,
         confidence: 85,
         method: 'banking_pattern',
-        features_used: ['banking_keywords', 'contextual_match'],
+        features_used: ['banking_keywords', 'contextual_match', 'layer_2'],
       };
     }
   }

@@ -79,38 +79,60 @@ serve(async (req) => {
 });
 
 /**
- * Extrai texto de PDF usando pdf-parse
- * Implementa lógica de custo zero conforme especificação técnica
+ * Extrai texto de PDF usando pdfjs-dist (compatível com Deno)
+ * PDF.js é mantido pela Mozilla e funciona perfeitamente em Edge Functions
  */
 async function extractTextFromPdf(pdfBase64: string): Promise<string> {
   try {
-    // Importar pdf-parse dinamicamente (custo zero)
-    const { default: pdfParse } = await import("https://esm.sh/pdf-parse@1.1.1");
+    // Importar pdfjs-dist (compatível com Deno/Edge Functions)
+    const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
 
     // Converter base64 para Uint8Array
-    const pdfBuffer = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
+    const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
 
-    // Extrair texto usando pdf-parse (leve e rápido para PDFs digitais)
-    const pdfData = await pdfParse(Buffer.from(pdfBuffer));
+    // Carregar o documento PDF
+    const loadingTask = pdfjsLib.getDocument({
+      data: pdfBytes,
+      useSystemFonts: true,
+    });
+
+    const pdfDocument = await loadingTask.promise;
+    const numPages = pdfDocument.numPages;
+
+    console.log(`PDF carregado com ${numPages} páginas`);
+
+    // Extrair texto de todas as páginas
+    let fullText = '';
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdfDocument.getPage(pageNum);
+      const textContent = await page.getTextContent();
+
+      // Concatenar todos os items de texto da página
+      const pageText = textContent.items
+        .map((item: any) => item.str || '')
+        .join(' ');
+
+      fullText += pageText + '\n\n';
+    }
 
     // Se conseguiu extrair texto significativo, retornar limpo
-    if (pdfData.text && pdfData.text.trim().length > 100) {
-      return cleanExtractedText(pdfData.text);
+    if (fullText && fullText.trim().length > 100) {
+      return cleanExtractedText(fullText);
     }
 
-    // Fallback: tentar extrair texto mesmo que seja lixo visual
-    // Para PDFs de imagem, o pdf-parse pode retornar texto mínimo ou metadados
-    if (pdfData.text && pdfData.text.trim().length > 0) {
-      return cleanExtractedText(pdfData.text);
+    // Fallback: tentar retornar mesmo com pouco texto
+    if (fullText && fullText.trim().length > 0) {
+      return cleanExtractedText(fullText);
     }
 
-    // Último recurso: retornar texto mínimo para evitar falha completa
+    // Último recurso: retornar indicador de extração mínima
     return "PDF_PROCESSADO_EXTRAÇÃO_MÍNIMA";
 
   } catch (error) {
-    console.error('Erro ao processar PDF com pdf-parse:', error);
+    console.error('Erro ao processar PDF:', error);
 
-    // Em caso de erro, retornar texto mínimo para não quebrar o fluxo
+    // Em caso de erro, retornar indicador de erro
     return "PDF_PROCESSADO_ERRO_EXTRAÇÃO";
   }
 }
