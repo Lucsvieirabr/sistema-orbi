@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSubscriptionPlans } from "@/hooks/use-subscription";
+import { useSubscriptionPlans, SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -98,27 +98,11 @@ export default function Pricing() {
   };
 
   /**
-   * Ativa plano gratuito para o usuário
+   * Ativa plano gratuito via RPC validada no servidor (price=0 checado no backend).
    */
-  const activateFreePlan = useCallback(async (userId: string, planId: string) => {
-    const now = new Date();
-    const oneYearLater = new Date(now);
-    oneYearLater.setFullYear(oneYearLater.getFullYear() + 1);
-
-    const { error } = await supabase
-      .from('user_subscriptions')
-      .insert({
-        user_id: userId,
-        plan_id: planId,
-        status: 'active',
-        billing_cycle: 'yearly',
-        current_period_start: now.toISOString(),
-        current_period_end: oneYearLater.toISOString(),
-      });
-
-    if (error) {
-      throw new Error(error.message);
-    }
+  const activateFreePlan = useCallback(async (planId: string) => {
+    const { error } = await supabase.rpc('activate_free_plan', { p_plan_id: planId });
+    if (error) throw new Error(error.message);
   }, []);
 
   /**
@@ -133,11 +117,9 @@ export default function Pricing() {
     setIsProcessing(true);
 
     try {
-      // Verificar autenticação
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      const { data: { session } } = await supabase.auth.getSession();
 
-      if (!session || sessionError) {
-        // C7: Não autenticado → salvar plano e ir para /login
+      if (!session) {
         localStorage.setItem('orbi_selected_plan', JSON.stringify({
           planId,
           planSlug,
@@ -148,133 +130,54 @@ export default function Pricing() {
 
         toast({
           title: "Login necessário",
-          description: isFree 
+          description: isFree
             ? "Faça login ou crie uma conta para ativar seu plano gratuito."
             : "Faça login ou crie uma conta para continuar com a assinatura.",
         });
-        
+
         navigate('/login');
-        setIsProcessing(false);
         return;
       }
 
-      const user = session.user;
-
-      // Verificar se já tem assinatura ativa
-      const { data: existingSubscription } = await supabase
-        .from('user_subscriptions')
-        .select('id, plan_id, status')
-        .eq('user_id', user.id)
-        .in('status', ['trial', 'active', 'past_due']) // Apenas assinaturas ativas
-        .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-
-      // Se já tem o MESMO plano ativo, bloquear
-      if (existingSubscription && 
-          existingSubscription.plan_id === planId &&
-          (existingSubscription.status === 'active' || existingSubscription.status === 'trial')) {
+      if (userActivePlan === planId) {
         toast({
           title: "Você já tem este plano ativo",
           description: "Este é o seu plano atual.",
           variant: "destructive",
         });
-        setIsProcessing(false);
         return;
       }
 
-      // Se tem plano diferente ativo, fazer upgrade/downgrade
-      if (existingSubscription && 
-          existingSubscription.plan_id !== planId &&
-          (existingSubscription.status === 'active' || existingSubscription.status === 'trial')) {
-        
-        // Cancelar plano antigo antes de ativar o novo
-        const { error: cancelError } = await supabase
-          .from('user_subscriptions')
-          .update({ 
-            status: 'canceled',
-            cancel_at_period_end: false,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingSubscription.id);
-
-        if (cancelError) {
-          console.error('Erro ao cancelar plano anterior:', cancelError);
-          toast({
-            title: "Erro ao processar mudança de plano",
-            description: "Não foi possível cancelar seu plano anterior.",
-            variant: "destructive",
-          });
-          setIsProcessing(false);
-          return;
-        }
-
-        toast({
-          title: "Alterando seu plano...",
-          description: "Processando mudança de plano.",
-        });
-      }
-
-      // Ativar plano
       if (isFree) {
-        // Plano gratuito → ativar imediatamente
-        await activateFreePlan(user.id, planId);
-        
-        // Invalidar cache do useSubscription para refletir plano ativo imediatamente
-        queryClient.invalidateQueries({ queryKey: ['user-subscription'] });
-        
-        const message = existingSubscription 
-          ? "Seu plano foi alterado com sucesso!"
-          : "Seu plano gratuito foi ativado. Bem-vindo ao Orbi!";
-        
+        await activateFreePlan(planId);
+        await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+
         toast({
           title: "Plano ativado com sucesso!",
-          description: message,
+          description: "Bem-vindo ao Orbi!",
         });
 
         setUserActivePlan(planId);
-        
-        // Redirecionar para sistema - aumentar delay para garantir que o cache foi atualizado
-        setTimeout(() => {
-          navigate('/sistema');
-        }, 500);
-      } else {
-        // Plano pago → criar pagamento via Edge Function
-        const isUpgrade = existingSubscription !== null;
-        
-        toast({
-          title: isUpgrade ? "Processando upgrade..." : "Criando pagamento...",
-          description: isUpgrade 
-            ? "Gerando cobrança para seu novo plano."
-            : "Estamos gerando sua cobrança, por favor aguarde.",
-        });
+        navigate('/sistema', { replace: true });
+        return;
+      }
 
-        const result = await createPayment({
-          planId,
-          billingCycle: billingCycle === 'yearly' ? 'annual' : 'monthly'
-        });
+      // Plano pago: toda a mudança (upgrade/downgrade, criação e sincronização
+      // da assinatura no Asaas) acontece no backend. O cliente não escreve
+      // em user_subscriptions.
+      const result = await createPayment({ planId, billingCycle });
 
-        if (result.success && result.payment) {
-          // Mostrar dialog com dados de pagamento
-          setShowPaymentDialog(true);
-          
-          if (isUpgrade) {
-            toast({
-              title: "Upgrade iniciado!",
-              description: "Complete o pagamento para ativar seu novo plano.",
-            });
-          }
-        } else if (result.success && result.free_plan) {
-          // Plano gratuito ativado
-          queryClient.invalidateQueries({ queryKey: ['user-subscription'] });
-          navigate('/sistema');
-        } else {
-          // Erro já foi tratado pelo hook
-          console.error('Payment creation failed:', result.error);
-        }
+      if (result.success && result.free_plan) {
+        await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+        navigate('/sistema', { replace: true });
+        return;
+      }
+
+      if (result.success && result.payment) {
+        setShowPaymentDialog(true);
+        await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
       }
     } catch (error: any) {
-      console.error('Erro ao processar plano:', error);
       toast({
         title: "Erro ao processar",
         description: error.message || "Tente novamente mais tarde.",
@@ -283,35 +186,24 @@ export default function Pricing() {
     } finally {
       setIsProcessing(false);
     }
-  }, [billingCycle, queryClient, toast, navigate, activateFreePlan]);
+  }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan]);
 
   /**
    * Verificar estado do usuário ao carregar a página
    */
   useEffect(() => {
     const checkUserState = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        
-        if (session) {
-          setIsAuthenticated(true);
-          
-          // Buscar plano ativo
-          const { data: subscription } = await supabase
-            .from('user_subscriptions')
-            .select('plan_id, status')
-            .eq('user_id', session.user.id)
-            .in('status', ['trial', 'active', 'past_due']) // Apenas assinaturas ativas
-            .order('created_at', { ascending: false })
-            .limit(1)
-            .maybeSingle();
-          
-          if (subscription && (subscription.status === 'active' || subscription.status === 'trial')) {
-            setUserActivePlan(subscription.plan_id);
-          }
-        }
-      } catch (error) {
-        console.error('Erro ao verificar estado do usuário:', error);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      setIsAuthenticated(true);
+
+      const { data, error } = await supabase.rpc('get_my_subscription_status');
+      if (error) return;
+
+      const status = data as any;
+      if (status?.access === 'allowed' && status?.plan_id) {
+        setUserActivePlan(status.plan_id);
       }
     };
 

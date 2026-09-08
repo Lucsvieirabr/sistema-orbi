@@ -34,6 +34,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      asaas_webhook_events: {
+        Row: {
+          asaas_customer_id: string | null
+          asaas_payment_id: string | null
+          asaas_subscription_id: string | null
+          event: string
+          id: string
+          payload: Json
+          process_error: string | null
+          processed_at: string | null
+          received_at: string
+        }
+        Insert: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
+          event: string
+          id: string
+          payload?: Json
+          process_error?: string | null
+          processed_at?: string | null
+          received_at?: string
+        }
+        Update: {
+          asaas_customer_id?: string | null
+          asaas_payment_id?: string | null
+          asaas_subscription_id?: string | null
+          event?: string
+          id?: string
+          payload?: Json
+          process_error?: string | null
+          processed_at?: string | null
+          received_at?: string
+        }
+        Relationships: []
+      }
       accounts: {
         Row: {
           color: string | null
@@ -334,6 +370,10 @@ export type Database = {
       }
       payment_history: {
         Row: {
+          bank_slip_url: string | null
+          invoice_url: string | null
+          pix_copy_paste: string | null
+          pix_qr_code: string | null
           amount: number
           asaas_invoice_url: string | null
           asaas_payment_id: string | null
@@ -349,6 +389,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          bank_slip_url?: string | null
+          invoice_url?: string | null
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
           amount: number
           asaas_invoice_url?: string | null
           asaas_payment_id?: string | null
@@ -364,6 +408,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          bank_slip_url?: string | null
+          invoice_url?: string | null
+          pix_copy_paste?: string | null
+          pix_qr_code?: string | null
           amount?: number
           asaas_invoice_url?: string | null
           asaas_payment_id?: string | null
@@ -733,6 +781,7 @@ export type Database = {
       }
       user_profiles: {
         Row: {
+          asaas_customer_id: string | null
           avatar_url: string | null
           created_at: string | null
           email: string | null
@@ -745,6 +794,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
@@ -757,6 +807,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          asaas_customer_id?: string | null
           avatar_url?: string | null
           created_at?: string | null
           email?: string | null
@@ -772,6 +823,10 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
+          blocked_reason: string | null
+          grace_period_end: string | null
+          last_payment_at: string | null
+          next_due_date: string | null
           asaas_customer_id: string | null
           asaas_subscription_id: string | null
           billing_cycle: string
@@ -789,6 +844,10 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          blocked_reason?: string | null
+          grace_period_end?: string | null
+          last_payment_at?: string | null
+          next_due_date?: string | null
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
           billing_cycle?: string
@@ -806,6 +865,10 @@ export type Database = {
           user_id: string
         }
         Update: {
+          blocked_reason?: string | null
+          grace_period_end?: string | null
+          last_payment_at?: string | null
+          next_due_date?: string | null
           asaas_customer_id?: string | null
           asaas_subscription_id?: string | null
           billing_cycle?: string
@@ -965,6 +1028,18 @@ export type Database = {
       }
     }
     Functions: {
+      activate_free_plan: {
+        Args: { p_plan_id: string }
+        Returns: Json
+      }
+      get_my_subscription_status: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
+      user_active_plan_limits: {
+        Args: { p_user_id: string }
+        Returns: Json
+      }
       admin_list_users: {
         Args: Record<PropertyKey, never>
         Returns: {

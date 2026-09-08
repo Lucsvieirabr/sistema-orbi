@@ -1,322 +1,260 @@
-// Edge Function para criar cobrança/pagamento no Asaas
-// Chamada quando o usuário escolhe um plano
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import {
+  AsaasPayment,
+  AsaasSubscription,
+  addCycle,
+  asaasFetch,
+  findOrCreateCustomer,
+  normalizeBillingCycle,
+  onlyDigits,
+  toAsaasCycle,
+  toIsoDate,
+} from '../_shared/asaas.ts'
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
-
-interface CreatePaymentRequest {
+interface Body {
   planId: string
-  billingCycle: 'monthly' | 'annual'
+  billingCycle: 'monthly' | 'yearly' | 'annual'
+  cpfCnpj?: string
+  mobilePhone?: string
 }
 
-interface AsaasPaymentResponse {
-  id: string
-  customer: string
-  billingType: string
-  value: number
-  dueDate: string
-  status: string
-  invoiceUrl: string
-  bankSlipUrl?: string
-  pixQrCodeUrl?: string
-  pixCopyAndPaste?: string
-  installmentUrl?: string
-}
-
-interface AsaasSubscriptionResponse {
-  id: string
-  customer: string
-  billingType: string
-  value: number
-  nextDueDate: string
-  cycle: string
-  status: string
-}
-
-const ASAAS_BASE_URL = Deno.env.get('ASAAS_SANDBOX') === 'true' 
-  ? 'https://sandbox.asaas.com/api/v3' 
-  : 'https://api.asaas.com/v3'
+const ACTIVE_STATUSES = ['pending', 'trial', 'active', 'past_due']
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
 
   try {
-    // Obter token de autenticação
-    const authHeader = req.headers.get('authorization')
-    if (!authHeader) {
-      throw new Error('Missing authorization header')
+    const user = await requireUser(req)
+    const supabase = adminClient()
+    const body: Body = await req.json()
+
+    if (!body?.planId || !body?.billingCycle) {
+      throw new Error('Campos obrigatórios: planId, billingCycle')
     }
 
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    )
+    const billingCycle = normalizeBillingCycle(body.billingCycle)
 
-    // Obter usuário autenticado
-    const { data: { user }, error: userError } = await supabaseClient.auth.getUser()
-    if (userError || !user) {
-      throw new Error('Unauthorized')
-    }
-
-    const body: CreatePaymentRequest = await req.json()
-    const { planId, billingCycle } = body
-
-    // Validações
-    if (!planId || !billingCycle) {
-      throw new Error('Missing required fields: planId, billingCycle')
-    }
-
-    // Usar cliente com service role para operações sensíveis
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Buscar dados do usuário
-    const { data: userProfile, error: profileError } = await supabaseAdmin
-      .from('user_profiles')
-      .select('*, user_id')
-      .eq('user_id', user.id)
-      .single()
-
-    if (profileError || !userProfile) {
-      throw new Error('User profile not found')
-    }
-
-    // Buscar dados do plano
-    const { data: plan, error: planError } = await supabaseAdmin
+    const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
       .select('*')
-      .eq('id', planId)
+      .eq('id', body.planId)
       .eq('is_active', true)
-      .single()
+      .maybeSingle()
 
-    if (planError || !plan) {
-      throw new Error('Plan not found or inactive')
-    }
+    if (planError) throw planError
+    if (!plan) throw new Error('Plano não encontrado ou inativo')
 
-    // Determinar valor baseado no ciclo
-    const amount = billingCycle === 'annual' ? plan.price_yearly : plan.price_monthly
-    
-    // Verificar se é plano gratuito
-    if (amount === 0) {
-      // Criar assinatura gratuita diretamente
-      const { data: subscription, error: subError } = await supabaseAdmin
+    const amount = Number(billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly)
+
+    if (!(amount > 0)) {
+      const now = new Date()
+
+      await supabase
+        .from('user_subscriptions')
+        .update({ status: 'canceled', cancel_at_period_end: false, updated_at: now.toISOString() })
+        .eq('user_id', user.id)
+        .in('status', ACTIVE_STATUSES)
+
+      const { data, error } = await supabase
         .from('user_subscriptions')
         .insert({
           user_id: user.id,
-          plan_id: planId,
+          plan_id: plan.id,
           status: 'active',
           billing_cycle: billingCycle,
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + (billingCycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+          current_period_start: now.toISOString(),
+          current_period_end: addCycle(now, billingCycle).toISOString(),
         })
         .select()
         .single()
 
-      if (subError) throw subError
-
-      return new Response(
-        JSON.stringify({
-          success: true,
-          subscription,
-          free_plan: true
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200,
-        }
-      )
+      if (error) throw error
+      return jsonResponse({ success: true, free_plan: true, subscription: data })
     }
 
-    // Verificar se o customer existe no Asaas
-    let asaasCustomerId = userProfile.asaas_customer_id
+    const { data: profile, error: profileError } = await supabase
+      .from('user_profiles')
+      .select('user_id, email, full_name, asaas_customer_id')
+      .eq('user_id', user.id)
+      .maybeSingle()
 
-    if (!asaasCustomerId) {
-      // Criar customer no Asaas
-      console.log('Creating Asaas customer...')
-      const customerResponse = await fetch(`${ASAAS_BASE_URL}/customers`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'access_token': Deno.env.get('ASAAS_API_KEY') ?? ''
-        },
-        body: JSON.stringify({
-          name: userProfile.full_name || userProfile.email,
-          email: userProfile.email,
-          notificationDisabled: false
-        })
-      })
+    if (profileError) throw profileError
 
-      if (!customerResponse.ok) {
-        const errorText = await customerResponse.text()
-        console.error('Asaas customer creation error:', errorText)
-        throw new Error(`Failed to create Asaas customer: ${errorText}`)
-      }
+    const email = profile?.email || user.email
+    if (!email) throw new Error('E-mail do usuário não encontrado')
 
-      const customerData = await customerResponse.json()
-      asaasCustomerId = customerData.id
+    const customer = await findOrCreateCustomer({
+      asaasCustomerId: profile?.asaas_customer_id,
+      name: profile?.full_name || email,
+      email,
+      cpfCnpj: onlyDigits(body.cpfCnpj),
+      mobilePhone: onlyDigits(body.mobilePhone),
+      externalReference: user.id,
+    })
 
-      // Atualizar user_profiles
-      await supabaseAdmin
+    if (customer.id !== profile?.asaas_customer_id) {
+      await supabase
         .from('user_profiles')
-        .update({ asaas_customer_id: asaasCustomerId })
+        .update({ asaas_customer_id: customer.id })
         .eq('user_id', user.id)
     }
 
-    console.log('Creating payment link for plan:', plan.name)
-
-    // Criar Payment Link no Asaas
-    // Isso permite que o cliente escolha a forma de pagamento e gera a cobrança automaticamente
-    
-    // URL de callback após pagamento
-    const baseUrl = Deno.env.get('PUBLIC_APP_URL') || 'https://sistema-orbi.vercel.app'
-    const callbackUrl = `${baseUrl}/sistema?payment=success`
-    
-    const paymentLinkPayload = {
-      name: `${plan.name} - ${userProfile.full_name || userProfile.email}`,
-      description: plan.description || `Assinatura ${plan.name}`,
-      billingType: 'UNDEFINED', // Permite que o cliente escolha (PIX, Boleto, Cartão)
-      chargeType: 'RECURRENT',
-      value: parseFloat(amount.toString()),
-      subscriptionCycle: billingCycle === 'annual' ? 'YEARLY' : 'MONTHLY',
-      dueDateLimitDays: 3, // 3 dias úteis para pagar boleto
-      notificationEnabled: true,
-      externalReference: `plan_${planId}_user_${user.id}_${Date.now()}`,
-      callback: {
-        successUrl: callbackUrl,
-        autoRedirect: true
-      }
-    }
-
-    const asaasResponse = await fetch(`${ASAAS_BASE_URL}/paymentLinks`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'access_token': Deno.env.get('ASAAS_API_KEY') ?? ''
-      },
-      body: JSON.stringify(paymentLinkPayload)
-    })
-
-    if (!asaasResponse.ok) {
-      const errorText = await asaasResponse.text()
-      console.error('Asaas payment link creation error:', errorText)
-      throw new Error(`Failed to create payment link: ${errorText}`)
-    }
-
-    const paymentLinkData = await asaasResponse.json()
-    console.log('Payment link created:', paymentLinkData.id, paymentLinkData.url)
-
-    // Converter billing_cycle para o formato do banco (annual -> yearly)
-    const dbBillingCycle = billingCycle === 'annual' ? 'yearly' : 'monthly'
-    
-    // Criar/atualizar assinatura no banco
-    const { data: existingSubscription } = await supabaseAdmin
+    const { data: currentSubs, error: currentError } = await supabase
       .from('user_subscriptions')
       .select('*')
       .eq('user_id', user.id)
-      .eq('plan_id', planId)
-      .single()
+      .in('status', ACTIVE_STATUSES)
+      .order('created_at', { ascending: false })
 
-    let subscription
-    if (existingSubscription) {
-      // Atualizar assinatura existente - status 'pending' até confirmar pagamento
-      const { data: updated, error: updateError } = await supabaseAdmin
+    if (currentError) throw currentError
+
+    const current = currentSubs?.[0] ?? null
+    const isSamePlan = current?.plan_id === plan.id && current?.billing_cycle === billingCycle
+    const isPaidActive = !!current?.asaas_subscription_id
+
+    if (isSamePlan && current?.status === 'active') {
+      throw new Error('Você já possui este plano ativo')
+    }
+
+    const cycle = toAsaasCycle(billingCycle)
+    const nextDueDate = toIsoDate(new Date())
+    const externalReference = `orbi:${user.id}:${plan.id}:${billingCycle}`
+
+    let asaasSubscription: AsaasSubscription
+
+    if (isPaidActive) {
+      // Upgrade/downgrade: reaproveita a assinatura do Asaas, sincroniza valor e ciclo
+      asaasSubscription = await asaasFetch<AsaasSubscription>(
+        `/subscriptions/${current!.asaas_subscription_id}`,
+        {
+          method: 'PUT',
+          body: {
+            value: amount,
+            cycle,
+            description: `Orbi - ${plan.name}`,
+            externalReference,
+            updatePendingPayments: true,
+            billingType: 'UNDEFINED',
+          },
+        },
+      )
+    } else {
+      asaasSubscription = await asaasFetch<AsaasSubscription>('/subscriptions', {
+        method: 'POST',
+        body: {
+          customer: customer.id,
+          billingType: 'UNDEFINED',
+          value: amount,
+          nextDueDate,
+          cycle,
+          description: `Orbi - ${plan.name}`,
+          externalReference,
+        },
+      })
+    }
+
+    // Assinaturas anteriores que não são a reaproveitada saem de cena
+    const staleIds = (currentSubs ?? [])
+      .filter((s) => s.asaas_subscription_id !== asaasSubscription.id)
+      .map((s) => s.id)
+
+    if (staleIds.length) {
+      await supabase
+        .from('user_subscriptions')
+        .update({ status: 'canceled', cancel_at_period_end: false, updated_at: new Date().toISOString() })
+        .in('id', staleIds)
+    }
+
+    const now = new Date()
+    const basePayload = {
+      user_id: user.id,
+      plan_id: plan.id,
+      billing_cycle: billingCycle,
+      asaas_customer_id: customer.id,
+      asaas_subscription_id: asaasSubscription.id,
+      next_due_date: asaasSubscription.nextDueDate ?? nextDueDate,
+      updated_at: now.toISOString(),
+    }
+
+    let subscriptionRow
+
+    if (isPaidActive) {
+      // Upgrade sobre plano já pago: mantém acesso, ajusta o plano imediatamente
+      const { data, error } = await supabase
         .from('user_subscriptions')
         .update({
-          status: 'pending',
-          billing_cycle: dbBillingCycle,
-          asaas_customer_id: asaasCustomerId,
-          updated_at: new Date().toISOString()
+          ...basePayload,
+          status: current!.status === 'past_due' ? 'past_due' : current!.status,
+          blocked_reason: null,
         })
-        .eq('id', existingSubscription.id)
+        .eq('id', current!.id)
         .select()
         .single()
 
-      if (updateError) throw updateError
-      subscription = updated
+      if (error) throw error
+      subscriptionRow = data
     } else {
-      // Criar nova assinatura - status 'pending' até confirmar pagamento via webhook
-      const { data: created, error: createError } = await supabaseAdmin
+      const { data, error } = await supabase
         .from('user_subscriptions')
         .insert({
-          user_id: user.id,
-          plan_id: planId,
+          ...basePayload,
           status: 'pending',
-          billing_cycle: dbBillingCycle,
-          asaas_customer_id: asaasCustomerId,
-          current_period_start: new Date().toISOString(),
-          current_period_end: new Date(Date.now() + (billingCycle === 'annual' ? 365 : 30) * 24 * 60 * 60 * 1000).toISOString()
+          current_period_start: now.toISOString(),
+          current_period_end: addCycle(now, billingCycle).toISOString(),
         })
         .select()
         .single()
 
-      if (createError) throw createError
-      subscription = created
+      if (error) throw error
+      subscriptionRow = data
     }
 
-    // Registrar payment link no histórico
-    const { error: paymentHistoryError } = await supabaseAdmin
-      .from('payment_history')
-      .insert({
-        user_id: user.id,
-        subscription_id: subscription.id,
-        amount: amount,
-        currency: 'BRL',
-        status: 'pending',
-        payment_method: 'PAYMENT_LINK',
-        asaas_payment_id: paymentLinkData.id,
-        invoice_url: paymentLinkData.url,
-        metadata: {
-          payment_link_id: paymentLinkData.id,
-          charge_type: paymentLinkData.chargeType,
-          subscription_cycle: paymentLinkData.subscriptionCycle
-        }
-      })
-
-    if (paymentHistoryError) {
-      console.error('Error creating payment history:', paymentHistoryError)
-    }
-
-    return new Response(
-      JSON.stringify({
-        success: true,
-        subscription,
-        payment: {
-          id: paymentLinkData.id,
-          url: paymentLinkData.url,
-          value: paymentLinkData.value,
-          active: paymentLinkData.active,
-          chargeType: paymentLinkData.chargeType,
-          subscriptionCycle: paymentLinkData.subscriptionCycle,
-          redirectUrl: paymentLinkData.url
-        }
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      }
+    const payments = await asaasFetch<{ data: AsaasPayment[] }>(
+      `/subscriptions/${asaasSubscription.id}/payments?limit=1`,
     )
+    const payment = payments?.data?.[0] ?? null
+
+    if (payment) {
+      await supabase
+        .from('payment_history')
+        .upsert(
+          {
+            user_id: user.id,
+            subscription_id: subscriptionRow.id,
+            amount,
+            currency: 'BRL',
+            status: 'pending',
+            payment_method: payment.billingType,
+            asaas_payment_id: payment.id,
+            asaas_invoice_url: payment.invoiceUrl,
+            invoice_url: payment.invoiceUrl,
+            bank_slip_url: payment.bankSlipUrl,
+            due_date: payment.dueDate,
+            metadata: { asaas_subscription_id: asaasSubscription.id },
+          },
+          { onConflict: 'asaas_payment_id' },
+        )
+    }
+
+    return jsonResponse({
+      success: true,
+      subscription: subscriptionRow,
+      payment: payment
+        ? {
+            id: payment.id,
+            url: payment.invoiceUrl,
+            value: payment.value,
+            dueDate: payment.dueDate,
+            billingType: payment.billingType,
+          }
+        : null,
+      asaas_subscription_id: asaasSubscription.id,
+      upgraded: isPaidActive,
+    })
   } catch (error) {
-    console.error('Error in asaas-create-payment:', error)
-    return new Response(
-      JSON.stringify({ 
-        success: false,
-        error: error.message 
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      }
-    )
+    console.error('asaas-create-payment:', error)
+    return jsonResponse({ success: false, error: (error as Error).message }, errorStatus(error))
   }
 })
-

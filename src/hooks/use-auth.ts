@@ -1,8 +1,11 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
+import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from "@/hooks/use-subscription";
+import { syncSubscriptionStatus } from "@/hooks/use-payment";
 
 interface AuthState {
   user: User | null;
@@ -11,9 +14,28 @@ interface AuthState {
 }
 
 /**
- * Hook centralizado para gerenciar autenticação
- * Simplifica a lógica de login/logout e navegação
+ * Resolve a rota de destino a partir do status validado no backend.
+ * Nunca confia em flag local — sempre RPC SECURITY DEFINER.
  */
+export async function resolvePostAuthRoute(): Promise<string> {
+  await syncSubscriptionStatus();
+
+  const { data, error } = await supabase.rpc("get_my_subscription_status");
+  if (error) return "/pricing";
+
+  const status = data as unknown as SubscriptionStatusPayload;
+
+  switch (status?.access) {
+    case "allowed":
+      return "/sistema";
+    case "blocked":
+    case "pending_payment":
+      return "/billing";
+    default:
+      return "/pricing";
+  }
+}
+
 export function useAuth() {
   const [authState, setAuthState] = useState<AuthState>({
     user: null,
@@ -22,9 +44,9 @@ export function useAuth() {
   });
   const navigate = useNavigate();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    // Verificar sessão inicial
     supabase.auth.getSession().then(({ data: { session } }) => {
       setAuthState({
         user: session?.user ?? null,
@@ -33,7 +55,6 @@ export function useAuth() {
       });
     });
 
-    // Escutar mudanças de autenticação
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -47,77 +68,50 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  /**
-   * Realiza login e redireciona baseado no estado do plano
-   */
   const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast({
-        title: "Falha no login",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Falha no login", description: error.message, variant: "destructive" });
       return false;
     }
 
-    if (data.user) {
+    if (!data.user) return false;
+
+    queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+
+    const route = await resolvePostAuthRoute();
+    await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+
+    if (route === "/billing") {
       toast({
-        title: "Login realizado com sucesso!",
-        description: "Redirecionando...",
+        title: "Acesso bloqueado",
+        description: "Regularize sua assinatura para continuar usando o Orbi.",
+        variant: "destructive",
       });
-
-      // Verificar se tem plano ativo
-      const hasActivePlan = await checkUserHasActivePlan(data.user.id);
-
-      if (hasActivePlan) {
-        // C2: Login com plano ativo → /sistema
-        navigate("/sistema", { replace: true });
-      } else {
-        // C3: Login com plano inativo → /pricing
-        navigate("/pricing", { replace: true });
-      }
-
-      return true;
+    } else {
+      toast({ title: "Login realizado com sucesso!", description: "Redirecionando..." });
     }
 
-    return false;
+    navigate(route, { replace: true });
+    return true;
   };
 
-  /**
-   * Realiza cadastro e redireciona para /pricing
-   */
   const register = async (email: string, password: string, fullName: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        data: {
-          full_name: fullName,
-        },
-      },
+      options: { data: { full_name: fullName } },
     });
 
     if (error) {
-      toast({
-        title: "Erro ao criar conta",
-        description: error.message,
-        variant: "destructive",
-      });
+      toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
       return false;
     }
 
     if (data.user) {
-      toast({
-        title: "Conta criada com sucesso!",
-        description: "Escolha um plano para começar.",
-      });
-
-      // C1: Cadastro → /pricing (sem plano)
+      toast({ title: "Conta criada com sucesso!", description: "Escolha um plano para começar." });
+      queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
       navigate("/pricing", { replace: true });
       return true;
     }
@@ -125,15 +119,10 @@ export function useAuth() {
     return false;
   };
 
-  /**
-   * Realiza logout
-   */
   const logout = async () => {
     await supabase.auth.signOut();
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
+    queryClient.clear();
+    toast({ title: "Logout realizado", description: "Até logo!" });
     navigate("/pricing", { replace: true });
   };
 
@@ -146,20 +135,3 @@ export function useAuth() {
     logout,
   };
 }
-
-/**
- * Verifica se usuário tem plano ativo
- */
-async function checkUserHasActivePlan(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("user_subscriptions")
-    .select("status")
-    .eq("user_id", userId)
-    .in("status", ["trial", "active", "past_due"])
-    .maybeSingle();
-
-  if (error || !data) return false;
-
-  return data.status === "active" || data.status === "trial";
-}
-

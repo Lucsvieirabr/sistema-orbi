@@ -295,3 +295,17 @@ port = 54327
 vector_port = 54328
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
+[functions.asaas-webhook-handler]
+verify_jwt = false
+
+[functions.asaas-create-customer]
+verify_jwt = true
+
+[functions.asaas-create-payment]
+verify_jwt = true
+
+[functions.asaas-manage-subscription]
+verify_jwt = true
+
+[functions.asaas-sync-subscription]
+verify_jwt = true

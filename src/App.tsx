@@ -10,6 +10,7 @@ import { Dashboard } from "@/components/dashboard/Dashboard";
 import { SubscriptionGuard } from "@/components/guards/SubscriptionGuard";
 import NotFound from "./pages/NotFound";
 import Pricing from "./pages/Pricing";
+import Billing from "./pages/Billing";
 import { ThemeProvider } from "@/hooks/use-theme";
 import AppLayout from "@/layouts/AppLayout";
 import AdminLayout from "@/admin/layouts/AdminLayout";
@@ -101,6 +102,12 @@ const App = () => {
 
               {/* Rotas públicas */}
               <Route path="/pricing" element={<Pricing />} />
+
+              {/* Bloqueio por inadimplência / pagamento pendente */}
+              <Route
+                path="/billing"
+                element={isAuthenticated ? <Billing /> : <Navigate to="/login" replace />}
+              />
               <Route 
                 path="/login" 
                 element={isAuthenticated ? <Navigate to="/sistema" replace /> : <AuthForm />} 

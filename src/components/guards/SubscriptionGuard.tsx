@@ -1,47 +1,43 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { useSubscription } from "@/hooks/use-subscription";
-import { useToast } from "@/hooks/use-toast";
 
 interface SubscriptionGuardProps {
   children: React.ReactNode;
 }
 
 /**
- * Guard simplificado que verifica se o usuário tem um plano ativo
- * 
- * Casos de uso:
- * - C4: Usuário autenticado com plano ativo → permite acesso
- * - C5: Usuário autenticado sem plano ativo → redireciona para /pricing
+ * Guard global de acesso. A decisão vem da RPC get_my_subscription_status
+ * (SECURITY DEFINER), não de linhas graváveis pelo cliente.
+ *
+ * allowed          → libera
+ * blocked          → /billing (inadimplente / expirado)
+ * pending_payment  → /billing (aguardando confirmação)
+ * no_plan          → /pricing
  */
 export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
   const navigate = useNavigate();
-  const { toast } = useToast();
-  const { hasActivePlan, isLoading, hasAnyPlan } = useSubscription();
+  const location = useLocation();
+  const { access, isLoading, error } = useSubscription();
 
   useEffect(() => {
-    // Aguarda carregamento
     if (isLoading) return;
 
-    // Se não tem plano ativo, redireciona para pricing (C5)
-    if (!hasActivePlan) {
-      const message = hasAnyPlan
-        ? "Seu plano não está mais ativo. Renove para continuar."
-        : "Você precisa escolher um plano para acessar o sistema.";
-
-      toast({
-        title: "Plano necessário",
-        description: message,
-        variant: "default",
-        duration: 5000,
-      });
-
-      navigate('/pricing', { replace: true });
+    if (error) {
+      navigate("/pricing", { replace: true });
+      return;
     }
-  }, [hasActivePlan, hasAnyPlan, isLoading, navigate, toast]);
 
-  // Loading
-  if (isLoading || !hasActivePlan) {
+    if (access === "allowed") return;
+
+    const target = access === "blocked" || access === "pending_payment" ? "/billing" : "/pricing";
+
+    if (location.pathname !== target) {
+      navigate(target, { replace: true, state: { from: location.pathname } });
+    }
+  }, [access, isLoading, error, navigate, location.pathname]);
+
+  if (isLoading || access !== "allowed") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="flex flex-col items-center gap-4">
@@ -54,7 +50,5 @@ export function SubscriptionGuard({ children }: SubscriptionGuardProps) {
     );
   }
 
-  // Plano ativo, renderiza conteúdo (C4)
   return <>{children}</>;
 }
-
