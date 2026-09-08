@@ -11,6 +11,32 @@ import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { processPdfFile } from '@/integrations/parser_api';
 
+const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10MB
+
+async function detectRealFileType(file: File): Promise<'csv' | 'pdf' | null> {
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  const isPDF = header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46; // %PDF
+  if (isPDF) return 'pdf';
+  const ext = file.name.toLowerCase().split('.').pop();
+  if (ext === 'csv') return 'csv';
+  return null;
+}
+
+async function decodeCsvFile(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  if (bytes.length >= 3 && bytes[0] === 0xEF && bytes[1] === 0xBB && bytes[2] === 0xBF) {
+    return new TextDecoder('utf-8').decode(bytes.slice(3));
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    // Fallback: exportações bancárias BR costumam vir em ISO-8859-1/Windows-1252
+    return new TextDecoder('windows-1252').decode(bytes);
+  }
+}
+
 interface ExtratoUploaderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -110,18 +136,23 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     setProcessingStats(null);
 
     try {
-      const fileExtension = file.name.toLowerCase().split('.').pop();
+      const fileType = await detectRealFileType(file);
 
-      // Verificar se é arquivo suportado (CSV ou PDF)
-      if (!fileExtension || (!fileExtension.includes('csv') && !fileExtension.includes('pdf'))) {
-        throw new Error('Por favor, selecione apenas arquivos CSV ou PDF.');
+      if (!fileType) {
+        throw new Error('Arquivo inválido: selecione um CSV ou PDF real (o conteúdo não corresponde à extensão).');
+      }
+      if (fileType === 'pdf' && file.size > MAX_PDF_SIZE) {
+        throw new Error(`PDF excede o limite de ${MAX_PDF_SIZE / 1024 / 1024}MB.`);
+      }
+      if (fileType === 'csv' && file.size > MAX_CSV_SIZE) {
+        throw new Error(`CSV excede o limite de ${MAX_CSV_SIZE / 1024 / 1024}MB.`);
       }
 
       setProgress(10);
 
       let rawTransactions: any[] = [];
 
-      if (fileExtension.includes('csv')) {
+      if (fileType === 'csv') {
         // Para arquivos CSV, usar processamento existente
         const csvData = await parseCSVFile(file);
         setProgress(30);
@@ -130,7 +161,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         const parseResult = csvParser.parseCSVData(csvData);
         rawTransactions = parseResult.transactions;
 
-      } else if (fileExtension.includes('pdf')) {
+      } else if (fileType === 'pdf') {
         // Para arquivos PDF, usar novo processamento com OCR
         setProgress(20);
 
@@ -189,12 +220,12 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
   }, [classifier, toast]);
 
   const parseCSVFile = async (file: File): Promise<any[]> => {
+    const csvText = await decodeCsvFile(file);
     return new Promise((resolve, reject) => {
       import('papaparse').then(({ default: Papa }) => {
-        Papa.parse(file, {
+        Papa.parse(csvText, {
           header: true,
           skipEmptyLines: true,
-          encoding: 'utf-8',
           transformHeader: (header: string) => {
             return header.trim();
           },
@@ -435,6 +466,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     if (e.target.files && e.target.files[0]) {
       processFile(e.target.files[0]);
     }
+    e.target.value = '';
   }, [processFile]);
 
   const handleTransactionsSaved = () => {

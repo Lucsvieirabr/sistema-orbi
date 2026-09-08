@@ -3,8 +3,10 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 /**
  * Edge Function para extrair texto de arquivos PDF
- * Usa pdf-parse para PDFs digitais e fallback para PDFs de imagem
+ * Usa pdfjs-dist para PDFs digitais; PDFs de imagem seguem via OCR local no client
  */
+const MAX_PDF_BYTES = 15 * 1024 * 1024; // 15MB decodificado
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -52,8 +54,48 @@ serve(async (req) => {
       );
     }
 
+    // Sanitizar base64 (remove whitespace/newlines que quebram atob) e decodificar
+    const sanitized = pdf.replace(/\s/g, '');
+    let pdfBytes: Uint8Array;
+
+    try {
+      pdfBytes = Uint8Array.from(atob(sanitized), c => c.charCodeAt(0));
+    } catch (error) {
+      console.error('Erro ao decodificar base64:', error);
+      return new Response(
+        JSON.stringify({ error: 'Base64 inválido ou corrompido.' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validar limite de tamanho (evita travar a função com payloads gigantes)
+    if (pdfBytes.length > MAX_PDF_BYTES) {
+      return new Response(
+        JSON.stringify({ error: `PDF excede ${MAX_PDF_BYTES / 1024 / 1024}MB — use OCR local.` }),
+        {
+          status: 413,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
+    // Validar assinatura do arquivo (%PDF)
+    const isPDF = pdfBytes[0] === 0x25 && pdfBytes[1] === 0x50 && pdfBytes[2] === 0x44 && pdfBytes[3] === 0x46;
+    if (!isPDF) {
+      return new Response(
+        JSON.stringify({ error: 'Conteúdo não é um PDF válido (assinatura %PDF ausente).' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    }
+
     // Extrair texto do PDF
-    const rawText = await extractTextFromPdf(pdf);
+    const rawText = await extractTextFromPdfBytes(pdfBytes);
 
     return new Response(
       JSON.stringify({ rawText }),
@@ -79,16 +121,13 @@ serve(async (req) => {
 });
 
 /**
- * Extrai texto de PDF usando pdfjs-dist (compatível com Deno)
+ * Extrai texto de PDF (bytes já decodificados e validados) usando pdfjs-dist
  * PDF.js é mantido pela Mozilla e funciona perfeitamente em Edge Functions
  */
-async function extractTextFromPdf(pdfBase64: string): Promise<string> {
+async function extractTextFromPdfBytes(pdfBytes: Uint8Array): Promise<string> {
   try {
     // Importar pdfjs-dist (compatível com Deno/Edge Functions)
     const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
-
-    // Converter base64 para Uint8Array
-    const pdfBytes = Uint8Array.from(atob(pdfBase64), c => c.charCodeAt(0));
 
     // Carregar o documento PDF
     const loadingTask = pdfjsLib.getDocument({

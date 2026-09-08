@@ -137,6 +137,14 @@ async function extractTextFromImage(imageDataUrl: string): Promise<string> {
   }
 }
 
+const MAX_PDF_BYTES = 20 * 1024 * 1024; // 20MB
+const EDGE_FUNCTION_SAFE_LIMIT = 4 * 1024 * 1024; // base64 infla ~37%; edge function payload cap ~6MB
+
+async function isPdfSignatureValid(file: File): Promise<boolean> {
+  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
+  return header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46; // %PDF
+}
+
 /**
  * Processa um arquivo PDF completo (converte para base64 e extrai texto)
  * Com suporte robusto para PDFs de imagem via OCR
@@ -145,62 +153,69 @@ async function extractTextFromImage(imageDataUrl: string): Promise<string> {
  * @returns Promise<string> - Texto extraído do PDF
  */
 export async function processPdfFile(
-  file: File, 
+  file: File,
   onProgress?: (progress: number) => void
 ): Promise<string> {
-  if (!file.type.includes('pdf')) {
+  if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
     throw new Error('Arquivo deve ser um PDF válido');
+  }
+  if (file.size > MAX_PDF_BYTES) {
+    throw new Error(`PDF excede o limite de ${MAX_PDF_BYTES / 1024 / 1024}MB.`);
+  }
+  if (!(await isPdfSignatureValid(file))) {
+    throw new Error('Arquivo corrompido ou não é um PDF real (assinatura %PDF ausente).');
   }
 
   try {
-    // Passo 1: Tentar extração rápida via Edge Function (para PDFs digitais)
     onProgress?.(10);
-    
-    try {
-      const base64 = await fileToBase64(file);
-      const extractedText = await extractTextFromPdf(base64);
-      
-      // Se conseguiu extrair texto significativo, retornar
-      if (extractedText && 
-          !extractedText.includes('PDF_PROCESSADO_ERRO') &&
-          !extractedText.includes('PDF_PROCESSADO_EXTRAÇÃO_MÍNIMA') &&
-          extractedText.trim().length > 100) {
-        onProgress?.(100);
-        return extractedText;
+
+    // Passo 1: Tentar extração rápida via Edge Function (só quando o payload provavelmente cabe no limite do gateway)
+    if (file.size <= EDGE_FUNCTION_SAFE_LIMIT) {
+      try {
+        const base64 = (await fileToBase64(file)).replace(/\s/g, '');
+        const extractedText = await extractTextFromPdf(base64);
+
+        if (extractedText &&
+            !extractedText.includes('PDF_PROCESSADO_ERRO') &&
+            !extractedText.includes('PDF_PROCESSADO_EXTRAÇÃO_MÍNIMA') &&
+            extractedText.trim().length > 100) {
+          onProgress?.(100);
+          return extractedText;
+        }
+      } catch (error) {
+        console.warn('Extração via Edge Function falhou, usando OCR local:', error);
       }
-    } catch (error) {
-      // Silencioso: vai tentar OCR
     }
-    
-    // Passo 2: PDF é baseado em imagem, usar OCR local
+
+    // Passo 2: PDF é baseado em imagem (ou grande demais p/ edge function), usar OCR local
     onProgress?.(20);
-    
+
     // Converter PDF em imagens
     const images = await pdfToImages(file);
     onProgress?.(40);
-    
+
     // Extrair texto de cada imagem com OCR
     const textParts: string[] = [];
     const progressPerPage = 50 / images.length;
-    
+
     for (let i = 0; i < images.length; i++) {
       const pageText = await extractTextFromImage(images[i]);
       textParts.push(pageText);
-      
+
       onProgress?.(40 + ((i + 1) * progressPerPage));
     }
-    
+
     onProgress?.(100);
-    
+
     // Combinar texto de todas as páginas
     const finalText = textParts.join('\n\n--- NOVA PÁGINA ---\n\n');
-    
+
     if (!finalText.trim()) {
       throw new Error('Não foi possível extrair texto do PDF. Verifique se o arquivo está legível.');
     }
-    
+
     return finalText;
-    
+
   } catch (error) {
     console.error('Erro ao processar arquivo PDF:', error);
     throw error;
