@@ -20,8 +20,16 @@ interface AuthState {
 export async function resolvePostAuthRoute(): Promise<string> {
   await syncSubscriptionStatus();
 
-  const { data, error } = await supabase.rpc("get_my_subscription_status");
-  if (error) return "/pricing";
+  // Falha transitória da RPC não pode rebaixar uma conta ativa para /pricing.
+  // Uma retentativa e, persistindo o erro, o usuário segue para /sistema —
+  // o SubscriptionGuard reavalia com o backend antes de renderizar dados.
+  let { data, error } = await supabase.rpc("get_my_subscription_status");
+
+  if (error) {
+    ({ data, error } = await supabase.rpc("get_my_subscription_status"));
+  }
+
+  if (error) return "/sistema";
 
   const status = data as unknown as SubscriptionStatusPayload;
 

@@ -10,6 +10,7 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { usePayment } from "@/hooks/use-payment";
 import { PaymentDialog } from "@/components/payment";
@@ -23,6 +24,8 @@ import { PaymentDialog } from "@/components/payment";
  * - C1: Usuário autenticado sem plano ativo → pode selecionar plano
  * - C3: Usuário autenticado com plano inativo → pode renovar/mudar
  */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function Pricing() {
   const { data: plans, isLoading } = useSubscriptionPlans();
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
@@ -99,10 +102,39 @@ export default function Pricing() {
 
   /**
    * Ativa plano gratuito via RPC validada no servidor (price=0 checado no backend).
+   *
+   * Contrato da RPC (migration 20260909140000):
+   *   public.activate_free_plan(p_plan_id uuid) RETURNS jsonb
+   * O PostgREST resolve a função por NOME + NOMES dos parâmetros do payload,
+   * então a key precisa ser exatamente `p_plan_id` e o valor um UUID válido.
    */
   const activateFreePlan = useCallback(async (planId: string) => {
-    const { error } = await supabase.rpc('activate_free_plan', { p_plan_id: planId });
-    if (error) throw new Error(error.message);
+    if (!UUID_RE.test(planId)) {
+      throw new Error('Plano inválido: identificador fora do formato esperado.');
+    }
+
+    const args: Database['public']['Functions']['activate_free_plan']['Args'] = {
+      p_plan_id: planId,
+    };
+
+    const { data, error } = await supabase.rpc('activate_free_plan', args);
+
+    if (error) {
+      if (error.code === 'PGRST202') {
+        throw new Error(
+          'Ativação indisponível no servidor (RPC activate_free_plan ausente do schema cache). ' +
+          'Aplique a migration 20260909140000 e recarregue o cache do PostgREST.'
+        );
+      }
+      throw new Error(error.message);
+    }
+
+    const result = data as { success?: boolean; subscription_id?: string } | null;
+    if (!result?.success) {
+      throw new Error('O servidor não confirmou a ativação do plano gratuito.');
+    }
+
+    return result;
   }, []);
 
   /**
@@ -204,11 +236,21 @@ export default function Pricing() {
       const status = data as any;
       if (status?.access === 'allowed' && status?.plan_id) {
         setUserActivePlan(status.plan_id);
+
+        // Conta com plano vigente (Free/Pro/Premium) nunca fica presa na tela
+        // de ativação: só permanece aqui se pediu explicitamente trocar de plano.
+        const wantsPlanChange =
+          new URLSearchParams(window.location.search).has('change')
+          || localStorage.getItem('orbi_selected_plan') !== null;
+
+        if (!wantsPlanChange) {
+          navigate('/sistema', { replace: true });
+        }
       }
     };
 
     checkUserState();
-  }, []);
+  }, [navigate]);
 
   /**
    * Processar plano salvo após login
