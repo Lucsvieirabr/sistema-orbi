@@ -1,24 +1,20 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Orbi — configuracao do Design System.
- * Toda cor aqui e um alias semantico de uma CSS var definida em src/index.css,
- * entao light/dark trocam sozinhos sem nenhuma variante `dark:` no JSX.
- *
- * Nao ha utilitarios de gradiente: superficies do Orbi sao chapadas e
- * separadas por hairline + whitespace. `bg-clip-text` com gradiente foi
- * removido do sistema (era a origem de texto invisivel na tela de Planos).
+ * Orbi — configuração do Design System.
+ * Toda cor aqui é um alias semântico de uma CSS var definida em src/index.css,
+ * então light/dark trocam sozinhos sem nenhuma variante `dark:` no JSX.
  */
 export default {
   darkMode: ["class"],
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
-    /* Na raiz (e nao em `extend`) para que `xs` seja emitido ANTES de `sm`/`md`.
-       Em `extend` o breakpoint novo vai para o fim da cascata e vence os
-       maiores — invertendo o mobile-first. */
+    /* Definido na raiz (e não em `extend`) para que `xs` seja emitido ANTES de
+       `sm`/`md`/`lg`. Em `extend` o breakpoint novo iria para o fim da cascata e
+       venceria os maiores — invertendo o mobile-first. */
     screens: {
-      xs: "400px",
+      xs: "400px",   /* telefone pequeno: 360-399px ainda é uma coluna */
       sm: "640px",
       md: "768px",
       lg: "1024px",
@@ -35,25 +31,13 @@ export default {
         sans: ["var(--font-sans)"],
         display: ["var(--font-display)"],
       },
-      /* Escala tipografica: cada degrau ja carrega leading e tracking.
-         Regra: quanto maior o texto, mais fechado o tracking; quanto menor,
-         mais aberto. Cromo pequeno respira, dado grande fecha. */
       fontSize: {
-        "3xs": ["0.625rem", { lineHeight: "0.875rem", letterSpacing: "0.04em" }],
+        // Escala tipográfica compacta: dados grandes, cromo pequeno.
         "2xs": ["0.6875rem", { lineHeight: "1rem", letterSpacing: "0.02em" }],
-        xs: ["0.75rem", { lineHeight: "1.125rem", letterSpacing: "0.01em" }],
-        sm: ["0.8125rem", { lineHeight: "1.3125rem" }],
-        base: ["0.9375rem", { lineHeight: "1.6" }],
-        lg: ["1.0625rem", { lineHeight: "1.5", letterSpacing: "-0.01em" }],
-        xl: ["1.25rem", { lineHeight: "1.35", letterSpacing: "-0.015em" }],
-        "2xl": ["1.5rem", { lineHeight: "1.22", letterSpacing: "-0.02em" }],
-        "3xl": ["1.875rem", { lineHeight: "1.14", letterSpacing: "-0.025em" }],
-        "4xl": ["2.375rem", { lineHeight: "1.08", letterSpacing: "-0.03em" }],
-        "5xl": ["3rem", { lineHeight: "1.04", letterSpacing: "-0.035em" }],
       },
       letterSpacing: {
         eyebrow: "0.09em",
-        figure: "-0.025em",
+        figure: "-0.02em",
       },
       colors: {
         border: "hsl(var(--border))",
@@ -137,6 +121,12 @@ export default {
           6: "hsl(var(--chart-6))",
         },
       },
+      backgroundImage: {
+        "gradient-primary": "var(--gradient-primary)",
+        "gradient-success": "var(--gradient-success)",
+        // Achatado: cards não têm gradiente no novo sistema.
+        "gradient-card": "none",
+      },
       boxShadow: {
         none: "none",
         sm: "var(--shadow-sm)",
@@ -149,7 +139,6 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
         xl: "calc(var(--radius) + 4px)",
-        "2xl": "calc(var(--radius) + 10px)",
       },
       spacing: {
         header: "3.5rem",
@@ -158,8 +147,12 @@ export default {
         "bottom-nav": "4rem",
         "bottom-nav-offset": "var(--bottom-nav-offset)",
       },
-      minHeight: { touch: "2.75rem" },
-      minWidth: { touch: "2.75rem" },
+      minHeight: {
+        touch: "2.75rem",
+      },
+      minWidth: {
+        touch: "2.75rem",
+      },
       height: {
         header: "3.5rem",
         "header-lg": "4.5rem",
@@ -177,21 +170,14 @@ export default {
           from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "none" },
         },
-        /* Entrada escalonada de cards: sobe 8px e assenta. */
-        rise: {
-          from: { opacity: "0", transform: "translateY(8px)" },
-          to: { opacity: "1", transform: "none" },
-        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both",
-        rise: "rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",
-        entrance: "cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

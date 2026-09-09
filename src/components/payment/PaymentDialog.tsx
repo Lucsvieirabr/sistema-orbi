@@ -59,7 +59,7 @@ export function PaymentDialog({ open, onOpenChange, paymentData }: PaymentDialog
           {/* Ícone de sucesso */}
           <div className="flex justify-center">
             <div className="rounded-full bg-success-soft p-4">
-              <CheckCircle2 className="h-12 w-12 text-success dark:text-success" />
+              <CheckCircle2 className="h-12 w-12 text-success" />
             </div>
           </div>
 

@@ -52,3 +52,8 @@ ENV/
 # PDF.js worker files (generated/copied during build)
 public/pdf.worker.config.js
 public/pdf.worker.min.mjs
+
+# Artefatos de sessao (tarballs de verificacao, saidas geradas)
+.backup/*.tgz
+Claude outputs/
+.backup/_to_delete/

@@ -18,14 +18,14 @@ const statusConfig = {
   PENDING: {
     label: 'Pendente',
     icon: BanknoteXIcon,
-    className: 'bg-warning-soft text-warning hover:bg-warning-soft',
-    buttonClassName: 'bg-warning hover:bg-warning text-white'
+    className: 'bg-warning-soft text-warning hover:bg-warning-soft/80',
+    buttonClassName: 'bg-warning text-warning-foreground hover:bg-warning/90'
   },
   PAID: {
     label: 'Pago',
     icon: Check,
-    className: 'bg-success-soft text-success hover:bg-success-soft',
-    buttonClassName: 'bg-success hover:bg-success text-white'
+    className: 'bg-success-soft text-success hover:bg-success-soft/80',
+    buttonClassName: 'bg-success text-success-foreground hover:bg-success/90'
   }
 };
 

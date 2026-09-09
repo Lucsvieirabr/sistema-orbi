@@ -5,10 +5,14 @@ import { cn } from "@/lib/utils";
 
 /**
  * Card minimalista.
- * Sem sombra: a superfície é definida por 1px de hairline + whitespace.
- * `elevated` existe apenas para conteúdo que realmente flutua sobre a página.
+ * Sem sombra no estado de repouso: a superficie e definida por 1px de hairline
+ * + whitespace. `elevated` existe apenas para conteudo que realmente flutua.
+ *
+ * `interactive` da o retorno tatil de superficie: a borda ganha a cor do anel
+ * no hover, a sombra sobe um degrau, e `focus-within` deixa o anel visivel
+ * quando o teclado entra no card.
  */
-const cardVariants = cva("rounded-xl bg-card text-card-foreground", {
+const cardVariants = cva("relative rounded-xl bg-card text-card-foreground", {
   variants: {
     variant: {
       default: "border border-border",
@@ -17,7 +21,11 @@ const cardVariants = cva("rounded-xl bg-card text-card-foreground", {
       sunken: "border border-border-subtle bg-surface-sunken",
     },
     interactive: {
-      true: "transition-colors duration-200 ease-swift hover:border-ring/40 focus-within:border-ring/60",
+      true: [
+        "transition-[border-color,box-shadow,transform] duration-300 ease-swift",
+        "hover:border-ring/40 hover:shadow-sm",
+        "focus-within:border-ring/60 focus-within:shadow-sm",
+      ].join(" "),
       false: "",
     },
   },
@@ -35,7 +43,7 @@ const CardHeader = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDiv
   ({ className, ...props }, ref) => (
     <div
       ref={ref}
-      className={cn("flex flex-col space-y-1 px-4 pb-3 pt-4 md:px-5 md:pb-4 md:pt-5 lg:px-6 lg:pt-6", className)}
+      className={cn("flex flex-col space-y-1.5 px-4 pb-3 pt-4 md:px-5 md:pb-4 md:pt-5 lg:px-6 lg:pt-6", className)}
       {...props}
     />
   ),
@@ -47,7 +55,7 @@ const CardTitle = React.forwardRef<HTMLHeadingElement, React.HTMLAttributes<HTML
     <h3
       ref={ref}
       className={cn(
-        "font-display text-[0.9375rem] font-semibold leading-tight tracking-tight text-foreground md:text-base",
+        "font-display text-[0.9375rem] font-semibold leading-tight tracking-[-0.015em] text-foreground md:text-base",
         className,
       )}
       {...props}
@@ -58,7 +66,7 @@ CardTitle.displayName = "CardTitle";
 
 const CardDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <p ref={ref} className={cn("text-sm leading-relaxed text-muted-foreground", className)} {...props} />
+    <p ref={ref} className={cn("text-sm leading-relaxed text-pretty text-muted-foreground", className)} {...props} />
   ),
 );
 CardDescription.displayName = "CardDescription";

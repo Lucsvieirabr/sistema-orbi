@@ -82,7 +82,7 @@ export function CompositionViewDialog({
                   <span className="text-sm font-medium text-primary">
                     Total dos Itens:
                   </span>
-                  <span className="text-lg font-bold text-primary">
+                  <span className="text-lg font-semibold text-primary">
                     R$ {total.toFixed(2)}
                   </span>
                 </div>

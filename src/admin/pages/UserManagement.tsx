@@ -147,7 +147,7 @@ export default function UserManagement() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 {filteredUsers && filteredUsers.length === 0 ? (
                   <div className="col-span-full">
-                    <Card className="border-dashed border-2 border-muted-foreground/25">
+                    <Card className="border-dashed border-border">
                       <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                         <div className="p-4 bg-muted/50 rounded-full mb-4">
                           <Users className="h-8 w-8 text-muted-foreground" />

@@ -218,7 +218,7 @@ export function CompositionDialog({
               <span className="text-sm font-medium text-primary">
                 Valor Total do Rateio:
               </span>
-              <span className="text-lg font-bold text-primary">
+              <span className="text-lg font-semibold text-primary">
                 R$ {itemsTotal.toFixed(2)}
               </span>
             </div>

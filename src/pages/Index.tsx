@@ -6,7 +6,7 @@ const Index = () => {
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="text-center">
           <img src={orbiLogo} alt="Orbi" className="h-16 w-16 mx-auto mb-6" />
-          <h1 className="mb-4 text-4xl font-bold">Sistema Orbi</h1>
+          <h1 className="mb-4 text-4xl font-semibold">Sistema Orbi</h1>
           <p className="text-xl text-muted-foreground">Sua visão financeira completa</p>
         </div>
       </div>

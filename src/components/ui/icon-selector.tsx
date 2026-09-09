@@ -301,7 +301,7 @@ export function IconSelector({ value, onChange, trigger }: IconSelectorProps) {
                           key={icon.name}
                           variant={isSelected ? "default" : "outline"}
                           size="sm"
-                          className="h-16 w-16 p-0 flex flex-col items-center justify-center gap-2 hover:scale-105 transition-transform"
+                          className="flex h-16 w-16 flex-col items-center justify-center gap-2 p-0"
                           onClick={() => {
                             onChange(icon.name);
                             setOpen(false);

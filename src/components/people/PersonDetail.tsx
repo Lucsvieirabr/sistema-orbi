@@ -211,7 +211,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <TrendingUp className="h-3.5 w-3.5 text-success" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-success">
+            <div className="text-xl font-semibold text-success">
               {formatCurrency(indicators.totalAReceber)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -228,7 +228,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <TrendingDown className="h-3.5 w-3.5 text-destructive" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-destructive">
+            <div className="text-xl font-semibold text-destructive">
               {formatCurrency(indicators.totalAPagar)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -245,7 +245,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <CheckCircle className="h-3.5 w-3.5 text-success" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-success">
+            <div className="text-xl font-semibold text-success">
               {formatCurrency(indicators.totalRecebido)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -262,7 +262,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <CheckCircle className="h-3.5 w-3.5 text-destructive" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-destructive">
+            <div className="text-xl font-semibold text-destructive">
               {formatCurrency(indicators.totalPago)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -279,7 +279,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <DollarSign className={`h-3.5 w-3.5 ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`} />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className={`text-xl font-bold ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <div className={`text-xl font-semibold ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`}>
               {formatCurrency(indicators.saldoLiquido)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">

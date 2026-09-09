@@ -4,8 +4,24 @@ import { cva, type VariantProps } from "class-variance-authority";
 
 import { cn } from "@/lib/utils";
 
+/**
+ * Toggle / item de ToggleGroup.
+ *
+ * O estado ligado e uma superficie elevada (card) sobre o trilho afundado, com
+ * hairline e sombra curta — o mesmo vocabulario de um segmented control nativo.
+ * Ligado e desligado tem sempre `foreground` explicito: nunca herdam a cor do
+ * pai, que era como o rotulo sumia quando o trilho mudava de tom.
+ */
 const toggleVariants = cva(
-  "inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors hover:bg-muted hover:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 data-[state=on]:bg-accent data-[state=on]:text-accent-foreground",
+  [
+    "inline-flex select-none items-center justify-center gap-2 rounded-md text-sm font-medium",
+    "transition-[background-color,color,box-shadow,transform] duration-200 ease-swift",
+    "motion-safe:active:scale-[0.97]",
+    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+    "disabled:pointer-events-none disabled:opacity-50",
+    "text-muted-foreground hover:text-foreground",
+    "data-[state=on]:bg-card data-[state=on]:text-foreground data-[state=on]:shadow-sm",
+  ].join(" "),
   {
     variants: {
       variant: {

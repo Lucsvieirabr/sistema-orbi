@@ -87,7 +87,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
       <div className="flex h-header shrink-0 items-center justify-between px-4 lg:h-header-lg lg:px-5">
         <div className="flex items-center gap-2.5">
           <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
-          <span className="font-display text-base font-semibold tracking-tight text-white">Orbi</span>
+          <span className="font-display text-base font-semibold tracking-tight text-sidebar-accent-foreground">Orbi</span>
         </div>
         <div className="flex items-center gap-1">
           <ThemeToggle className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
@@ -109,7 +109,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
           onClick={() => handleNavigate("/sistema/statement?new=1")}
           className={cn(
             "flex h-11 w-full items-center justify-center gap-2 rounded-lg lg:h-10",
-            "bg-white/10 text-sm font-medium text-white",
+            "bg-sidebar-accent text-sm font-medium text-sidebar-accent-foreground",
             "transition-colors duration-200 ease-swift hover:bg-white/[0.16]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
           )}

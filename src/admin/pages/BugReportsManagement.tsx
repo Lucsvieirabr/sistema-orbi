@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Bug, Trash2, Eye } from "lucide-react";
+import { Bug, Trash2, Eye, Image as ImageIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -190,9 +190,10 @@ export default function BugReportsManagement() {
                                 {report.titulo}
                               </h4>
                               {report.imagem_url && (
-                                <div className="text-xs text-muted-foreground">
-                                  📷
-                                </div>
+                                <ImageIcon
+                                  className="mt-0.5 h-3.5 w-3.5 shrink-0 text-muted-foreground"
+                                  aria-label="Contém imagem"
+                                />
                               )}
                             </div>
 

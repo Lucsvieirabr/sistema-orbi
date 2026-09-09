@@ -79,7 +79,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
                 <button
                   key={color}
                   className={cn(
-                    "h-8 w-8 rounded border-2 border-border hover:scale-110 transition-transform",
+                    "h-8 w-8 rounded-md border border-border/60 transition-[box-shadow,transform] duration-200 ease-swift hover:ring-2 hover:ring-ring/40 hover:ring-offset-2 hover:ring-offset-background motion-safe:active:scale-95",
                     value === color && "border-primary ring-2 ring-primary ring-offset-2"
                   )}
                   style={{ backgroundColor: color }}

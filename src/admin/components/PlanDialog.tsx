@@ -20,7 +20,8 @@ import { Plan } from "@/admin/pages/PlanManagement";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { featureRegistry } from "@/lib/features/orbi-features";
 import { Badge } from "@/components/ui/badge";
-import { Info } from "lucide-react";
+import { Info, LayoutDashboard, Receipt, Landmark, FolderTree, CreditCard, Users, Bot, Package } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 
 interface PlanDialogProps {
   open: boolean;
@@ -58,21 +59,21 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
   // Agrupar features por recurso/entidade (CRUD)
   const featuresByResource = useMemo(() => {
     const resources: Record<string, {
-      icon: string;
+      icon: LucideIcon;
       label: string;
       mainFeature?: typeof AVAILABLE_FEATURES[0];
       crudFeatures: typeof AVAILABLE_FEATURES;
     }> = {};
     
     // Mapeamento de recursos
-    const resourceMap: Record<string, { icon: string; label: string; order: number }> = {
-      dashboard: { icon: '📊', label: 'Dashboard', order: 1 },
-      extrato: { icon: '📝', label: 'Extrato / Transações', order: 2 },
-      contas: { icon: '🏦', label: 'Contas Bancárias', order: 3 },
-      categorias: { icon: '📂', label: 'Categorias', order: 4 },
-      cartoes: { icon: '💳', label: 'Cartões de Crédito', order: 5 },
-      pessoas: { icon: '👥', label: 'Pessoas', order: 6 },
-      ia: { icon: '🤖', label: 'IA Classificador', order: 7 },
+    const resourceMap: Record<string, { icon: LucideIcon; label: string; order: number }> = {
+      dashboard: { icon: LayoutDashboard, label: 'Dashboard', order: 1 },
+      extrato: { icon: Receipt, label: 'Extrato / Transações', order: 2 },
+      contas: { icon: Landmark, label: 'Contas bancárias', order: 3 },
+      categorias: { icon: FolderTree, label: 'Categorias', order: 4 },
+      cartoes: { icon: CreditCard, label: 'Cartões de crédito', order: 5 },
+      pessoas: { icon: Users, label: 'Pessoas', order: 6 },
+      ia: { icon: Bot, label: 'IA classificadora', order: 7 },
     };
     
     AVAILABLE_FEATURES.forEach(feature => {
@@ -101,7 +102,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
       }
       
       if (!resources[resourceKey]) {
-        const config = resourceMap[resourceKey] || { icon: '📦', label: resourceKey, order: 99 };
+        const config = resourceMap[resourceKey] || { icon: Package, label: resourceKey, order: 99 };
         resources[resourceKey] = {
           icon: config.icon,
           label: config.label,
@@ -459,12 +460,14 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                                        resourceData.crudFeatures.some(f => !(f as any).isCore);
                     
                     return (
-                      <div key={resourceKey} className="rounded-lg border-2 border-border hover:border-primary/50 transition-colors p-4">
+                      <div key={resourceKey} className="rounded-xl border border-border p-4 transition-colors duration-200 ease-swift hover:border-ring/40">
                         {/* Cabeçalho do Recurso */}
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className="text-2xl">{resourceData.icon}</span>
-                            <h3 className="text-base font-bold">{resourceData.label}</h3>
+                        <div className="mb-3 flex items-center justify-between gap-3">
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
+                              <resourceData.icon className="h-4 w-4 text-muted-foreground" aria-hidden />
+                            </span>
+                            <h3 className="font-display text-sm font-semibold tracking-tight">{resourceData.label}</h3>
                           </div>
                           
                           {hasNonCore && (
@@ -488,7 +491,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                                 htmlFor={`feature-${resourceData.mainFeature.key}`} 
                                 className="cursor-pointer text-sm flex items-center gap-2"
                               >
-                                {features[resourceData.mainFeature.key] ? '✅' : '⬜'} {resourceData.mainFeature.label}
+                                {resourceData.mainFeature.label}
                                 {(resourceData.mainFeature as any).isCore && (
                                   <Badge variant="secondary" className="text-xs">Core</Badge>
                                 )}
@@ -500,7 +503,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                                 onCheckedChange={(checked) => 
                                   setFeatures({ ...features, [resourceData.mainFeature!.key]: checked })
                                 }
-                                className="scale-75"
                               />
                             </div>
                           )}
@@ -512,7 +514,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                                 htmlFor={`feature-${feature.key}`} 
                                 className="cursor-pointer text-sm flex items-center gap-2"
                               >
-                                {features[feature.key] ? '✅' : '⬜'} {feature.label}
+                                {feature.label}
                                 {(feature as any).isCore && (
                                   <Badge variant="secondary" className="text-xs">Core</Badge>
                                 )}
@@ -524,7 +526,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                                 onCheckedChange={(checked) => 
                                   setFeatures({ ...features, [feature.key]: checked })
                                 }
-                                className="scale-75"
                               />
                             </div>
                           ))}

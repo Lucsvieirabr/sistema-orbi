@@ -185,7 +185,7 @@ export default function Notes() {
         </p>
       </div>
       {/* Create Note Card */}
-      <Card className="border-2 border-dashed p-3 md:p-4">
+      <Card className="border border-dashed p-3 md:p-4">
         <div className="space-y-3">
           <div className="flex items-start gap-2">
             <Textarea

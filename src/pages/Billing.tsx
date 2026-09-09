@@ -75,7 +75,7 @@ export default function Billing() {
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img src={orbiLogo} alt="Orbi" className="h-7 w-7" />
-          <span className="text-lg font-bold">Orbi</span>
+          <span className="text-lg font-semibold">Orbi</span>
         </div>
         <div className="flex items-center gap-3">
           <ThemeToggle />

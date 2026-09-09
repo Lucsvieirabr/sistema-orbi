@@ -45,7 +45,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
               <Button
                 variant="outline"
                 className={cn(
-                  "w-full justify-between text-left font-normal border-2 border-border hover:border-primary focus:border-primary transition-colors bg-background",
+                  "w-full justify-between bg-background text-left font-normal transition-colors duration-200 ease-swift hover:border-ring/45 focus:border-ring",
                   !value && "text-muted-foreground"
                 )}
                 disabled={disabled}
@@ -54,7 +54,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
                 <ChevronDown className="h-4 w-4 opacity-50" />
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[295px] p-0 border-2 border-border bg-background" align="start" side="bottom" sideOffset={4}>
+            <PopoverContent className="w-[295px] p-0 border border-border bg-background" align="start" side="bottom" sideOffset={4}>
               <div className="grid grid-cols-6 gap-1.5 p-2 sm:grid-cols-8 sm:gap-2">
                 {days.map((day) => (
                   <Button

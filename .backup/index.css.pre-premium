@@ -1,0 +1,365 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================================
+   ORBI DESIGN SYSTEM
+   ----------------------------------------------------------------------------
+   Tema Claro : "Azul Navy Contábil"    — tinta navy sobre papel frio.
+   Tema Escuro: "Planilha Meia-Noite"   — quase-preto com um único azul elétrico.
+
+   Regras do sistema:
+   1. Toda cor é HSL e vive numa variável semântica. Nunca use hex no JSX.
+   2. Superfícies são separadas por whitespace + 1px hairline. Sombra só flutua
+      (dropdown, dialog, popover). Card não tem sombra.
+   3. Dados financeiros usam tabular-nums e a família display.
+   4. Apenas UMA cor de destaque por tela.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    color-scheme: light;
+
+    /* --- Rampa da marca (Navy Contábil) ------------------------------------ */
+    --brand-900: 215 69% 14%;  /* #0B1F3B  primária escura   */
+    --brand-700: 210 69% 23%;  /* #123A63  secundária        */
+    --brand-500: 210 50% 37%;  /* #2F5D8C  terciária         */
+    --brand-200: 212 35% 84%;  /* #C9D6E5  bordas/divisores  */
+    --brand-050: 210 30% 96%;  /* #F2F5F8  fundo             */
+
+    /* --- Superfícies -------------------------------------------------------- */
+    --background: 210 30% 96%;        /* #F2F5F8 */
+    --foreground: 215 69% 14%;        /* #0B1F3B */
+
+    --card: 0 0% 100%;                /* #FFFFFF — cards saltam do fundo */
+    --card-foreground: 215 69% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 69% 14%;
+
+    --surface: 0 0% 100%;             /* superfície elevada genérica */
+    --surface-sunken: 210 30% 93%;    /* trilhos, barras de progresso, wells */
+
+    /* --- Ações -------------------------------------------------------------- */
+    --primary: 215 69% 14%;           /* #0B1F3B */
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 210 69% 23%;     /* #123A63 */
+
+    --secondary: 210 30% 93%;
+    --secondary-foreground: 210 69% 23%;
+
+    --accent: 212 35% 91%;            /* hover discreto */
+    --accent-foreground: 215 69% 14%;
+
+    --muted: 210 30% 93%;
+    --muted-foreground: 213 22% 42%;  /* labels — 5.4:1 sobre branco */
+
+    /* --- Semântica financeira ------------------------------------------------ */
+    --success: 162 72% 26%;           /* entrada / recebido  */
+    --success-foreground: 0 0% 100%;
+    --success-soft: 162 45% 93%;
+
+    --destructive: 3 68% 42%;         /* saída / a pagar     */
+    --destructive-foreground: 0 0% 100%;
+    --destructive-soft: 3 70% 95%;
+
+    --warning: 32 88% 35%;            /* pendente            */
+    --warning-foreground: 0 0% 100%;
+    --warning-soft: 38 90% 94%;
+
+    --info: 210 50% 37%;
+    --info-foreground: 0 0% 100%;
+    --info-soft: 210 45% 94%;
+
+    /* --- Estrutura ----------------------------------------------------------- */
+    --border: 212 35% 84%;            /* #C9D6E5 */
+    --border-subtle: 212 32% 90%;     /* divisor interno, quase invisível */
+    --input: 212 35% 84%;
+    --ring: 210 50% 37%;              /* #2F5D8C */
+
+    --radius: 0.75rem;
+
+    /* --- Navegação (Sidebar navy) -------------------------------------------- */
+    --sidebar: 215 69% 14%;                  /* #0B1F3B */
+    --sidebar-foreground: 212 35% 84%;       /* #C9D6E5 */
+    --sidebar-muted: 211 25% 62%;
+    --sidebar-accent: 210 69% 23%;           /* #123A63 — item ativo */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 212 40% 22%;
+    --sidebar-ring: 210 50% 55%;
+    --sidebar-marker: 212 35% 84%;           /* barra do item ativo */
+
+    /* --- Data-viz (ordem de uso nos gráficos) --------------------------------- */
+    --chart-1: 210 69% 23%;
+    --chart-2: 162 72% 30%;
+    --chart-3: 210 50% 55%;
+    --chart-4: 32 82% 45%;
+    --chart-5: 3 62% 48%;
+    --chart-6: 262 40% 48%;
+
+    /* --- Elevação (apenas para elementos flutuantes) -------------------------- */
+    --shadow-sm: 0 1px 2px hsl(215 40% 20% / 0.04);
+    --shadow-md: 0 4px 12px -2px hsl(215 40% 20% / 0.08);
+    --shadow-lg: 0 16px 40px -12px hsl(215 45% 18% / 0.16);
+    --shadow-primary: 0 2px 8px hsl(215 69% 14% / 0.14);
+
+    /* Gradientes mantidos por compatibilidade — achatados de propósito. */
+    --gradient-primary: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary-hover)));
+    --gradient-success: linear-gradient(180deg, hsl(var(--success)), hsl(162 72% 22%));
+    --gradient-card: none;
+
+    /* --- Tipografia ----------------------------------------------------------- */
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+  }
+
+  .dark {
+    color-scheme: dark;
+
+    --brand-900: 225 50% 8%;
+    --brand-700: 216 41% 18%;
+    --brand-500: 217 91% 60%;
+    --brand-200: 215 20% 65%;
+    --brand-050: 214 32% 91%;
+
+    --background: 225 50% 8%;         /* #0A0F1E */
+    --foreground: 214 32% 91%;        /* #E2E8F0 */
+
+    --card: 216 41% 18%;              /* #1B2A41 */
+    --card-foreground: 214 32% 91%;
+
+    --popover: 216 41% 16%;
+    --popover-foreground: 214 32% 91%;
+
+    --surface: 216 41% 18%;
+    --surface-sunken: 220 43% 12%;
+
+    --primary: 217 91% 60%;           /* #3B82F6 — o único destaque */
+    --primary-foreground: 225 50% 8%; /* texto escuro sobre azul: 5.2:1 */
+    --primary-hover: 217 91% 66%;
+
+    --secondary: 216 41% 22%;
+    --secondary-foreground: 214 32% 91%;
+
+    --accent: 216 41% 24%;
+    --accent-foreground: 214 32% 91%;
+
+    --muted: 216 41% 22%;
+    --muted-foreground: 215 20% 65%;  /* #94A3B8 — 7.2:1 sobre o fundo */
+
+    --success: 158 60% 52%;
+    --success-foreground: 225 50% 8%;
+    --success-soft: 160 40% 16%;
+
+    --destructive: 0 78% 68%;
+    --destructive-foreground: 225 50% 8%;
+    --destructive-soft: 0 45% 20%;
+
+    --warning: 38 90% 60%;
+    --warning-foreground: 225 50% 8%;
+    --warning-soft: 38 50% 18%;
+
+    --info: 217 91% 60%;
+    --info-foreground: 225 50% 8%;
+    --info-soft: 217 50% 20%;
+
+    --border: 216 35% 25%;
+    --border-subtle: 216 38% 20%;
+    --input: 216 35% 25%;
+    --ring: 217 91% 60%;
+
+    --sidebar: 225 50% 8%;
+    --sidebar-foreground: 215 20% 65%;
+    --sidebar-muted: 215 18% 52%;
+    --sidebar-accent: 216 41% 18%;
+    --sidebar-accent-foreground: 214 32% 91%;
+    --sidebar-border: 216 38% 18%;
+    --sidebar-ring: 217 91% 60%;
+    --sidebar-marker: 217 91% 60%;
+
+    --chart-1: 217 91% 60%;
+    --chart-2: 158 60% 52%;
+    --chart-3: 215 20% 65%;
+    --chart-4: 38 90% 60%;
+    --chart-5: 0 78% 68%;
+    --chart-6: 262 60% 68%;
+
+    --shadow-sm: 0 1px 2px hsl(225 60% 3% / 0.5);
+    --shadow-md: 0 4px 14px -2px hsl(225 60% 3% / 0.55);
+    --shadow-lg: 0 20px 48px -16px hsl(225 60% 2% / 0.75);
+    --shadow-primary: 0 2px 12px hsl(217 91% 40% / 0.35);
+
+    --gradient-card: none;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    -webkit-text-size-adjust: 100%;
+    /* Regra dura: a página nunca rola para os lados. `clip` (e não `hidden`)
+       porque `clip` não cria contexto de rolagem — o header sticky continua
+       grudando. Rolagem horizontal só existe dentro de contêiner declarado. */
+    overflow-x: clip;
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv05" 1, "cv11" 1, "ss01" 1;
+    text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    /* Altura da barra de navegação inferior (mobile) + recorte do aparelho.
+       Usada pelo padding de rodapé do conteúdo e pelos FABs. */
+    --bottom-nav-h: 4rem;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --bottom-nav-offset: calc(var(--bottom-nav-h) + var(--safe-bottom));
+  }
+
+  @media (min-width: 1024px) {
+    body {
+      --bottom-nav-h: 0rem;
+    }
+  }
+
+  /* Toque: nada de "zoom ao focar" no iOS — campo com fonte < 16px dispara. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
+  }
+
+  h1, h2, h3, h4 {
+    font-family: var(--font-display);
+    @apply tracking-tight;
+    text-wrap: balance;
+  }
+
+  /* Todo número é tabular: colunas de valores alinham na vírgula. */
+  input[type="number"],
+  table,
+  time,
+  [data-numeric] {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+
+  /* Foco visível e consistente — nunca removido, só redesenhado. */
+  :focus-visible {
+    outline: 2px solid hsl(var(--ring));
+    outline-offset: 2px;
+    border-radius: calc(var(--radius) - 4px);
+  }
+
+  ::selection {
+    background: hsl(var(--primary) / 0.16);
+  }
+
+  /* Scrollbar discreta, alinhada ao tema. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: hsl(var(--border)) transparent;
+  }
+  *::-webkit-scrollbar { width: 10px; height: 10px; }
+  *::-webkit-scrollbar-track { background: transparent; }
+  *::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border));
+    border: 3px solid transparent;
+    background-clip: content-box;
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-thumb:hover { background-color: hsl(var(--muted-foreground) / 0.5); }
+}
+
+@layer components {
+  /* Eyebrow: micro-caps que rotula um dado sem competir com ele. */
+  .label-eyebrow {
+    @apply text-[0.6875rem] font-medium uppercase tracking-[0.09em] text-muted-foreground;
+  }
+
+  /* Valor financeiro: display + tabular. O protagonista da tela. */
+  .figure {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    @apply font-semibold tracking-[-0.02em];
+  }
+
+  .figure-xl,
+  .figure-lg,
+  .figure-md,
+  .figure-sm {
+    font-family: var(--font-display);
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+    @apply font-semibold tracking-[-0.02em];
+  }
+
+  .figure-xl { @apply text-2xl leading-[1.15] xs:text-[1.75rem] xs:leading-[1.1] lg:text-[2.25rem]; }
+  .figure-lg { @apply text-xl leading-[1.2] xs:text-2xl xs:leading-[1.15]; }
+  .figure-md { @apply text-lg leading-tight; }
+  .figure-sm { @apply text-sm leading-tight; }
+
+  /* Divisor de 1px que respeita o tema. */
+  .hairline { @apply border-t border-border-subtle; }
+
+  /* Superfície padrão: sem sombra, definida por hairline + whitespace. */
+  .surface {
+    @apply rounded-xl border border-border bg-card;
+  }
+}
+
+@layer utilities {
+  .tabular {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum" 1;
+  }
+  .text-balance { text-wrap: balance; }
+  .text-pretty { text-wrap: pretty; }
+
+  /* --- Mobile ------------------------------------------------------------- */
+
+  /* Alvo de toque mínimo (WCAG 2.5.5 / HIG): 44x44 até `md`. */
+  .touch-target {
+    @apply min-h-11 min-w-11 md:min-h-0 md:min-w-0;
+  }
+
+  /* Trilho horizontal de chips/filtros: rola dentro de si, com inércia. */
+  .scroll-x {
+    @apply overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Respiro do recorte inferior (home indicator). */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* Rodapé livre para a barra de navegação inferior. */
+  .pb-bottom-nav { padding-bottom: var(--bottom-nav-offset); }
+
+  /* Qualquer filho de flex/grid que precise poder encolher e truncar. */
+  .min-w-0-all > * { min-width: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

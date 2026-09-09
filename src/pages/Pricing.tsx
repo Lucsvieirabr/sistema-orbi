@@ -3,9 +3,9 @@ import { useSubscriptionPlans, SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscr
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Sparkles, X } from "lucide-react";
+import { Check, Minus, Sparkles } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -14,17 +14,48 @@ import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { usePayment } from "@/hooks/use-payment";
 import { PaymentDialog } from "@/components/payment";
+import { cn } from "@/lib/utils";
 
 /**
- * Página de Pricing simplificada
- * 
+ * Pagina de Planos.
+ *
  * Casos de uso:
- * - C6: Usuário não autenticado pode visualizar planos
- * - C7: Usuário não autenticado clica em plano → /login (salva plano)
- * - C1: Usuário autenticado sem plano ativo → pode selecionar plano
- * - C3: Usuário autenticado com plano inativo → pode renovar/mudar
+ * - C6: Usuario nao autenticado pode visualizar planos
+ * - C7: Usuario nao autenticado clica em plano -> /login (salva plano)
+ * - C1: Usuario autenticado sem plano ativo -> pode selecionar plano
+ * - C3: Usuario autenticado com plano inativo -> pode renovar/mudar
+ *
+ * Design: uma coluna editorial de cabecalho + trilha de cartoes. O plano em
+ * destaque e marcado por uma regua de 1px e um rotulo — nao por escala e
+ * sombra, que empurravam o cartao para fora do alinhamento da grade.
+ *
+ * Contraste: todo fundo de tom solido usa o `-foreground` do proprio tom.
+ * O rotulo de destaque usava `bg-gradient-primary` sobre `text-secondary-
+ * foreground`; no tema claro as duas cores eram o mesmo navy e o texto
+ * simplesmente desaparecia. Nao ha mais gradiente nesta tela.
  */
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+const FEATURE_ROWS = [
+  { key: "extrato", label: "Extrato" },
+  { key: "contas", label: "Contas" },
+  { key: "categorias", label: "Categorias" },
+  { key: "cartoes", label: "Cartões" },
+  { key: "pessoas", label: "Pessoas" },
+  { key: "ia_classificador", label: "IA classificadora" },
+  { key: "transacoes_importar_csv", label: "Importar CSV" },
+  { key: "ia_classificacao_automatica", label: "Classificação automática" },
+  { key: "ia_deteccao_logos", label: "Detecção de assinaturas" },
+] as const;
+
+const LIMIT_ROWS = [
+  { key: "max_contas", label: "Contas" },
+  { key: "max_cartoes", label: "Cartões" },
+  { key: "max_transacoes_mes", label: "Transações / mês" },
+  { key: "max_pessoas", label: "Pessoas" },
+  { key: "max_categorias", label: "Categorias" },
+  { key: "retencao_dados_meses", label: "Retenção", suffix: "meses" },
+] as const;
 
 export default function Pricing() {
   const { data: plans, isLoading } = useSubscriptionPlans();
@@ -38,15 +69,9 @@ export default function Pricing() {
   const queryClient = useQueryClient();
   const { createPayment, paymentData, isLoading: isPaymentLoading } = usePayment();
 
-  // Formatar preço
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(price);
-  };
+  const formatPrice = (price: number) =>
+    new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
 
-  // Calcular economia anual
   const calculateYearlySavings = (monthly: number, yearly: number) => {
     const yearlyCost = monthly * 12;
     const savings = yearlyCost - yearly;
@@ -54,19 +79,18 @@ export default function Pricing() {
     const freeMonths = savings / monthly;
     const freeMonthsRounded = Math.floor(freeMonths);
     const freeMonthsDecimal = freeMonths - freeMonthsRounded;
-    
-    return { 
-      savings, 
-      percentage, 
+
+    return {
+      savings,
+      percentage,
       freeMonths: freeMonthsRounded,
-      isAlmost: freeMonthsDecimal > 0.5
+      isAlmost: freeMonthsDecimal > 0.5,
     };
   };
 
-  // Maior economia entre planos
   const getMaxSavingsPercentage = () => {
     if (!plans || plans.length === 0) return 0;
-    
+
     let maxPercentage = 0;
     plans.forEach(plan => {
       if (plan.price_monthly > 0 && plan.price_yearly > 0) {
@@ -76,28 +100,8 @@ export default function Pricing() {
         }
       }
     });
-    
+
     return maxPercentage;
-  };
-
-  // Features simplificadas
-  const getSimplifiedFeatures = (features: Record<string, boolean>) => {
-    const allPossibleFeatures = [
-      { key: 'extrato', label: 'Extrato', icon: '📝' },
-      { key: 'contas', label: 'Contas', icon: '🏦' },
-      { key: 'categorias', label: 'Categorias', icon: '📂' },
-      { key: 'cartoes', label: 'Cartões', icon: '💳' },
-      { key: 'pessoas', label: 'Pessoas', icon: '👥' },
-      { key: 'ia_classificador', label: 'IA Classificador', icon: '🤖' },
-      { key: 'transacoes_importar_csv', label: 'Importar CSV', icon: '📤' },
-      { key: 'ia_classificacao_automatica', label: 'Classificação Automática', icon: '✨' },
-      { key: 'ia_deteccao_logos', label: 'Detecção de Assinaturas', icon: '🔄' },
-    ];
-
-    return allPossibleFeatures.map(feature => ({
-      ...feature,
-      enabled: features[feature.key] === true,
-    }));
   };
 
   /**
@@ -105,8 +109,8 @@ export default function Pricing() {
    *
    * Contrato da RPC (migration 20260909140000):
    *   public.activate_free_plan(p_plan_id uuid) RETURNS jsonb
-   * O PostgREST resolve a função por NOME + NOMES dos parâmetros do payload,
-   * então a key precisa ser exatamente `p_plan_id` e o valor um UUID válido.
+   * O PostgREST resolve a funcao por NOME + NOMES dos parametros do payload,
+   * entao a key precisa ser exatamente `p_plan_id` e o valor um UUID valido.
    */
   const activateFreePlan = useCallback(async (planId: string) => {
     if (!UUID_RE.test(planId)) {
@@ -138,12 +142,12 @@ export default function Pricing() {
   }, []);
 
   /**
-   * Manipula seleção de plano
-   * 
+   * Manipula selecao de plano
+   *
    * Fluxo:
-   * 1. Se não autenticado → salvar plano e redirecionar para /login (C7)
-   * 2. Se autenticado e já tem plano ativo → avisar
-   * 3. Se autenticado sem plano → ativar plano (gratuito) ou redirecionar para pagamento (pago)
+   * 1. Se nao autenticado -> salvar plano e redirecionar para /login (C7)
+   * 2. Se autenticado e ja tem plano ativo -> avisar
+   * 3. Se autenticado sem plano -> ativar plano (gratuito) ou ir para pagamento
    */
   const handleSelectPlan = useCallback(async (planId: string, planSlug: string, isFree: boolean) => {
     setIsProcessing(true);
@@ -194,8 +198,8 @@ export default function Pricing() {
         return;
       }
 
-      // Plano pago: toda a mudança (upgrade/downgrade, criação e sincronização
-      // da assinatura no Asaas) acontece no backend. O cliente não escreve
+      // Plano pago: toda a mudanca (upgrade/downgrade, criacao e sincronizacao
+      // da assinatura no Asaas) acontece no backend. O cliente nao escreve
       // em user_subscriptions.
       const result = await createPayment({ planId, billingCycle });
 
@@ -220,9 +224,7 @@ export default function Pricing() {
     }
   }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan]);
 
-  /**
-   * Verificar estado do usuário ao carregar a página
-   */
+  /** Verificar estado do usuario ao carregar a pagina */
   useEffect(() => {
     const checkUserState = async () => {
       const { data: { session } } = await supabase.auth.getSession();
@@ -238,7 +240,7 @@ export default function Pricing() {
         setUserActivePlan(status.plan_id);
 
         // Conta com plano vigente (Free/Pro/Premium) nunca fica presa na tela
-        // de ativação: só permanece aqui se pediu explicitamente trocar de plano.
+        // de ativacao: so permanece aqui se pediu explicitamente trocar de plano.
         const wantsPlanChange =
           new URLSearchParams(window.location.search).has('change')
           || localStorage.getItem('orbi_selected_plan') !== null;
@@ -252,10 +254,7 @@ export default function Pricing() {
     checkUserState();
   }, [navigate]);
 
-  /**
-   * Processar plano salvo após login
-   * Se usuário veio do login e tinha selecionado um plano, processar automaticamente
-   */
+  /** Processar plano salvo apos login */
   useEffect(() => {
     const processStoredPlan = async () => {
       if (!isAuthenticated || !plans) return;
@@ -265,8 +264,8 @@ export default function Pricing() {
 
       try {
         const storedPlan = JSON.parse(storedPlanJson);
-        
-        // Validar se não expirou (1 hora)
+
+        // Validar se nao expirou (1 hora)
         const oneHour = 60 * 60 * 1000;
         if (Date.now() - storedPlan.timestamp > oneHour) {
           localStorage.removeItem('orbi_selected_plan');
@@ -279,15 +278,12 @@ export default function Pricing() {
           return;
         }
 
-        // Configurar ciclo de cobrança
         if (storedPlan.billingCycle) {
           setBillingCycle(storedPlan.billingCycle);
         }
 
-        // Limpar plano salvo
         localStorage.removeItem('orbi_selected_plan');
 
-        // Processar plano
         setTimeout(() => {
           handleSelectPlan(selectedPlan.id, selectedPlan.slug, storedPlan.isFree);
         }, 500);
@@ -302,8 +298,9 @@ export default function Pricing() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border border-border border-t-primary" />
+        <span className="sr-only">Carregando planos…</span>
       </div>
     );
   }
@@ -313,245 +310,269 @@ export default function Pricing() {
 
   return (
     <>
-      {/* Dialog de Pagamento */}
-      <PaymentDialog 
+      <PaymentDialog
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
         paymentData={paymentData}
       />
 
       <div className="min-h-screen bg-background">
-      {/* Header */}
-      <div className="container mx-auto px-4 py-2">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <img src={orbiLogo} alt="Orbi" className="h-7 w-7" />
-            <span className="text-lg font-bold">Orbi</span>
-          </div>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            {isAuthenticated ? (
-              userActivePlan ? (
-                <Button variant="default" size="sm" onClick={() => navigate('/sistema')}>
-                  Ir para Sistema
-                </Button>
-              ) : (
-                <Button variant="outline" size="sm" onClick={() => navigate('/sistema')}>
-                  Minha Conta
-                </Button>
-              )
-            ) : (
-              <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
-                Entrar
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Hero Section */}
-      <div className="container mx-auto px-4 py-3 text-center">
-        <h1 className="mb-2 bg-gradient-primary bg-clip-text font-display text-2xl font-bold text-transparent md:text-3xl">
-          Escolha o Plano Ideal
-        </h1>
-        <p className="text-base text-muted-foreground mb-4 max-w-2xl mx-auto">
-          Gerencie suas finanças de forma inteligente com IA e visualizações poderosas
-        </p>
-
-        {/* Toggle de ciclo de cobrança */}
-        <div className="flex items-center justify-center gap-2 mb-4">
-          <ToggleGroup 
-            type="single" 
-            value={billingCycle} 
-            onValueChange={(value) => value && setBillingCycle(value as 'monthly' | 'yearly')}
-            className="border-2 rounded-lg p-1 bg-background/50 shadow-lg"
-          >
-            <ToggleGroupItem value="monthly" className="h-11 px-4 py-2 data-[state=on]:bg-muted">
-              Mensal
-            </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="yearly" 
-              className="relative h-11 px-4 py-2 font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-            >
-              Anual
-              {maxSavingsPercentage > 0 && (
-                <Badge className="ml-2 absolute -top-3 -right-3 text-xs font-bold px-2 py-0.5 shadow-lg bg-success hover:bg-success text-white">
-                  -{maxSavingsPercentage}%
-                </Badge>
-              )}
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </div>
-
-      {/* Planos */}
-      <div className="container mx-auto px-4 pb-8">
-        <div className="flex flex-wrap justify-center gap-4 max-w-6xl mx-auto">
-          {sortedPlans.map((plan) => {
-            const price = billingCycle === 'monthly' ? plan.price_monthly : plan.price_yearly;
-            const monthlyPrice = billingCycle === 'yearly' ? plan.price_yearly / 12 : plan.price_monthly;
-            const savings = billingCycle === 'yearly' && plan.price_yearly > 0 
-              ? calculateYearlySavings(plan.price_monthly, plan.price_yearly) 
-              : null;
-            const isUserCurrentPlan = userActivePlan === plan.id;
-            const isFree = plan.price_monthly === 0 && plan.price_yearly === 0;
-            
-            // Determinar se é upgrade ou downgrade
-            const currentPlan = sortedPlans.find(p => p.id === userActivePlan);
-            const currentPlanPrice = currentPlan 
-              ? (billingCycle === 'yearly' ? currentPlan.price_yearly : currentPlan.price_monthly)
-              : 0;
-            const thisPlanPrice = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-            const isUpgrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice > currentPlanPrice;
-            const isDowngrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice < currentPlanPrice;
-
-            return (
-              <Card
-                key={plan.id}
-                className={`relative flex flex-col w-full md:w-96 ${
-                  isUserCurrentPlan
-                    ? 'border-success/30 shadow-xl scale-[1.02] ring-2 ring-success/50'
-                    : plan.is_featured
-                    ? 'border-primary shadow-xl scale-[1.02]'
-                    : ''
-                } transition-all`}
-              >
-                {isUserCurrentPlan && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-success hover:bg-success text-white text-xs font-bold">
-                      ✓ Seu Plano Atual
-                    </Badge>
-                  </div>
-                )}
-                {!isUserCurrentPlan && plan.is_featured && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-gradient-primary text-xs">
-                      <Sparkles className="h-3 w-3 mr-1" />
-                      Mais Popular
-                    </Badge>
-                  </div>
-                )}
-
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-xl">{plan.name}</CardTitle>
-                  <CardDescription className="text-sm">{plan.description}</CardDescription>
-                </CardHeader>
-
-                <CardContent className="space-y-4 pb-4 flex-grow">
-                  {/* Preço */}
-                  <div>
-                    <div className="flex items-baseline gap-1">
-                      <span className="figure-lg tabular">
-                        {monthlyPrice === 0 ? 'Gratuito' : formatPrice(monthlyPrice)}
-                      </span>
-                      {monthlyPrice > 0 && (
-                        <span className="text-sm text-muted-foreground">/mês</span>
-                      )}
-                    </div>
-                    {billingCycle === 'yearly' && price > 0 && (
-                      <div className="text-xs text-muted-foreground mt-0.5">
-                        {formatPrice(price)} cobrado anualmente
-                      </div>
-                    )}
-                    {savings && savings.freeMonths > 0 && (
-                      <div className="mt-2 text-center">
-                        <div className="text-sm font-bold text-success dark:text-success" style={{ textShadow: '0 0 20px rgba(34, 197, 94, 0.6)' }}>
-                          🎁 {savings.isAlmost ? 'Quase ' : ''}{savings.isAlmost ? savings.freeMonths + 1 : savings.freeMonths} {(savings.isAlmost ? savings.freeMonths + 1 : savings.freeMonths) === 1 ? 'mês grátis' : 'meses grátis'}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Features */}
-                  <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 xs:grid-cols-2">
-                    {getSimplifiedFeatures(plan.features).map((feature) => (
-                      <div key={feature.key} className="flex items-center gap-1.5">
-                        {feature.enabled ? (
-                          <Check className="h-3.5 w-3.5 text-success flex-shrink-0" />
-                        ) : (
-                          <X className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
-                        )}
-                        <span className={`text-xs ${feature.enabled ? 'text-foreground' : 'text-muted-foreground opacity-60'}`}>
-                          {feature.label}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Limites */}
-                  <div className="pt-3 border-t">
-                    <div className="text-xs font-semibold mb-2 text-muted-foreground">
-                      Limites:
-                    </div>
-                    <div className="grid grid-cols-1 gap-x-2 gap-y-1 text-xs text-muted-foreground xs:grid-cols-2">
-                      {plan.limits.max_contas !== undefined && (
-                        <div>
-                          • Contas: {plan.limits.max_contas === -1 ? 'Ilimitado' : plan.limits.max_contas}
-                        </div>
-                      )}
-                      {plan.limits.max_cartoes !== undefined && (
-                        <div>
-                          • Cartões: {plan.limits.max_cartoes === -1 ? 'Ilimitado' : plan.limits.max_cartoes}
-                        </div>
-                      )}
-                      {plan.limits.max_transacoes_mes !== undefined && (
-                        <div>
-                          • Transações/mês: {plan.limits.max_transacoes_mes === -1 ? 'Ilimitado' : plan.limits.max_transacoes_mes}
-                        </div>
-                      )}
-                      {plan.limits.max_pessoas !== undefined && (
-                        <div>
-                          • Pessoas: {plan.limits.max_pessoas === -1 ? 'Ilimitado' : plan.limits.max_pessoas}
-                        </div>
-                      )}
-                      {plan.limits.max_categorias !== undefined && (
-                        <div>
-                          • Categorias: {plan.limits.max_categorias === -1 ? 'Ilimitado' : plan.limits.max_categorias}
-                        </div>
-                      )}
-                      {plan.limits.retencao_dados_meses !== undefined && (
-                        <div>
-                          • Retenção: {plan.limits.retencao_dados_meses === -1 ? 'Ilimitado' : `${plan.limits.retencao_dados_meses} meses`}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </CardContent>
-
-                <CardFooter className="pt-4">
-                  <Button
-                    className="w-full"
-                    variant={isUserCurrentPlan ? 'secondary' : isUpgrade ? 'default' : plan.is_featured ? 'default' : 'outline'}
-                    onClick={() => handleSelectPlan(plan.id, plan.slug, isFree)}
-                    disabled={isProcessing || isUserCurrentPlan || isPaymentLoading}
-                  >
-                    {isUserCurrentPlan 
-                      ? '✓ Plano Atual' 
-                      : (isProcessing || isPaymentLoading)
-                      ? 'Processando...' 
-                      : isUpgrade
-                      ? 'Fazer Upgrade'
-                      : isDowngrade
-                      ? 'Mudar Plano'
-                      : (isFree ? 'Começar Grátis' : 'Assinar Agora')
-                    }
+        {/* Barra superior: hairline, sem sombra. */}
+        <header className="sticky top-0 z-30 border-b border-border-subtle bg-background/85 backdrop-blur-md">
+          <div className="mx-auto flex h-header max-w-[76rem] items-center justify-between px-4 md:px-6 lg:h-header-lg lg:px-8">
+            <div className="flex items-center gap-2.5">
+              <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+              <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <ThemeToggle />
+              {isAuthenticated ? (
+                userActivePlan ? (
+                  <Button size="sm" onClick={() => navigate('/sistema')}>
+                    Ir para o sistema
                   </Button>
-                </CardFooter>
-              </Card>
-            );
-          })}
-        </div>
-
-        {/* Aviso se não houver planos */}
-        {(!plans || plans.length === 0) && (
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">
-              Nenhum plano disponível no momento. Por favor, tente novamente mais tarde.
-            </p>
+                ) : (
+                  <Button variant="outline" size="sm" onClick={() => navigate('/sistema')}>
+                    Minha conta
+                  </Button>
+                )
+              ) : (
+                <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+                  Entrar
+                </Button>
+              )}
+            </div>
           </div>
-        )}
+        </header>
+
+        <main className="mx-auto max-w-[76rem] px-4 pb-16 pt-10 md:px-6 md:pt-14 lg:px-8 lg:pb-24 lg:pt-20">
+          {/* Cabecalho editorial: alinhado a esquerda, com a escolha de ciclo
+              ancorada a direita no desktop. Nada centralizado por inercia. */}
+          <div className="flex flex-col gap-8 border-b border-border-subtle pb-8 lg:flex-row lg:items-end lg:justify-between lg:gap-16 lg:pb-10">
+            <div className="max-w-xl">
+              <p className="label-eyebrow">Planos e assinatura</p>
+              <h1 className="mt-3 text-balance">Escolha como o Orbi vai trabalhar para você.</h1>
+              <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
+                Todos os planos incluem extrato, contas e categorias. O que muda é o quanto
+                a inteligência do Orbi classifica por você — e quantos registros cabem.
+              </p>
+            </div>
+
+            <div className="flex shrink-0 flex-col items-start gap-2 lg:items-end">
+              <span className="label-eyebrow">Ciclo de cobrança</span>
+              <div className="flex items-center gap-3">
+                <ToggleGroup
+                  type="single"
+                  value={billingCycle}
+                  onValueChange={(value) => value && setBillingCycle(value as 'monthly' | 'yearly')}
+                  aria-label="Ciclo de cobrança"
+                  className="rounded-lg border border-border bg-surface-sunken p-1"
+                >
+                  <ToggleGroupItem value="monthly" className="h-9 px-4">
+                    Mensal
+                  </ToggleGroupItem>
+                  <ToggleGroupItem value="yearly" className="h-9 px-4">
+                    Anual
+                  </ToggleGroupItem>
+                </ToggleGroup>
+                {maxSavingsPercentage > 0 && (
+                  <Badge variant="success" className="whitespace-nowrap">
+                    Economize até {maxSavingsPercentage}%
+                  </Badge>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Trilha de planos */}
+          <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 lg:mt-10 lg:grid-cols-3 lg:gap-5">
+            {sortedPlans.map((plan, index) => {
+              const price = billingCycle === 'monthly' ? plan.price_monthly : plan.price_yearly;
+              const monthlyPrice = billingCycle === 'yearly' ? plan.price_yearly / 12 : plan.price_monthly;
+              const savings = billingCycle === 'yearly' && plan.price_yearly > 0
+                ? calculateYearlySavings(plan.price_monthly, plan.price_yearly)
+                : null;
+              const isUserCurrentPlan = userActivePlan === plan.id;
+              const isFree = plan.price_monthly === 0 && plan.price_yearly === 0;
+
+              const currentPlan = sortedPlans.find(p => p.id === userActivePlan);
+              const currentPlanPrice = currentPlan
+                ? (billingCycle === 'yearly' ? currentPlan.price_yearly : currentPlan.price_monthly)
+                : 0;
+              const thisPlanPrice = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
+              const isUpgrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice > currentPlanPrice;
+              const isDowngrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice < currentPlanPrice;
+
+              const featured = !isUserCurrentPlan && plan.is_featured;
+              const freeMonths = savings
+                ? (savings.isAlmost ? savings.freeMonths + 1 : savings.freeMonths)
+                : 0;
+
+              return (
+                <Card
+                  key={plan.id}
+                  interactive
+                  className={cn(
+                    "flex animate-rise flex-col overflow-hidden",
+                    isUserCurrentPlan && "border-success/45",
+                    featured && "border-primary/45",
+                  )}
+                  style={{ animationDelay: `${index * 70}ms` }}
+                >
+                  {/* Regua de acento de 1px: marca o plano sem deslocar a grade. */}
+                  <div
+                    aria-hidden
+                    className={cn(
+                      "h-px w-full",
+                      isUserCurrentPlan ? "bg-success" : featured ? "bg-primary" : "bg-transparent",
+                    )}
+                  />
+
+                  <CardHeader className="gap-0 space-y-0">
+                    <div className="flex min-h-6 items-center justify-between gap-3">
+                      <h2 className="font-display text-base font-semibold tracking-tight text-foreground">
+                        {plan.name}
+                      </h2>
+                      {isUserCurrentPlan ? (
+                        <Badge variant="success-solid">
+                          <Check className="h-3 w-3" />
+                          Plano atual
+                        </Badge>
+                      ) : featured ? (
+                        <Badge variant="primary">
+                          <Sparkles className="h-3 w-3" />
+                          Mais popular
+                        </Badge>
+                      ) : null}
+                    </div>
+                    {plan.description && (
+                      <p className="mt-1.5 text-sm leading-relaxed text-pretty text-muted-foreground">
+                        {plan.description}
+                      </p>
+                    )}
+                  </CardHeader>
+
+                  <CardContent className="flex flex-grow flex-col gap-6">
+                    {/* Preco: o dado protagonista da tela. */}
+                    <div>
+                      <div className="flex items-baseline gap-1.5">
+                        <span className="figure-xl text-foreground">
+                          {monthlyPrice === 0 ? 'Gratuito' : formatPrice(monthlyPrice)}
+                        </span>
+                        {monthlyPrice > 0 && (
+                          <span className="text-sm text-muted-foreground">/mês</span>
+                        )}
+                      </div>
+                      <div className="mt-2 flex min-h-6 flex-wrap items-center gap-2">
+                        {billingCycle === 'yearly' && price > 0 && (
+                          <span className="text-xs tabular text-muted-foreground">
+                            {formatPrice(price)} por ano
+                          </span>
+                        )}
+                        {freeMonths > 0 && (
+                          <Badge variant="success">
+                            {savings?.isAlmost ? 'Quase ' : ''}
+                            {freeMonths} {freeMonths === 1 ? 'mês grátis' : 'meses grátis'}
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Recursos: incluido em tinta cheia, ausente em muted.
+                        Sem X vermelho — ausencia nao e erro. */}
+                    <div>
+                      <p className="label-eyebrow">Recursos</p>
+                      <ul className="mt-3 grid grid-cols-1 gap-y-2 xs:grid-cols-2 xs:gap-x-4">
+                        {FEATURE_ROWS.map(({ key, label }) => {
+                          const enabled = plan.features?.[key] === true;
+                          return (
+                            <li key={key} className="flex items-start gap-2">
+                              {enabled ? (
+                                <Check className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                              ) : (
+                                <Minus className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+                              )}
+                              <span
+                                className={cn(
+                                  "min-w-0 text-xs leading-[1.35]",
+                                  enabled ? "text-foreground" : "text-muted-foreground",
+                                )}
+                              >
+                                {label}
+                              </span>
+                              <span className="sr-only">{enabled ? "incluído" : "não incluído"}</span>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+
+                    {/* Limites: lista de definicao com hairline entre linhas. */}
+                    <div className="mt-auto">
+                      <p className="label-eyebrow">Limites</p>
+                      <dl className="mt-2">
+                        {LIMIT_ROWS.map(({ key, label, ...rest }) => {
+                          const value = (plan.limits as Record<string, number | undefined>)?.[key];
+                          if (value === undefined) return null;
+                          const suffix = 'suffix' in rest ? ` ${(rest as { suffix: string }).suffix}` : '';
+                          return (
+                            <div
+                              key={key}
+                              className="flex items-baseline justify-between gap-3 border-b border-border-subtle py-1.5 last:border-b-0"
+                            >
+                              <dt className="text-xs text-muted-foreground">{label}</dt>
+                              <dd className="text-xs font-medium tabular text-foreground">
+                                {value === -1 ? 'Ilimitado' : `${value}${suffix}`}
+                              </dd>
+                            </div>
+                          );
+                        })}
+                      </dl>
+                    </div>
+                  </CardContent>
+
+                  <CardFooter>
+                    <Button
+                      className="w-full"
+                      size="lg"
+                      variant={
+                        isUserCurrentPlan ? 'secondary' : (isUpgrade || featured) ? 'default' : 'outline'
+                      }
+                      onClick={() => handleSelectPlan(plan.id, plan.slug, isFree)}
+                      disabled={isProcessing || isUserCurrentPlan || isPaymentLoading}
+                    >
+                      {isUserCurrentPlan
+                        ? 'Plano atual'
+                        : (isProcessing || isPaymentLoading)
+                        ? 'Processando…'
+                        : isUpgrade
+                        ? `Fazer upgrade para ${plan.name}`
+                        : isDowngrade
+                        ? `Mudar para ${plan.name}`
+                        : (isFree ? 'Começar grátis' : `Assinar ${plan.name}`)}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+
+          {(!plans || plans.length === 0) && (
+            <div className="mt-10 rounded-xl border border-dashed border-border px-6 py-16 text-center">
+              <p className="font-display text-base font-semibold text-foreground">
+                Nenhum plano disponível agora
+              </p>
+              <p className="mx-auto mt-2 max-w-sm text-sm text-muted-foreground">
+                Estamos atualizando as assinaturas. Tente de novo em alguns minutos.
+              </p>
+            </div>
+          )}
+
+          <p className="mt-10 border-t border-border-subtle pt-6 text-xs text-muted-foreground">
+            Você pode trocar ou cancelar seu plano quando quiser. Cobrança em reais, sem fidelidade.
+          </p>
+        </main>
       </div>
-    </div>
     </>
   );
 }

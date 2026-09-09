@@ -2482,13 +2482,13 @@ function MonthlyStatementContent() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="p-1.5 lg:p-2 bg-success-soft rounded-lg">
-                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-success dark:text-success" />
+                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-success" />
                 </div>
                 <div>
                   <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Receber
                   </p>
-                  <p className="text-xl lg:text-2xl font-bold text-success">
+                  <p className="text-xl lg:text-2xl font-semibold text-success">
                     {pendingIncomeTransactions.length}
                   </p>
                 </div>
@@ -2530,11 +2530,11 @@ function MonthlyStatementContent() {
               <div className="flex items-center gap-3">
                 <div className="relative">
                   <div className="p-1.5 lg:p-2 bg-destructive-soft rounded-lg">
-                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive dark:text-destructive" />
+                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive" />
                   </div>
                   {overdueExpenseTransactions.length > 0 && (
                     <div className="absolute -top-1 -right-1 p-0.5 lg:p-1 bg-destructive rounded-full">
-                      <AlertTriangle className="h-2 w-2 lg:h-3 lg:w-3 text-white" />
+                      <AlertTriangle className="h-2 w-2 lg:h-3 lg:w-3 text-destructive-foreground" />
                     </div>
                   )}
                 </div>
@@ -2542,7 +2542,7 @@ function MonthlyStatementContent() {
                   <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Pagar
                   </p>
-                  <p className="text-xl lg:text-2xl font-bold text-destructive">
+                  <p className="text-xl lg:text-2xl font-semibold text-destructive">
                     {pendingExpenseTransactions.length}
                     {overdueExpenseTransactions.length > 0 && (
                       <span className="ml-2 text-xs lg:text-sm font-normal text-destructive">
@@ -2881,7 +2881,7 @@ function MonthlyStatementContent() {
                       disabled
                       className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                         type === "fixed" || (editingId && isFixed)
-                          ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                          ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
                           : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                       }`}
                     >
@@ -2898,7 +2898,7 @@ function MonthlyStatementContent() {
                     onClick={() => handleTypeChange("income")}
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "income"
-                        ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                        ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
@@ -2911,7 +2911,7 @@ function MonthlyStatementContent() {
                     onClick={() => handleTypeChange("expense")}
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "expense"
-                        ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
+                        ? "border-destructive/50 bg-destructive-soft text-destructive hover:bg-destructive-soft/70"
                         : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                     }`}
                   >
@@ -2924,7 +2924,7 @@ function MonthlyStatementContent() {
                     onClick={() => handleTypeChange("transfer")}
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "transfer"
-                        ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                        ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
@@ -2938,7 +2938,7 @@ function MonthlyStatementContent() {
                     onClick={() => handleTypeChange("fixed")}
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "fixed"
-                        ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                        ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
@@ -3001,7 +3001,7 @@ function MonthlyStatementContent() {
                           }}
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && !isRateio
-                              ? "border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
+                              ? "border border-destructive bg-destructive-soft text-destructive hover:bg-destructive-soft/70"
                               : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                           }`}
                         >
@@ -3017,7 +3017,7 @@ function MonthlyStatementContent() {
                           }}
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             isLoan && !isRateio
-                              ? "border-2 border-border bg-secondary/50 text-chart-6 hover:bg-secondary/70"
+                              ? "border border-border bg-secondary/50 text-chart-6 hover:bg-secondary/70"
                               : "hover:border-border hover:bg-secondary/50 hover:text-chart-6 dark:hover:text-chart-6"
                           }`}
                         >
@@ -3033,7 +3033,7 @@ function MonthlyStatementContent() {
                           }}
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && isRateio
-                              ? "border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                              ? "border border-primary bg-info-soft text-primary hover:bg-info-soft/70"
                               : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                           }`}
                         >
@@ -3398,7 +3398,7 @@ function MonthlyStatementContent() {
                         }}
                         className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "income"
-                            ? "border-success/50 bg-success/10 dark:bg-success/20 text-success dark:text-success"
+                            ? "border-success/50 bg-success/10 dark:bg-success/20 text-success"
                             : "hover:border-success/30 hover:bg-success/5 dark:hover:bg-success/10 hover:text-success dark:hover:text-success"
                         }`}
                       >
@@ -3413,7 +3413,7 @@ function MonthlyStatementContent() {
                         onClick={() => setFixedType("expense")}
                         className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "expense"
-                            ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive"
+                            ? "border-destructive/50 bg-destructive-soft text-destructive"
                             : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                         }`}
                       >
@@ -3559,7 +3559,7 @@ function MonthlyStatementContent() {
                           {installmentData.installments.length} parcelas
                         </span>
                       </div>
-                      <div className="text-xs text-destructive dark:text-destructive mb-2">
+                      <div className="text-xs text-destructive mb-2">
                         <div>
                           Valor Total:{" "}
                           {formatCurrencyBRL(installmentData.totalValue)}
@@ -3594,7 +3594,7 @@ function MonthlyStatementContent() {
                           {formatCurrencyBRL(installmentValue)}
                         </span>
                       </div>
-                      <div className="text-xs text-destructive dark:text-destructive mb-3">
+                      <div className="text-xs text-destructive mb-3">
                         {installments} parcelas de{" "}
                         {formatCurrencyBRL(installmentValue)} ={" "}
                         {formatCurrencyBRL(value)}
@@ -3651,8 +3651,8 @@ function MonthlyStatementContent() {
                       }}
                       className={`h-8 ${
                         selectedPeople.includes(person.id)
-                          ? "bg-secondary text-chart-6 border-2 border-border hover:bg-secondary"
-                          : "border-2 border-border hover:bg-transparent"
+                          ? "bg-secondary text-chart-6 border border-border hover:bg-secondary"
+                          : "border border-border hover:bg-transparent"
                       }`}
                     >
                       {person.name}

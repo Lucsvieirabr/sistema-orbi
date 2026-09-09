@@ -394,9 +394,9 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                       <div className="flex items-center gap-2">
                         <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-success-soft' : 'bg-destructive-soft'}`}>
                           {transaction.type === 'income' ? (
-                            <TrendingUp className="h-3 w-3 text-success dark:text-success" />
+                            <TrendingUp className="h-3 w-3 text-success" />
                           ) : (
-                            <TrendingDown className="h-3 w-3 text-destructive dark:text-destructive" />
+                            <TrendingDown className="h-3 w-3 text-destructive" />
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
@@ -442,9 +442,9 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                     <div className="col-span-1 flex items-center gap-2">
                       <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-success-soft' : 'bg-destructive-soft'}`}>
                         {transaction.type === 'income' ? (
-                          <TrendingUp className="h-3 w-3 text-success dark:text-success" />
+                          <TrendingUp className="h-3 w-3 text-success" />
                         ) : (
-                          <TrendingDown className="h-3 w-3 text-destructive dark:text-destructive" />
+                          <TrendingDown className="h-3 w-3 text-destructive" />
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
@@ -637,19 +637,19 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
           {/* Resumo melhorado */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 p-4 bg-muted/50 rounded-lg">
             <div className="text-center">
-              <div className="text-2xl font-bold text-primary">{editedTransactions.length}</div>
+              <div className="text-2xl font-semibold text-primary">{editedTransactions.length}</div>
               <div className="text-sm text-muted-foreground">Total de Transações</div>
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-success">
+              <div className="text-2xl font-semibold text-success">
                 {formatCurrency(editedTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0))}
               </div>
               <div className="text-sm text-muted-foreground">Total de Receitas</div>
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-destructive">
+              <div className="text-2xl font-semibold text-destructive">
                 {formatCurrency(editedTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0))}
               </div>
               <div className="text-sm text-muted-foreground">Total de Despesas</div>
@@ -678,7 +678,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
               >
                 {isSaving ? (
                   <>
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
                     Salvando...
                   </>
                 ) : (

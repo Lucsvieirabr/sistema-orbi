@@ -18,6 +18,7 @@ import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
+import { cn, onColorClass } from "@/lib/utils";
 
 export default function Accounts() {
   return (
@@ -242,7 +243,7 @@ function AccountsContent() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
               {filteredAccounts.length === 0 ? (
                 <div className="col-span-full">
-                  <Card className="border-dashed border-2 border-muted-foreground/25">
+                  <Card className="border-dashed border-border">
                     <CardContent className="flex flex-col items-center justify-center py-12 text-center">
                       <div className="p-4 bg-muted/50 rounded-full mb-4">
                         <Wallet className="h-8 w-8 text-muted-foreground" />
@@ -266,7 +267,7 @@ function AccountsContent() {
                         <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
                           <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
                             <div className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: a.color ?? "#e5e7eb" }}>
-                              <Wallet className="h-5 w-5 text-white" />
+                              <Wallet className={cn("h-5 w-5", onColorClass(a.color))} />
                             </div>
                             <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
                               <h3 className="font-semibold text-base" title={a.name}>{truncateText(a.name, 20)}</h3>

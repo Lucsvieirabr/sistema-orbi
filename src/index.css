@@ -5,191 +5,208 @@
 /* ============================================================================
    ORBI DESIGN SYSTEM
    ----------------------------------------------------------------------------
-   Tema Claro : "Azul Navy Contábil"    — tinta navy sobre papel frio.
-   Tema Escuro: "Planilha Meia-Noite"   — quase-preto com um único azul elétrico.
+   Tema Claro : "Papel Navy"          — tinta navy sobre papel frio dessaturado.
+   Tema Escuro: "Planilha Meia-Noite" — quase-preto azulado com um azul contido.
 
    Regras do sistema:
-   1. Toda cor é HSL e vive numa variável semântica. Nunca use hex no JSX.
-   2. Superfícies são separadas por whitespace + 1px hairline. Sombra só flutua
-      (dropdown, dialog, popover). Card não tem sombra.
-   3. Dados financeiros usam tabular-nums e a família display.
-   4. Apenas UMA cor de destaque por tela.
+   1. Toda cor e HSL e vive numa variavel semantica. Nunca hex/paleta crua no JSX.
+   2. Superficie sobre superficie e separada por whitespace + 1px de hairline.
+      Sombra so existe no que flutua (dialog, popover, dropdown, toast).
+   3. Fundo colorido solido SEMPRE usa o `-foreground` do mesmo tom. Nunca
+      `text-white` sobre token: no escuro os tons clareiam e o branco some.
+   4. Dados financeiros usam tabular-nums e a familia display.
+   5. Uma unica cor de destaque por tela.
    ========================================================================== */
 
 @layer base {
   :root {
     color-scheme: light;
 
-    /* --- Rampa da marca (Navy Contábil) ------------------------------------ */
-    --brand-900: 215 69% 14%;  /* #0B1F3B  primária escura   */
-    --brand-700: 210 69% 23%;  /* #123A63  secundária        */
-    --brand-500: 210 50% 37%;  /* #2F5D8C  terciária         */
-    --brand-200: 212 35% 84%;  /* #C9D6E5  bordas/divisores  */
-    --brand-050: 210 30% 96%;  /* #F2F5F8  fundo             */
+    /* --- Rampa da marca (Navy dessaturado) --------------------------------- */
+    --brand-900: 216 58% 13%;  /* #0D1E38  tinta       */
+    --brand-700: 213 52% 24%;  /* #1D3A5C  secundaria  */
+    --brand-500: 211 45% 38%;  /* #365B85  terciaria   */
+    --brand-200: 213 24% 87%;  /* #D5DCE5  hairline    */
+    --brand-050: 214 24% 97%;  /* #F5F7FA  papel       */
 
-    /* --- Superfícies -------------------------------------------------------- */
-    --background: 210 30% 96%;        /* #F2F5F8 */
-    --foreground: 215 69% 14%;        /* #0B1F3B */
+    /* --- Superficies -------------------------------------------------------- */
+    --background: 214 24% 97%;
+    --foreground: 216 58% 13%;
 
-    --card: 0 0% 100%;                /* #FFFFFF — cards saltam do fundo */
-    --card-foreground: 215 69% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 58% 13%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 215 69% 14%;
+    --popover-foreground: 216 58% 13%;
 
-    --surface: 0 0% 100%;             /* superfície elevada genérica */
-    --surface-sunken: 210 30% 93%;    /* trilhos, barras de progresso, wells */
+    --surface: 0 0% 100%;
+    --surface-sunken: 214 22% 94%;    /* trilhos, wells, progress */
 
-    /* --- Ações -------------------------------------------------------------- */
-    --primary: 215 69% 14%;           /* #0B1F3B */
+    /* --- Acoes -------------------------------------------------------------- */
+    --primary: 216 58% 13%;
     --primary-foreground: 0 0% 100%;
-    --primary-hover: 210 69% 23%;     /* #123A63 */
+    --primary-hover: 213 52% 24%;
 
-    --secondary: 210 30% 93%;
-    --secondary-foreground: 210 69% 23%;
+    --secondary: 214 22% 94%;
+    --secondary-foreground: 216 42% 22%;
 
-    --accent: 212 35% 91%;            /* hover discreto */
-    --accent-foreground: 215 69% 14%;
+    --accent: 213 26% 92%;
+    --accent-foreground: 216 58% 13%;
 
-    --muted: 210 30% 93%;
-    --muted-foreground: 213 22% 42%;  /* labels — 5.4:1 sobre branco */
+    --muted: 214 22% 94%;
+    --muted-foreground: 215 15% 43%;  /* rotulo secundario */
 
-    /* --- Semântica financeira ------------------------------------------------ */
-    --success: 162 72% 26%;           /* entrada / recebido  */
+    /* --- Semantica financeira ------------------------------------------------ */
+    --success: 163 58% 25%;
     --success-foreground: 0 0% 100%;
-    --success-soft: 162 45% 93%;
+    --success-soft: 163 40% 94%;
 
-    --destructive: 3 68% 42%;         /* saída / a pagar     */
+    --destructive: 4 58% 42%;
     --destructive-foreground: 0 0% 100%;
-    --destructive-soft: 3 70% 95%;
+    --destructive-soft: 6 62% 96%;
 
-    --warning: 32 88% 35%;            /* pendente            */
+    --warning: 30 62% 31%;
     --warning-foreground: 0 0% 100%;
-    --warning-soft: 38 90% 94%;
+    --warning-soft: 36 72% 93%;
 
-    --info: 210 50% 37%;
+    --info: 211 45% 36%;
     --info-foreground: 0 0% 100%;
-    --info-soft: 210 45% 94%;
+    --info-soft: 211 46% 94%;
 
     /* --- Estrutura ----------------------------------------------------------- */
-    --border: 212 35% 84%;            /* #C9D6E5 */
-    --border-subtle: 212 32% 90%;     /* divisor interno, quase invisível */
-    --input: 212 35% 84%;
-    --ring: 210 50% 37%;              /* #2F5D8C */
+    --border: 213 24% 87%;
+    --border-subtle: 213 24% 92%;
+    --input: 213 22% 56%;            /* 3,4:1 sobre card — WCAG 1.4.11 */
+    --ring: 211 52% 42%;
 
-    --radius: 0.75rem;
+    --radius: 0.625rem;
 
-    /* --- Navegação (Sidebar navy) -------------------------------------------- */
-    --sidebar: 215 69% 14%;                  /* #0B1F3B */
-    --sidebar-foreground: 212 35% 84%;       /* #C9D6E5 */
-    --sidebar-muted: 211 25% 62%;
-    --sidebar-accent: 210 69% 23%;           /* #123A63 — item ativo */
+    /* --- Navegacao (Sidebar navy) -------------------------------------------- */
+    --sidebar: 216 58% 13%;
+    --sidebar-foreground: 213 24% 84%;
+    --sidebar-muted: 212 18% 62%;
+    --sidebar-accent: 213 45% 21%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 212 40% 22%;
-    --sidebar-ring: 210 50% 55%;
-    --sidebar-marker: 212 35% 84%;           /* barra do item ativo */
+    --sidebar-border: 214 34% 21%;
+    --sidebar-ring: 211 62% 62%;
+    --sidebar-marker: 211 70% 66%;
 
-    /* --- Data-viz (ordem de uso nos gráficos) --------------------------------- */
-    --chart-1: 210 69% 23%;
-    --chart-2: 162 72% 30%;
-    --chart-3: 210 50% 55%;
-    --chart-4: 32 82% 45%;
-    --chart-5: 3 62% 48%;
-    --chart-6: 262 40% 48%;
+    /* --- Data-viz (ordem de uso) ---------------------------------------------- */
+    --chart-1: 213 52% 28%;
+    --chart-2: 163 50% 32%;
+    --chart-3: 211 42% 54%;
+    --chart-4: 30 62% 44%;
+    --chart-5: 4 52% 50%;
+    --chart-6: 258 30% 50%;
 
-    /* --- Elevação (apenas para elementos flutuantes) -------------------------- */
-    --shadow-sm: 0 1px 2px hsl(215 40% 20% / 0.04);
-    --shadow-md: 0 4px 12px -2px hsl(215 40% 20% / 0.08);
-    --shadow-lg: 0 16px 40px -12px hsl(215 45% 18% / 0.16);
-    --shadow-primary: 0 2px 8px hsl(215 69% 14% / 0.14);
-
-    /* Gradientes mantidos por compatibilidade — achatados de propósito. */
-    --gradient-primary: linear-gradient(180deg, hsl(var(--primary)), hsl(var(--primary-hover)));
-    --gradient-success: linear-gradient(180deg, hsl(var(--success)), hsl(162 72% 22%));
-    --gradient-card: none;
+    /* --- Elevacao: sombras multicamada, curtas e frias ------------------------ */
+    --shadow-sm:
+      0 1px 1px hsl(216 42% 12% / 0.04),
+      0 1px 3px -1px hsl(216 42% 12% / 0.06);
+    --shadow-md:
+      0 1px 2px hsl(216 42% 12% / 0.05),
+      0 6px 16px -6px hsl(216 42% 12% / 0.12);
+    --shadow-lg:
+      0 1px 2px hsl(216 42% 12% / 0.06),
+      0 12px 28px -8px hsl(216 42% 12% / 0.14),
+      0 32px 64px -28px hsl(216 42% 12% / 0.22);
+    --shadow-primary:
+      0 1px 2px hsl(216 58% 13% / 0.18),
+      0 4px 12px -4px hsl(216 58% 13% / 0.20);
 
     /* --- Tipografia ----------------------------------------------------------- */
     --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     --font-display: "Inter Tight", "Inter", ui-sans-serif, system-ui, sans-serif;
+
+    /* --- Movimento ------------------------------------------------------------ */
+    --ease-swift: cubic-bezier(0.22, 1, 0.36, 1);
+    --ease-entrance: cubic-bezier(0.16, 1, 0.3, 1);
   }
 
   .dark {
     color-scheme: dark;
 
-    --brand-900: 225 50% 8%;
-    --brand-700: 216 41% 18%;
-    --brand-500: 217 91% 60%;
-    --brand-200: 215 20% 65%;
-    --brand-050: 214 32% 91%;
+    --brand-900: 220 30% 7%;
+    --brand-700: 219 25% 12%;
+    --brand-500: 214 84% 62%;
+    --brand-200: 216 15% 66%;
+    --brand-050: 213 25% 92%;
 
-    --background: 225 50% 8%;         /* #0A0F1E */
-    --foreground: 214 32% 91%;        /* #E2E8F0 */
+    --background: 220 30% 7%;         /* #0C1017 */
+    --foreground: 213 25% 92%;        /* #E5E9EF */
 
-    --card: 216 41% 18%;              /* #1B2A41 */
-    --card-foreground: 214 32% 91%;
+    --card: 219 25% 12%;              /* #171C25 */
+    --card-foreground: 213 25% 92%;
 
-    --popover: 216 41% 16%;
-    --popover-foreground: 214 32% 91%;
+    --popover: 219 25% 14%;
+    --popover-foreground: 213 25% 92%;
 
-    --surface: 216 41% 18%;
-    --surface-sunken: 220 43% 12%;
+    --surface: 219 25% 12%;
+    --surface-sunken: 220 28% 9%;
 
-    --primary: 217 91% 60%;           /* #3B82F6 — o único destaque */
-    --primary-foreground: 225 50% 8%; /* texto escuro sobre azul: 5.2:1 */
-    --primary-hover: 217 91% 66%;
+    --primary: 214 84% 62%;           /* azul contido, unico destaque */
+    --primary-foreground: 220 40% 8%;
+    --primary-hover: 214 84% 69%;
 
-    --secondary: 216 41% 22%;
-    --secondary-foreground: 214 32% 91%;
+    --secondary: 218 20% 17%;
+    --secondary-foreground: 213 25% 92%;
 
-    --accent: 216 41% 24%;
-    --accent-foreground: 214 32% 91%;
+    --accent: 218 20% 20%;
+    --accent-foreground: 213 25% 92%;
 
-    --muted: 216 41% 22%;
-    --muted-foreground: 215 20% 65%;  /* #94A3B8 — 7.2:1 sobre o fundo */
+    --muted: 218 20% 17%;
+    --muted-foreground: 216 15% 66%;
 
-    --success: 158 60% 52%;
-    --success-foreground: 225 50% 8%;
-    --success-soft: 160 40% 16%;
+    --success: 160 45% 55%;
+    --success-foreground: 220 40% 8%;
+    --success-soft: 162 30% 15%;
 
-    --destructive: 0 78% 68%;
-    --destructive-foreground: 225 50% 8%;
-    --destructive-soft: 0 45% 20%;
+    --destructive: 4 66% 67%;
+    --destructive-foreground: 220 40% 8%;
+    --destructive-soft: 4 34% 19%;
 
-    --warning: 38 90% 60%;
-    --warning-foreground: 225 50% 8%;
-    --warning-soft: 38 50% 18%;
+    --warning: 36 70% 60%;
+    --warning-foreground: 220 40% 8%;
+    --warning-soft: 36 38% 17%;
 
-    --info: 217 91% 60%;
-    --info-foreground: 225 50% 8%;
-    --info-soft: 217 50% 20%;
+    --info: 214 84% 62%;
+    --info-foreground: 220 40% 8%;
+    --info-soft: 214 44% 17%;
 
-    --border: 216 35% 25%;
-    --border-subtle: 216 38% 20%;
-    --input: 216 35% 25%;
-    --ring: 217 91% 60%;
+    --border: 218 18% 22%;
+    --border-subtle: 218 18% 16%;
+    --input: 218 16% 45%;            /* 3,3:1 sobre card — WCAG 1.4.11 */
+    --ring: 214 84% 62%;
 
-    --sidebar: 225 50% 8%;
-    --sidebar-foreground: 215 20% 65%;
-    --sidebar-muted: 215 18% 52%;
-    --sidebar-accent: 216 41% 18%;
-    --sidebar-accent-foreground: 214 32% 91%;
-    --sidebar-border: 216 38% 18%;
-    --sidebar-ring: 217 91% 60%;
-    --sidebar-marker: 217 91% 60%;
+    --sidebar: 220 30% 7%;
+    --sidebar-foreground: 216 15% 66%;
+    --sidebar-muted: 216 13% 52%;
+    --sidebar-accent: 219 25% 14%;
+    --sidebar-accent-foreground: 213 25% 92%;
+    --sidebar-border: 218 18% 16%;
+    --sidebar-ring: 214 84% 62%;
+    --sidebar-marker: 214 84% 62%;
 
-    --chart-1: 217 91% 60%;
-    --chart-2: 158 60% 52%;
-    --chart-3: 215 20% 65%;
-    --chart-4: 38 90% 60%;
-    --chart-5: 0 78% 68%;
-    --chart-6: 262 60% 68%;
+    --chart-1: 214 84% 62%;
+    --chart-2: 160 45% 55%;
+    --chart-3: 216 15% 66%;
+    --chart-4: 36 70% 60%;
+    --chart-5: 4 66% 67%;
+    --chart-6: 258 52% 70%;
 
-    --shadow-sm: 0 1px 2px hsl(225 60% 3% / 0.5);
-    --shadow-md: 0 4px 14px -2px hsl(225 60% 3% / 0.55);
-    --shadow-lg: 0 20px 48px -16px hsl(225 60% 2% / 0.75);
-    --shadow-primary: 0 2px 12px hsl(217 91% 40% / 0.35);
-
-    --gradient-card: none;
+    --shadow-sm:
+      0 1px 1px hsl(220 50% 2% / 0.36),
+      0 1px 3px -1px hsl(220 50% 2% / 0.42);
+    --shadow-md:
+      0 1px 2px hsl(220 50% 2% / 0.44),
+      0 8px 20px -8px hsl(220 50% 2% / 0.56);
+    --shadow-lg:
+      0 1px 2px hsl(220 50% 2% / 0.5),
+      0 16px 32px -12px hsl(220 50% 2% / 0.6),
+      0 40px 72px -32px hsl(220 50% 1% / 0.76);
+    --shadow-primary:
+      0 1px 2px hsl(220 50% 2% / 0.5),
+      0 4px 16px -4px hsl(214 84% 40% / 0.38);
   }
 }
 
@@ -200,9 +217,8 @@
 
   html {
     -webkit-text-size-adjust: 100%;
-    /* Regra dura: a página nunca rola para os lados. `clip` (e não `hidden`)
-       porque `clip` não cria contexto de rolagem — o header sticky continua
-       grudando. Rolagem horizontal só existe dentro de contêiner declarado. */
+    /* A pagina nunca rola para os lados. `clip` (e nao `hidden`) porque nao
+       cria contexto de rolagem — o header sticky continua grudando. */
     overflow-x: clip;
   }
 
@@ -212,8 +228,6 @@
     font-feature-settings: "cv05" 1, "cv11" 1, "ss01" 1;
     text-rendering: optimizeLegibility;
     overflow-x: clip;
-    /* Altura da barra de navegação inferior (mobile) + recorte do aparelho.
-       Usada pelo padding de rodapé do conteúdo e pelos FABs. */
     --bottom-nav-h: 4rem;
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --bottom-nav-offset: calc(var(--bottom-nav-h) + var(--safe-bottom));
@@ -225,7 +239,7 @@
     }
   }
 
-  /* Toque: nada de "zoom ao focar" no iOS — campo com fonte < 16px dispara. */
+  /* Campo com fonte < 16px faz o iOS dar zoom ao focar. */
   @media (max-width: 767px) {
     input,
     select,
@@ -234,13 +248,20 @@
     }
   }
 
+  /* Hierarquia tipografica: display com tracking negativo proporcional ao
+     tamanho — quanto maior o texto, mais fechado. */
   h1, h2, h3, h4 {
     font-family: var(--font-display);
-    @apply tracking-tight;
     text-wrap: balance;
   }
+  h1 { @apply text-[1.75rem] font-semibold leading-[1.12] tracking-[-0.025em] md:text-[2.125rem] md:leading-[1.08]; }
+  h2 { @apply text-xl font-semibold leading-[1.2] tracking-[-0.02em] md:text-2xl; }
+  h3 { @apply text-base font-semibold leading-snug tracking-[-0.015em] md:text-lg; }
+  h4 { @apply text-sm font-semibold leading-snug tracking-[-0.01em]; }
 
-  /* Todo número é tabular: colunas de valores alinham na vírgula. */
+  p { text-wrap: pretty; }
+
+  /* Todo numero e tabular: colunas de valores alinham na virgula. */
   input[type="number"],
   table,
   time,
@@ -249,7 +270,7 @@
     font-feature-settings: "tnum" 1;
   }
 
-  /* Foco visível e consistente — nunca removido, só redesenhado. */
+  /* Foco visivel e consistente — nunca removido, so redesenhado. */
   :focus-visible {
     outline: 2px solid hsl(var(--ring));
     outline-offset: 2px;
@@ -279,17 +300,11 @@
 @layer components {
   /* Eyebrow: micro-caps que rotula um dado sem competir com ele. */
   .label-eyebrow {
-    @apply text-[0.6875rem] font-medium uppercase tracking-[0.09em] text-muted-foreground;
+    @apply text-[0.6875rem] font-medium uppercase leading-4 tracking-[0.09em] text-muted-foreground;
   }
 
   /* Valor financeiro: display + tabular. O protagonista da tela. */
-  .figure {
-    font-family: var(--font-display);
-    font-variant-numeric: tabular-nums;
-    font-feature-settings: "tnum" 1;
-    @apply font-semibold tracking-[-0.02em];
-  }
-
+  .figure,
   .figure-xl,
   .figure-lg,
   .figure-md,
@@ -297,7 +312,7 @@
     font-family: var(--font-display);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum" 1;
-    @apply font-semibold tracking-[-0.02em];
+    @apply font-semibold tracking-[-0.025em];
   }
 
   .figure-xl { @apply text-2xl leading-[1.15] xs:text-[1.75rem] xs:leading-[1.1] lg:text-[2.25rem]; }
@@ -308,10 +323,13 @@
   /* Divisor de 1px que respeita o tema. */
   .hairline { @apply border-t border-border-subtle; }
 
-  /* Superfície padrão: sem sombra, definida por hairline + whitespace. */
+  /* Superficie padrao: sem sombra, definida por hairline + whitespace. */
   .surface {
     @apply rounded-xl border border-border bg-card;
   }
+
+  /* Regua vertical de 1px para separar colunas sem caixa. */
+  .rule-y { @apply border-l border-border-subtle; }
 }
 
 @layer utilities {
@@ -322,14 +340,18 @@
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
 
+  /* Resposta tatil: o elemento cede 2% sob o dedo e volta na curva swift.
+     `motion-safe` para respeitar prefers-reduced-motion. */
+  .press {
+    @apply transition-transform duration-150 ease-swift motion-safe:active:scale-[0.98];
+  }
+
   /* --- Mobile ------------------------------------------------------------- */
 
-  /* Alvo de toque mínimo (WCAG 2.5.5 / HIG): 44x44 até `md`. */
   .touch-target {
     @apply min-h-11 min-w-11 md:min-h-0 md:min-w-0;
   }
 
-  /* Trilho horizontal de chips/filtros: rola dentro de si, com inércia. */
   .scroll-x {
     @apply overflow-x-auto overscroll-x-contain;
     -webkit-overflow-scrolling: touch;
@@ -342,14 +364,10 @@
     display: none;
   }
 
-  /* Respiro do recorte inferior (home indicator). */
   .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
   .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
-
-  /* Rodapé livre para a barra de navegação inferior. */
   .pb-bottom-nav { padding-bottom: var(--bottom-nav-offset); }
 
-  /* Qualquer filho de flex/grid que precise poder encolher e truncar. */
   .min-w-0-all > * { min-width: 0; }
 }
 

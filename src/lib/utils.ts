@@ -5,17 +5,32 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-// Design tokens - financial semantics
-export const THEME = {
-  income: {
-    color: "#28A745",
-    className: "text-[#28A745]",
-  },
-  expense: {
-    color: "#DC3545",
-    className: "text-[#DC3545]",
-  },
-} as const;
+/**
+ * Cor de texto/icone legivel sobre um fundo arbitrario escolhido pelo usuario
+ * (cor de conta, de categoria, de cartao). Usa a luminancia relativa da
+ * WCAG 2.1: acima de 0.45 o fundo e claro e pede tinta escura.
+ *
+ * Existe porque `text-white` fixo sobre uma cor livre e uma falha de contraste
+ * esperando acontecer — o usuario escolhe amarelo e o icone some.
+ */
+export function readableOn(background?: string | null): "light" | "dark" {
+  const hex = (background ?? "").trim().replace("#", "");
+  if (hex.length !== 3 && hex.length !== 6) return "light";
+
+  const full = hex.length === 3 ? hex.split("").map((c) => c + c).join("") : hex;
+  const channel = (i: number) => {
+    const v = parseInt(full.slice(i * 2, i * 2 + 2), 16) / 255;
+    return v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+  };
+
+  const luminance = 0.2126 * channel(0) + 0.7152 * channel(1) + 0.0722 * channel(2);
+  return luminance > 0.45 ? "dark" : "light";
+}
+
+/** Classe de cor pronta para conteudo sobre um fundo arbitrario. */
+export function onColorClass(background?: string | null): string {
+  return readableOn(background) === "dark" ? "text-[hsl(216_58%_13%)]" : "text-white";
+}
 
 export function formatCurrencyBRL(amount: number) {
   return new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(amount);

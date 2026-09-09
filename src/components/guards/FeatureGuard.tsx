@@ -11,7 +11,7 @@ import { useFeature, useLimit } from '@/hooks/use-feature';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Lock, TrendingUp, Sparkles } from 'lucide-react';
+import { AlertTriangle, Check, Lock, TrendingUp, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 
@@ -158,10 +158,12 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
   
   if (isNearLimit) {
     return (
-      <Alert className="mb-4 border-warning/50 bg-warning-soft">
+      <Alert variant="warning" className="mb-4">
+        <AlertTriangle className="h-4 w-4" />
         <AlertDescription className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <span className="text-sm">
-            ⚠️ Restam <strong>{remaining}</strong> de <strong>{maxLimit} {resourceName || 'itens'}</strong> disponíveis no seu plano.
+            Restam <strong className="tabular font-semibold">{remaining}</strong> de{' '}
+            <strong className="tabular font-semibold">{maxLimit}</strong> {resourceName || 'itens'} no seu plano.
           </span>
           <Button 
             size="sm" 
@@ -208,46 +210,48 @@ export function FeaturePageGuard({ feature, children }: FeaturePageGuardProps) {
   if (!hasFeature) {
     return (
       <div className="container mx-auto p-8 flex items-center justify-center min-h-[calc(100vh-200px)]">
-        <Card className="max-w-2xl w-full border-primary/20 shadow-lg">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-              <Lock className="h-8 w-8 text-primary" />
+        <Card variant="elevated" className="w-full max-w-xl animate-rise">
+          <CardHeader className="gap-0 space-y-0">
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg border border-border bg-surface-sunken">
+              <Lock className="h-4 w-4 text-muted-foreground" aria-hidden />
             </div>
-            <CardTitle className="text-3xl">
-              {featureInfo?.label || 'Feature Premium'}
+            <p className="label-eyebrow mt-5">Disponível em outro plano</p>
+            <CardTitle className="mt-2 text-2xl">
+              {featureInfo?.label || 'Recurso premium'}
             </CardTitle>
-            <CardDescription className="text-base mt-2">
-              {featureInfo?.description || 'Esta funcionalidade não está disponível no seu plano'}
+            <CardDescription className="mt-2">
+              {featureInfo?.description || 'Esta funcionalidade não está disponível no seu plano.'}
             </CardDescription>
           </CardHeader>
+
           <CardContent className="space-y-6">
-            <div className="bg-muted/50 rounded-lg p-6 space-y-3">
-              <h3 className="font-semibold flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Benefícios ao fazer upgrade:
-              </h3>
-              <ul className="space-y-2 text-sm text-muted-foreground ml-7">
-                <li>✓ Acesso completo a esta funcionalidade</li>
-                <li>✓ Recursos avançados de análise</li>
-                <li>✓ Suporte prioritário</li>
-                <li>✓ Atualizações e melhorias contínuas</li>
+            <div className="border-t border-border-subtle pt-5">
+              <p className="label-eyebrow flex items-center gap-1.5">
+                <Sparkles className="h-3 w-3" aria-hidden />
+                O que o upgrade libera
+              </p>
+              <ul className="mt-3 space-y-2">
+                {[
+                  'Acesso completo a esta funcionalidade',
+                  'Recursos avançados de análise',
+                  'Suporte prioritário',
+                  'Atualizações e melhorias contínuas',
+                ].map((item) => (
+                  <li key={item} className="flex items-start gap-2.5 text-sm text-muted-foreground">
+                    <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                    {item}
+                  </li>
+                ))}
               </ul>
             </div>
-            
-            <div className="flex gap-3">
-              <Button 
-                variant="outline" 
-                onClick={() => navigate(-1)}
-                className="flex-1"
-              >
-                Voltar
+
+            <div className="flex flex-col gap-2 sm:flex-row-reverse">
+              <Button onClick={() => navigate('/pricing')} className="sm:flex-1">
+                <TrendingUp className="h-4 w-4" />
+                Ver planos
               </Button>
-              <Button 
-                onClick={() => navigate('/pricing')}
-                className="flex-1"
-              >
-                <TrendingUp className="mr-2 h-4 w-4" />
-                Ver Planos e Preços
+              <Button variant="ghost" onClick={() => navigate(-1)} className="sm:flex-1">
+                Voltar
               </Button>
             </div>
           </CardContent>

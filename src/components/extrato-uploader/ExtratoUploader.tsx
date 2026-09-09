@@ -518,7 +518,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           {/* Área de Drop */}
           <div
             className={`
-              relative border-2 border-dashed rounded-lg p-4 lg:p-8 text-center transition-colors
+              relative border border-dashed rounded-lg p-4 lg:p-8 text-center transition-colors
               ${isDragActive
                 ? 'border-primary bg-primary/5'
                 : 'border-border hover:border-border'

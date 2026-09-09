@@ -87,7 +87,7 @@ export function AdminAuthForm() {
                 className="h-20 w-20 object-contain"
               />
               <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-destructive flex items-center justify-center ring-2 ring-background">
-                <Shield className="h-4 w-4 text-white" />
+                <Shield className="h-4 w-4 text-destructive-foreground" />
               </div>
             </div>
           </div>
@@ -130,7 +130,7 @@ export function AdminAuthForm() {
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full" />
+                  <div className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
                   Verificando...
                 </div>
               ) : (

@@ -59,7 +59,7 @@ export function AdminSidebar({ open, onOpenChange }: AdminSidebarProps = {}) {
         <div className="flex min-w-0 items-center gap-2">
           <img src={orbiLogo} alt="Orbi" className="h-6 w-6 shrink-0" />
           <div className="flex min-w-0 flex-col">
-            <span className="truncate text-sm font-bold text-destructive">Orbi Admin</span>
+            <span className="truncate text-sm font-semibold text-destructive">Orbi Admin</span>
             <span className="truncate text-2xs text-muted-foreground">Painel Administrativo</span>
           </div>
         </div>
@@ -97,7 +97,7 @@ export function AdminSidebar({ open, onOpenChange }: AdminSidebarProps = {}) {
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="truncate">{item.title}</span>
                 {item.badge && (
-                  <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-xs text-white">
+                  <span className="ml-auto rounded-full bg-destructive px-2 py-0.5 text-2xs font-medium tabular text-destructive-foreground">
                     {item.badge}
                   </span>
                 )}

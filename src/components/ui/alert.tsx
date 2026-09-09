@@ -4,12 +4,15 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground",
+  "relative w-full rounded-lg border p-4 text-sm [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:size-4",
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground",
-        destructive: "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+        default: "border-border bg-card text-foreground [&>svg]:text-muted-foreground",
+        destructive: "border-transparent bg-destructive-soft text-destructive [&>svg]:text-destructive",
+        success: "border-transparent bg-success-soft text-success [&>svg]:text-success",
+        warning: "border-transparent bg-warning-soft text-warning [&>svg]:text-warning",
+        info: "border-transparent bg-info-soft text-info [&>svg]:text-info",
       },
     },
     defaultVariants: {
@@ -28,14 +31,14 @@ Alert.displayName = "Alert";
 
 const AlertTitle = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLHeadingElement>>(
   ({ className, ...props }, ref) => (
-    <h5 ref={ref} className={cn("mb-1 font-medium leading-none tracking-tight", className)} {...props} />
+    <h5 ref={ref} className={cn("mb-1 font-display text-sm font-semibold leading-none tracking-tight", className)} {...props} />
   ),
 );
 AlertTitle.displayName = "AlertTitle";
 
 const AlertDescription = React.forwardRef<HTMLParagraphElement, React.HTMLAttributes<HTMLParagraphElement>>(
   ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("text-sm [&_p]:leading-relaxed", className)} {...props} />
+    <div ref={ref} className={cn("text-sm text-pretty opacity-90 [&_p]:leading-relaxed", className)} {...props} />
   ),
 );
 AlertDescription.displayName = "AlertDescription";
