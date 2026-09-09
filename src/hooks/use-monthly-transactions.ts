@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { isTransactionInBillingPeriod } from "@/lib/utils";
+import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
@@ -32,6 +33,7 @@ interface MonthlyIndicators {
 
 export function useMonthlyTransactions(year: number, month: number): MonthlyTransactionsData & { indicators: MonthlyIndicators } {
   const queryClient = useQueryClient();
+  const viewMode = useViewMode();
 
   // Calculate month range
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
@@ -41,11 +43,14 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("Usuário não autenticado");
 
+    // Escopo de leitura: [eu] no modo Pessoal, [eu, parceiro] no modo Casal
+    const userIds = await getScopeUserIds();
+
     // Buscar cartões de crédito para validar períodos de fatura
     const { data: creditCards, error: cardsError } = await supabase
       .from("credit_cards")
       .select("id, statement_date")
-      .eq("user_id", user.id);
+      .in("user_id", userIds);
 
     if (cardsError) throw cardsError;
 
@@ -72,7 +77,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
         people(name),
         series(total_installments, is_fixed)
       `)
-      .eq("user_id", user.id)
+      .in("user_id", userIds)
       .gte("date", searchStartDate)
       .lte("date", searchEndDate);
 
@@ -145,7 +150,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   };
 
   const query = useQuery({
-    queryKey: ["monthly-transactions", year, month],
+    queryKey: ["monthly-transactions", year, month, viewMode],
     queryFn: fetchTransactionsAndDebts,
     staleTime: 30000, // 30 seconds
   });
@@ -168,7 +173,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [queryClient, year, month, startDate, endDate]);
+  }, [queryClient, year, month, startDate, endDate, viewMode]);
 
 
   // Calculate indicators based on transactions only

@@ -217,6 +217,15 @@ featureRegistry.registerFeatures([
     { dependencies: ['pessoas'], metadata: { module: 'pessoas' } }
   ),
 
+  // PLANO CASAL (compartilhamento de dados entre 2 usuários)
+  defineFeature(
+    'familia_compartilhada',
+    'Plano Casal',
+    'Compartilhar visualização das finanças com um parceiro (2 acessos, 1 assinatura)',
+    'core',
+    { route: '/sistema/settings', metadata: { module: 'casal', icon: '👥', moduleLabel: 'Plano Casal' } }
+  ),
+
   // Funcionalidades de IA
   defineFeature(
     'ia_classificacao_automatica',

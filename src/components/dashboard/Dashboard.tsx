@@ -40,6 +40,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 import { formatDateForDisplay } from "@/lib/utils";
 import { SubscriptionChart } from "./SubscriptionChart";
+import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { useFamilyGroup } from "@/hooks/use-family-group";
+import { useViewMode } from "@/hooks/use-view-mode";
+import { assertOwnTransaction, PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardProps {
@@ -71,6 +75,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const { data: debtStats } = useDebtStats();
   const { creditCards, isLoading: cardsLoading } = useCreditCards();
   const { accountsWithBalance } = useAccounts();
+  const { currentUserId, isMine } = useFamilyGroup();
+  const viewMode = useViewMode();
 
   // Calculate category expenses for chart
   const categoryExpenses = useMemo(() => {
@@ -240,6 +246,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const markAsPending = async (transactionId: string) => {
     const toastInstance = toast({ title: "Atualizando...", description: "Aguarde", duration: 2000 });
     try {
+      // Plano Casal: transação do parceiro é somente leitura
+      await assertOwnTransaction(transactionId);
+
       const { error } = await supabase
         .from("transactions")
         .update({ 
@@ -269,6 +278,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
     setDeletingTransaction(transactionId);
     const toastInstance = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
     try {
+      // Plano Casal: transação do parceiro é somente leitura
+      await assertOwnTransaction(transactionId);
+
       const { error } = await supabase
         .from("transactions")
         .delete()
@@ -336,6 +348,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   return (
     <div className="min-h-screen bg-background">
       <main className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6">
+        {/* Plano Casal: alterna dados pessoais x do casal */}
+        <ViewModeToggle />
+
         {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Left Side: 2x2 Summary Cards - 2 colunas em mobile */}
@@ -728,6 +743,11 @@ export function Dashboard({ onLogout }: DashboardProps) {
                                 Ligada
                               </Badge>
                             )}
+                            {viewMode === 'couple' && currentUserId && transaction.user_id !== currentUserId && (
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                Parceiro
+                              </Badge>
+                            )}
                             {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
                               <Badge variant="secondary" className="text-xs flex-shrink-0">
                                 {transaction.installmentNumber}/{transaction.totalInstallments}
@@ -783,6 +803,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         <Button
                           size="sm"
                           variant="outline"
+                          disabled={!isMine(transaction.user_id)}
                           onClick={() => {
                             navigate('/sistema/statement?edit=' + transaction.id);
                           }}
@@ -800,7 +821,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={deletingTransaction === transaction.id}
+                            disabled={deletingTransaction === transaction.id || !isMine(transaction.user_id)}
                             className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
                           >
                             {deletingTransaction === transaction.id ? (
@@ -815,6 +836,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={!isMine(transaction.user_id)}
                             onClick={() => markAsPaid(transaction.id)}
                           >
                             <CheckCircle className="h-4 w-4" />
@@ -823,6 +845,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           <Button
                             size="sm"
                             variant="outline"
+                            disabled={!isMine(transaction.user_id)}
                             onClick={() => markAsPending(transaction.id)}
                           >
                             <BanknoteXIcon className="h-4 w-4" />

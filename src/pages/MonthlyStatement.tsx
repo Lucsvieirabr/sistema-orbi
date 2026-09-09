@@ -36,6 +36,8 @@ import { Badge } from "@/components/ui/badge";
 import { RecurringTransactionForm } from "@/components/ui/recurring-transaction-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
+import { assertOwnTransaction } from "@/lib/family-access";
+import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCreditCards } from "@/hooks/use-credit-cards";
@@ -1232,6 +1234,9 @@ function MonthlyStatementContent() {
       } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado");
 
+      // Plano Casal: transação do parceiro é somente leitura
+      await assertOwnTransaction(transactionId);
+
       // 1. Buscar dados atuais da transação
       const { data: currentTransaction, error: fetchError } = await supabase
         .from("transactions")
@@ -2107,6 +2112,9 @@ function MonthlyStatementContent() {
       duration: 2000,
     });
     try {
+      // Plano Casal: transação do parceiro é somente leitura
+      await assertOwnTransaction(transactionId);
+
       const { error } = await supabase
         .from("transactions")
         .delete()
@@ -2307,6 +2315,9 @@ function MonthlyStatementContent() {
   return (
     <div className="w-full max-w-full overflow-x-hidden">
       <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+        {/* Plano Casal: alterna dados pessoais x do casal */}
+        <ViewModeToggle />
+
         {/* Aviso de Limite */}
         <LimitWarningBanner 
         limit="max_transacoes_mes" 

@@ -2,6 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate, Database } from "@/integrations/supabase/types";
+import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 
 type Account = Tables<"accounts">;
 type BalanceRow = Database["public"]["Views"]["vw_account_current_balance"]["Row"];
@@ -9,40 +10,41 @@ type ProjectedBalanceRow = Database["public"]["Views"]["vw_account_projected_bal
 
 export function useAccounts() {
   const queryClient = useQueryClient();
+  const viewMode = useViewMode();
 
   const fetchAccounts = async (): Promise<Account[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userIds = await getScopeUserIds();
     const { data, error } = await supabase
       .from("accounts")
       .select("id, user_id, name, type, initial_balance, color, created_at")
-      .eq("user_id", user?.id ?? "");
+      .in("user_id", userIds);
     if (error) throw error;
     return data ?? [];
   };
 
   const fetchBalances = async (): Promise<BalanceRow[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userIds = await getScopeUserIds();
     const { data, error } = await supabase
       .from("vw_account_current_balance")
       .select("account_id, user_id, current_balance")
-      .eq("user_id", user?.id ?? "");
+      .in("user_id", userIds);
     if (error) throw error;
     return (data as BalanceRow[]) ?? [];
   };
 
   const fetchProjectedBalances = async (): Promise<ProjectedBalanceRow[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const userIds = await getScopeUserIds();
     const { data, error } = await supabase
       .from("vw_account_projected_balance")
       .select("account_id, user_id, projected_balance")
-      .eq("user_id", user?.id ?? "");
+      .in("user_id", userIds);
     if (error) throw error;
     return (data as ProjectedBalanceRow[]) ?? [];
   };
 
-  const accountsQuery = useQuery({ queryKey: ["accounts"], queryFn: fetchAccounts });
-  const balancesQuery = useQuery({ queryKey: ["balances"], queryFn: fetchBalances });
-  const projectedBalancesQuery = useQuery({ queryKey: ["projected-balances"], queryFn: fetchProjectedBalances });
+  const accountsQuery = useQuery({ queryKey: ["accounts", viewMode], queryFn: fetchAccounts });
+  const balancesQuery = useQuery({ queryKey: ["balances", viewMode], queryFn: fetchBalances });
+  const projectedBalancesQuery = useQuery({ queryKey: ["projected-balances", viewMode], queryFn: fetchProjectedBalances });
 
   useEffect(() => {
     const channel = supabase

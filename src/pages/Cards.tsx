@@ -20,6 +20,8 @@ import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, CreditCard, Receipt, TrendingUp, TrendingDown, Calendar, Wallet, Edit, Trash2 } from "lucide-react";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
+import { useFamilyGroup } from "@/hooks/use-family-group";
+import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 
 export default function Cards() {
   return (
@@ -30,6 +32,7 @@ export default function Cards() {
 }
 
 function CardsContent() {
+  const { isMine } = useFamilyGroup();
   const queryClient = useQueryClient();
   const navigate = useNavigate();
   const { creditCards, deleteCreditCard, isLoading } = useCreditCards();
@@ -67,6 +70,10 @@ function CardsContent() {
   const onEdit = (id: string) => {
     const card = creditCards.find((c) => c.id === id);
     if (!card) return;
+    if (!isMine((card as any).user_id)) {
+      toast({ title: "Somente leitura", description: PARTNER_READ_ONLY_MESSAGE, variant: "destructive" });
+      return;
+    }
     setEditingId(id);
     setEditingData({
       name: card.name,
@@ -90,6 +97,11 @@ function CardsContent() {
   };
 
   const onDelete = async (id: string) => {
+    const card = creditCards.find((c) => c.id === id);
+    if (card && !isMine((card as any).user_id)) {
+      toast({ title: "Somente leitura", description: PARTNER_READ_ONLY_MESSAGE, variant: "destructive" });
+      return;
+    }
     try {
       toast({ title: "Excluindo...", description: "Aguarde" });
       await deleteCreditCard(id);
@@ -179,6 +191,7 @@ function CardsContent() {
                 <Button
                   variant="outline"
                   size="sm"
+                  disabled={!isMine((card as any).user_id)}
                   onClick={() => onEdit(card.id)}
                   className="h-7 w-7 lg:h-8 lg:w-8 p-0"
                 >
@@ -193,7 +206,7 @@ function CardsContent() {
                   onConfirm={() => onDelete(card.id)}
                   variant="destructive"
                 >
-                  <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
+                  <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-7 w-7 lg:h-8 lg:w-8 p-0">
                     <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
                   </Button>
                 </ConfirmationDialog>
@@ -327,6 +340,7 @@ function CardsContent() {
               <Button 
                 variant="outline" 
                 size="sm"
+                disabled={!isMine((card as any).user_id)}
                 onClick={() => onEdit(card.id)}
                 className="h-8 w-8 p-0"
               >
@@ -341,7 +355,7 @@ function CardsContent() {
                 onConfirm={() => onDelete(card.id)}
                 variant="destructive"
               >
-                <Button variant="destructive" size="sm" className="h-8 w-8 p-0 hidden lg:flex">
+                <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-8 w-8 p-0 hidden lg:flex">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </ConfirmationDialog>

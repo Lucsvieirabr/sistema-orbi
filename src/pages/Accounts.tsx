@@ -16,6 +16,8 @@ import { LayoutGrid, List, Plus, Wallet, Edit, Trash2 } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
+import { useFamilyGroup } from "@/hooks/use-family-group";
+import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 
 export default function Accounts() {
   return (
@@ -28,6 +30,7 @@ export default function Accounts() {
 function AccountsContent() {
   const queryClient = useQueryClient();
   const { accountsWithBalance, createAccount, updateAccount, deleteAccount, isLoading } = useAccounts();
+  const { isMine } = useFamilyGroup();
   const [open, setOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [name, setName] = useState("");
@@ -81,6 +84,10 @@ function AccountsContent() {
   const onEdit = (id: string) => {
     const acc = accountsWithBalance.find((a) => a.id === id);
     if (!acc) return;
+    if (!isMine((acc as any).user_id)) {
+      toast({ title: "Somente leitura", description: PARTNER_READ_ONLY_MESSAGE, variant: "destructive" as any });
+      return;
+    }
     setEditingId(id);
     setName(acc.name);
     setType(acc.type);
@@ -90,6 +97,11 @@ function AccountsContent() {
   };
 
   const onDelete = async (id: string) => {
+    const acc = accountsWithBalance.find((a) => a.id === id);
+    if (acc && !isMine((acc as any).user_id)) {
+      toast({ title: "Somente leitura", description: PARTNER_READ_ONLY_MESSAGE, variant: "destructive" as any });
+      return;
+    }
     // show custom modal in real app; MVP direct
     await deleteAccount(id);
     queryClient.invalidateQueries({ queryKey: ["accounts"] });
@@ -268,6 +280,7 @@ function AccountsContent() {
                             <Button
                               variant="outline"
                               size="sm"
+                              disabled={!isMine((a as any).user_id)}
                               onClick={() => onEdit(a.id)}
                               className="h-7 w-7 lg:h-8 lg:w-8 p-0"
                             >
@@ -282,7 +295,7 @@ function AccountsContent() {
                               onConfirm={() => onDelete(a.id)}
                               variant="destructive"
                             >
-                              <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
+                              <Button variant="destructive" size="sm" disabled={!isMine((a as any).user_id)} className="h-7 w-7 lg:h-8 lg:w-8 p-0">
                                 <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
                               </Button>
                             </ConfirmationDialog>
@@ -335,6 +348,7 @@ function AccountsContent() {
                               <Button
                                 variant="outline"
                                 size="sm"
+                                disabled={!isMine((a as any).user_id)}
                                 onClick={() => onEdit(a.id)}
                                 className="h-8 w-8 p-0"
                               >
@@ -349,7 +363,7 @@ function AccountsContent() {
                                 onConfirm={() => onDelete(a.id)}
                                 variant="destructive"
                               >
-                                <Button variant="destructive" size="sm" className="h-8 w-8 p-0 hidden lg:flex">
+                                <Button variant="destructive" size="sm" disabled={!isMine((a as any).user_id)} className="h-8 w-8 p-0 hidden lg:flex">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </ConfirmationDialog>

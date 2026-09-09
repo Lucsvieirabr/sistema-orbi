@@ -2,25 +2,26 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 
 type CreditCard = Tables<"credit_cards">;
 
 export function useCreditCards() {
   const queryClient = useQueryClient();
+  const viewMode = useViewMode();
 
   const fetchCreditCards = async (): Promise<CreditCard[]> => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
-    if (userError) throw userError;
+    const userIds = await getScopeUserIds();
     const { data, error } = await supabase
       .from("credit_cards")
       .select("id, user_id, name, brand, limit, statement_date, due_date, connected_account_id, created_at")
-      .eq("user_id", user?.id ?? "");
+      .in("user_id", userIds);
     if (error) throw error;
     return data ?? [];
   };
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["credit_cards"],
+    queryKey: ["credit_cards", viewMode],
     queryFn: fetchCreditCards,
   });
 

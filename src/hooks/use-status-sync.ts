@@ -2,6 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { getCurrentUserId, isOwnRow, PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 
 export type TransactionStatus = 'PENDING' | 'PAID';
 
@@ -27,12 +28,18 @@ export function useStatusSync() {
       // Buscar a transação atual para obter o series_id e person_id
       const { data: currentTransaction, error: fetchError } = await supabase
         .from('transactions')
-        .select('series_id, linked_txn_id, person_id')
+        .select('series_id, linked_txn_id, person_id, user_id')
         .eq('id', transactionId)
         .single();
 
       if (fetchError) {
         throw new Error(`Erro ao buscar transação: ${fetchError.message}`);
+      }
+
+      // Plano Casal: bloqueia escrita em transação do parceiro
+      const currentUserId = await getCurrentUserId();
+      if (!isOwnRow((currentTransaction as any)?.user_id, currentUserId)) {
+        throw new Error(PARTNER_READ_ONLY_MESSAGE);
       }
 
       // Preparar dados de atualização

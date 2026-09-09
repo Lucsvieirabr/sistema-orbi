@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain, StickyNote } from "lucide-react";
+import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain, StickyNote, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -26,6 +26,7 @@ const menuItems: SidebarItem[] = [
   { title: "Pessoas", icon: Users, path: "/sistema/people" },
   { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
   { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
+  { title: "Configurações", icon: Settings, path: "/sistema/settings" },
 ];
 
 interface AppSidebarProps {

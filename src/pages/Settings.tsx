@@ -1,3 +1,5 @@
+import { FamilyGroupSettings } from "@/components/family/FamilyGroupSettings";
+
 export default function Settings() {
   return (
     <div className="container mx-auto p-4 space-y-6">
@@ -5,8 +7,8 @@ export default function Settings() {
         <h2 className="text-xl font-bold">Configurações</h2>
         <p className="text-muted-foreground">Preferências do usuário e do app.</p>
       </div>
+
+      <FamilyGroupSettings />
     </div>
   );
 }
-
-
