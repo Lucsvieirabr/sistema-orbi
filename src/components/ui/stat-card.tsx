@@ -49,7 +49,7 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         className={cn(
           "group relative isolate overflow-hidden rounded-xl border border-border bg-card",
           "transition-colors duration-200 ease-swift hover:border-ring/35",
-          dense ? "p-4 lg:p-5" : "p-5 lg:p-6",
+          dense ? "p-3 md:p-4 lg:p-5" : "p-4 md:p-5 lg:p-6",
           className,
         )}
         {...props}
@@ -57,18 +57,20 @@ export const StatCard = React.forwardRef<HTMLDivElement, StatCardProps>(
         {/* Barra de acento: a única cromia estrutural da tile. */}
         <span aria-hidden className={cn("absolute inset-x-0 top-0 h-px", toneMarker[tone])} />
 
-        <div className="flex items-start justify-between gap-3">
-          <p className="label-eyebrow">{label}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="label-eyebrow min-w-0 truncate">{label}</p>
           {Icon && <Icon aria-hidden className={cn("h-4 w-4 shrink-0", toneText[tone], "opacity-60")} />}
         </div>
 
         {loading ? (
           <div className="mt-3 h-8 w-32 animate-pulse rounded-md bg-muted" />
         ) : (
-          <p className={cn("mt-2.5 tabular", dense ? "figure-lg" : "figure-xl", toneText[tone])}>{value}</p>
+          <p className={cn("mt-2 tabular md:mt-2.5", dense ? "figure-lg" : "figure-xl", toneText[tone])}>
+            {value}
+          </p>
         )}
 
-        {hint && <div className="mt-1.5 text-xs leading-5 text-muted-foreground">{hint}</div>}
+        {hint && <div className="mt-1.5 text-2xs leading-4 text-muted-foreground md:text-xs md:leading-5">{hint}</div>}
       </div>
     );
   },
@@ -84,7 +86,7 @@ export function StatSplit({
   className?: string;
 }) {
   return (
-    <dl className={cn("flex items-center gap-4", className)}>
+    <dl className={cn("flex flex-wrap items-center gap-x-4 gap-y-0.5", className)}>
       {items.map((item) => (
         <div key={item.label} className="flex items-baseline gap-1.5">
           <dt className="text-xs text-muted-foreground">{item.label}</dt>

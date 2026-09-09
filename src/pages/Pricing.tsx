@@ -309,7 +309,7 @@ export default function Pricing() {
 
       {/* Hero Section */}
       <div className="container mx-auto px-4 py-3 text-center">
-        <h1 className="text-3xl font-bold mb-2 bg-gradient-primary bg-clip-text text-transparent">
+        <h1 className="mb-2 bg-gradient-primary bg-clip-text font-display text-2xl font-bold text-transparent md:text-3xl">
           Escolha o Plano Ideal
         </h1>
         <p className="text-base text-muted-foreground mb-4 max-w-2xl mx-auto">
@@ -324,12 +324,12 @@ export default function Pricing() {
             onValueChange={(value) => value && setBillingCycle(value as 'monthly' | 'yearly')}
             className="border-2 rounded-lg p-1 bg-background/50 shadow-lg"
           >
-            <ToggleGroupItem value="monthly" className="px-4 py-2 data-[state=on]:bg-muted">
+            <ToggleGroupItem value="monthly" className="h-11 px-4 py-2 data-[state=on]:bg-muted">
               Mensal
             </ToggleGroupItem>
             <ToggleGroupItem 
               value="yearly" 
-              className="px-4 py-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground font-medium relative"
+              className="relative h-11 px-4 py-2 font-medium data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
             >
               Anual
               {maxSavingsPercentage > 0 && (
@@ -399,7 +399,7 @@ export default function Pricing() {
                   {/* Preço */}
                   <div>
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-bold">
+                      <span className="figure-lg tabular">
                         {monthlyPrice === 0 ? 'Gratuito' : formatPrice(monthlyPrice)}
                       </span>
                       {monthlyPrice > 0 && (
@@ -421,7 +421,7 @@ export default function Pricing() {
                   </div>
 
                   {/* Features */}
-                  <div className="grid grid-cols-2 gap-x-2 gap-y-1.5">
+                  <div className="grid grid-cols-1 gap-x-2 gap-y-1.5 xs:grid-cols-2">
                     {getSimplifiedFeatures(plan.features).map((feature) => (
                       <div key={feature.key} className="flex items-center gap-1.5">
                         {feature.enabled ? (
@@ -441,7 +441,7 @@ export default function Pricing() {
                     <div className="text-xs font-semibold mb-2 text-muted-foreground">
                       Limites:
                     </div>
-                    <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                    <div className="grid grid-cols-1 gap-x-2 gap-y-1 text-xs text-muted-foreground xs:grid-cols-2">
                       {plan.limits.max_contas !== undefined && (
                         <div>
                           • Contas: {plan.limits.max_contas === -1 ? 'Ilimitado' : plan.limits.max_contas}

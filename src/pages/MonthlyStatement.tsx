@@ -35,6 +35,7 @@ import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { RecurringTransactionForm } from "@/components/ui/recurring-transaction-form";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
 import { assertOwnTransaction } from "@/lib/family-access";
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
@@ -82,6 +83,8 @@ import {
   ArrowUpCircle,
   ArrowDownCircle,
   Calendar,
+  ChevronLeft,
+  ChevronRight,
   Filter,
   Plus,
   CreditCard,
@@ -2313,8 +2316,7 @@ function MonthlyStatementContent() {
   }
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+    <div className="min-w-0 space-y-4 md:space-y-6">
         {/* Plano Casal: alterna dados pessoais x do casal */}
         <ViewModeToggle />
 
@@ -2329,31 +2331,44 @@ function MonthlyStatementContent() {
       <Card>
         <CardHeader>
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div className="flex items-center gap-2 overflow-x-auto pb-2 lg:pb-0">
+            {/* Seletor de mês: ocupa a linha no telefone, alvo de 44px. */}
+            <div className="relative flex items-center gap-2">
               <Button
                 variant="outline"
-                size="sm"
+                size="icon"
                 onClick={() => handleMonthChange("prev")}
-                className="h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0"
+                aria-label="Mês anterior"
+                className="shrink-0 lg:h-9 lg:w-9"
               >
-                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:mr-2" />
-                <span className="hidden lg:inline">Anterior</span>
+                <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowMonthSelector(!showMonthSelector)}
-                className="relative h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0 min-w-[140px] lg:min-w-0"
+                aria-expanded={showMonthSelector}
+                className="min-w-0 flex-1 justify-center lg:flex-none lg:justify-start"
               >
-                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:mr-2" />
+                <Calendar className="mr-2 h-4 w-4 shrink-0" />
                 <span className="truncate">
                   {currentDate.toLocaleDateString("pt-BR", {
                     month: isMobile ? "short" : "long",
                     year: "numeric",
                   })}
                 </span>
-                {showMonthSelector && (
-                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-foreground border rounded-lg shadow-lg z-50 p-3 lg:p-4 min-w-[240px] lg:min-w-64">
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleMonthChange("next")}
+                aria-label="Próximo mês"
+                className="shrink-0 lg:h-9 lg:w-9"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+
+              {showMonthSelector && (
+                  <div className="absolute left-0 right-0 top-full z-50 mt-1 w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-lg lg:right-auto lg:w-64 lg:p-4">
                     <div className="grid grid-cols-3 gap-2">
                       {Array.from({ length: 12 }, (_, i) => {
                         const month = i;
@@ -2363,7 +2378,7 @@ function MonthlyStatementContent() {
                             key={month}
                             variant="outline"
                             size="sm"
-                            className="text-[10px] lg:text-xs h-7 lg:h-auto"
+                            className="h-10 text-xs lg:h-9"
                             onClick={() => setMonthYear(year, month + 1)}
                           >
                             {new Date(year, month).toLocaleDateString("pt-BR", {
@@ -2381,7 +2396,7 @@ function MonthlyStatementContent() {
                             key={year}
                             variant="outline"
                             size="sm"
-                            className="text-[10px] lg:text-xs h-7 lg:h-auto"
+                            className="h-10 px-0 text-xs lg:h-9"
                             onClick={() =>
                               setMonthYear(year, currentDate.getMonth() + 1)
                             }
@@ -2392,17 +2407,7 @@ function MonthlyStatementContent() {
                       })}
                     </div>
                   </div>
-                )}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleMonthChange("next")}
-                className="h-8 lg:h-9 text-xs lg:text-sm flex-shrink-0"
-              >
-                <span className="hidden lg:inline">Próximo</span>
-                <Calendar className="h-3 w-3 lg:h-4 lg:w-4 lg:ml-2" />
-              </Button>
+              )}
             </div>
 
             <div className="flex items-center gap-2">
@@ -2410,7 +2415,7 @@ function MonthlyStatementContent() {
                 value={filterType}
                 onValueChange={(value: any) => setFilterType(value)}
               >
-                <SelectTrigger className="w-full lg:w-40 h-8 lg:h-9 text-xs lg:text-sm">
+                <SelectTrigger className="w-full lg:h-9 lg:w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -2427,92 +2432,45 @@ function MonthlyStatementContent() {
         </CardHeader>
       </Card>
 
-      {/* Indicators Dashboard - 2 colunas no mobile */}
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4">
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-              <div>
-                <p className="text-[10px] lg:text-sm text-muted-foreground">
-                  Ganhos
-                </p>
-                <p className="text-base lg:text-2xl font-bold text-success">
-                  {formatCurrencyBRL(indicators.incomeReceived)}
-                </p>
-              </div>
-              <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-success" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-              <div>
-                <p className="text-[10px] lg:text-sm text-muted-foreground">Gastos</p>
-                <p className="text-base lg:text-2xl font-bold text-destructive">
-                  {formatCurrencyBRL(indicators.expensesPaid)}
-                </p>
-              </div>
-              <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-              <div>
-                <p className="text-[10px] lg:text-sm text-muted-foreground">
-                  A Receber
-                </p>
-                <p className="text-base lg:text-2xl font-bold text-primary">
-                  {formatCurrencyBRL(indicators.incomePending)}
-                </p>
-              </div>
-              <Clock10Icon className="h-5 w-5 lg:h-8 lg:w-8 text-primary" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-3 lg:p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-              <div>
-                <p className="text-[10px] lg:text-sm text-muted-foreground">A Pagar</p>
-                <p className="text-base lg:text-2xl font-bold text-destructive">
-                  {formatCurrencyBRL(indicators.expensesPending)}
-                </p>
-              </div>
-              <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive dark:text-destructive" />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="col-span-2 lg:col-span-1">
-          <CardContent className="p-3 lg:p-4">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
-              <div>
-                <p className="text-[10px] lg:text-sm text-muted-foreground">Saldo Líquido</p>
-                <p
-                  className={`text-base lg:text-2xl font-bold ${
-                    indicators.netBalance >= 0
-                      ? "text-success"
-                      : "text-destructive"
-                  }`}
-                >
-                  {formatCurrencyBRL(indicators.netBalance)}
-                </p>
-              </div>
-              {indicators.netBalance >= 0 ? (
-                <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-success" />
-              ) : (
-                <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-destructive" />
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Indicadores — 2 colunas no telefone, 5 no desktop. Ledger tiles do DS. */}
+      <section aria-label="Indicadores do mês" className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
+        <StatCard
+          dense
+          label="Ganhos"
+          value={formatCurrencyBRL(indicators.incomeReceived)}
+          tone="positive"
+          icon={TrendingUp}
+        />
+        <StatCard
+          dense
+          label="Gastos"
+          value={formatCurrencyBRL(indicators.expensesPaid)}
+          tone="negative"
+          icon={TrendingDown}
+        />
+        <StatCard
+          dense
+          label="A Receber"
+          value={formatCurrencyBRL(indicators.incomePending)}
+          tone="accent"
+          icon={Clock10Icon}
+        />
+        <StatCard
+          dense
+          label="A Pagar"
+          value={formatCurrencyBRL(indicators.expensesPending)}
+          tone="negative"
+          icon={DollarSign}
+        />
+        <StatCard
+          dense
+          className="col-span-2 lg:col-span-1"
+          label="Saldo Líquido"
+          value={formatCurrencyBRL(indicators.netBalance)}
+          tone={indicators.netBalance >= 0 ? "positive" : "negative"}
+          icon={indicators.netBalance >= 0 ? TrendingUp : TrendingDown}
+        />
+      </section>
 
       {/* Pending Transactions Management */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -2622,9 +2580,9 @@ function MonthlyStatementContent() {
       {/* Transactions List */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg lg:text-xl">Extrato Mensal</CardTitle>
+          <CardTitle>Extrato Mensal</CardTitle>
         </CardHeader>
-        <CardContent className="px-2 lg:px-6">
+        <CardContent className="px-3 md:px-5 lg:px-6">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
@@ -2687,7 +2645,7 @@ function MonthlyStatementContent() {
                         return (
                           <div
                             key={transaction.id}
-                            className={`flex flex-col lg:flex-row lg:items-center lg:justify-between p-3 lg:p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors gap-3 ${
+                            className={`flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 md:gap-3 md:p-4 lg:flex-row lg:items-center lg:justify-between ${
                               transaction.status === "PAID" && isPendingIncome
                                 ? "opacity-60"
                                 : ""
@@ -2706,13 +2664,13 @@ function MonthlyStatementContent() {
                               )}
                               <div className="flex-1 min-w-0">
                                 <div className="flex items-start gap-2 flex-wrap">
-                                  <span className="font-medium text-sm lg:text-base">
+                                  <span className="min-w-0 break-words text-sm font-medium md:text-base">
                                     {transaction.description}
                                   </span>
                                   {isPartOfShared && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] lg:text-xs bg-secondary text-chart-6"
+                                      className="bg-secondary text-2xs text-chart-6 lg:text-xs"
                                     >
                                       Rateio
                                     </Badge>
@@ -2720,7 +2678,7 @@ function MonthlyStatementContent() {
                                   {(transaction as any).is_fixed && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] lg:text-xs bg-info-soft text-primary"
+                                      className="bg-info-soft text-2xs text-primary lg:text-xs"
                                     >
                                       Fixa
                                     </Badge>
@@ -2728,7 +2686,7 @@ function MonthlyStatementContent() {
                                   {isLinkedTransaction && (
                                     <Badge
                                       variant="outline"
-                                      className="text-[10px] lg:text-xs"
+                                      className="text-2xs lg:text-xs"
                                     >
                                       Ligada
                                     </Badge>
@@ -2740,25 +2698,25 @@ function MonthlyStatementContent() {
                                     !(transaction as any).is_fixed && (
                                       <Badge
                                         variant="secondary"
-                                        className="text-[10px] lg:text-xs"
+                                        className="text-2xs lg:text-xs"
                                       >
                                         {transaction.installmentNumber}/
                                         {transaction.totalInstallments}
                                       </Badge>
                                     )}
                                 </div>
-                                <div className="flex items-center gap-1 lg:gap-2 text-xs lg:text-sm text-muted-foreground mt-1 flex-wrap">
-                                  <span className="truncate max-w-[120px] lg:max-w-none">{getAccountName(transaction)}</span>
+                                <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground md:gap-x-2 md:text-sm">
+                                  <span className="max-w-[10rem] truncate lg:max-w-none">{getAccountName(transaction)}</span>
                                   {transaction.categories?.name && (
                                     <>
-                                      <span className="hidden lg:inline">•</span>
-                                      <span className="truncate max-w-[100px] lg:max-w-none">{transaction.categories.name}</span>
+                                      <span aria-hidden>•</span>
+                                      <span className="max-w-[9rem] truncate lg:max-w-none">{transaction.categories.name}</span>
                                     </>
                                   )}
                                   {transaction.people?.name && (
                                     <>
-                                      <span className="hidden lg:inline">•</span>
-                                      <span className="truncate max-w-[80px] lg:max-w-none">{transaction.people.name}</span>
+                                      <span aria-hidden>•</span>
+                                      <span className="max-w-[8rem] truncate lg:max-w-none">{transaction.people.name}</span>
                                     </>
                                   )}
                                 </div>
@@ -2766,10 +2724,10 @@ function MonthlyStatementContent() {
                             </div>
 
                             {/* Valor e Ações */}
-                            <div className="flex items-center justify-between lg:justify-end gap-2 lg:gap-3">
+                            <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 lg:justify-end lg:gap-3 lg:border-t-0 lg:pt-0">
                               <div className="text-left lg:text-right">
                                 <div
-                                  className={`font-semibold text-sm lg:text-base ${
+                                  className={`figure-sm tabular md:text-base ${
                                     transaction.type === "income"
                                       ? "text-success"
                                       : "text-destructive"
@@ -2778,7 +2736,7 @@ function MonthlyStatementContent() {
                                   {transaction.type === "income" ? "+" : "-"}
                                   {formatCurrencyBRL(transaction.value)}
                                 </div>
-                                <div className="text-[10px] lg:text-xs text-muted-foreground">
+                                <div className="text-2xs text-muted-foreground md:text-xs">
                                   {transaction.status === "PAID"
                                     ? (transaction.type === "income"
                                         ? "Recebido"
@@ -2793,18 +2751,20 @@ function MonthlyStatementContent() {
                                     size="icon"
                                     variant="outline"
                                     onClick={() => markAsPaid(transaction.id)}
-                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                    aria-label="Marcar como paga"
+                                    className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
-                                    <CheckCircle className="h-3 w-3 lg:h-4 lg:w-4" />
+                                    <CheckCircle className="h-4 w-4 lg:h-4 lg:w-4" />
                                   </Button>
                                 ) : (
                                   <Button
                                     size="icon"
                                     variant="outline"
                                     onClick={() => markAsPending(transaction.id)}
-                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                    aria-label="Reabrir transação"
+                                    className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
-                                    <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4" />
+                                    <BanknoteXIcon className="h-4 w-4 lg:h-4 lg:w-4" />
                                   </Button>
                                 )}
 
@@ -2817,10 +2777,11 @@ function MonthlyStatementContent() {
                                         (transaction as any).composition_details
                                       )
                                     }
-                                    className="hidden h-7 w-7 text-muted-foreground hover:text-primary lg:flex lg:h-8 lg:w-8"
+                                    className="h-11 w-11 text-muted-foreground hover:text-primary lg:h-8 lg:w-8"
                                     title="Ver detalhes da composição"
+                                    aria-label="Ver detalhes da composição"
                                   >
-                                    <Info className="h-3 w-3 lg:h-4 lg:w-4" />
+                                    <Info className="h-4 w-4" />
                                   </Button>
                                 )}
                                 <FeatureGuard feature="transacoes_editar">
@@ -2831,9 +2792,10 @@ function MonthlyStatementContent() {
                                       setEditingId(transaction.id);
                                       setOpen(true);
                                     }}
-                                    className="h-7 w-7 lg:h-8 lg:w-8"
+                                    aria-label="Editar transação"
+                                    className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
-                                    <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                                    <Edit className="h-4 w-4" />
                                   </Button>
                                 </FeatureGuard>
                                 <FeatureGuard feature="transacoes_excluir">
@@ -2849,9 +2811,10 @@ function MonthlyStatementContent() {
                                     <Button
                                       size="icon"
                                       variant="outline"
-                                      className="text-destructive hover:text-destructive hover:bg-destructive-soft h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
+                                      aria-label="Excluir transação"
+                                      className="h-11 w-11 text-destructive hover:bg-destructive-soft hover:text-destructive lg:h-8 lg:w-8"
                                     >
-                                      <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                                      <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </ConfirmationDialog>
                                 </FeatureGuard>
@@ -2871,7 +2834,7 @@ function MonthlyStatementContent() {
 
       {/* Transaction Creation Modal */}
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-        <DialogContent className="max-w-[95vw] lg:max-w-2xl max-h-[95vh] lg:max-h-[90vh] overflow-y-auto p-4 lg:p-6">
+        <DialogContent className="lg:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base lg:text-lg">{title}</DialogTitle>
           </DialogHeader>
@@ -2880,12 +2843,12 @@ function MonthlyStatementContent() {
             <div className="space-y-2">
               {editingId ? (
                 <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
-                  <div className="mt-2 grid grid-cols-2 lg:flex gap-2">
+                  <div className="mt-2 grid grid-cols-2 gap-2 lg:flex">
                     <Button
                       type="button"
                       variant={type === "income" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
+                      className="flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm"
                     >
                       <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden sm:inline">Ganho</span>
@@ -2894,7 +2857,7 @@ function MonthlyStatementContent() {
                       type="button"
                       variant={type === "expense" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
+                      className="flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm"
                     >
                       <ArrowDownCircle className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden sm:inline">Gasto</span>
@@ -2903,7 +2866,7 @@ function MonthlyStatementContent() {
                       type="button"
                       variant={type === "transfer" ? "default" : "outline"}
                       disabled
-                      className="flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto"
+                      className="flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm"
                     >
                       <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
                       <span className="hidden sm:inline">Transfer</span>
@@ -2916,7 +2879,7 @@ function MonthlyStatementContent() {
                           : "outline"
                       }
                       disabled
-                      className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
+                      className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                         type === "fixed" || (editingId && isFixed)
                           ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                           : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -2928,12 +2891,12 @@ function MonthlyStatementContent() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 lg:flex gap-2">
+                <div className="grid grid-cols-2 gap-2 lg:flex">
                   <Button
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("income")}
-                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
+                    className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "income"
                         ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -2946,7 +2909,7 @@ function MonthlyStatementContent() {
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("expense")}
-                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
+                    className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "expense"
                         ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
                         : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
@@ -2959,7 +2922,7 @@ function MonthlyStatementContent() {
                     type="button"
                     variant="outline"
                     onClick={() => handleTypeChange("transfer")}
-                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
+                    className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "transfer"
                         ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -2973,7 +2936,7 @@ function MonthlyStatementContent() {
                     type="button"
                     variant={type === "fixed" ? "default" : "outline"}
                     onClick={() => handleTypeChange("fixed")}
-                    className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
+                    className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "fixed"
                         ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                         : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -2993,14 +2956,14 @@ function MonthlyStatementContent() {
                   <div className="space-y-2">
                     {editingId ? (
                       <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
-                        <div className="flex flex-wrap lg:flex-nowrap gap-2">
+                        <div className="grid grid-cols-3 gap-2 lg:flex lg:flex-nowrap">
                           <Button
                             type="button"
                             variant={
                               !isLoan && !isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
+                            className="h-11 flex-1 text-xs lg:h-9"
                           >
                             Normal
                           </Button>
@@ -3010,7 +2973,7 @@ function MonthlyStatementContent() {
                               isLoan && !isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
+                            className="h-11 flex-1 text-xs lg:h-9"
                           >
                             Emprést.
                           </Button>
@@ -3020,7 +2983,7 @@ function MonthlyStatementContent() {
                               !isLoan && isRateio ? "default" : "outline"
                             }
                             disabled
-                            className="flex-1 h-8 lg:h-9 text-[10px] lg:text-xs"
+                            className="h-11 flex-1 text-xs lg:h-9"
                           >
                             Rateio
                           </Button>
@@ -3036,7 +2999,7 @@ function MonthlyStatementContent() {
                             setIsRateio(false);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
+                          className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && !isRateio
                               ? "border-2 border-destructive bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive hover:bg-destructive/20 dark:hover:bg-destructive/30"
                               : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
@@ -3052,7 +3015,7 @@ function MonthlyStatementContent() {
                             setIsRateio(false);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
+                          className={`h-11 flex-1 text-xs lg:h-9 ${
                             isLoan && !isRateio
                               ? "border-2 border-border bg-secondary/50 text-chart-6 hover:bg-secondary/70"
                               : "hover:border-border hover:bg-secondary/50 hover:text-chart-6 dark:hover:text-chart-6"
@@ -3068,7 +3031,7 @@ function MonthlyStatementContent() {
                             setIsRateio(true);
                             setIsFixed(false);
                           }}
-                          className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
+                          className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && isRateio
                               ? "border-2 border-primary bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
                               : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
@@ -3257,7 +3220,7 @@ function MonthlyStatementContent() {
                           setPaymentMethod("debit");
                           setCreditCardId(null);
                         }}
-                        className="flex-1 h-9 text-xs"
+                        className="h-11 flex-1 text-xs lg:h-9"
                       >
                         Débito/Dinheiro
                       </Button>
@@ -3268,7 +3231,7 @@ function MonthlyStatementContent() {
                           setPaymentMethod("credit");
                           setAccountId(undefined);
                         }}
-                        className="flex-1 h-9 text-xs flex items-center gap-1"
+                        className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
                       >
                         <CreditCard className="h-3 w-3" />
                         Cartão de Crédito
@@ -3433,7 +3396,7 @@ function MonthlyStatementContent() {
                           setPaymentMethod("debit");
                           setCreditCardId(null);
                         }}
-                        className={`flex items-center gap-2 flex-1 h-9 ${
+                        className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "income"
                             ? "border-success/50 bg-success/10 dark:bg-success/20 text-success dark:text-success"
                             : "hover:border-success/30 hover:bg-success/5 dark:hover:bg-success/10 hover:text-success dark:hover:text-success"
@@ -3448,7 +3411,7 @@ function MonthlyStatementContent() {
                           fixedType === "expense" ? "default" : "outline"
                         }
                         onClick={() => setFixedType("expense")}
-                        className={`flex items-center gap-2 flex-1 h-9 ${
+                        className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "expense"
                             ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive"
                             : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
@@ -3490,7 +3453,7 @@ function MonthlyStatementContent() {
                           paymentMethod === "debit" ? "default" : "outline"
                         }
                         disabled
-                        className="flex-1 h-9 text-xs opacity-60"
+                        className="h-11 flex-1 text-xs opacity-60 lg:h-9"
                       >
                         Débito/Dinheiro
                       </Button>
@@ -3500,7 +3463,7 @@ function MonthlyStatementContent() {
                           paymentMethod === "credit" ? "default" : "outline"
                         }
                         disabled
-                        className="flex-1 h-9 text-xs flex items-center gap-1 opacity-60"
+                        className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9 opacity-60"
                       >
                         <CreditCard className="h-3 w-3" />
                         Cartão de Crédito
@@ -3519,7 +3482,7 @@ function MonthlyStatementContent() {
                         setCreditCardId(null);
                         setInstallments(null);
                       }}
-                      className="flex-1 h-9 text-xs"
+                      className="h-11 flex-1 text-xs lg:h-9"
                     >
                       Débito/Dinheiro
                     </Button>
@@ -3532,7 +3495,7 @@ function MonthlyStatementContent() {
                         setPaymentMethod("credit");
                         setAccountId(undefined);
                       }}
-                      className="flex-1 h-9 text-xs flex items-center gap-1"
+                      className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
                     >
                       <CreditCard className="h-3 w-3" />
                       Cartão de Crédito
@@ -3980,7 +3943,7 @@ function MonthlyStatementContent() {
               </div>
             )}
           </div>
-          <DialogFooter className="flex-col gap-2 sm:flex-row sm:gap-0">
+          <DialogFooter>
             {editingId && (
               <ConfirmationDialog
                 title="Confirmar Exclusão"
@@ -4083,9 +4046,9 @@ function MonthlyStatementContent() {
         <button
           aria-label="Importar Extrato"
           onClick={() => setImportDialogOpen(true)}
-          className="fixed bottom-6 right-20 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-colors duration-200 ease-swift hover:border-ring/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="fixed bottom-[calc(var(--bottom-nav-offset)+1rem)] right-[4.75rem] z-50 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card lg:bottom-6 lg:right-20 lg:h-12 lg:w-12 text-muted-foreground shadow-md transition-colors duration-200 ease-swift hover:border-ring/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <Upload className="h-4 w-4" />
+          <Upload className="h-5 w-5 lg:h-4 lg:w-4" />
         </button>
       </FeatureGuard>
 
@@ -4096,9 +4059,9 @@ function MonthlyStatementContent() {
             <DialogTrigger asChild>
               <button
                 aria-label="Nova Transação"
-                className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-colors duration-200 ease-swift hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                className="fixed bottom-[calc(var(--bottom-nav-offset)+1rem)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary lg:bottom-6 lg:right-6 lg:h-12 lg:w-12 text-primary-foreground shadow-md transition-colors duration-200 ease-swift hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-5 w-5 lg:h-4 lg:w-4" />
               </button>
             </DialogTrigger>
           </Dialog>
@@ -4107,7 +4070,7 @@ function MonthlyStatementContent() {
 
       {/* Modal para gerenciar parcelas */}
       <Dialog open={showInstallmentForm} onOpenChange={setShowInstallmentForm}>
-        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl">
           <DialogHeader>
             <DialogTitle>
               {editingId
@@ -4222,7 +4185,6 @@ function MonthlyStatementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </div>
   );
 }

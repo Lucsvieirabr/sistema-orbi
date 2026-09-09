@@ -139,7 +139,7 @@ export default function AdminDashboard() {
 
   if (isLoading) {
     return (
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i}>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -157,9 +157,9 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Métricas principais */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
         {metricCards.map((card) => {
           const Icon = card.icon;
           return (
@@ -171,7 +171,7 @@ export default function AdminDashboard() {
                 <Icon className={`h-4 w-4 ${card.color}`} />
               </CardHeader>
               <CardContent>
-                <div className={`text-2xl font-bold ${card.color}`}>
+                <div className={`figure-lg tabular ${card.color}`}>
                   {card.value}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">

@@ -172,13 +172,13 @@ function CardsContent() {
     const usagePercentage = (usage / card.limit) * 100;
 
     return (
-      <Card className="group transition-all duration-200">
+      <Card className="group">
         <CardHeader className="pb-3">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1">
               <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
               <div className="min-w-0 flex-1">
-                <h3 className="font-semibold text-base lg:text-lg truncate">{card.name}</h3>
+                <h3 className="truncate font-display text-base font-semibold tracking-tight lg:text-lg">{card.name}</h3>
                 {card.brand && (
                   <Badge variant="secondary" className="mt-1 text-xs">
                     {card.brand}
@@ -193,9 +193,9 @@ function CardsContent() {
                   size="sm"
                   disabled={!isMine((card as any).user_id)}
                   onClick={() => onEdit(card.id)}
-                  className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                 >
-                  <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <Edit className="h-4 w-4" />
                 </Button>
               </FeatureGuard>
               <FeatureGuard feature="cartoes_excluir">
@@ -206,8 +206,8 @@ function CardsContent() {
                   onConfirm={() => onDelete(card.id)}
                   variant="destructive"
                 >
-                  <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-7 w-7 lg:h-8 lg:w-8 p-0">
-                    <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                  <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-11 w-11 p-0 lg:h-8 lg:w-8">
+                    <Trash2 className="h-4 w-4" />
                   </Button>
                 </ConfirmationDialog>
               </FeatureGuard>
@@ -244,7 +244,7 @@ function CardsContent() {
           <Separator />
 
           {/* Card Details */}
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-2 gap-3 text-sm sm:gap-4">
             <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Calendar className="h-4 w-4 text-muted-foreground" />
@@ -312,7 +312,7 @@ function CardsContent() {
     const usagePercentage = (usage / card.limit) * 100;
 
     return (
-      <div className="p-4 lg:p-6 hover:bg-muted/30 transition-colors">
+      <div className="p-3 transition-colors hover:bg-muted/30 md:p-4 lg:p-6">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
             <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
@@ -323,7 +323,7 @@ function CardsContent() {
                   <Badge variant="secondary" className="text-xs">{card.brand}</Badge>
                 )}
               </div>
-              <div className="flex flex-col lg:flex-row lg:items-center lg:gap-4 text-xs lg:text-sm text-muted-foreground gap-1">
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground lg:gap-4 lg:text-sm">
                 <span>Limite: {formatCurrency(card.limit)}</span>
                 <span>Uso: {formatCurrency(usage)}</span>
                 <span className={`font-medium ${
@@ -335,14 +335,14 @@ function CardsContent() {
               </div>
             </div>
           </div>
-          <div className="flex items-center gap-1 lg:gap-2 justify-end">
+          <div className="flex items-center justify-end gap-1 border-t border-border-subtle pt-2 lg:gap-2 lg:border-t-0 lg:pt-0">
             <FeatureGuard feature="cartoes_editar">
               <Button 
                 variant="outline" 
                 size="sm"
                 disabled={!isMine((card as any).user_id)}
                 onClick={() => onEdit(card.id)}
-                className="h-8 w-8 p-0"
+                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
               >
                 <Edit className="h-4 w-4" />
               </Button>
@@ -355,7 +355,7 @@ function CardsContent() {
                 onConfirm={() => onDelete(card.id)}
                 variant="destructive"
               >
-                <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-8 w-8 p-0 hidden lg:flex">
+                <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-11 w-11 p-0 lg:h-8 lg:w-8">
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </ConfirmationDialog>
@@ -378,8 +378,7 @@ function CardsContent() {
   };
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Aviso de Limite */}
       <LimitWarningBanner 
         limit="max_cartoes" 
@@ -388,15 +387,15 @@ function CardsContent() {
       />
       
       {/* Header Section */}
-      <Card className="shadow-lg max-w-full">
-        <CardHeader className="p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+      <Card>
+        <CardHeader>
+          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
                 <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <CardTitle className="text-xl lg:text-2xl truncate">Cartões</CardTitle>
+                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Cartões</CardTitle>
                 <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                   Gerencie seus cartões e acompanhe suas faturas mensais
                 </p>
@@ -442,7 +441,7 @@ function CardsContent() {
 
       {/* Cards Grid/List */}
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" : "space-y-4"}>
+        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-4"}>
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
           ))}
@@ -450,7 +449,7 @@ function CardsContent() {
       ) : (
         <>
           {view === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
               {filteredCreditCards.length === 0 ? (
                 <div className="col-span-full">
                   <Card className="border-dashed border-2 border-muted-foreground/25">
@@ -543,7 +542,6 @@ function CardsContent() {
           />
         </DialogContent>
       </Dialog>
-      </div>
     </div>
   );
 }

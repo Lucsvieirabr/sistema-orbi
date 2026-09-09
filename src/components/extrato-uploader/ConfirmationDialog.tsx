@@ -420,7 +420,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                     />
 
                     {/* Data e Valor */}
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                       <Input
                         type="date"
                         value={transaction.date}

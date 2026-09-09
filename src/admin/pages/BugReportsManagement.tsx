@@ -117,16 +117,16 @@ export default function BugReportsManagement() {
 
   return (
     <>
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="min-w-0 space-y-4 md:space-y-6">
         {/* Header Section */}
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <div className="flex items-center gap-3">
               <div className="p-2 bg-warning/10 rounded-lg">
                 <Bug className="h-6 w-6 text-warning" />
               </div>
               <div>
-                <CardTitle className="text-2xl">Defeitos & Sugestões</CardTitle>
+                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Defeitos & Sugestões</CardTitle>
                 <p className="text-sm text-muted-foreground">
                   Total: {bugReports.length} relatório{bugReports.length !== 1 ? "s" : ""}
                 </p>
@@ -136,7 +136,7 @@ export default function BugReportsManagement() {
         </Card>
 
         {/* Kanban Board */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
           {STATUS_OPTIONS.map((status) => (
             <div
               key={status.value}
@@ -285,7 +285,7 @@ export default function BugReportsManagement() {
                 </div>
               )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
                   <label className="text-sm font-medium">Criado em</label>
                   <p className="text-sm text-muted-foreground mt-1">

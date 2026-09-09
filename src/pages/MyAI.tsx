@@ -110,23 +110,24 @@ function MyAIContent() {
   }, [stats]);
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
-        {/* Header */}
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <Brain className="h-8 w-8 text-primary flex-shrink-0" />
-            <h1 className="text-3xl font-bold truncate">IA de Classificação de Transações</h1>
-          </div>
-          <p className="text-muted-foreground">
-            Sua IA pessoal aprende como você prefere categorizar cada transação. 
-            Cada vez que você corrige uma classificação durante a importação, a IA memoriza e aplica automaticamente nas próximas vezes!
-          </p>
+    <div className="min-w-0 space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="space-y-1.5">
+        <div className="flex min-w-0 items-center gap-2">
+          <Brain className="h-6 w-6 shrink-0 text-primary lg:h-8 lg:w-8" />
+          <h1 className="min-w-0 font-display text-lg font-semibold tracking-tight md:text-2xl lg:text-3xl">
+            IA de Classificação
+          </h1>
         </div>
-    
+        <p className="text-sm text-muted-foreground">
+            Sua IA pessoal aprende como você prefere categorizar cada transação. 
+          Cada vez que você corrige uma classificação durante a importação, a IA memoriza e aplica automaticamente nas próximas vezes!
+        </p>
+      </div>
+
       {/* Padrões por Categoria */}
       {stats && stats.total > 0 && (
-        <Card className="shadow-md">
+        <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -241,21 +242,16 @@ function MyAIContent() {
       {/* Busca e Tabela */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Regras de Classificação Automática</CardTitle>
-            </div>
-            
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <CardTitle>Regras de Classificação Automática</CardTitle>
+
             {/* Campo de busca */}
-            <div className="flex items-center gap-2">
-              <Input
-                placeholder="Buscar transação ou categoria..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-80"
-              />
-              
-            </div>
+            <Input
+              placeholder="Buscar transação ou categoria..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="w-full lg:w-80"
+            />
           </div>
         </CardHeader>
 
@@ -267,7 +263,56 @@ function MyAIContent() {
               ))}
             </div>
           ) : filteredPatterns && filteredPatterns.length > 0 ? (
-            <div className="rounded-md border">
+            <>
+              {/* Mobile: uma regra por card — sem tabela espremida. */}
+              <RecordCardList>
+                {filteredPatterns.map((pattern) => (
+                  <RecordCard key={pattern.id}>
+                    <RecordCardHead
+                      title={pattern.description}
+                      value={<Badge variant="secondary">{pattern.usage_count}x</Badge>}
+                    />
+
+                    <RecordFields className="grid-cols-1">
+                      <RecordField label="Categoria aprendida">{pattern.category}</RecordField>
+                    </RecordFields>
+
+                    <RecordActions>
+                      <FeatureGuard feature="ia_classificacao_automatica">
+                        <Button
+                          variant="ghost"
+                          size="icon-sm"
+                          aria-label={`Editar regra de ${pattern.description}`}
+                          onClick={() => handleEdit(pattern)}
+                        >
+                          <Edit2 className="h-4 w-4" />
+                        </Button>
+                      </FeatureGuard>
+                      <FeatureGuard feature="ia_classificacao_automatica">
+                        <ConfirmationDialog
+                          title="Remover Regra de Classificação"
+                          description={`Tem certeza que deseja remover esta regra? A IA não irá mais classificar "${pattern.description}" automaticamente como "${pattern.category}".`}
+                          confirmText="Remover Regra"
+                          onConfirm={() => handleDelete(pattern.id)}
+                          variant="destructive"
+                        >
+                          <Button
+                            variant="ghost"
+                            size="icon-sm"
+                            aria-label={`Remover regra de ${pattern.description}`}
+                            className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </ConfirmationDialog>
+                      </FeatureGuard>
+                    </RecordActions>
+                  </RecordCard>
+                ))}
+              </RecordCardList>
+
+              {/* md+: tabela, com rolagem contida no contêiner. */}
+              <TableView>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -326,7 +371,8 @@ function MyAIContent() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </TableView>
+            </>
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               {searchTerm ? (
@@ -386,7 +432,6 @@ function MyAIContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-      </div>
     </div>
   );
 }

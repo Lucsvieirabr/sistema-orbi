@@ -86,7 +86,7 @@ export default function Billing() {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 py-10 flex justify-center">
+      <div className="container mx-auto flex justify-center px-4 py-6 md:py-10">
         <Card className="w-full max-w-2xl border-destructive/30 shadow-lg">
           <CardHeader className="text-center">
             <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -96,7 +96,7 @@ export default function Billing() {
                 <AlertTriangle className="h-8 w-8 text-destructive" />
               )}
             </div>
-            <CardTitle className="text-2xl">
+            <CardTitle className="text-xl md:text-2xl">
               {isPending ? "Aguardando confirmação do pagamento" : "Acesso bloqueado"}
             </CardTitle>
             <CardDescription className="text-base mt-2">

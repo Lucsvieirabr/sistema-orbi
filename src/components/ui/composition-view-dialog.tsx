@@ -48,7 +48,7 @@ export function CompositionViewDialog({
                     key={index}
                     className="flex items-center justify-between p-3 border rounded-lg bg-background hover:bg-muted/30 transition-colors"
                   >
-                    <div className="flex-1 grid grid-cols-3 gap-3">
+                    <div className="grid flex-1 grid-cols-2 gap-3 sm:grid-cols-3">
                       <div>
                         {item.totalValue ? (
                           // Transação parte: mostra valor individual / valor total

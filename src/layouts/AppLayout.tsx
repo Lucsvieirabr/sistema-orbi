@@ -2,19 +2,31 @@ import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
+import { BottomNav } from "@/components/navigation/BottomNav";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsCompact } from "@/hooks/use-mobile";
 
 interface AppLayoutProps {
   onLogout: () => void;
 }
 
+/**
+ * Shell autenticado.
+ *
+ * Navegação adaptativa, com um único ponto de corte (`lg` = 1024px):
+ *   - `lg+`  → sidebar navy fixa à esquerda.
+ *   - `<lg`  → sidebar vira drawer (hambúrguer no header) + barra inferior
+ *              com os quatro destinos de maior tráfego.
+ *
+ * O corte é o mesmo no JS (`useIsCompact`) e no CSS (`lg:`), o que evita a
+ * faixa de tablet sem navegação alguma.
+ */
 export default function AppLayout({ onLogout }: AppLayoutProps) {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
-  const isMobile = useIsMobile();
+  const isCompact = useIsCompact();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -37,10 +49,11 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      {!isMobile && <AppSidebar />}
-      {isMobile && <AppSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />}
+      {isCompact ? <AppSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} /> : <AppSidebar />}
 
-      <SidebarInset>
+      {/* `min-w-0` é o que impede o filho flex de esticar a página para os
+          lados quando uma tabela ou um valor longo aparece. */}
+      <SidebarInset className="min-w-0">
         <a
           href="#conteudo"
           className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
@@ -48,22 +61,35 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
           Pular para o conteúdo
         </a>
 
-        <div className="flex min-h-svh flex-col bg-background">
+        <div className="flex min-h-svh min-w-0 flex-col bg-background">
           <AppHeader
             title="Orbi"
             subtitle="Sua visão financeira"
             onLogout={handleLogout}
             onMenuClick={() => setMobileMenuOpen(true)}
-            showMenuButton={isMobile}
+            menuOpen={mobileMenuOpen}
           />
 
-          {/* Whitespace é o elemento de design: gutters largos, medida máxima controlada. */}
-          <main id="conteudo" className="flex-1 px-4 py-6 lg:px-8 lg:py-10">
-            <div className="mx-auto w-full max-w-[88rem]">
+          {/* Whitespace é o elemento de design: gutters largos no desktop,
+              econômicos no telefone. O rodapé abre espaço para a barra
+              inferior + recorte do aparelho. */}
+          {/* `SidebarInset` já é o <main> do documento — aqui vai um alvo de
+              foco para o skip-link, não um segundo landmark. */}
+          <div
+            id="conteudo"
+            tabIndex={-1}
+            className="min-w-0 flex-1 px-4 py-5 outline-none md:px-6 md:py-8 lg:px-8 lg:py-10"
+          >
+            <div className="mx-auto w-full min-w-0 max-w-[88rem]">
               <Outlet />
             </div>
-          </main>
+          </div>
+
+          {/* Espaçador: o conteúdo nunca termina embaixo da barra inferior. */}
+          <div aria-hidden className="h-bottom-nav-offset shrink-0 lg:hidden" />
         </div>
+
+        <BottomNav onMenuClick={() => setMobileMenuOpen(true)} menuOpen={mobileMenuOpen} />
       </SidebarInset>
     </SidebarProvider>
   );

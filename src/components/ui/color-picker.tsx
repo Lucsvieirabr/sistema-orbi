@@ -74,7 +74,7 @@ export function ColorPicker({ value, onChange, className }: ColorPickerProps) {
         <div className="space-y-4">
           <div>
             <h4 className="text-sm font-medium mb-2">Cores predefinidas</h4>
-            <div className="grid grid-cols-6 gap-2">
+            <div className="grid grid-cols-5 gap-2 xs:grid-cols-6">
               {PRESET_COLORS.map((color) => (
                 <button
                   key={color}

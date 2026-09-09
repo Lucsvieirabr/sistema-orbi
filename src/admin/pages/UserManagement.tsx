@@ -87,9 +87,9 @@ export default function UserManagement() {
 
   return (
     <>
-      <div className="container mx-auto p-4 space-y-6">
+      <div className="min-w-0 space-y-4 md:space-y-6">
         {/* Header Section */}
-        <Card className="shadow-lg">
+        <Card>
           <CardHeader>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
               <div className="flex items-center gap-3">
@@ -97,7 +97,7 @@ export default function UserManagement() {
                   <Users className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
                 </div>
                 <div>
-                  <CardTitle className="text-xl lg:text-2xl">Usuários</CardTitle>
+                  <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Usuários</CardTitle>
                   <p className="text-muted-foreground mt-1 text-sm">
                     Total de {users?.length || 0} usuários cadastrados
                   </p>
@@ -136,7 +136,7 @@ export default function UserManagement() {
 
         {/* Users Grid/List */}
         {isLoading ? (
-          <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+          <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
             {Array.from({ length: 6 }).map((_, i) => (
               <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-24 w-full"} />
             ))}
@@ -144,7 +144,7 @@ export default function UserManagement() {
         ) : (
           <>
             {view === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 {filteredUsers && filteredUsers.length === 0 ? (
                   <div className="col-span-full">
                     <Card className="border-dashed border-2 border-muted-foreground/25">
@@ -245,7 +245,7 @@ export default function UserManagement() {
                       {filteredUsers?.map((user) => (
                         <div
                           key={user.user_id}
-                          className="flex items-center justify-between p-6 hover:bg-muted/30 transition-colors"
+                          className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center lg:p-6"
                         >
                           <div className="flex items-center gap-4 flex-1 min-w-0">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">

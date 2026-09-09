@@ -56,15 +56,19 @@ export function SearchPopover() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-9 justify-start px-0 text-muted-foreground md:w-72 md:px-3">
-          <Search className="mx-auto h-4 w-4 md:mx-0 md:mr-2" />
+        <Button
+          variant="ghost"
+          aria-label="Buscar"
+          className="h-11 w-11 justify-center px-0 text-muted-foreground md:h-10 md:w-72 md:justify-start md:px-3 lg:border lg:border-border"
+        >
+          <Search className="h-4 w-4 md:mr-2" />
           <span className="hidden md:inline">Buscar</span>
-          <kbd className="ml-auto pointer-events-none inline-flex h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground opacity-100 hidden md:flex">
+          <kbd className="pointer-events-none ml-auto hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:flex">
             <span className="text-xs">⌘</span>K
           </kbd>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80 md:w-80 p-0" align="start" sideOffset={4}>
+      <PopoverContent className="w-[min(20rem,calc(100vw-1.5rem))] p-0" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
           <CommandInput
             placeholder="Buscar páginas..."
@@ -82,7 +86,7 @@ export function SearchPopover() {
                       key={item.path}
                       value={item.path}
                       onSelect={() => handleSelect(item.path)}
-                      className="flex items-center gap-3 px-3 py-2"
+                      className="flex min-h-touch items-center gap-3 px-3 py-2.5 md:min-h-0 md:py-2"
                     >
                       <Icon className="h-4 w-4" />
                       <span>{item.title}</span>

@@ -122,8 +122,7 @@ function CategoriesContent() {
   ) || [];
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+    <div className="min-w-0 space-y-4 md:space-y-6">
         {/* Aviso de Limite */}
         <LimitWarningBanner 
           limit="max_categorias" 
@@ -132,15 +131,15 @@ function CategoriesContent() {
         />
         
         {/* Header Section */}
-        <Card className="shadow-lg max-w-full">
-          <CardHeader className="p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+        <Card>
+          <CardHeader>
+            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
               <div className="flex items-center gap-3 min-w-0 flex-1">
                 <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
                   <Tag className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <CardTitle className="text-xl lg:text-2xl truncate">Categorias</CardTitle>
+                  <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Categorias</CardTitle>
                   <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                     Organize suas transações em categorias personalizadas
                   </p>
@@ -188,7 +187,7 @@ function CategoriesContent() {
                             <Label htmlFor="name">Nome</Label>
                             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
                           </div>
-                          <div className="grid grid-cols-2 gap-4">
+                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                             <div className="space-y-2">
                               <Label htmlFor="categoryType">Tipo</Label>
                               <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
@@ -254,8 +253,8 @@ function CategoriesContent() {
                 </div>
               ) : (
                 filteredCategories.map((c) => (
-                  <Card key={c.id} className="group transition-all duration-200 w-full overflow-hidden">
-                    <CardHeader className="pb-3 p-4 w-full overflow-hidden">
+                  <Card key={c.id} className="group w-full overflow-hidden">
+                    <CardHeader className="w-full overflow-hidden pb-3">
                       <div className="flex flex-col gap-3 w-full overflow-hidden">
                         <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
                           <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
@@ -264,9 +263,9 @@ function CategoriesContent() {
                                 <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
                               </div>
                             )}
-                            <h3 className="font-semibold text-base" title={c.name}>{truncateText(c.name, 20)}</h3>
+                            <h3 className="truncate font-display text-base font-semibold tracking-tight" title={c.name}>{truncateText(c.name, 20)}</h3>
                             {c.is_system && (
-                              <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0 whitespace-nowrap">
+                              <span className="shrink-0 whitespace-nowrap rounded bg-muted px-2 py-0.5 text-2xs text-muted-foreground">
                                 Sistema
                               </span>
                             )}
@@ -280,9 +279,9 @@ function CategoriesContent() {
                                   variant="outline"
                                   size="sm"
                                   onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                                  className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                                 >
-                                  <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  <Edit className="h-4 w-4" />
                                 </Button>
                               </FeatureGuard>
                               <FeatureGuard feature="categorias_excluir">
@@ -293,8 +292,8 @@ function CategoriesContent() {
                                   onConfirm={() => onDelete(c.id)}
                                   variant="destructive"
                                 >
-                                  <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
-                                    <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                                  <Button variant="destructive" size="sm" className="h-11 w-11 p-0 lg:h-8 lg:w-8">
+                                    <Trash2 className="h-4 w-4" />
                                   </Button>
                                 </ConfirmationDialog>
                               </FeatureGuard>
@@ -308,7 +307,7 @@ function CategoriesContent() {
               )}
             </div>
           ) : (
-            <Card className="max-w-full overflow-hidden">
+            <Card className="overflow-hidden">
               <CardContent className="p-0">
                 {filteredCategories.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
@@ -327,7 +326,7 @@ function CategoriesContent() {
                 ) : (
                   <div className="divide-y divide-border w-full">
                     {filteredCategories.map((c) => (
-                      <div key={c.id} className="p-4 hover:bg-muted/30 transition-colors w-full overflow-hidden">
+                      <div key={c.id} className="w-full overflow-hidden p-3 transition-colors hover:bg-muted/30 md:p-4">
                         <div className="flex items-center justify-between gap-3 w-full overflow-hidden">
                           <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                             {c.icon && (
@@ -336,9 +335,9 @@ function CategoriesContent() {
                               </div>
                             )}
                             <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-                              <span className="font-semibold" title={c.name}>{truncateText(c.name, 25)}</span>
+                              <span className="truncate font-medium" title={c.name}>{truncateText(c.name, 25)}</span>
                               {c.is_system && (
-                                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded flex-shrink-0 whitespace-nowrap">
+                                <span className="shrink-0 whitespace-nowrap rounded bg-muted px-2 py-0.5 text-2xs text-muted-foreground">
                                   Sistema
                                 </span>
                               )}
@@ -352,7 +351,7 @@ function CategoriesContent() {
                                     variant="outline"
                                     size="sm"
                                     onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                                    className="h-8 w-8 p-0 flex-shrink-0"
+                                    className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8"
                                   >
                                     <Edit className="h-4 w-4" />
                                   </Button>
@@ -365,7 +364,7 @@ function CategoriesContent() {
                                     onConfirm={() => onDelete(c.id)}
                                     variant="destructive"
                                   >
-                                    <Button variant="destructive" size="sm" className="h-8 w-8 p-0 flex-shrink-0 hidden lg:flex">
+                                    <Button variant="destructive" size="sm" className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8">
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
                                   </ConfirmationDialog>
@@ -383,7 +382,6 @@ function CategoriesContent() {
           )}
           </>
         )}
-      </div>
     </div>
   );
 }

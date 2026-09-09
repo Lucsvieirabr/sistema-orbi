@@ -125,7 +125,7 @@ export function CompositionDialog({
           {/* Adicionar novo item */}
           <div className="space-y-2 p-3 border rounded-lg bg-muted/30">
             <h4 className="text-sm font-medium">Adicionar Item</h4>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               <div className="space-y-1">
                 <Label htmlFor="item-value" className="text-xs">Valor (R$)</Label>
                 <NumericInput
@@ -186,7 +186,7 @@ export function CompositionDialog({
                     key={index}
                     className="flex items-center justify-between p-2 border rounded-lg bg-background"
                   >
-                    <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
+                    <div className="grid flex-1 grid-cols-1 gap-2 text-sm sm:grid-cols-3">
                       <div>
                         <span className="font-medium text-success">
                           R$ {item.value.toFixed(2)}

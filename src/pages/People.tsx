@@ -118,8 +118,7 @@ function PeopleContent() {
   ) || [];
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Aviso de Limite */}
       <LimitWarningBanner 
         limit="max_pessoas" 
@@ -128,15 +127,15 @@ function PeopleContent() {
       />
       
       {/* Header Section */}
-      <Card className="shadow-lg max-w-full">
-        <CardHeader className="p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
+      <Card>
+        <CardHeader>
+          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
             <div className="flex items-center gap-3 min-w-0 flex-1">
               <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
                 <Users className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
               </div>
               <div className="min-w-0 flex-1">
-                <CardTitle className="text-xl lg:text-2xl truncate">Pessoas</CardTitle>
+                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Pessoas</CardTitle>
                 <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                   Gerencie pessoas e acompanhe transações individuais
                 </p>
@@ -204,7 +203,7 @@ function PeopleContent() {
 
       {/* People Grid/List */}
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
           ))}
@@ -212,7 +211,7 @@ function PeopleContent() {
       ) : (
         <>
           {view === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
               {filteredPeople.length === 0 ? (
                 <div className="col-span-full">
                   <Card className="border-dashed border-2 border-muted-foreground/25">
@@ -233,15 +232,15 @@ function PeopleContent() {
                 </div>
               ) : (
                 filteredPeople.map((member) => (
-                  <Card key={member.id} className="group transition-all duration-200 w-full overflow-hidden">
-                    <CardHeader className="pb-3 p-4 w-full overflow-hidden">
+                  <Card key={member.id} className="group w-full overflow-hidden">
+                    <CardHeader className="w-full overflow-hidden pb-3">
                       <div className="flex flex-col gap-3 w-full overflow-hidden">
                         <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
                           <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                               <Users className="h-5 w-5 text-primary" />
                             </div>
-                            <h3 className="font-semibold text-base" title={member.name}>{truncateText(member.name, 20)}</h3>
+                            <h3 className="truncate font-display text-base font-semibold tracking-tight" title={member.name}>{truncateText(member.name, 20)}</h3>
                           </div>
                         </div>
                         <div className="flex items-center gap-1">
@@ -250,19 +249,19 @@ function PeopleContent() {
                             size="sm"
                             onClick={() => member.pix && onCopyPix(member.pix, member.name)}
                             disabled={!member.pix}
-                            className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                            className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                             title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
                           >
-                            <img src={PixIcon} alt="PIX" className="h-3 w-3 lg:h-4 lg:w-4" />
+                            <img src={PixIcon} alt="PIX" className="h-4 w-4" />
                           </Button>
                           <FeatureGuard feature="pessoas_editar">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => onEdit(member.id, member.name, member.pix)}
-                              className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                              className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                             >
-                              <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
                           </FeatureGuard>
                           <FeatureGuard feature="pessoas_excluir">
@@ -273,8 +272,8 @@ function PeopleContent() {
                               onConfirm={() => onDelete(member.id)}
                               variant="destructive"
                             >
-                              <Button variant="destructive" size="sm" className="h-7 w-7 lg:h-8 lg:w-8 p-0">
-                                <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                              <Button variant="destructive" size="sm" className="h-11 w-11 p-0 lg:h-8 lg:w-8">
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </ConfirmationDialog>
                           </FeatureGuard>
@@ -296,7 +295,7 @@ function PeopleContent() {
               )}
             </div>
           ) : (
-            <Card className="max-w-full overflow-hidden">
+            <Card className="overflow-hidden">
               <CardContent className="p-0">
                 {filteredPeople.length === 0 ? (
                   <div className="p-8 text-center text-muted-foreground">
@@ -315,20 +314,20 @@ function PeopleContent() {
                 ) : (
                   <div className="divide-y divide-border w-full">
                     {filteredPeople.map((member) => (
-                      <div key={member.id} className="p-4 hover:bg-muted/30 transition-colors w-full overflow-hidden">
-                        <div className="flex items-center justify-between gap-3 w-full overflow-hidden">
+                      <div key={member.id} className="w-full overflow-hidden p-3 transition-colors hover:bg-muted/30 md:p-4">
+                        <div className="flex w-full flex-col justify-between gap-2.5 overflow-hidden sm:flex-row sm:items-center sm:gap-3">
                           <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                             <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                               <Users className="h-5 w-5 text-primary" />
                             </div>
-                            <span className="font-semibold" title={member.name}>{truncateText(member.name, 25)}</span>
+                            <span className="truncate font-medium" title={member.name}>{truncateText(member.name, 25)}</span>
                           </div>
-                          <div className="flex items-center gap-1 lg:gap-2 justify-end">
+                          <div className="flex items-center justify-end gap-1 border-t border-border-subtle pt-2 sm:border-t-0 sm:pt-0 lg:gap-2">
                             <Button
                               variant="outline"
                               size="sm"
                               onClick={() => onViewDetails(member.id)}
-                              className="gap-2 flex-1 lg:flex-initial"
+                              className="mr-auto gap-2 sm:mr-0"
                             >
                               <Eye className="h-4 w-4" />
                               <span className="hidden sm:inline">Ver Detalhes</span>
@@ -338,7 +337,7 @@ function PeopleContent() {
                               size="sm"
                               onClick={() => member.pix && onCopyPix(member.pix, member.name)}
                               disabled={!member.pix}
-                              className="h-8 w-8 p-0 flex-shrink-0"
+                              className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8"
                               title={member.pix ? "Copiar PIX" : "Sem PIX cadastrado"}
                             >
                               <img src={PixIcon} alt="PIX" className="h-4 w-4" />
@@ -348,7 +347,7 @@ function PeopleContent() {
                                 variant="outline"
                                 size="sm"
                                 onClick={() => onEdit(member.id, member.name, member.pix)}
-                                className="h-8 w-8 p-0 flex-shrink-0"
+                                className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -361,7 +360,7 @@ function PeopleContent() {
                                 onConfirm={() => onDelete(member.id)}
                                 variant="destructive"
                               >
-                                <Button variant="destructive" size="sm" className="h-8 w-8 p-0 flex-shrink-0 hidden lg:flex">
+                                <Button variant="destructive" size="sm" className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8">
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </ConfirmationDialog>
@@ -377,7 +376,6 @@ function PeopleContent() {
           )}
         </>
       )}
-      </div>
     </div>
   );
 }

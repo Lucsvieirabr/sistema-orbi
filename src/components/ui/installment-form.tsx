@@ -558,7 +558,7 @@ export function InstallmentForm({
               </div>
 
               {/* Campos em linha ultra compacta */}
-              <div className="grid grid-cols-2 gap-1">
+              <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-2">
                 <div className="space-y-0.5">
                   <Label className="text-xs text-muted-foreground">Valor</Label>
                   <NumericInput

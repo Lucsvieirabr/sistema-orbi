@@ -145,7 +145,7 @@ export function UserDetailDialog({ userId, open, onOpenChange }: UserDetailDialo
             {/* Informações Básicas */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-muted-foreground">INFORMAÇÕES BÁSICAS</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
                   <label className="text-xs text-muted-foreground">Nome</label>
                   <p className="text-sm font-medium">{userDetails.full_name || '-'}</p>
@@ -176,7 +176,7 @@ export function UserDetailDialog({ userId, open, onOpenChange }: UserDetailDialo
             {/* Assinatura Atual */}
             <div className="space-y-3">
               <h3 className="font-semibold text-sm text-muted-foreground">ASSINATURA ATUAL</h3>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                 <div>
                   <label className="text-xs text-muted-foreground">Plano</label>
                   <p className="text-sm font-medium">{userDetails.plan_name || 'Sem plano'}</p>

@@ -160,7 +160,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             placeholder="0,00"
           />
         </div>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
           <DaySelector
             id="statement_date"
             label="Dia de Fechamento"

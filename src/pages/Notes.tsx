@@ -171,20 +171,21 @@ export default function Notes() {
   }
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="px-0 lg:px-6 lg:py-6 max-w-full">
-        {/* Header */}
-        <div className="mb-6">
-          <div className="flex items-center gap-3 mb-2">
-            <StickyNote className="h-6 w-6 lg:h-7 lg:w-7 text-primary" />
-            <h1 className="text-xl lg:text-2xl font-bold truncate">Minhas Notas</h1>
-          </div>
-          <p className="text-xs lg:text-sm text-muted-foreground truncate">
-            Organize suas tarefas e lembretes financeiros em um só lugar
-          </p>
+    <div className="min-w-0 space-y-4 md:space-y-6">
+      {/* Header */}
+      <div className="space-y-1">
+        <div className="flex min-w-0 items-center gap-2 md:gap-3">
+          <StickyNote className="h-5 w-5 shrink-0 text-primary md:h-6 md:w-6 lg:h-7 lg:w-7" />
+          <h1 className="min-w-0 truncate font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl">
+            Minhas Notas
+          </h1>
         </div>
+        <p className="text-xs text-muted-foreground md:text-sm">
+          Organize suas tarefas e lembretes financeiros em um só lugar
+        </p>
+      </div>
       {/* Create Note Card */}
-      <Card className="p-4 mb-6 border-2 border-dashed">
+      <Card className="border-2 border-dashed p-3 md:p-4">
         <div className="space-y-3">
           <div className="flex items-start gap-2">
             <Textarea
@@ -260,16 +261,16 @@ export default function Notes() {
 
       {/* Notes List with Tabs */}
       <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="all" className="gap-1">
+        <TabsList className="grid w-full grid-cols-3 gap-1">
+          <TabsTrigger value="all" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
             Todas
             <Badge variant="secondary">{notes.length}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="pending" className="gap-1">
+          <TabsTrigger value="pending" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
             Pendentes
             <Badge variant="secondary">{pendingCount}</Badge>
           </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-1">
+          <TabsTrigger value="completed" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
             Concluídas
             <Badge variant="secondary">{completedCount}</Badge>
           </TabsTrigger>
@@ -295,22 +296,23 @@ export default function Notes() {
               {filteredNotes.map((note) => {
                 const isOverdue = isNoteOverdue(note);
                 const isExpanded = expandedNotes.has(note.id);
-                const truncateLimit = isMobile ? 23 : 80;
+                const truncateLimit = isMobile ? 72 : 140;
                 const shouldTruncate = note.content.length > truncateLimit;
                 
                 return (
                   <Card
                     key={note.id}
                     className={cn(
-                      "p-3 transition-all ",
+                      "p-3 transition-colors md:p-4",
                       note.is_completed && "opacity-60 bg-muted/50",
                       isOverdue && "border-destructive/50 bg-destructive/5"
                     )}
                   >
-                    <div className="flex items-start gap-3">
+                    <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
                       <button
                         onClick={() => handleToggleComplete(note)}
-                        className="mt-0.5 flex-shrink-0 hover:scale-110 transition-transform"
+                        aria-label={note.is_completed ? "Reabrir nota" : "Concluir nota"}
+                        className="-m-2 shrink-0 p-2 transition-transform hover:scale-110"
                       >
                         {note.is_completed ? (
                           <CheckCircle2 className="h-5 w-5 text-primary" />
@@ -319,7 +321,7 @@ export default function Notes() {
                         )}
                       </button>
 
-                      <div className="flex-1 space-y-2">
+                      <div className="min-w-0 flex-1 space-y-2">
                         {editingNote === note.id ? (
                           <div className="space-y-2">
                             <Textarea
@@ -358,10 +360,10 @@ export default function Notes() {
                                   size="icon"
                                   variant="ghost"
                                   onClick={() => toggleExpandNote(note.id)}
-                                  className="h-7 w-7 flex-shrink-0"
+                                  className="h-11 w-11 shrink-0 lg:h-8 lg:w-8"
                                   title={isExpanded ? "Ver menos" : "Ver mais"}
                                 >
-                                  <Info className="h-3.5 w-3.5" />
+                                  <Info className="h-4 w-4" />
                                 </Button>
                               )}
                             </div>
@@ -404,22 +406,24 @@ export default function Notes() {
                       </div>
 
                       {editingNote !== note.id && (
-                        <div className="flex gap-1 flex-shrink-0">
+                        <div className="flex w-full shrink-0 justify-end gap-1 border-t border-border-subtle pt-2 sm:w-auto sm:border-t-0 sm:pt-0">
                           <Button
                             size="icon"
                             variant="ghost"
+                            aria-label="Editar nota"
                             onClick={() => handleStartEdit(note)}
-                            className="h-7 w-7"
+                            className="h-11 w-11 lg:h-8 lg:w-8"
                           >
-                            <Edit2 className="h-3.5 w-3.5" />
+                            <Edit2 className="h-4 w-4" />
                           </Button>
                           <Button
                             size="icon"
                             variant="ghost"
                             onClick={() => handleDeleteClick(note.id)}
-                            className="h-7 w-7 text-destructive hover:text-destructive"
+                            aria-label="Excluir nota"
+                            className="h-11 w-11 text-destructive hover:text-destructive lg:h-8 lg:w-8"
                           >
-                            <Trash2 className="h-3.5 w-3.5" />
+                            <Trash2 className="h-4 w-4" />
                           </Button>
                         </div>
                       )}
@@ -451,7 +455,6 @@ export default function Notes() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      </div>
     </div>
   );
 }

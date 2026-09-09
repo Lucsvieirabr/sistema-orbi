@@ -11,13 +11,14 @@ import {
   Brain,
   StickyNote,
   Settings,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
-import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
-import { useIsMobile } from "@/hooks/use-mobile";
+import { useIsCompact } from "@/hooks/use-mobile";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
@@ -60,28 +61,45 @@ interface AppSidebarProps {
   onOpenChange?: (open: boolean) => void;
 }
 
+/**
+ * Navegação principal.
+ *
+ * `lg+`  → coluna navy fixa.
+ * `<lg`  → o mesmo conteúdo dentro de um drawer (Sheet) vindo da esquerda,
+ *          com alvos de 44px e respiro para o recorte do aparelho.
+ */
 export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const currentPath = location.pathname;
-  const isMobile = useIsMobile();
+  const isCompact = useIsCompact();
 
   const groups = useMemo(() => menuGroups, []);
 
   const handleNavigate = (path: string) => {
     navigate(path);
-    if (isMobile && onOpenChange) onOpenChange(false);
+    if (isCompact && onOpenChange) onOpenChange(false);
   };
 
-  const Nav = () => (
+  const Nav = ({ drawer = false }: { drawer?: boolean }) => (
     <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
       {/* Marca */}
-      <div className="flex h-header shrink-0 items-center justify-between px-5">
+      <div className="flex h-header shrink-0 items-center justify-between px-4 lg:h-header-lg lg:px-5">
         <div className="flex items-center gap-2.5">
           <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
           <span className="font-display text-base font-semibold tracking-tight text-white">Orbi</span>
         </div>
-        <ThemeToggle className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+        <div className="flex items-center gap-1">
+          <ThemeToggle className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
+          {drawer && (
+            <SheetClose
+              aria-label="Fechar menu"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-sidebar-muted transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring"
+            >
+              <X className="h-5 w-5" aria-hidden />
+            </SheetClose>
+          )}
+        </div>
       </div>
 
       {/* Ação primária — a única com preenchimento sólido na navegação */}
@@ -90,7 +108,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
           type="button"
           onClick={() => handleNavigate("/sistema/statement?new=1")}
           className={cn(
-            "flex h-10 w-full items-center justify-center gap-2 rounded-lg",
+            "flex h-11 w-full items-center justify-center gap-2 rounded-lg lg:h-10",
             "bg-white/10 text-sm font-medium text-white",
             "transition-colors duration-200 ease-swift hover:bg-white/[0.16]",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
@@ -102,9 +120,9 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
       </div>
 
       {/* Navegação */}
-      <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-3">
+      <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {groups.map((group, groupIndex) => (
-          <div key={group.label} className={cn(groupIndex > 0 && "mt-6")}>
+          <div key={group.label} className={cn(groupIndex > 0 && "mt-5 lg:mt-6")}>
             <p className="px-3 pb-2 text-2xs font-medium uppercase tracking-eyebrow text-sidebar-muted">
               {group.label}
             </p>
@@ -119,7 +137,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
                       aria-current={isActive ? "page" : undefined}
                       onClick={() => handleNavigate(item.path)}
                       className={cn(
-                        "relative flex h-9 w-full items-center gap-3 rounded-lg pl-3 pr-3 text-sm",
+                        "relative flex h-11 w-full items-center gap-3 rounded-lg px-3 text-sm lg:h-9",
                         "transition-colors duration-200 ease-swift",
                         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
                         isActive
@@ -134,7 +152,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
                         />
                       )}
                       <Icon className={cn("h-4 w-4 shrink-0", !isActive && "opacity-70")} aria-hidden />
-                      {item.title}
+                      <span className="truncate">{item.title}</span>
                     </button>
                   </li>
                 );
@@ -144,20 +162,23 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
         ))}
       </nav>
 
-      <div className="shrink-0 border-t border-sidebar-border p-3">
+      <div className="shrink-0 border-t border-sidebar-border p-3 pb-safe lg:pb-3">
         <ReportBugDialog />
       </div>
     </div>
   );
 
-  if (isMobile && open !== undefined && onOpenChange) {
+  if (isCompact && open !== undefined && onOpenChange) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-[17.5rem] border-sidebar-border bg-sidebar p-0">
+        <SheetContent
+          side="left"
+          className="w-[min(17.5rem,86vw)] border-sidebar-border bg-sidebar p-0 [&>button]:hidden"
+        >
           <VisuallyHidden>
             <SheetTitle>Navegação principal</SheetTitle>
           </VisuallyHidden>
-          <Nav />
+          <Nav drawer />
         </SheetContent>
       </Sheet>
     );

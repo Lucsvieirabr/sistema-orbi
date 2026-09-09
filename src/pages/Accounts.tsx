@@ -122,8 +122,7 @@ function AccountsContent() {
   ) || [];
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
+    <div className="min-w-0 space-y-4 md:space-y-6">
       {/* Aviso de Limite */}
       <LimitWarningBanner 
         limit="max_contas" 
@@ -132,15 +131,15 @@ function AccountsContent() {
       />
       
       {/* Header Section */}
-      <Card className="shadow-lg max-w-full">
-        <CardHeader className="p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                <Wallet className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
+      <Card>
+        <CardHeader>
+          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <div className="shrink-0 rounded-lg bg-primary/10 p-2">
+                <Wallet className="h-5 w-5 text-primary lg:h-6 lg:w-6" />
               </div>
               <div className="min-w-0 flex-1">
-                <CardTitle className="text-xl lg:text-2xl truncate">Contas</CardTitle>
+                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Contas</CardTitle>
                 <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
                   Gerencie suas contas bancárias e acompanhe seus saldos
                 </p>
@@ -232,7 +231,7 @@ function AccountsContent() {
 
       {/* Accounts Grid/List */}
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6" : "space-y-4"}>
+        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
           {Array.from({ length: 3 }).map((_, i) => (
             <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
           ))}
@@ -240,7 +239,7 @@ function AccountsContent() {
       ) : (
         <>
           {view === "cards" ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
               {filteredAccounts.length === 0 ? (
                 <div className="col-span-full">
                   <Card className="border-dashed border-2 border-muted-foreground/25">
@@ -261,8 +260,8 @@ function AccountsContent() {
                 </div>
               ) : (
                 filteredAccounts.map((a) => (
-                  <Card key={a.id} className="group transition-all duration-200 w-full overflow-hidden" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
-                    <CardHeader className="pb-3 p-4 w-full overflow-hidden">
+                  <Card key={a.id} className="group w-full overflow-hidden" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                    <CardHeader className="w-full overflow-hidden pb-3">
                       <div className="flex flex-col gap-3 w-full overflow-hidden">
                         <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
                           <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
@@ -282,9 +281,10 @@ function AccountsContent() {
                               size="sm"
                               disabled={!isMine((a as any).user_id)}
                               onClick={() => onEdit(a.id)}
-                              className="h-7 w-7 lg:h-8 lg:w-8 p-0"
+                              aria-label={`Editar ${a.name}`}
+                              className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                             >
-                              <Edit className="h-3 w-3 lg:h-4 lg:w-4" />
+                              <Edit className="h-4 w-4" />
                             </Button>
                           </FeatureGuard>
                           <FeatureGuard feature="contas_excluir">
@@ -295,8 +295,14 @@ function AccountsContent() {
                               onConfirm={() => onDelete(a.id)}
                               variant="destructive"
                             >
-                              <Button variant="destructive" size="sm" disabled={!isMine((a as any).user_id)} className="h-7 w-7 lg:h-8 lg:w-8 p-0">
-                                <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
+                              <Button
+                                variant="destructive"
+                                size="sm"
+                                disabled={!isMine((a as any).user_id)}
+                                aria-label={`Excluir ${a.name}`}
+                                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
+                              >
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </ConfirmationDialog>
                           </FeatureGuard>
@@ -305,8 +311,8 @@ function AccountsContent() {
                     </CardHeader>
                     <CardContent>
                       <div className="text-left lg:text-right">
-                        <p className="text-xs lg:text-sm text-muted-foreground">Saldo Atual</p>
-                        <p className="text-xl lg:text-2xl font-bold">{formatCurrency(a.current_balance ?? 0)}</p>
+                        <p className="label-eyebrow">Saldo Atual</p>
+                        <p className="figure-lg tabular mt-1">{formatCurrency(a.current_balance ?? 0)}</p>
                       </div>
                     </CardContent>
                   </Card>
@@ -333,7 +339,7 @@ function AccountsContent() {
                 ) : (
                   <div className="divide-y divide-border w-full">
                     {filteredAccounts.map((a) => (
-                      <div key={a.id} className="flex flex-col lg:flex-row lg:items-center rounded-lg justify-between p-3 lg:p-4 hover:bg-muted/40 transition-colors gap-3 w-full overflow-hidden" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                      <div key={a.id} className="flex w-full flex-col justify-between gap-2.5 overflow-hidden rounded-lg p-3 transition-colors hover:bg-muted/40 md:gap-3 md:p-4 lg:flex-row lg:items-center" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
                           <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
                           <div className="h-8 w-8 rounded-full flex-shrink-0" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
                           <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
@@ -341,8 +347,8 @@ function AccountsContent() {
                             <span className="text-xs lg:text-sm text-muted-foreground">{truncateText(a.type, 20)}</span>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between lg:justify-end gap-2 lg:gap-3">
-                          <span className="font-semibold text-sm lg:text-base">{formatCurrency(a.current_balance ?? 0)}</span>
+                        <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 lg:justify-end lg:gap-3 lg:border-t-0 lg:pt-0">
+                          <span className="figure-sm tabular md:text-base">{formatCurrency(a.current_balance ?? 0)}</span>
                           <div className="flex items-center gap-1">
                             <FeatureGuard feature="contas_editar">
                               <Button
@@ -350,7 +356,8 @@ function AccountsContent() {
                                 size="sm"
                                 disabled={!isMine((a as any).user_id)}
                                 onClick={() => onEdit(a.id)}
-                                className="h-8 w-8 p-0"
+                                aria-label={`Editar ${a.name}`}
+                                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
                               >
                                 <Edit className="h-4 w-4" />
                               </Button>
@@ -363,7 +370,13 @@ function AccountsContent() {
                                 onConfirm={() => onDelete(a.id)}
                                 variant="destructive"
                               >
-                                <Button variant="destructive" size="sm" disabled={!isMine((a as any).user_id)} className="h-8 w-8 p-0 hidden lg:flex">
+                                <Button
+                                  variant="destructive"
+                                  size="sm"
+                                  disabled={!isMine((a as any).user_id)}
+                                  aria-label={`Excluir ${a.name}`}
+                                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
+                                >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
                               </ConfirmationDialog>
@@ -379,7 +392,6 @@ function AccountsContent() {
           )}
         </>
       )}
-      </div>
     </div>
   );
 }

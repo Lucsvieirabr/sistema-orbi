@@ -23,6 +23,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import {
+  RecordActions,
+  RecordCard,
+  RecordCardHead,
+  RecordCardList,
+  RecordField,
+  RecordFields,
+  TableView,
+} from "@/components/ui/record-card";
+import {
   CreditCard,
   Receipt,
   TrendingUp,
@@ -316,44 +325,51 @@ export default function CardStatements() {
   }
 
   return (
-    <div className="w-full max-w-full overflow-x-hidden">
-      <div className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6 max-w-full">
-        {/* Header */}
-        <Card className="shadow-lg max-w-full">
-          <CardHeader className="p-4">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between w-full max-w-full">
-              <div className="flex items-center gap-4 min-w-0 flex-1">
-                <Button variant="outline" size="sm" onClick={goBack} className="flex-shrink-0">
-                  <ArrowLeft className="h-4 w-4 mr-2" />
-                  Voltar
-                </Button>
-                <div className="flex items-center gap-3 min-w-0 flex-1">
-                  {getCardBrandIcon(currentCard.brand)}
-                  <div className="min-w-0 flex-1">
-                    <h1 className="text-2xl font-bold truncate" title={currentCard.name}>{currentCard.name}</h1>
-                    <p className="text-muted-foreground truncate">
-                      Faturas mensais • {currentCard.brand || "Cartão de Crédito"}
-                    </p>
-                  </div>
+    <div className="min-w-0 space-y-4 md:space-y-6">
+      {/* Header */}
+      <Card>
+        <CardHeader>
+          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
+            <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+              <Button variant="outline" size="icon" onClick={goBack} aria-label="Voltar para Cartões" className="shrink-0 lg:hidden">
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+              <Button variant="outline" size="sm" onClick={goBack} className="hidden shrink-0 lg:inline-flex">
+                <ArrowLeft className="mr-2 h-4 w-4" />
+                Voltar
+              </Button>
+              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
+                <span className="shrink-0">{getCardBrandIcon(currentCard.brand)}</span>
+                <div className="min-w-0 flex-1">
+                  <h1 className="truncate font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl" title={currentCard.name}>
+                    {currentCard.name}
+                  </h1>
+                  <p className="truncate text-xs text-muted-foreground md:text-sm">
+                    Faturas mensais • {currentCard.brand || "Cartão de Crédito"}
+                  </p>
                 </div>
               </div>
-            <div className="flex items-center gap-2 bg-muted/50 rounded-lg px-3 py-2">
+            </div>
+
+            {/* Seletor de mês: linha inteira no telefone, pílula no desktop. */}
+            <div className="flex w-full items-center justify-between gap-2 rounded-lg bg-muted/50 px-2 py-1.5 lg:w-auto lg:justify-start lg:px-3 lg:py-2">
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => handleMonthChange("prev")}
-                className="h-7 w-7 p-0"
+                aria-label="Mês anterior"
+                className="shrink-0 lg:h-8 lg:w-8"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <div className="min-w-[200px] text-center">
-                <div className="text-sm font-medium capitalize">
+              <div className="min-w-0 flex-1 text-center lg:min-w-[200px] lg:flex-none">
+                <div className="truncate text-sm font-medium capitalize">
                   {new Intl.DateTimeFormat("pt-BR", {
                     month: "long",
                     year: "numeric",
                   }).format(currentDate)}
                 </div>
-                <div className="text-xs text-muted-foreground">
+                <div className="truncate text-2xs text-muted-foreground md:text-xs">
                   {new Intl.DateTimeFormat("pt-BR", {
                     day: "2-digit",
                     month: "short",
@@ -367,9 +383,10 @@ export default function CardStatements() {
               </div>
               <Button
                 variant="ghost"
-                size="sm"
+                size="icon"
                 onClick={() => handleMonthChange("next")}
-                className="h-7 w-7 p-0"
+                aria-label="Próximo mês"
+                className="shrink-0 lg:h-8 lg:w-8"
               >
                 <ChevronRight className="h-4 w-4" />
               </Button>
@@ -379,21 +396,21 @@ export default function CardStatements() {
       </Card>
 
       {/* Summary Cards and Chart */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column - Stats */}
-        <div className="space-y-4">
-          <Card className="shadow-md transition-all duration-200">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
+        {/* Left Column - Stats (lado a lado no telefone, empilhado no desktop) */}
+        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1 lg:content-start">
+          <Card className="col-span-2 sm:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
+              <CardTitle className="label-eyebrow">
                 Fatura Atual
               </CardTitle>
-              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
+              <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
             </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold text-destructive">
+            <CardContent className="pb-4">
+              <div className="figure-lg tabular text-destructive">
                 {formatCurrency(totals.totalExpenses)}
               </div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+              <p className="mt-0.5 text-2xs text-muted-foreground">
                 Total da fatura
               </p>
               <Button
@@ -408,16 +425,16 @@ export default function CardStatements() {
             </CardContent>
           </Card>
 
-          <Card className="shadow-md transition-all duration-200">
+          <Card className="col-span-2 sm:col-span-1">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-xs font-medium text-muted-foreground">
+              <CardTitle className="label-eyebrow">
                 Total de Transações
               </CardTitle>
-              <ReceiptIcon className="h-3.5 w-3.5 text-primary" />
+              <ReceiptIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
             </CardHeader>
-            <CardContent className="pb-3">
-              <div className="text-2xl font-bold text-primary">{totals.count}</div>
-              <p className="text-[10px] text-muted-foreground mt-0.5">
+            <CardContent className="pb-4">
+              <div className="figure-lg tabular text-primary">{totals.count}</div>
+              <p className="mt-0.5 text-2xs text-muted-foreground">
                 No período da fatura
               </p>
             </CardContent>
@@ -426,11 +443,11 @@ export default function CardStatements() {
 
         {/* Right Column - Category Chart */}
         <div className="lg:col-span-2">
-          <Card className="shadow-md h-full">
+          <Card className="h-full">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-primary" />
+                  <PieChart className="h-4 w-4 shrink-0 text-primary" />
                   Gastos por Categoria
                 </CardTitle>
                 <div className="flex items-center gap-2">
@@ -438,18 +455,18 @@ export default function CardStatements() {
                     variant={categoryViewMode === 'list' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setCategoryViewMode('list')}
-                    className="h-8 px-3"
+                    className="flex-1 sm:flex-none"
                   >
-                    <ListIcon className="h-4 w-4 mr-1" />
+                    <ListIcon className="mr-1 h-4 w-4" />
                     Lista
                   </Button>
                   <Button
                     variant={categoryViewMode === 'chart' ? 'default' : 'outline'}
                     size="sm"
                     onClick={() => setCategoryViewMode('chart')}
-                    className="h-8 px-3"
+                    className="flex-1 sm:flex-none"
                   >
-                    <BarChart3 className="h-3.5 w-3.5 mr-1" />
+                    <BarChart3 className="mr-1 h-3.5 w-3.5" />
                     Gráfico
                   </Button>
                 </div>
@@ -503,7 +520,7 @@ export default function CardStatements() {
                   </div>
                 )
               ) : categoryExpenses.length > 0 ? (
-                <div className="h-[185px] w-full">
+                <div className="h-56 w-full sm:h-[185px]">
                   <ResponsiveContainer width="100%" height="100%">
                     <RechartsPieChart>
                       <Pie
@@ -513,7 +530,7 @@ export default function CardStatements() {
                         outerRadius={60}
                         dataKey="amount"
                         nameKey="category"
-                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
                       >
                         {categoryExpenses.map((entry, index) => {
                           const colors = chartColors();
@@ -544,9 +561,9 @@ export default function CardStatements() {
       {/* Filters and Transactions */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-5 w-5" />
+              <Receipt className="h-4 w-4 shrink-0" />
               Transações da Fatura
             </CardTitle>
             <div className="flex items-center gap-2">
@@ -554,7 +571,7 @@ export default function CardStatements() {
                 value={filterType}
                 onValueChange={(value: any) => setFilterType(value)}
               >
-                <SelectTrigger className="w-[180px]">
+                <SelectTrigger className="w-full sm:w-[180px]">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filtrar por tipo" />
                 </SelectTrigger>
@@ -588,7 +605,74 @@ export default function CardStatements() {
               </p>
             </div>
           ) : (
-            <div className="rounded-md border">
+            <>
+              {/* Mobile: cada transação vira um card. Nada de rolar a tela. */}
+              <RecordCardList>
+                {filteredTransactions.map((transaction) => (
+                  <RecordCard
+                    key={transaction.id}
+                    accent={transaction.type === "income" ? "positive" : "negative"}
+                  >
+                    <RecordCardHead
+                      title={transaction.description}
+                      meta={
+                        <span className="flex items-center gap-1.5">
+                          {getTypeIcon(transaction.type)}
+                          {formatDateForDisplay(transaction.date)}
+                        </span>
+                      }
+                      value={`${transaction.type === "income" ? "+" : "-"}${formatCurrency(transaction.value)}`}
+                      valueClassName={
+                        transaction.type === "income" ? "text-success" : "text-destructive"
+                      }
+                    />
+
+                    <RecordFields>
+                      <RecordField label="Categoria">
+                        {transaction.categories?.name || "Sem categoria"}
+                      </RecordField>
+                      {transaction.person_id && (
+                        <RecordField label="Pessoa">Pessoa relacionada</RecordField>
+                      )}
+                    </RecordFields>
+
+                    <RecordActions>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Editar ${transaction.description}`}
+                        onClick={() => navigate('/sistema/statement?edit=' + transaction.id)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <ConfirmationDialog
+                        title="Confirmar Exclusão"
+                        description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => deleteTransaction(transaction.id)}
+                        variant="destructive"
+                      >
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Excluir ${transaction.description}`}
+                          className="text-destructive hover:bg-destructive-soft hover:text-destructive"
+                          disabled={deletingTransaction === transaction.id}
+                        >
+                          {deletingTransaction === transaction.id ? (
+                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-destructive" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </ConfirmationDialog>
+                    </RecordActions>
+                  </RecordCard>
+                ))}
+              </RecordCardList>
+
+              {/* md+: volta a ser tabela, com rolagem contida no contêiner. */}
+              <TableView>
               <Table>
                 <TableHeader>
                   <TableRow>
@@ -671,11 +755,11 @@ export default function CardStatements() {
                   ))}
                 </TableBody>
               </Table>
-            </div>
+              </TableView>
+            </>
           )}
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 }

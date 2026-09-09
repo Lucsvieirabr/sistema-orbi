@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router-dom";
-import { LogOut } from "lucide-react";
+import { LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AdminSearchPopover } from "./AdminSearchPopover";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +40,12 @@ const pageTitles: Record<string, { title: string; description: string }> = {
   },
 };
 
-export function AdminHeader() {
+interface AdminHeaderProps {
+  onMenuClick?: () => void;
+  menuOpen?: boolean;
+}
+
+export function AdminHeader({ onMenuClick, menuOpen = false }: AdminHeaderProps = {}) {
   const location = useLocation();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -69,17 +74,36 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-30 flex h-header items-center justify-between border-b border-border-subtle bg-background/90 px-4 backdrop-blur-[2px] lg:px-8">
-      <div>
-        <h1 className="text-xl md:text-2xl font-bold text-foreground">{pageInfo.title}</h1>
-        <p className="text-xs md:text-sm text-muted-foreground hidden md:block">{pageInfo.description}</p>
+    <header className="sticky top-0 z-30 flex h-header shrink-0 items-center justify-between gap-2 border-b border-border-subtle bg-background/90 px-2 backdrop-blur-[2px] md:px-4 lg:h-header-lg lg:gap-4 lg:px-8">
+      <div className="flex min-w-0 items-center gap-1 md:gap-3">
+        {onMenuClick && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onMenuClick}
+            aria-label="Abrir menu"
+            aria-expanded={menuOpen}
+            className="shrink-0 lg:hidden"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
+        <div className="min-w-0">
+          <h1 className="truncate font-display text-base font-semibold tracking-tight text-foreground md:text-xl lg:text-2xl">
+            {pageInfo.title}
+          </h1>
+          <p className="hidden truncate text-xs text-muted-foreground md:block md:text-sm">{pageInfo.description}</p>
+        </div>
       </div>
 
-      <div className="flex items-center gap-4">
+      <div className="flex shrink-0 items-center gap-0.5 md:gap-2 lg:gap-4">
         <AdminSearchPopover />
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+        <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sair" className="md:hidden">
           <LogOut className="h-4 w-4" />
-          <span className="hidden md:inline">Sair</span>
+        </Button>
+        <Button variant="ghost" size="sm" onClick={handleLogout} className="hidden gap-2 md:inline-flex">
+          <LogOut className="h-4 w-4" />
+          Sair
         </Button>
       </div>
     </header>

@@ -249,18 +249,18 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   if (transactionsLoading && transactions.length === 0) {
     return (
-      <div className="space-y-8">
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+      <div className="space-y-6 md:space-y-8">
+        <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:gap-4 lg:col-span-2">
             {[0, 1, 2, 3].map((i) => (
-              <Skeleton key={i} className="h-32 rounded-xl" />
+              <Skeleton key={i} className="h-28 rounded-xl sm:h-32" />
             ))}
           </div>
           <Skeleton className="h-full min-h-[16rem] rounded-xl lg:col-span-1" />
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-          <Skeleton className="h-96 rounded-xl" />
-          <Skeleton className="h-96 rounded-xl" />
+          <Skeleton className="h-72 rounded-xl sm:h-96" />
+          <Skeleton className="h-72 rounded-xl sm:h-96" />
         </div>
       </div>
     );
@@ -271,12 +271,12 @@ export function Dashboard({ onLogout }: DashboardProps) {
   const debtsNegative = Boolean(debtStats && debtStats.totalToPay > debtStats.totalToReceive);
 
   return (
-    <div className="animate-fade-in space-y-8 lg:space-y-10">
+    <div className="animate-fade-in min-w-0 space-y-6 md:space-y-8 lg:space-y-10">
       <ViewModeToggle />
 
       {/* KPIs — os protagonistas da tela */}
-      <section aria-label="Indicadores do mês" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2">
+      <section aria-label="Indicadores do mês" className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-3 xs:grid-cols-2 sm:gap-4 lg:col-span-2">
           <StatCard
             label="Saldo do mês"
             value={formatCurrency(indicators.netBalance)}
@@ -373,7 +373,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                 })}
               </ul>
             ) : (
-              <div className="h-[19rem] w-full">
+              <div className="h-64 w-full sm:h-[19rem]">
                 <ResponsiveContainer width="100%" height="100%">
                   <RechartsPieChart>
                     <Pie
@@ -437,7 +437,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
             ) : (
               <ul className="divide-y divide-border-subtle">
                 {upcomingTransactions.map((transaction) => (
-                  <li key={transaction.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                  <li key={transaction.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[auto_1fr_auto_auto]">
                     <span
                       aria-hidden
                       className={cn(
@@ -446,7 +446,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       )}
                     />
 
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="truncate text-sm font-medium text-foreground" title={transaction.description}>
                           {transaction.description}
@@ -471,7 +471,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
                       <p className="text-2xs text-muted-foreground">Pendente</p>
                     </div>
 
-                    <div className="flex shrink-0 items-center">
+                    {/* Ações: linha própria no telefone, coluna no desktop. */}
+                    <div className="col-span-3 flex items-center justify-end border-t border-border-subtle pt-1 sm:col-span-1 sm:border-t-0 sm:pt-0">
                       <Button
                         size="icon-sm"
                         variant="ghost"
@@ -539,10 +540,13 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   const isSettled = transaction.status === "PAID";
 
                   return (
-                    <li key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
+                    <li
+                      key={transaction.id}
+                      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[auto_1fr_auto_auto]"
+                    >
                       <TransactionIcon type={transaction.type} />
 
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="truncate text-sm font-medium text-foreground" title={transaction.description}>
                             {transaction.description}
@@ -578,7 +582,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         </p>
                       </div>
 
-                      <div className="flex shrink-0 items-center">
+                      {/* Ações: linha própria no telefone, coluna no desktop. */}
+                      <div className="col-span-3 flex items-center justify-end border-t border-border-subtle pt-1 sm:col-span-1 sm:border-t-0 sm:pt-0">
                         <Button
                           size="icon-sm"
                           variant="ghost"

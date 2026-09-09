@@ -313,7 +313,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
 
         <form onSubmit={handleSubmit}>
           <Tabs defaultValue="details" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-3 gap-1">
               <TabsTrigger value="details">Detalhes</TabsTrigger>
               <TabsTrigger value="features">Features</TabsTrigger>
               <TabsTrigger value="limits">Limites</TabsTrigger>
@@ -323,7 +323,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
             <TabsContent value="details" className="space-y-4">
               <ScrollArea className="h-[400px] pr-4">
                 <div className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Nome do Plano *</Label>
                       <Input
@@ -358,7 +358,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="price_monthly">Preço Mensal (R$)</Label>
                       <Input

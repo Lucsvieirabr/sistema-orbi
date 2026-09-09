@@ -27,12 +27,16 @@ const buttonVariants = cva(
         link: "text-primary underline-offset-4 hover:underline",
         subtle: "bg-transparent text-muted-foreground hover:text-foreground",
       },
+      /**
+       * Mobile-first: a base é a medida do dedo (44px = h-11, WCAG 2.5.5) e
+       * `md:` reduz para a densidade de mouse. Nunca o contrário.
+       */
       size: {
-        default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3 text-[0.8125rem]",
-        lg: "h-11 rounded-lg px-6",
-        icon: "h-10 w-10",
-        "icon-sm": "h-8 w-8 rounded-md [&_svg]:size-3.5",
+        default: "h-11 px-4 py-2 md:h-10",
+        sm: "h-10 rounded-md px-3 text-[0.8125rem] md:h-9",
+        lg: "h-12 rounded-lg px-6 md:h-11",
+        icon: "h-11 w-11 md:h-10 md:w-10",
+        "icon-sm": "h-11 w-11 rounded-md md:h-8 md:w-8 md:[&_svg]:size-3.5",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

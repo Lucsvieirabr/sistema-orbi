@@ -200,6 +200,10 @@
 
   html {
     -webkit-text-size-adjust: 100%;
+    /* Regra dura: a página nunca rola para os lados. `clip` (e não `hidden`)
+       porque `clip` não cria contexto de rolagem — o header sticky continua
+       grudando. Rolagem horizontal só existe dentro de contêiner declarado. */
+    overflow-x: clip;
   }
 
   body {
@@ -207,6 +211,27 @@
     font-family: var(--font-sans);
     font-feature-settings: "cv05" 1, "cv11" 1, "ss01" 1;
     text-rendering: optimizeLegibility;
+    overflow-x: clip;
+    /* Altura da barra de navegação inferior (mobile) + recorte do aparelho.
+       Usada pelo padding de rodapé do conteúdo e pelos FABs. */
+    --bottom-nav-h: 4rem;
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+    --bottom-nav-offset: calc(var(--bottom-nav-h) + var(--safe-bottom));
+  }
+
+  @media (min-width: 1024px) {
+    body {
+      --bottom-nav-h: 0rem;
+    }
+  }
+
+  /* Toque: nada de "zoom ao focar" no iOS — campo com fonte < 16px dispara. */
+  @media (max-width: 767px) {
+    input,
+    select,
+    textarea {
+      font-size: 16px;
+    }
   }
 
   h1, h2, h3, h4 {
@@ -275,8 +300,8 @@
     @apply font-semibold tracking-[-0.02em];
   }
 
-  .figure-xl { @apply text-[1.75rem] leading-[1.1] lg:text-[2.25rem]; }
-  .figure-lg { @apply text-2xl leading-[1.15]; }
+  .figure-xl { @apply text-2xl leading-[1.15] xs:text-[1.75rem] xs:leading-[1.1] lg:text-[2.25rem]; }
+  .figure-lg { @apply text-xl leading-[1.2] xs:text-2xl xs:leading-[1.15]; }
   .figure-md { @apply text-lg leading-tight; }
   .figure-sm { @apply text-sm leading-tight; }
 
@@ -296,6 +321,36 @@
   }
   .text-balance { text-wrap: balance; }
   .text-pretty { text-wrap: pretty; }
+
+  /* --- Mobile ------------------------------------------------------------- */
+
+  /* Alvo de toque mínimo (WCAG 2.5.5 / HIG): 44x44 até `md`. */
+  .touch-target {
+    @apply min-h-11 min-w-11 md:min-h-0 md:min-w-0;
+  }
+
+  /* Trilho horizontal de chips/filtros: rola dentro de si, com inércia. */
+  .scroll-x {
+    @apply overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .no-scrollbar {
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Respiro do recorte inferior (home indicator). */
+  .pb-safe { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .pt-safe { padding-top: env(safe-area-inset-top, 0px); }
+
+  /* Rodapé livre para a barra de navegação inferior. */
+  .pb-bottom-nav { padding-bottom: var(--bottom-nav-offset); }
+
+  /* Qualquer filho de flex/grid que precise poder encolher e truncar. */
+  .min-w-0-all > * { min-width: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {

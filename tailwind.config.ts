@@ -10,9 +10,20 @@ export default {
   content: ["./pages/**/*.{ts,tsx}", "./components/**/*.{ts,tsx}", "./app/**/*.{ts,tsx}", "./src/**/*.{ts,tsx}"],
   prefix: "",
   theme: {
+    /* Definido na raiz (e não em `extend`) para que `xs` seja emitido ANTES de
+       `sm`/`md`/`lg`. Em `extend` o breakpoint novo iria para o fim da cascata e
+       venceria os maiores — invertendo o mobile-first. */
+    screens: {
+      xs: "400px",   /* telefone pequeno: 360-399px ainda é uma coluna */
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
+    },
     container: {
       center: true,
-      padding: { DEFAULT: "1rem", lg: "2rem" },
+      padding: { DEFAULT: "1rem", md: "1.5rem", lg: "2rem" },
       screens: { "2xl": "1440px" },
     },
     extend: {
@@ -130,8 +141,21 @@ export default {
         xl: "calc(var(--radius) + 4px)",
       },
       spacing: {
-        header: "4.5rem",
+        header: "3.5rem",
+        "header-lg": "4.5rem",
         sidebar: "16rem",
+        "bottom-nav": "4rem",
+        "bottom-nav-offset": "var(--bottom-nav-offset)",
+      },
+      minHeight: {
+        touch: "2.75rem",
+      },
+      minWidth: {
+        touch: "2.75rem",
+      },
+      height: {
+        header: "3.5rem",
+        "header-lg": "4.5rem",
       },
       keyframes: {
         "accordion-down": {

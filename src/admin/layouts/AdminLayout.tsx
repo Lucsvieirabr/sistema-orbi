@@ -6,11 +6,14 @@ import { AdminHeader } from "@/admin/components/AdminHeader";
 import { Loader2, ShieldAlert } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useIsCompact } from "@/hooks/use-mobile";
 
 export default function AdminLayout() {
   const { isAdmin, isLoading } = useAdminAuth();
   const navigate = useNavigate();
+  const isCompact = useIsCompact();
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   // Mostra loading enquanto verifica autenticação
   if (isLoading) {
@@ -63,10 +66,14 @@ export default function AdminLayout() {
 
   return (
     <SidebarProvider>
-      <AdminSidebar />
-      <SidebarInset>
-        <AdminHeader />
-        <div className="p-4">
+      {isCompact ? (
+        <AdminSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
+      ) : (
+        <AdminSidebar />
+      )}
+      <SidebarInset className="min-w-0">
+        <AdminHeader onMenuClick={() => setMobileMenuOpen(true)} menuOpen={mobileMenuOpen} />
+        <div className="min-w-0 px-4 py-5 md:px-6 md:py-6 lg:px-8">
           <Outlet />
         </div>
       </SidebarInset>

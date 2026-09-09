@@ -55,7 +55,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[295px] p-0 border-2 border-border bg-background" align="start" side="bottom" sideOffset={4}>
-              <div className="grid grid-cols-8 gap-2 p-2">
+              <div className="grid grid-cols-6 gap-1.5 p-2 sm:grid-cols-8 sm:gap-2">
                 {days.map((day) => (
                   <Button
                     key={day}
