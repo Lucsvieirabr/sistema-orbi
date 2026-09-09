@@ -1,0 +1,27 @@
+# ============================================================================
+# Normalizacao de fim de linha
+# ============================================================================
+# O working tree em Windows estava com CRLF enquanto o git guarda LF, sem
+# core.autocrlf configurado: ~274 arquivos apareciam como modificados sem
+# ninguem os ter editado, escondendo alteracoes reais e poluindo `git add -A`.
+#
+# `eol=lf` (e nao core.autocrlf=true) porque o projeto e consumido por Linux:
+# scripts/*.sh, nginx.conf e as Edge Functions Deno quebram com CRLF dentro de
+# container. Como esta em .gitattributes, vale para todo o time, nao so para
+# a maquina de quem configurou.
+* text=auto eol=lf
+
+# Binarios: nunca converter.
+*.lockb  binary
+*.ico    binary
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.pdf    binary
+*.zip    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.eot    binary
