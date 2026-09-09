@@ -1,11 +1,24 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cleanTransactionDescription, hasHighPriorityBankingContext, extractBankingContext, isCleanedDescriptionValid } from './description-cleaner.ts';
+import { corsFor, preflight, jsonFor } from '../_shared/cors.ts';
+import { enforceRateLimit, RateLimitError } from '../_shared/ratelimit.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// ============================================================================
+// CORRECOES DE SEGURANCA
+// ============================================================================
+//  1. [CORS] era Access-Control-Allow-Origin: '*' — agora allowlist.
+//  2. [DoS] o array `transactions` nao tinha teto: um unico POST disparava N
+//     classificacoes em paralelo e um `.in()` sem limite no Postgres. Alem
+//     disso `t.description.toLowerCase()` quebrava se description nao fosse
+//     string. Agora ha teto de itens e saneamento por item.
+//  3. [RATE LIMIT] 60 lotes por hora por usuario.
+//  4. [ERRO] deixou de ecoar error.message em 5xx.
+// ============================================================================
+
+const MAX_TRANSACTIONS = 500;
+const MAX_DESCRIPTION_LENGTH = 300;
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
 
 // =============================================================================
 // UTILITÁRIOS DE NORMALIZAÇÃO DE DESCRIÇÕES
@@ -108,8 +121,10 @@ interface BatchClassificationResponse {
 
 serve(async (req) => {
   // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
+  if (req.method === 'OPTIONS') return preflight(req);
+
+  if (req.method !== 'POST') {
+    return jsonFor(req, { error: 'Method not allowed' }, 405);
   }
 
   try {
@@ -135,14 +150,49 @@ serve(async (req) => {
       throw new Error('Unauthorized');
     }
 
-    const { transactions, user_location = 'SP' }: BatchClassificationRequest = await req.json();
+    // [3] Rate limit por usuario, antes de qualquer trabalho pesado.
+    await enforceRateLimit(user.id, 'classify-transactions', 60, 3600);
 
-    if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
-      throw new Error('Invalid request: transactions array is required');
+    const body: BatchClassificationRequest = await req.json();
+    const rawTransactions = body?.transactions;
+    const user_location = typeof body?.user_location === 'string'
+      ? body.user_location.replace(CONTROL_CHARS, '').trim().slice(0, 10) || 'SP'
+      : 'SP';
+
+    if (!rawTransactions || !Array.isArray(rawTransactions) || rawTransactions.length === 0) {
+      return jsonFor(req, { error: 'Invalid request: transactions array is required' }, 400);
     }
 
-    // Pré-carrega padrões aprendidos do usuário
-    const normalizedDescriptions = transactions.map(t => t.description.toLowerCase().trim());
+    // [2] Teto de volume: sem isto um POST unico vira amplificador de carga.
+    if (rawTransactions.length > MAX_TRANSACTIONS) {
+      return jsonFor(
+        req,
+        { error: `Maximo de ${MAX_TRANSACTIONS} transacoes por requisicao` },
+        413,
+      );
+    }
+
+    // [2] Saneamento por item: description precisa ser string e tem tamanho
+    // limitado (ia direto para .toLowerCase() e para um .in() no Postgres).
+    const transactions: Transaction[] = rawTransactions.map((t) => {
+      if (!t || typeof t.description !== 'string') {
+        throw Object.assign(
+          new Error('Cada transacao precisa de description (string)'),
+          { status: 400 },
+        );
+      }
+      return {
+        description: t.description.replace(CONTROL_CHARS, '').trim().slice(0, MAX_DESCRIPTION_LENGTH),
+        type: t.type === 'income' ? 'income' : 'expense',
+        amount: typeof t.amount === 'number' && Number.isFinite(t.amount) ? t.amount : undefined,
+        date: typeof t.date === 'string' ? t.date.slice(0, 32) : undefined,
+      };
+    });
+
+    // Pré-carrega padrões aprendidos do usuário (lista deduplicada)
+    const normalizedDescriptions = [...new Set(
+      transactions.map(t => t.description.toLowerCase().trim()).filter(Boolean)
+    )];
     const { data: learnedPatterns } = await supabaseClient
       .from('user_learned_patterns')
       .select('description, normalized_description, category, subcategory, confidence, usage_count')
@@ -185,21 +235,27 @@ serve(async (req) => {
       stats,
     };
 
-    return new Response(
-      JSON.stringify(response),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200,
-      },
-    );
+    return jsonFor(req, response, 200);
   } catch (error) {
+    if (error instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 429,
+        headers: {
+          ...corsFor(req),
+          'Content-Type': 'application/json',
+          'Retry-After': String(error.retryAfter),
+        },
+      });
+    }
+
     console.error('Error in classify-transactions:', error);
-    return new Response(
-      JSON.stringify({ error: error.message }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      },
+    const status = (error as { status?: number })?.status ?? 400;
+
+    // [4] Sem detalhe interno em 5xx.
+    return jsonFor(
+      req,
+      { error: status >= 500 ? 'Internal server error' : (error as Error).message },
+      status,
     );
   }
 });

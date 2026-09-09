@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { assertUuid } from "@/lib/utils";
 
 type Category = Tables<"categories">;
 
@@ -11,12 +12,17 @@ export function useCategories() {
   const fetchCategories = async (): Promise<Category[]> => {
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError) throw userError;
-    
+    if (!user) throw new Error("Usuário não autenticado");
+
+    // SEGURANÇA: o id é validado como UUID antes de ser interpolado no filtro
+    // `.or()` — string de filtro do PostgREST é parseada como expressão.
+    const userId = assertUuid(user.id, "user_id");
+
     // Buscar categorias globais (is_system = true) e categorias do usuário
     const { data, error } = await supabase
       .from("categories")
       .select("id, user_id, name, category_type, icon, created_at, is_system")
-      .or(`is_system.eq.true,user_id.eq.${user?.id ?? ""}`);
+      .or(`is_system.eq.true,user_id.eq.${userId}`);
     
     if (error) throw error;
     return data ?? [];

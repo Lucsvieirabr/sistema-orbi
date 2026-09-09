@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, userClient, requireUser, errorStatus } from '../_shared/auth.ts'
 import { AsaasPayment, AsaasSubscription, addCycle, asaasFetch } from '../_shared/asaas.ts'
 
@@ -8,7 +8,7 @@ const GRACE_DAYS = Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3')
 // Reconciliação sob demanda: usada no login para não depender exclusivamente
 // da entrega do webhook. O Asaas continua sendo a fonte da verdade.
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
     const user = await requireUser(req)
@@ -28,7 +28,7 @@ serve(async (req) => {
 
     if (!sub?.asaas_subscription_id) {
       const { data: status } = await asUser.rpc('get_my_subscription_status')
-      return jsonResponse({ success: true, synced: false, status })
+      return jsonFor(req, { success: true, synced: false, status })
     }
 
     const remote = await asaasFetch<AsaasSubscription>(`/subscriptions/${sub.asaas_subscription_id}`)
@@ -70,9 +70,9 @@ serve(async (req) => {
     await supabase.from('user_subscriptions').update(patch).eq('id', sub.id)
 
     const { data: status } = await asUser.rpc('get_my_subscription_status')
-    return jsonResponse({ success: true, synced: true, status })
+    return jsonFor(req, { success: true, synced: true, status })
   } catch (error) {
     console.error('asaas-sync-subscription:', error)
-    return jsonResponse({ success: false, error: (error as Error).message }, errorStatus(error))
+    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
   }
 })

@@ -1,131 +1,137 @@
-// Edge Function to search for company logos using logo.dev API
-// This function intermediates the call to logo.dev API to keep the token secure
+// ============================================================================
+// search-logo — busca de logo corporativo via logo.dev
+// ============================================================================
+// CORRECOES DE SEGURANCA:
+//  1. [AUTH] A funcao era 100% publica: qualquer um na internet queimava a
+//     cota paga do logo.dev. Agora exige JWT valido (requireUser).
+//  2. [VAZAMENTO DE SEGREDO] A resposta devolvia
+//     `https://img.logo.dev/<dominio>?token=<LOGO_DEV_TOKEN_IMAGES>`,
+//     entregando o token do servidor ao browser em texto claro. Agora a
+//     imagem e buscada server-side e devolvida como data URL — o token
+//     nunca sai da Edge Function.
+//  3. [RATE LIMIT] 30 buscas por hora por usuario.
+//  4. [CORS] origem restrita a ALLOWED_ORIGINS.
+// ============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "../_shared/cors.ts"
+import { corsFor, preflight, jsonFor } from "../_shared/cors.ts"
+import { requireUser, errorStatus } from "../_shared/auth.ts"
+import { enforceRateLimit, RateLimitError } from "../_shared/ratelimit.ts"
 
 interface LogoSearchRequest {
   query: string
 }
 
-interface LogoSearchResponse {
-  domain?: string
-  logo_url?: string
-  error?: string
-}
+const MAX_QUERY_LENGTH = 100
+const MAX_IMAGE_BYTES = 512 * 1024 // 512KB — e um logo, nao um upload
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g
+const DOMAIN_RE = /^[a-z0-9.-]{1,253}\.[a-z]{2,}$/i
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return preflight(req)
+
+  if (req.method !== 'POST') {
+    return jsonFor(req, { error: 'Method not allowed' }, 405)
   }
 
   try {
-    // Get the query from request body
-    const { query }: LogoSearchRequest = await req.json()
+    // [1] Autenticacao obrigatoria
+    const user = await requireUser(req)
 
-    if (!query || query.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Query parameter is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    // [3] Rate limit: 30/h por usuario
+    await enforceRateLimit(user.id, 'search-logo', 30, 3600)
+
+    const body: LogoSearchRequest = await req.json().catch(() => ({ query: '' }))
+    const rawQuery = typeof body?.query === 'string' ? body.query : ''
+
+    // Sanitizacao: sem caracteres de controle, tamanho limitado.
+    const query = rawQuery.replace(CONTROL_CHARS, '').trim().slice(0, MAX_QUERY_LENGTH)
+
+    if (!query) {
+      return jsonFor(req, { error: 'Query parameter is required' }, 400)
     }
 
-    // Get the API tokens from environment
     const LOGO_DEV_TOKEN = Deno.env.get('LOGO_DEV_TOKEN')
     const LOGO_DEV_TOKEN_IMAGES = Deno.env.get('LOGO_DEV_TOKEN_IMAGES')
-    
-    if (!LOGO_DEV_TOKEN) {
-      console.error('LOGO_DEV_TOKEN not configured')
-      return new Response(
-        JSON.stringify({ error: 'API token not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
-    }
-    
-    if (!LOGO_DEV_TOKEN_IMAGES) {
-      console.error('LOGO_DEV_TOKEN_IMAGES not configured')
-      return new Response(
-        JSON.stringify({ error: 'Image token not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+
+    if (!LOGO_DEV_TOKEN || !LOGO_DEV_TOKEN_IMAGES) {
+      console.error('LOGO_DEV_TOKEN/LOGO_DEV_TOKEN_IMAGES nao configurados')
+      return jsonFor(req, { error: 'Servico de logos indisponivel' }, 503)
     }
 
-    // Call logo.dev search API
-    const searchUrl = `https://api.logo.dev/search?q=${encodeURIComponent(query)}`
-    const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'Authorization': `Bearer ${LOGO_DEV_TOKEN}`,
-        'Accept': 'application/json'
-      }
-    })
+    const searchResponse = await fetch(
+      `https://api.logo.dev/search?q=${encodeURIComponent(query)}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${LOGO_DEV_TOKEN}`,
+          'Accept': 'application/json',
+        },
+      },
+    )
 
     if (!searchResponse.ok) {
       console.error(`Logo.dev API error: ${searchResponse.status}`)
-      return new Response(
-        JSON.stringify({ error: 'Failed to search logo' }),
-        { 
-          status: searchResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      // Nao repassa o status bruto do terceiro: evita oraculo sobre a conta.
+      return jsonFor(req, { error: 'Failed to search logo' }, 502)
     }
 
     const searchData = await searchResponse.json()
-    
-    // Extract domain from the first result
+
     let domain: string | undefined
-    if (searchData && Array.isArray(searchData) && searchData.length > 0) {
+    if (Array.isArray(searchData) && searchData.length > 0) {
       domain = searchData[0]?.domain
-    } else if (searchData && searchData.domain) {
+    } else if (searchData?.domain) {
       domain = searchData.domain
     }
 
-    if (!domain) {
-      return new Response(
-        JSON.stringify({ error: 'No logo found for this company' }),
-        { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    // Valida o dominio antes de montar a URL — o valor vem de terceiro.
+    if (!domain || !DOMAIN_RE.test(domain)) {
+      return jsonFor(req, { error: 'No logo found for this company' }, 404)
     }
 
-    // Construct the CDN logo URL with token for rendering
-    // Note: When using token, don't add format/size parameters
-    const logoUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN_IMAGES}`
-
-    const response: LogoSearchResponse = {
-      domain,
-      logo_url: logoUrl
-    }
-
-    return new Response(
-      JSON.stringify(response),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+    // [2] Proxy server-side: o token fica aqui dentro.
+    const imageResponse = await fetch(
+      `https://img.logo.dev/${encodeURIComponent(domain)}?token=${LOGO_DEV_TOKEN_IMAGES}`,
     )
 
+    if (!imageResponse.ok) {
+      return jsonFor(req, { error: 'Failed to download logo' }, 502)
+    }
+
+    const contentType = imageResponse.headers.get('content-type') ?? 'image/png'
+    if (!contentType.startsWith('image/')) {
+      return jsonFor(req, { error: 'Resposta do provedor nao e uma imagem' }, 502)
+    }
+
+    const bytes = new Uint8Array(await imageResponse.arrayBuffer())
+    if (bytes.byteLength > MAX_IMAGE_BYTES) {
+      return jsonFor(req, { error: 'Logo excede o tamanho permitido' }, 413)
+    }
+
+    let binary = ''
+    for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+    const dataUrl = `data:${contentType};base64,${btoa(binary)}`
+
+    return jsonFor(req, { domain, logo_url: dataUrl })
   } catch (error) {
-    console.error('Error in search-logo function:', error)
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+    if (error instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 429,
+        headers: {
+          ...corsFor(req),
+          'Content-Type': 'application/json',
+          'Retry-After': String(error.retryAfter),
+        },
+      })
+    }
+
+    console.error('search-logo:', error)
+    const status = errorStatus(error)
+    // Nao devolve error.message em 5xx: evita vazar detalhe de infraestrutura.
+    return jsonFor(
+      req,
+      { error: status >= 500 ? 'Internal server error' : (error as Error).message },
+      status,
     )
   }
 })
-

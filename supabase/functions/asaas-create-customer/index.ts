@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
 import { findOrCreateCustomer, onlyDigits } from '../_shared/asaas.ts'
 
@@ -10,7 +10,7 @@ interface Body {
 }
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
     const user = await requireUser(req)
@@ -46,9 +46,9 @@ serve(async (req) => {
       if (updateError) throw updateError
     }
 
-    return jsonResponse({ success: true, customer_id: customer.id })
+    return jsonFor(req, { success: true, customer_id: customer.id })
   } catch (error) {
     console.error('asaas-create-customer:', error)
-    return jsonResponse({ success: false, error: (error as Error).message }, errorStatus(error))
+    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
   }
 })

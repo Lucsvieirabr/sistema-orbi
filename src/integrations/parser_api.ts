@@ -47,15 +47,16 @@ export async function fileToBase64(file: File): Promise<string> {
  */
 export async function extractTextFromPdf(pdfBase64: string): Promise<string> {
   try {
-    const { createClient } = await import('@supabase/supabase-js');
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+    // SEGURANÇA: usa o client singleton (que carrega a sessão do usuário) em
+    // vez de instanciar um client novo só com a anon key. A Edge Function
+    // extract-pdf-text passou a exigir JWT de usuário final — um client sem
+    // sessão enviaria apenas a anon key e receberia 401.
+    const { supabase } = await import('@/integrations/supabase/client');
 
-    if (!supabaseUrl || !supabaseAnonKey) {
-      throw new Error('Configuração do Supabase não encontrada');
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      throw new Error('Sessão expirada. Faça login novamente para importar PDFs.');
     }
-
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
     const { data, error } = await supabase.functions.invoke('extract-pdf-text', {
       body: {

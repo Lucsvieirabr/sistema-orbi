@@ -192,3 +192,28 @@ export function isTransactionInBillingPeriod(
   
   return period.billingYear === referenceYear && period.billingMonth === referenceMonth;
 }
+
+
+/**
+ * SEGURANÇA: valida que um id é realmente um UUID antes de ser interpolado
+ * numa string de filtro do PostgREST (`.or("col.eq.<valor>")`).
+ *
+ * Filtros `.or()` são montados como texto e enviados na query string — um
+ * valor com vírgula ou parêntese altera a árvore de filtros da consulta.
+ * Hoje os ids usados vêm do JWT (portanto confiáveis), mas interpolar sem
+ * validar é um padrão frágil: basta alguém reaproveitar o trecho com um id
+ * vindo da UI para virar injeção de filtro.
+ */
+export const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isUuid(value: unknown): value is string {
+  return typeof value === "string" && UUID_RE.test(value);
+}
+
+export function assertUuid(value: unknown, field = "id"): string {
+  if (!isUuid(value)) {
+    throw new Error(`Identificador inválido para ${field}`);
+  }
+  return value;
+}

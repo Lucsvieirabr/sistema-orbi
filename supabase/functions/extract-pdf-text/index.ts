@@ -1,153 +1,145 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
+import { corsFor, preflight, jsonFor } from "../_shared/cors.ts";
+import { requireUser, errorStatus } from "../_shared/auth.ts";
+import { enforceRateLimit, RateLimitError } from "../_shared/ratelimit.ts";
 
 /**
- * Edge Function para extrair texto de arquivos PDF
- * Usa pdfjs-dist para PDFs digitais; PDFs de imagem seguem via OCR local no client
+ * Edge Function para extrair texto de arquivos PDF.
+ *
+ * CORRECOES DE SEGURANCA:
+ *  1. [AUTH] A funcao aceitava payloads de ate 15MB de QUALQUER origem, sem
+ *     JWT. Endpoint publico de parsing = DoS barato e consumo de compute
+ *     pago por terceiros. Agora exige usuario autenticado.
+ *  2. [RATE LIMIT] 20 PDFs por hora por usuario.
+ *  3. [PAYLOAD] limite aplicado ANTES da decodificacao (a validacao antiga
+ *     rodava depois do atob, ou seja, o servidor ja tinha materializado o
+ *     buffer inteiro na memoria).
+ *  4. [ERRO] deixa de ecoar error.message em 500 (vazava caminho/stack).
+ *  5. [CORS] origem restrita a ALLOWED_ORIGINS.
  */
 const MAX_PDF_BYTES = 15 * 1024 * 1024; // 15MB decodificado
+// base64 infla ~4/3; +1KB de folga para whitespace.
+const MAX_BASE64_CHARS = Math.ceil(MAX_PDF_BYTES * 4 / 3) + 1024;
+const MAX_PAGES = 100;
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders });
-  }
+  if (req.method === 'OPTIONS') return preflight(req);
 
   try {
-    // Apenas aceitar POST requests
     if (req.method !== 'POST') {
-      return new Response(
-        JSON.stringify({ error: 'Método não permitido. Use POST.' }),
-        {
-          status: 405,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonFor(req, { error: 'Metodo nao permitido. Use POST.' }, 405);
     }
 
-    // Parse request body
-    const body = await req.text();
-    let requestData;
+    // [1] Autenticacao obrigatoria
+    const user = await requireUser(req);
 
+    // [2] Rate limit
+    await enforceRateLimit(user.id, 'extract-pdf-text', 20, 3600);
+
+    let requestData: { pdf?: unknown };
     try {
-      requestData = JSON.parse(body);
-    } catch (error) {
-      return new Response(
-        JSON.stringify({ error: 'JSON inválido no corpo da requisição.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      requestData = await req.json();
+    } catch {
+      return jsonFor(req, { error: 'JSON invalido no corpo da requisicao.' }, 400);
     }
 
     const { pdf } = requestData;
 
-    // Validar entrada
     if (!pdf || typeof pdf !== 'string') {
-      return new Response(
-        JSON.stringify({ error: 'Campo "pdf" é obrigatório e deve ser uma string base64.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+      return jsonFor(req, { error: 'Campo "pdf" e obrigatorio e deve ser uma string base64.' }, 400);
+    }
+
+    // [3] Barra o payload ANTES de decodificar.
+    if (pdf.length > MAX_BASE64_CHARS) {
+      return jsonFor(
+        req,
+        { error: `PDF excede ${MAX_PDF_BYTES / 1024 / 1024}MB — use OCR local.` },
+        413,
       );
     }
 
-    // Sanitizar base64 (remove whitespace/newlines que quebram atob) e decodificar
     const sanitized = pdf.replace(/\s/g, '');
-    let pdfBytes: Uint8Array;
 
+    // Formato base64 estrito: atob aceita lixo silenciosamente em alguns casos.
+    if (!/^[A-Za-z0-9+/]*={0,2}$/.test(sanitized) || sanitized.length % 4 !== 0) {
+      return jsonFor(req, { error: 'Base64 invalido ou corrompido.' }, 400);
+    }
+
+    let pdfBytes: Uint8Array;
     try {
       pdfBytes = Uint8Array.from(atob(sanitized), c => c.charCodeAt(0));
-    } catch (error) {
-      console.error('Erro ao decodificar base64:', error);
-      return new Response(
-        JSON.stringify({ error: 'Base64 inválido ou corrompido.' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+    } catch {
+      return jsonFor(req, { error: 'Base64 invalido ou corrompido.' }, 400);
     }
 
-    // Validar limite de tamanho (evita travar a função com payloads gigantes)
     if (pdfBytes.length > MAX_PDF_BYTES) {
-      return new Response(
-        JSON.stringify({ error: `PDF excede ${MAX_PDF_BYTES / 1024 / 1024}MB — use OCR local.` }),
-        {
-          status: 413,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+      return jsonFor(
+        req,
+        { error: `PDF excede ${MAX_PDF_BYTES / 1024 / 1024}MB — use OCR local.` },
+        413,
       );
     }
 
-    // Validar assinatura do arquivo (%PDF)
-    const isPDF = pdfBytes[0] === 0x25 && pdfBytes[1] === 0x50 && pdfBytes[2] === 0x44 && pdfBytes[3] === 0x46;
+    // Assinatura %PDF
+    const isPDF = pdfBytes[0] === 0x25 && pdfBytes[1] === 0x50 &&
+                  pdfBytes[2] === 0x44 && pdfBytes[3] === 0x46;
     if (!isPDF) {
-      return new Response(
-        JSON.stringify({ error: 'Conteúdo não é um PDF válido (assinatura %PDF ausente).' }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
+      return jsonFor(req, { error: 'Conteudo nao e um PDF valido (assinatura %PDF ausente).' }, 400);
     }
 
-    // Extrair texto do PDF
     const rawText = await extractTextFromPdfBytes(pdfBytes);
 
-    return new Response(
-      JSON.stringify({ rawText }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
-
+    return jsonFor(req, { rawText });
   } catch (error) {
-    console.error('Erro na extração de PDF:', error);
+    if (error instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 429,
+        headers: {
+          ...corsFor(req),
+          'Content-Type': 'application/json',
+          'Retry-After': String(error.retryAfter),
+        },
+      });
+    }
 
-    return new Response(
-      JSON.stringify({
-        error: 'Erro interno do servidor',
-        message: error.message
-      }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
+    console.error('extract-pdf-text:', error);
+    const status = errorStatus(error);
+
+    // [4] Sem detalhe interno em 5xx.
+    return jsonFor(
+      req,
+      { error: status >= 500 ? 'Erro interno do servidor' : (error as Error).message },
+      status,
     );
   }
 });
 
 /**
- * Extrai texto de PDF (bytes já decodificados e validados) usando pdfjs-dist
- * PDF.js é mantido pela Mozilla e funciona perfeitamente em Edge Functions
+ * Extrai texto de PDF (bytes ja decodificados e validados) usando pdfjs-dist.
  */
 async function extractTextFromPdfBytes(pdfBytes: Uint8Array): Promise<string> {
   try {
-    // Importar pdfjs-dist (compatível com Deno/Edge Functions)
     const pdfjsLib = await import("https://esm.sh/pdfjs-dist@3.11.174/build/pdf.mjs");
 
-    // Carregar o documento PDF
     const loadingTask = pdfjsLib.getDocument({
       data: pdfBytes,
       useSystemFonts: true,
+      // Nunca resolver referencias externas a partir de um arquivo do usuario.
+      isEvalSupported: false,
+      disableAutoFetch: true,
     });
 
     const pdfDocument = await loadingTask.promise;
-    const numPages = pdfDocument.numPages;
 
-    console.log(`PDF carregado com ${numPages} páginas`);
+    // Teto de paginas: PDF pequeno com milhares de paginas e vetor de DoS.
+    const numPages = Math.min(pdfDocument.numPages, MAX_PAGES);
 
-    // Extrair texto de todas as páginas
     let fullText = '';
 
     for (let pageNum = 1; pageNum <= numPages; pageNum++) {
       const page = await pdfDocument.getPage(pageNum);
       const textContent = await page.getTextContent();
 
-      // Concatenar todos os items de texto da página
       const pageText = textContent.items
         .map((item: any) => item.str || '')
         .join(' ');
@@ -155,54 +147,38 @@ async function extractTextFromPdfBytes(pdfBytes: Uint8Array): Promise<string> {
       fullText += pageText + '\n\n';
     }
 
-    // Se conseguiu extrair texto significativo, retornar limpo
-    if (fullText && fullText.trim().length > 100) {
-      return cleanExtractedText(fullText);
-    }
-
-    // Fallback: tentar retornar mesmo com pouco texto
     if (fullText && fullText.trim().length > 0) {
       return cleanExtractedText(fullText);
     }
 
-    // Último recurso: retornar indicador de extração mínima
-    return "PDF_PROCESSADO_EXTRAÇÃO_MÍNIMA";
-
+    return "PDF_PROCESSADO_EXTRACAO_MINIMA";
   } catch (error) {
     console.error('Erro ao processar PDF:', error);
-
-    // Em caso de erro, retornar indicador de erro
-    return "PDF_PROCESSADO_ERRO_EXTRAÇÃO";
+    return "PDF_PROCESSADO_ERRO_EXTRACAO";
   }
 }
 
 /**
- * Limpa texto extraído removendo lixo binário e metadados de PDF
+ * Limpa texto extraido removendo lixo binario e metadados de PDF.
  */
 function cleanExtractedText(text: string): string {
   if (!text) return '';
 
   return text
-    // Remover caracteres de controle e bytes inválidos
-    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
-    // Remover sequências comuns de metadados PDF
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, '')
     .replace(/\/Title\s*\(/g, '')
     .replace(/\/Author\s*\(/g, '')
     .replace(/\/Subject\s*\(/g, '')
     .replace(/\/Creator\s*\(/g, '')
     .replace(/\/Producer\s*\(/g, '')
-    // Remover números de página comuns
-    .replace(/\f/g, ' ') // Form feed (quebra de página)
-    // Remover linhas que parecem metadados técnicos
-    .replace(/^[0-9]+\s*$/gm, '') // Apenas números
-    .replace(/^D:\d{14}/gm, '') // Timestamps PDF
+    .replace(/\f/g, ' ')
+    .replace(/^[0-9]+\s*$/gm, '')
+    .replace(/^D:\d{14}/gm, '')
     .replace(/\/Type\s*\/Page/g, '')
     .replace(/\/Parent\s*\d+/g, '')
     .replace(/\/MediaBox\s*\[.*?\]/g, '')
     .replace(/\/Resources\s*<</g, '')
-    // Remover espaços múltiplos
     .replace(/\s+/g, ' ')
-    // Remover linhas vazias múltiplas
     .replace(/\n\s*\n/g, '\n')
     .trim();
 }

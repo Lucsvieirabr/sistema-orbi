@@ -1,260 +1,221 @@
-// Edge Function to get company logo with local caching
-// This function checks local storage first, then fetches from logo.dev API if needed
+// ============================================================================
+// get-company-logo — logo corporativo com cache no Storage
+// ============================================================================
+// CORRECOES DE SEGURANCA:
+//  1. [VAZAMENTO DE SEGREDO] No caminho de fallback (falha de upload) a
+//     funcao devolvia `https://img.logo.dev/...?token=<LOGO_DEV_TOKEN_IMAGES>`
+//     e o frontend GRAVAVA essa URL em series.logo_url — o token do servidor
+//     ficava persistido no banco e renderizado no HTML de todos os usuarios.
+//     Agora o fallback e uma data URL; o token nunca sai daqui.
+//  2. [CONFIG DE PRODUCAO] `internalUrl = 'http://kong:8000'` e
+//     `publicBaseUrl = 'http://127.0.0.1:54331'` estavam hardcoded: em
+//     producao o client admin apontava para host inexistente e as URLs
+//     devolvidas ao frontend eram localhost. Agora vem de SUPABASE_URL e do
+//     proprio getPublicUrl() do Storage.
+//  3. [SERVICE ROLE] usa SUPABASE_SERVICE_ROLE_KEY (nome padrao do runtime),
+//     com fallback para SERVICE_ROLE_KEY, e falha fechado se ausente.
+//  4. [RATE LIMIT] 60 resolucoes de logo por hora por usuario.
+//  5. [INPUT] companyName sanitizado e limitado (era usado para montar o
+//     caminho no Storage).
+//  6. [CORS] origem restrita a ALLOWED_ORIGINS.
+// ============================================================================
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.0'
-import { corsHeaders } from "../_shared/cors.ts"
+import { corsFor, preflight, jsonFor } from "../_shared/cors.ts"
+import { enforceRateLimit, RateLimitError } from "../_shared/ratelimit.ts"
 
 interface LogoRequest {
   companyName: string
 }
 
-interface LogoResponse {
-  logo_url: string
-  source: 'storage' | 'api'
-  error?: string
+const BUCKET = 'company-logos'
+const MAX_NAME_LENGTH = 120
+const MAX_IMAGE_BYTES = 512 * 1024
+const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g
+const DOMAIN_RE = /^[a-z0-9.-]{1,253}\.[a-z]{2,}$/i
+
+function toDataUrl(bytes: Uint8Array, contentType: string): string {
+  let binary = ''
+  for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i])
+  return `data:${contentType};base64,${btoa(binary)}`
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return preflight(req)
+
+  if (req.method !== 'POST') {
+    return jsonFor(req, { error: 'Method not allowed' }, 405)
   }
 
   try {
-    const { companyName }: LogoRequest = await req.json()
+    // [2][3] Configuracao vem do ambiente, nunca hardcoded.
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const serviceKey =
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? Deno.env.get('SERVICE_ROLE_KEY')
 
-    if (!companyName || companyName.trim().length === 0) {
-      return new Response(
-        JSON.stringify({ error: 'Company name is required' }),
-        { 
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    if (!supabaseUrl || !serviceKey) {
+      console.error('SUPABASE_URL/SERVICE_ROLE_KEY nao configurados')
+      return jsonFor(req, { error: 'Servico indisponivel' }, 503)
     }
 
-    // Initialize Supabase client
-    // Edge Functions run in Docker, so they need to use internal URLs (kong:8000)
-    // But we return public URLs (127.0.0.1:54331) to the frontend
-    const internalUrl = 'http://kong:8000'  // Internal Docker URL for API calls
-    const publicBaseUrl = 'http://127.0.0.1:54331'  // Public URL for frontend
-    const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY')     
-    const supabase = createClient(internalUrl, supabaseServiceKey)
+    const supabase = createClient(supabaseUrl, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
 
-    // Verificar autenticação
-    const authHeader = req.headers.get('Authorization')
-    if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    // ---- Autenticacao ----
+    const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization')
+    if (!authHeader?.startsWith('Bearer ')) {
+      return jsonFor(req, { error: 'Unauthorized' }, 401)
     }
 
-    // Obter usuário do token
-    const token = authHeader.replace('Bearer ', '')
+    const token = authHeader.slice(7)
     const { data: { user }, error: userError } = await supabase.auth.getUser(token)
-    
+
     if (userError || !user) {
-      return new Response(
-        JSON.stringify({ error: 'Unauthorized' }),
-        { 
-          status: 401,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return jsonFor(req, { error: 'Unauthorized' }, 401)
     }
 
-    // Verificar se o usuário tem a feature de detecção de logos
+    // [4] Rate limit por usuario
+    await enforceRateLimit(user.id, 'get-company-logo', 60, 3600)
+
+    // [5] Entrada sanitizada antes de virar caminho no Storage.
+    const body: LogoRequest = await req.json().catch(() => ({ companyName: '' }))
+    const rawName = typeof body?.companyName === 'string' ? body.companyName : ''
+    const companyName = rawName
+      .replace(CONTROL_CHARS, '')
+      .trim()
+      .slice(0, MAX_NAME_LENGTH)
+
+    if (!companyName) {
+      return jsonFor(req, { error: 'Company name is required' }, 400)
+    }
+
+    // ---- Autorizacao por feature do plano ----
     const { data: subscription, error: subError } = await supabase
       .from('user_subscriptions')
-      .select(`
-        id,
-        status,
-        subscription_plans (
-          features
-        )
-      `)
+      .select('id, status, subscription_plans ( features )')
       .eq('user_id', user.id)
       .eq('status', 'active')
       .order('created_at', { ascending: false })
       .limit(1)
-      .single()
+      .maybeSingle()
 
     if (subError || !subscription) {
-      return new Response(
-        JSON.stringify({ error: 'No active subscription found' }),
-        { 
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
+      return jsonFor(req, { error: 'No active subscription found' }, 403)
+    }
+
+    const planFeatures = (subscription as Record<string, any>)?.subscription_plans?.features ?? {}
+    if (planFeatures['ia_deteccao_logos'] !== true) {
+      return jsonFor(
+        req,
+        { error: 'Logo detection feature not available in your plan. Upgrade to access this feature.' },
+        403,
       )
     }
 
-    // Verificar feature
-    const planFeatures = subscription.subscription_plans?.features || {}
-    const hasLogoDetection = planFeatures['ia_deteccao_logos'] === true
-
-    if (!hasLogoDetection) {
-      return new Response(
-        JSON.stringify({ error: 'Logo detection feature not available in your plan. Upgrade to access this feature.' }),
-        { 
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    // Nome normalizado: apenas [a-z0-9-], sem barras — imune a path traversal.
+    const normalizedName = companyName.toLowerCase().replace(/[^a-z0-9]/g, '-').slice(0, MAX_NAME_LENGTH)
+    if (!normalizedName.replace(/-/g, '')) {
+      return jsonFor(req, { error: 'Company name invalido' }, 400)
     }
 
-    // Normalize company name for file naming
-    const normalizedName = companyName.toLowerCase().trim().replace(/[^a-z0-9]/g, '-')
     const fileName = `${normalizedName}.png`
     const storagePath = `logos/${fileName}`
 
-    // Step 1: Check if logo exists in storage (CACHE FIRST!)
-    const { data: existingFile } = await supabase
-      .storage
-      .from('company-logos')
-      .list('logos', {
-        search: fileName
-      })
+    // ---- Cache no Storage ----
+    const { data: existingFile } = await supabase.storage
+      .from(BUCKET)
+      .list('logos', { search: fileName })
 
     if (existingFile && existingFile.length > 0) {
-      // Logo exists in storage, return the public URL
-      const publicUrl = `${publicBaseUrl}/storage/v1/object/public/company-logos/${storagePath}`
-
-      return new Response(
-        JSON.stringify({
-          logo_url: publicUrl,
-          source: 'storage'
-        } as LogoResponse),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      // [2] URL publica derivada do projeto real, nao de 127.0.0.1.
+      const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
+      return jsonFor(req, { logo_url: pub.publicUrl, source: 'storage' })
     }
-
-    // Step 2: Logo not in storage, fetch from logo.dev API
 
     const LOGO_DEV_TOKEN = Deno.env.get('LOGO_DEV_TOKEN')
     const LOGO_DEV_TOKEN_IMAGES = Deno.env.get('LOGO_DEV_TOKEN_IMAGES')
-    
+
     if (!LOGO_DEV_TOKEN || !LOGO_DEV_TOKEN_IMAGES) {
-      return new Response(
-        JSON.stringify({ error: 'API tokens not configured' }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return jsonFor(req, { error: 'Servico de logos indisponivel' }, 503)
     }
 
-    // Search for company domain
-    const searchUrl = `https://api.logo.dev/search?q=${encodeURIComponent(companyName.toLowerCase())}`
-    const searchResponse = await fetch(searchUrl, {
-      headers: {
-        'Authorization': `Bearer ${LOGO_DEV_TOKEN}`,
-        'Accept': 'application/json'
-      }
-    })
+    const searchResponse = await fetch(
+      `https://api.logo.dev/search?q=${encodeURIComponent(companyName.toLowerCase())}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${LOGO_DEV_TOKEN}`,
+          'Accept': 'application/json',
+        },
+      },
+    )
 
     if (!searchResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to search logo' }),
-        { 
-          status: searchResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return jsonFor(req, { error: 'Failed to search logo' }, 502)
     }
 
     const searchData = await searchResponse.json()
-    
-    // Extract domain from the first result
+
     let domain: string | undefined
-    if (searchData && Array.isArray(searchData) && searchData.length > 0) {
+    if (Array.isArray(searchData) && searchData.length > 0) {
       domain = searchData[0]?.domain
-    } else if (searchData && searchData.domain) {
+    } else if (searchData?.domain) {
       domain = searchData.domain
     }
 
-    if (!domain) {
-      return new Response(
-        JSON.stringify({ error: 'No logo found for this company' }),
-        { 
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+    if (!domain || !DOMAIN_RE.test(domain)) {
+      return jsonFor(req, { error: 'No logo found for this company' }, 404)
     }
 
-    // Step 3: Download logo from logo.dev CDN
-    const logoUrl = `https://img.logo.dev/${domain}?token=${LOGO_DEV_TOKEN_IMAGES}`
-    const logoResponse = await fetch(logoUrl)
+    const logoResponse = await fetch(
+      `https://img.logo.dev/${encodeURIComponent(domain)}?token=${LOGO_DEV_TOKEN_IMAGES}`,
+    )
 
     if (!logoResponse.ok) {
-      return new Response(
-        JSON.stringify({ error: 'Failed to download logo' }),
-        { 
-          status: logoResponse.status,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      return jsonFor(req, { error: 'Failed to download logo' }, 502)
     }
 
-    // Get logo as blob
-    const logoBlob = await logoResponse.blob()
-    const logoArrayBuffer = await logoBlob.arrayBuffer()
+    const contentType = logoResponse.headers.get('content-type') ?? 'image/png'
+    if (!contentType.startsWith('image/')) {
+      return jsonFor(req, { error: 'Resposta do provedor nao e uma imagem' }, 502)
+    }
 
-    // Step 4: Upload logo to Supabase Storage
-    const { error: uploadError } = await supabase
-      .storage
-      .from('company-logos')
-      .upload(storagePath, logoArrayBuffer, {
-        contentType: 'image/png',
-        cacheControl: '31536000', // Cache for 1 year
-        upsert: true
+    const logoBytes = new Uint8Array(await logoResponse.arrayBuffer())
+    if (logoBytes.byteLength > MAX_IMAGE_BYTES) {
+      return jsonFor(req, { error: 'Logo excede o tamanho permitido' }, 413)
+    }
+
+    const { error: uploadError } = await supabase.storage
+      .from(BUCKET)
+      .upload(storagePath, logoBytes, {
+        contentType,
+        cacheControl: '31536000',
+        upsert: true,
       })
 
     if (uploadError) {
-      // Return the original URL from logo.dev as fallback
-      return new Response(
-        JSON.stringify({
-          logo_url: logoUrl,
-          source: 'api'
-        } as LogoResponse),
-        { 
-          status: 200,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      )
+      // [1] Fallback SEM token: data URL. A URL tokenizada do logo.dev nunca
+      // pode ser devolvida — o frontend persiste este valor em series.logo_url.
+      console.error('falha ao cachear logo:', uploadError.message)
+      return jsonFor(req, { logo_url: toDataUrl(logoBytes, contentType), source: 'api' })
     }
 
-    // Step 5: Return the public URL from storage
-    const publicUrl = `${publicBaseUrl}/storage/v1/object/public/company-logos/${storagePath}`
-
-    return new Response(
-      JSON.stringify({
-        logo_url: publicUrl,
-        source: 'storage'
-      } as LogoResponse),
-      { 
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
-
+    const { data: pub } = supabase.storage.from(BUCKET).getPublicUrl(storagePath)
+    return jsonFor(req, { logo_url: pub.publicUrl, source: 'storage' })
   } catch (error) {
-    return new Response(
-      JSON.stringify({ error: error.message || 'Internal server error' }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    )
+    if (error instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: error.message }), {
+        status: 429,
+        headers: {
+          ...corsFor(req),
+          'Content-Type': 'application/json',
+          'Retry-After': String(error.retryAfter),
+        },
+      })
+    }
+
+    console.error('get-company-logo:', error)
+    return jsonFor(req, { error: 'Internal server error' }, 500)
   }
 })
-

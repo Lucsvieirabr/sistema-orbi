@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders, jsonResponse } from '../_shared/cors.ts'
+import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
 import {
   AsaasPayment,
@@ -23,7 +23,7 @@ interface Body {
 const ACTIVE_STATUSES = ['pending', 'trial', 'active', 'past_due']
 
 serve(async (req) => {
-  if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
+  if (req.method === 'OPTIONS') return preflight(req)
 
   try {
     const user = await requireUser(req)
@@ -71,7 +71,7 @@ serve(async (req) => {
         .single()
 
       if (error) throw error
-      return jsonResponse({ success: true, free_plan: true, subscription: data })
+      return jsonFor(req, { success: true, free_plan: true, subscription: data })
     }
 
     const { data: profile, error: profileError } = await supabase
@@ -238,7 +238,7 @@ serve(async (req) => {
         )
     }
 
-    return jsonResponse({
+    return jsonFor(req, {
       success: true,
       subscription: subscriptionRow,
       payment: payment
@@ -255,6 +255,6 @@ serve(async (req) => {
     })
   } catch (error) {
     console.error('asaas-create-payment:', error)
-    return jsonResponse({ success: false, error: (error as Error).message }, errorStatus(error))
+    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
   }
 })

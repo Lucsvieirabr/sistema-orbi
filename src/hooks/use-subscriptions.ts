@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { assertUuid } from "@/lib/utils";
 import { Tables } from "@/integrations/supabase/types";
 import { featureRegistry } from "@/lib/features/feature-registry";
 
@@ -18,10 +19,13 @@ export function useSubscriptions() {
       if (!user) throw new Error("User not authenticated");
 
       // Find the "Assinaturas" category (global or user-specific)
+      // SEGURANÇA: valida o UUID antes de interpolar na string de filtro.
+      const userId = assertUuid(user.id, "user_id");
+
       const { data: categories } = await supabase
         .from("categories")
         .select("*")
-        .or(`user_id.eq.${user.id},user_id.is.null`)
+        .or(`user_id.eq.${userId},user_id.is.null`)
         .ilike("name", "%assinatura%")
         .limit(1);
 
