@@ -67,17 +67,17 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   };
 
   const getStatusColor = (status: string) => {
-    return status === 'PAID' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800';
+    return status === 'PAID' ? 'bg-success-soft text-success' : 'bg-warning-soft text-warning';
   };
 
   const getTypeIcon = (type: string, status: string) => {
     if (type === 'income' && status === 'PENDING') {
-      return <TrendingUp className="h-4 w-4 text-green-600" />;
+      return <TrendingUp className="h-4 w-4 text-success" />;
     }
     if (type === 'expense' && status === 'PENDING') {
-      return <TrendingDown className="h-4 w-4 text-red-600" />;
+      return <TrendingDown className="h-4 w-4 text-destructive" />;
     }
-    return <CheckCircle className="h-4 w-4 text-gray-600" />;
+    return <CheckCircle className="h-4 w-4 text-muted-foreground" />;
   };
 
   const handleMarkAsPaid = async (transactionId: string) => {
@@ -125,7 +125,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       <div className="container mx-auto p-4">
         <Card className="shadow-md">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto text-red-500 mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
             <h3 className="text-lg font-semibold mb-2">Erro ao carregar dados</h3>
             <p className="text-muted-foreground mb-4">{error.message}</p>
             <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
@@ -140,7 +140,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
       <div className="container mx-auto p-4">
         <Card className="shadow-md">
           <CardContent className="p-8 text-center">
-            <AlertCircle className="h-12 w-12 mx-auto text-yellow-500 mb-4" />
+            <AlertCircle className="h-12 w-12 mx-auto text-warning mb-4" />
             <h3 className="text-lg font-semibold mb-2">Pessoa não encontrada</h3>
             <Button onClick={() => navigate('/sistema/people')} className="mt-4">
               Voltar para Pessoas
@@ -203,15 +203,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
 
       {/* Indicators */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+        <Card className="shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total a Receber
             </CardTitle>
-            <TrendingUp className="h-3.5 w-3.5 text-green-600" />
+            <TrendingUp className="h-3.5 w-3.5 text-success" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-green-600">
+            <div className="text-xl font-bold text-success">
               {formatCurrency(indicators.totalAReceber)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -220,15 +220,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+        <Card className="shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total a Pagar
             </CardTitle>
-            <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+            <TrendingDown className="h-3.5 w-3.5 text-destructive" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-red-600">
+            <div className="text-xl font-bold text-destructive">
               {formatCurrency(indicators.totalAPagar)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -237,15 +237,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+        <Card className="shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total Recebido
             </CardTitle>
-            <CheckCircle className="h-3.5 w-3.5 text-green-600" />
+            <CheckCircle className="h-3.5 w-3.5 text-success" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-green-600">
+            <div className="text-xl font-bold text-success">
               {formatCurrency(indicators.totalRecebido)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -254,15 +254,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+        <Card className="shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Total Pago
             </CardTitle>
-            <CheckCircle className="h-3.5 w-3.5 text-red-600" />
+            <CheckCircle className="h-3.5 w-3.5 text-destructive" />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className="text-xl font-bold text-red-600">
+            <div className="text-xl font-bold text-destructive">
               {formatCurrency(indicators.totalPago)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -271,15 +271,15 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+        <Card className="shadow-md transition-all duration-200">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Saldo Líquido
             </CardTitle>
-            <DollarSign className={`h-3.5 w-3.5 ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`} />
+            <DollarSign className={`h-3.5 w-3.5 ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`} />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className={`text-xl font-bold ${indicators.saldoLiquido >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xl font-bold ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`}>
               {formatCurrency(indicators.saldoLiquido)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -343,7 +343,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                       <Button
                         size="sm"
                         onClick={() => handleMarkAsPaid(transaction.id)}
-                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                        className="flex items-center gap-1 bg-success hover:bg-success"
                       >
                         <CheckCircle className="h-3 w-3" />
                         Receber
@@ -354,7 +354,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                       <Button
                         size="sm"
                         onClick={() => handlePayDebt(transaction.id)}
-                        className="flex items-center gap-1 bg-green-600 hover:bg-green-700"
+                        className="flex items-center gap-1 bg-success hover:bg-success"
                       >
                         <CheckCircle className="h-3 w-3" />
                         Pagar

@@ -1,11 +1,21 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
-import { LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus, Brain, StickyNote, Settings } from "lucide-react";
+import {
+  LayoutDashboard,
+  Wallet,
+  Receipt,
+  List,
+  CreditCard,
+  Users,
+  Plus,
+  Brain,
+  StickyNote,
+  Settings,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
@@ -13,20 +23,36 @@ import orbiLogo from "@/assets/orbi-logo_white.png";
 
 interface SidebarItem {
   title: string;
-  icon: any;
+  icon: typeof LayoutDashboard;
   path: string;
 }
 
-const menuItems: SidebarItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/sistema" },
-  { title: "Extrato", icon: Receipt, path: "/sistema/statement" },
-  { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
-  { title: "Categorias", icon: List, path: "/sistema/categories" },
-  { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
-  { title: "Pessoas", icon: Users, path: "/sistema/people" },
-  { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
-  { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
-  { title: "Configurações", icon: Settings, path: "/sistema/settings" },
+/** Agrupado por intenção: o que acontece, onde o dinheiro mora, como classificar. */
+const menuGroups: { label: string; items: SidebarItem[] }[] = [
+  {
+    label: "Visão",
+    items: [
+      { title: "Dashboard", icon: LayoutDashboard, path: "/sistema" },
+      { title: "Extrato", icon: Receipt, path: "/sistema/statement" },
+    ],
+  },
+  {
+    label: "Saldos",
+    items: [
+      { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
+      { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
+    ],
+  },
+  {
+    label: "Organização",
+    items: [
+      { title: "Categorias", icon: List, path: "/sistema/categories" },
+      { title: "Pessoas", icon: Users, path: "/sistema/people" },
+      { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
+      { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
+      { title: "Configurações", icon: Settings, path: "/sistema/settings" },
+    ],
+  },
 ];
 
 interface AppSidebarProps {
@@ -40,87 +66,106 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   const currentPath = location.pathname;
   const isMobile = useIsMobile();
 
-  const items = useMemo(() => menuItems, []);
+  const groups = useMemo(() => menuGroups, []);
 
   const handleNavigate = (path: string) => {
     navigate(path);
-    if (isMobile && onOpenChange) {
-      onOpenChange(false);
-    }
+    if (isMobile && onOpenChange) onOpenChange(false);
   };
 
-  const SidebarContent = () => (
-    <>
-      <div className="flex h-16 items-center justify-between px-6">
-        <div className="flex items-center gap-2">
-          <img src={orbiLogo} alt="Orbi" className="h-8 w-8" />
-          <span className="text-lg font-bold">Orbi</span>
+  const Nav = () => (
+    <div className="flex h-full flex-col bg-sidebar text-sidebar-foreground">
+      {/* Marca */}
+      <div className="flex h-header shrink-0 items-center justify-between px-5">
+        <div className="flex items-center gap-2.5">
+          <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+          <span className="font-display text-base font-semibold tracking-tight text-white">Orbi</span>
         </div>
-        <ThemeToggle />
+        <ThemeToggle className="text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground" />
       </div>
 
-      <nav className="flex-1 px-4 py-4 overflow-auto">
-        <div className="space-y-2">
-          {/* Botão de Nova Transação - Movido para o topo */}
-          <Button
-            variant="outline"
-            size="lg"
-            className="w-full justify-center gap-3 mb-6 bg-transparent border-2 border-dashed border-blue-400 text-blue-400 hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 shadow-lg font-semibold text-base transition-all duration-300"
-            onClick={() => handleNavigate("/sistema/statement?new=1")}
-          >
-            <Plus className="h-5 w-5" />
-            Nova Transação
-          </Button>
+      {/* Ação primária — a única com preenchimento sólido na navegação */}
+      <div className="px-3 pb-2">
+        <button
+          type="button"
+          onClick={() => handleNavigate("/sistema/statement?new=1")}
+          className={cn(
+            "flex h-10 w-full items-center justify-center gap-2 rounded-lg",
+            "bg-white/10 text-sm font-medium text-white",
+            "transition-colors duration-200 ease-swift hover:bg-white/[0.16]",
+            "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+          )}
+        >
+          <Plus className="h-4 w-4" aria-hidden />
+          Nova transação
+        </button>
+      </div>
 
-          {items.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentPath === item.path;
-            return (
-              <Button
-                key={item.path}
-                variant="ghost"
-                className={cn(
-                  "w-full justify-start gap-3 transition-all duration-300 border border-transparent bg-transparent hover:bg-transparent",
-                  isActive
-                    ? "border-blue-400 text-blue-400 shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]"
-                    : "text-sidebar-foreground hover:border-blue-400 hover:text-blue-400 hover:shadow-[0_0_15px_rgba(96,165,250,0.6),inset_0_0_10px_rgba(96,165,250,0.15)]",
-                )}
-                onClick={() => handleNavigate(item.path)}
-              >
-                <Icon className="h-4 w-4" />
-                {item.title}
-              </Button>
-            );
-          })}
-        </div>
+      {/* Navegação */}
+      <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto px-3 py-3">
+        {groups.map((group, groupIndex) => (
+          <div key={group.label} className={cn(groupIndex > 0 && "mt-6")}>
+            <p className="px-3 pb-2 text-2xs font-medium uppercase tracking-eyebrow text-sidebar-muted">
+              {group.label}
+            </p>
+            <ul className="space-y-0.5">
+              {group.items.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentPath === item.path;
+                return (
+                  <li key={item.path}>
+                    <button
+                      type="button"
+                      aria-current={isActive ? "page" : undefined}
+                      onClick={() => handleNavigate(item.path)}
+                      className={cn(
+                        "relative flex h-9 w-full items-center gap-3 rounded-lg pl-3 pr-3 text-sm",
+                        "transition-colors duration-200 ease-swift",
+                        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring focus-visible:ring-offset-2 focus-visible:ring-offset-sidebar",
+                        isActive
+                          ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground"
+                          : "text-sidebar-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
+                      )}
+                    >
+                      {isActive && (
+                        <span
+                          aria-hidden
+                          className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-full bg-sidebar-marker"
+                        />
+                      )}
+                      <Icon className={cn("h-4 w-4 shrink-0", !isActive && "opacity-70")} aria-hidden />
+                      {item.title}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
       </nav>
 
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="shrink-0 border-t border-sidebar-border p-3">
         <ReportBugDialog />
       </div>
-    </>
+    </div>
   );
 
-  // Mobile: Render in Sheet
   if (isMobile && open !== undefined && onOpenChange) {
     return (
       <Sheet open={open} onOpenChange={onOpenChange}>
-        <SheetContent side="left" className="w-[280px] p-0 flex flex-col">
+        <SheetContent side="left" className="w-[17.5rem] border-sidebar-border bg-sidebar p-0">
           <VisuallyHidden>
-            <SheetTitle>Menu de Navegação</SheetTitle>
+            <SheetTitle>Navegação principal</SheetTitle>
           </VisuallyHidden>
-          <SidebarContent />
+          <Nav />
         </SheetContent>
       </Sheet>
     );
   }
 
-  // Desktop: Render as Sidebar
   return (
-    <Sidebar collapsible="none" className="border-r border-sidebar-border hidden lg:flex">
-      <SidebarContent />
+    <Sidebar collapsible="none" className="hidden border-r border-sidebar-border bg-sidebar lg:flex">
+      <Nav />
     </Sidebar>
   );
 }
-
-

@@ -79,7 +79,7 @@ export function FamilyGroupSettings() {
   };
 
   return (
-    <Card className="bg-gradient-card shadow-md">
+    <Card className="shadow-md">
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-base">
           <Users className="h-4 w-4" />

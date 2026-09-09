@@ -64,7 +64,7 @@ export function AdminAuthForm() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-red-950/20 via-background to-red-950/10 p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
       {/* Botão voltar */}
       <div className="absolute left-4 top-4">
         <Button variant="outline" onClick={() => navigate('/login')} className="gap-2">
@@ -77,7 +77,7 @@ export function AdminAuthForm() {
         <ThemeToggle />
       </div>
 
-      <Card className="w-full max-w-md bg-gradient-card shadow-2xl border-red-900/20">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center mb-4">
             <div className="relative">
@@ -86,12 +86,12 @@ export function AdminAuthForm() {
                 alt="Orbi" 
                 className="h-20 w-20 object-contain"
               />
-              <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-red-500 flex items-center justify-center ring-2 ring-background">
+              <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-destructive flex items-center justify-center ring-2 ring-background">
                 <Shield className="h-4 w-4 text-white" />
               </div>
             </div>
           </div>
-          <CardTitle className="text-2xl font-bold bg-gradient-to-r from-red-500 to-red-700 bg-clip-text text-transparent">
+          <CardTitle className="font-display text-xl font-semibold text-foreground">
             Orbi Admin
           </CardTitle>
           <CardDescription className="text-muted-foreground">
@@ -108,7 +108,7 @@ export function AdminAuthForm() {
                 type="email"
                 placeholder="admin@orbi.com"
                 required
-                className="transition-all duration-200 focus:shadow-primary border-red-900/20 focus:border-red-500"
+                className="transition-all duration-200 border-destructive/20 focus:border-destructive/30"
               />
             </div>
             
@@ -119,13 +119,13 @@ export function AdminAuthForm() {
                 type="password"
                 placeholder="••••••••"
                 required
-                className="transition-all duration-200 focus:shadow-primary border-red-900/20 focus:border-red-500"
+                className="transition-all duration-200 border-destructive/20 focus:border-destructive/30"
               />
             </div>
 
             <Button 
               type="submit" 
-              className="w-full bg-gradient-to-r from-red-600 to-red-700 hover:from-red-700 hover:to-red-800 hover:scale-105 transition-all duration-200 shadow-lg"
+              className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isLoading}
             >
               {isLoading ? (
@@ -142,7 +142,7 @@ export function AdminAuthForm() {
             </Button>
           </form>
 
-          <div className="mt-6 pt-6 border-t border-red-900/20">
+          <div className="mt-6 pt-6 border-t border-border-subtle">
             <p className="text-xs text-center text-muted-foreground">
               <Shield className="h-3 w-3 inline mr-1" />
               Acesso restrito a administradores autorizados

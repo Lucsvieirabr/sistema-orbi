@@ -4,862 +4,629 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { StatusSelector, TransactionStatus } from "@/components/ui/status-selector";
+import { StatCard, StatSplit } from "@/components/ui/stat-card";
 import {
-  DollarSign,
+  Wallet,
   TrendingUp,
   TrendingDown,
   Calendar,
-  Menu,
-  User,
-  LogOut,
   PieChart,
   List,
   BarChart3,
-  Plus,
-  CreditCard,
-  ArrowUpCircle,
-  ArrowDownCircle,
-  BanknoteXIcon,
+  ArrowLeftRight,
+  Scale,
   CheckCircle,
+  Undo2,
   Edit,
   Trash2,
-  Loader2
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
 import { useDebtStats } from "@/hooks/use-debts";
-import { useStatusSync } from "@/hooks/use-status-sync";
-import { useCreditCards } from "@/hooks/use-credit-cards";
-import { useAccounts } from "@/hooks/use-accounts";
-import { CreditCardForm } from "@/components/ui/credit-card-form";
-import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
-import { SelectItem } from "@/components/ui/select";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
-import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
-import { formatDateForDisplay } from "@/lib/utils";
+import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip } from "recharts";
+import { formatDateForDisplay, cn } from "@/lib/utils";
+import { useChartPalette } from "@/lib/chart-colors";
 import { SubscriptionChart } from "./SubscriptionChart";
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useViewMode } from "@/hooks/use-view-mode";
-import { assertOwnTransaction, PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
+import { assertOwnTransaction } from "@/lib/family-access";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface DashboardProps {
   onLogout: () => void;
 }
 
+const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
+const formatCurrency = (amount: number) => currency.format(amount);
+
+/** Cabeçalho de seção: hierarquia sem o peso de um card aninhado. */
+function SectionHead({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon?: typeof PieChart;
+  children?: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <CardTitle className="flex items-center gap-2">
+        {Icon && <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />}
+        {title}
+      </CardTitle>
+      {children}
+    </div>
+  );
+}
+
+/** Grupo de filtros: segmented control leve, sem botões preenchidos. */
+function Segmented<T extends string | number>({
+  value,
+  options,
+  onChange,
+  label,
+}: {
+  value: T;
+  options: { value: T; label: string; icon?: typeof List }[];
+  onChange: (value: T) => void;
+  label: string;
+}) {
+  return (
+    <div role="group" aria-label={label} className="inline-flex rounded-lg border border-border p-0.5">
+      {options.map((option) => {
+        const Icon = option.icon;
+        const isActive = option.value === value;
+        return (
+          <button
+            key={String(option.value)}
+            type="button"
+            aria-pressed={isActive}
+            onClick={() => onChange(option.value)}
+            className={cn(
+              "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium",
+              "transition-colors duration-200 ease-swift",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
+              isActive ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {Icon && <Icon className="h-3.5 w-3.5" aria-hidden />}
+            {option.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function EmptyState({ icon: Icon, title, hint }: { icon: typeof PieChart; title: string; hint?: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
+      <Icon className="h-6 w-6 text-muted-foreground/50" aria-hidden />
+      <p className="text-sm font-medium text-foreground">{title}</p>
+      {hint && <p className="max-w-xs text-xs leading-5 text-muted-foreground">{hint}</p>}
+    </div>
+  );
+}
+
 export function Dashboard({ onLogout }: DashboardProps) {
   const { toast } = useToast();
-  const { syncStatus } = useStatusSync();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const palette = useChartPalette();
+
   const [currentDate] = useState(new Date());
-  const [categoryViewMode, setCategoryViewMode] = useState<'list' | 'chart'>('list');
+  const [categoryViewMode, setCategoryViewMode] = useState<"list" | "chart">("list");
   const [upcomingPeriod, setUpcomingPeriod] = useState<7 | 15 | 30>(7);
-  const [updatingStatus, setUpdatingStatus] = useState<string | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<string | null>(null);
-  const [cardDialogOpen, setCardDialogOpen] = useState(false);
 
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth() + 1;
 
-  const {
-    transactions,
-    indicators,
-    isLoading: transactionsLoading
-  } = useMonthlyTransactions(year, month);
-
+  const { transactions, indicators, isLoading: transactionsLoading } = useMonthlyTransactions(year, month);
   const { data: debtStats } = useDebtStats();
-  const { creditCards, isLoading: cardsLoading } = useCreditCards();
-  const { accountsWithBalance } = useAccounts();
   const { currentUserId, isMine } = useFamilyGroup();
   const viewMode = useViewMode();
 
-  // Calculate category expenses for chart
   const categoryExpenses = useMemo(() => {
-    // Check if we have real data
     const expensesByCategory: Record<string, number> = {};
-    
-    // Filtrar apenas transações de despesa pagas
-    const paidExpenses = transactions.filter(t => t.type === 'expense' && t.status === 'PAID');
-    
-    // Debug: mostrar ganhos reais vs reembolsos
-    const realIncome = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
-                                               !t.description.includes('Parte') && 
-                                               !t.description.includes('A receber'));
-    const reimbursements = transactions.filter(t => t.type === 'income' && t.status === 'PAID' && 
-                                                   (t.description.includes('Parte') || t.description.includes('A receber')));
-    
-    paidExpenses.forEach((transaction, index) => {
-      const categoryName = transaction.categories?.name || 'Sem Categoria';
-      
-      // Calcular valor líquido baseado no tipo de transação
+    const paidExpenses = transactions.filter((t) => t.type === "expense" && t.status === "PAID");
+
+    paidExpenses.forEach((transaction) => {
+      const categoryName = transaction.categories?.name || "Sem categoria";
       let realValue = transaction.value;
-      
-      // Se há compensation_value, é uma transação compartilhada (mesmo que is_shared seja undefined)
       if (transaction.compensation_value && transaction.compensation_value > 0) {
         realValue = transaction.value - transaction.compensation_value;
       }
-      
-      // Garantir que o valor não seja negativo
       realValue = Math.max(0, realValue);
-      
       expensesByCategory[categoryName] = (expensesByCategory[categoryName] || 0) + realValue;
     });
 
-    const result = Object.entries(expensesByCategory)
+    return Object.entries(expensesByCategory)
       .map(([category, amount]) => ({ category, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5);
-    
-    
-    return result;
   }, [transactions]);
 
-  // Get recent transactions (last 5)
-  const recentTransactions = useMemo(() => {
-    return transactions
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-      .slice(0, 5);
-  }, [transactions]);
+  const categoryTotal = useMemo(
+    () => categoryExpenses.reduce((sum, item) => sum + item.amount, 0),
+    [categoryExpenses],
+  );
 
-  // Get upcoming transactions (pending for selected period)
+  const recentTransactions = useMemo(
+    () =>
+      [...transactions].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 5),
+    [transactions],
+  );
+
   const upcomingTransactions = useMemo(() => {
     const today = new Date();
     const futureDate = new Date(today.getTime() + upcomingPeriod * 24 * 60 * 60 * 1000);
 
     return transactions
-      .filter(t => t.status === 'PENDING' && new Date(t.date) >= today && new Date(t.date) <= futureDate)
+      .filter((t) => t.status === "PENDING" && new Date(t.date) >= today && new Date(t.date) <= futureDate)
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-      .slice(0, 10); // Aumentei para 10 para mostrar mais transações quando o período for maior
+      .slice(0, 10);
   }, [transactions, upcomingPeriod]);
 
-  const handleLogout = () => {
-    toast({
-      title: "Logout realizado",
-      description: "Até logo!",
-    });
-    onLogout();
+  const refreshTransactions = () => {
+    queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
+    queryClient.invalidateQueries({ queryKey: ["balances"] });
   };
 
-  const formatCurrency = (amount: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(amount);
-  };
+  const truncateText = (text: string, maxLength = 15) =>
+    text.length <= maxLength ? text : `${text.substring(0, maxLength)}…`;
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('pt-BR');
-  };
-
-  const truncateText = (text: string, maxLength: number = 15) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
-  const handleStatusChange = async (transactionId: string, newStatus: TransactionStatus) => {
-    setUpdatingStatus(transactionId);
-    const loadingToast = toast({
-      title: "Atualizando status...",
-      description: "Sincronizando transações relacionadas",
-      duration: 2000
-    });
-
+  const setStatus = async (transactionId: string, status: "PAID" | "PENDING") => {
     try {
-      // Obter o usuário atual
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      if (status === "PENDING") await assertOwnTransaction(transactionId);
 
-      await syncStatus(transactionId, newStatus);
-      loadingToast.update({
-        id: loadingToast.id,
-        title: "Status atualizado!",
-        description: "Transações sincronizadas com sucesso",
-        duration: 2000
-      });
-      
-      // Invalidar queries para atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
-    } catch (error: any) {
-      loadingToast.update({
-        id: loadingToast.id,
-        title: "Erro ao atualizar status",
-        description: error.message || "Não foi possível atualizar o status",
-        duration: 3000,
-        variant: "destructive"
-      });
-    } finally {
-      setUpdatingStatus(null);
-    }
-  };
-
-  const getTransactionIcon = (transaction: any) => {
-    if (transaction.type === 'transfer') {
-      return <ArrowUpCircle className="h-4 w-4 text-blue-500" />;
-    }
-    return transaction.type === 'income' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />;
-  };
-
-  const getAccountName = (transaction: any) => {
-    if (transaction.account_id && transaction.accounts?.name) {
-      return transaction.accounts.name;
-    }
-    if (transaction.credit_card_id && transaction.credit_cards?.name) {
-      return transaction.credit_cards.name;
-    }
-    return 'N/A';
-  };
-
-  const markAsPaid = async (transactionId: string) => {
-    const toastInstance = toast({ title: "Atualizando...", description: "Aguarde", duration: 2000 });
-    try {
       const { error } = await supabase
         .from("transactions")
-        .update({ 
-          status: 'PAID',
-          liquidation_date: new Date().toISOString()
+        .update({
+          status,
+          liquidation_date: status === "PAID" ? new Date().toISOString() : null,
         })
         .eq("id", transactionId);
 
       if (error) throw error;
 
-      toast({ title: "Sucesso", description: "Transação marcada como paga", duration: 2000 });
-      
-      // Invalidar queries para atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
-    } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível atualizar",
-        duration: 3000,
-        variant: "destructive" as any
+        title: status === "PAID" ? "Transação liquidada" : "Transação reaberta",
+        duration: 2000,
       });
-    }
-  };
-
-  const markAsPending = async (transactionId: string) => {
-    const toastInstance = toast({ title: "Atualizando...", description: "Aguarde", duration: 2000 });
-    try {
-      // Plano Casal: transação do parceiro é somente leitura
-      await assertOwnTransaction(transactionId);
-
-      const { error } = await supabase
-        .from("transactions")
-        .update({ 
-          status: 'PENDING',
-          liquidation_date: null
-        })
-        .eq("id", transactionId);
-
-      if (error) throw error;
-
-      toast({ title: "Sucesso", description: "Status alterado para pendente", duration: 2000 });
-      
-      // Invalidar queries para atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      refreshTransactions();
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível atualizar",
-        duration: 3000,
-        variant: "destructive" as any
+        title: "Não foi possível atualizar",
+        description: e?.message ?? "Tente novamente em instantes.",
+        duration: 4000,
+        variant: "destructive",
       });
     }
   };
 
   const deleteTransaction = async (transactionId: string) => {
     setDeletingTransaction(transactionId);
-    const toastInstance = toast({ title: "Excluindo...", description: "Aguarde", duration: 2000 });
     try {
-      // Plano Casal: transação do parceiro é somente leitura
       await assertOwnTransaction(transactionId);
-
-      const { error } = await supabase
-        .from("transactions")
-        .delete()
-        .eq("id", transactionId);
-
+      const { error } = await supabase.from("transactions").delete().eq("id", transactionId);
       if (error) throw error;
 
-      toast({ title: "Sucesso", description: "Transação excluída", duration: 2000 });
-      
-      // Invalidar queries para atualizar dados
-      queryClient.invalidateQueries({ queryKey: ["monthly-transactions", year, month] });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
+      toast({ title: "Transação excluída", duration: 2000 });
+      refreshTransactions();
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível excluir",
-        duration: 3000,
-        variant: "destructive" as any
+        title: "Não foi possível excluir",
+        description: e?.message ?? "Tente novamente em instantes.",
+        duration: 4000,
+        variant: "destructive",
       });
     } finally {
       setDeletingTransaction(null);
     }
   };
 
-  // Loading screen while fetching initial data
+  const transactionTone = (type: string) =>
+    type === "transfer" ? "text-muted-foreground" : type === "income" ? "text-success" : "text-destructive";
+
+  const TransactionIcon = ({ type }: { type: string }) => {
+    if (type === "transfer") return <ArrowLeftRight className="h-4 w-4 text-muted-foreground" aria-hidden />;
+    return type === "income" ? (
+      <TrendingUp className="h-4 w-4 text-success" aria-hidden />
+    ) : (
+      <TrendingDown className="h-4 w-4 text-destructive" aria-hidden />
+    );
+  };
+
+  const getAccountName = (transaction: any) =>
+    transaction.accounts?.name ?? transaction.credit_cards?.name ?? "—";
+
+  /* ---------------------------------------------------------------- loading */
+
   if (transactionsLoading && transactions.length === 0) {
     return (
-      <div className="min-h-screen bg-background">
-        <main className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6">
-          {/* Loading Statistics Cards */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-            <div className="lg:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-4">
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-              <Skeleton className="h-32" />
-            </div>
-            <div className="lg:col-span-1">
-              <Skeleton className="h-64" />
-            </div>
+      <div className="space-y-8">
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+          <div className="grid grid-cols-2 gap-4 lg:col-span-2">
+            {[0, 1, 2, 3].map((i) => (
+              <Skeleton key={i} className="h-32 rounded-xl" />
+            ))}
           </div>
-
-          {/* Loading Charts */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <Skeleton className="h-96" />
-            <Skeleton className="h-96" />
-          </div>
-
-          {/* Loading Recent Transactions */}
-          <Card className="bg-gradient-card shadow-md">
-            <CardHeader>
-              <Skeleton className="h-8 w-48" />
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-20" />
-              ))}
-            </CardContent>
-          </Card>
-        </main>
+          <Skeleton className="h-full min-h-[16rem] rounded-xl lg:col-span-1" />
+        </div>
+        <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <Skeleton className="h-96 rounded-xl" />
+          <Skeleton className="h-96 rounded-xl" />
+        </div>
       </div>
     );
   }
 
+  /* ------------------------------------------------------------------- view */
+
+  const debtsNegative = Boolean(debtStats && debtStats.totalToPay > debtStats.totalToReceive);
+
   return (
-    <div className="min-h-screen bg-background">
-      <main className="container mx-auto p-0 lg:p-4 space-y-4 lg:space-y-6">
-        {/* Plano Casal: alterna dados pessoais x do casal */}
-        <ViewModeToggle />
+    <div className="animate-fade-in space-y-8 lg:space-y-10">
+      <ViewModeToggle />
 
-        {/* Summary Cards and Subscriptions - New Layout: 2x2 Cards + Subscription Chart */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          {/* Left Side: 2x2 Summary Cards - 2 colunas em mobile */}
-          <div className="lg:col-span-2 grid grid-cols-2 gap-3 lg:gap-4">
-            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  Saldo Atual
-                </CardTitle>
-                <DollarSign className={`h-3 w-3 lg:h-4 lg:w-4 ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`} />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-lg lg:text-2xl font-bold ${indicators.netBalance >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  {formatCurrency(indicators.netBalance)}
-                </div>
-                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
-                  Saldo líquido do mês
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  Ganhos do Mês
-                </CardTitle>
-                <TrendingUp className="h-3 w-3 lg:h-4 lg:w-4 text-success" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg lg:text-2xl font-bold text-success">
-                  {formatCurrency(indicators.incomeReceived)}
-                </div>
-                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
-                  Recebidos
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  Gastos do Mês
-                </CardTitle>
-                <TrendingDown className="h-3 w-3 lg:h-4 lg:w-4 text-destructive" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-lg lg:text-2xl font-bold text-destructive">
-                  {formatCurrency(indicators.expensesPaid)}
-                </div>
-                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
-                  Pagos
-                </p>
-              </CardContent>
-            </Card>
-
-            <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs lg:text-sm font-medium text-muted-foreground">
-                  Saldo de Dívidas
-                </CardTitle>
-                <DollarSign className="h-3 w-3 lg:h-4 lg:w-4 text-purple-500" />
-              </CardHeader>
-              <CardContent>
-                <div className={`text-lg lg:text-2xl font-bold ${debtStats && debtStats.totalToPay > debtStats.totalToReceive ? 'text-red-600' : 'text-purple-600'}`}>
-                  {formatCurrency(debtStats?.netBalance || 0)}
-                </div>
-                <p className="text-[10px] lg:text-xs text-muted-foreground mt-1">
-                  <span className="text-green-600 font-medium">{formatCurrency(debtStats?.totalToReceive || 0)}</span> | <span className="text-red-600 font-medium">{formatCurrency(debtStats?.totalToPay || 0)}</span>
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Right Side: Subscription Chart */}
-          <div className="lg:col-span-1">
-            <SubscriptionChart />
-          </div>
+      {/* KPIs — os protagonistas da tela */}
+      <section aria-label="Indicadores do mês" className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:col-span-2">
+          <StatCard
+            label="Saldo do mês"
+            value={formatCurrency(indicators.netBalance)}
+            tone={indicators.netBalance >= 0 ? "positive" : "negative"}
+            icon={Wallet}
+            hint="Entradas recebidas menos saídas pagas"
+          />
+          <StatCard
+            label="Recebido"
+            value={formatCurrency(indicators.incomeReceived)}
+            tone="positive"
+            icon={TrendingUp}
+            hint="Já entrou na conta"
+          />
+          <StatCard
+            label="Pago"
+            value={formatCurrency(indicators.expensesPaid)}
+            tone="negative"
+            icon={TrendingDown}
+            hint="Já saiu da conta"
+          />
+          <StatCard
+            label="Dívidas"
+            value={formatCurrency(debtStats?.netBalance ?? 0)}
+            tone={debtsNegative ? "negative" : "neutral"}
+            icon={Scale}
+            hint={
+              <StatSplit
+                items={[
+                  { label: "A receber", value: formatCurrency(debtStats?.totalToReceive ?? 0), tone: "positive" },
+                  { label: "A pagar", value: formatCurrency(debtStats?.totalToPay ?? 0), tone: "negative" },
+                ]}
+              />
+            }
+          />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Expense Chart */}
-          <Card className="bg-gradient-card shadow-md">
-            <CardHeader>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-5 w-5 text-primary" />
-                  Gastos por Categoria
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={categoryViewMode === 'list' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCategoryViewMode('list')}
-                    className="h-8 px-3"
-                  >
-                    <List className="h-4 w-4 mr-1" />
-                    Lista
-                  </Button>
-                  <Button
-                    variant={categoryViewMode === 'chart' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setCategoryViewMode('chart')}
-                    className="h-8 px-3"
-                  >
-                    <BarChart3 className="h-4 w-4 mr-1" />
-                    Gráfico
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {transactionsLoading ? (
-                <div className="flex items-center justify-center h-48">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : categoryViewMode === 'list' ? (
-                categoryExpenses.length > 0 ? (
-                  <div className="space-y-3">
-                    {categoryExpenses.map((item, index) => {
-                      const percentage = (item.amount / categoryExpenses.reduce((sum, cat) => sum + cat.amount, 0)) * 100;
-                      const colors = [
-                        'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-                        'bg-red-500', 'bg-purple-500', 'bg-pink-500'
-                      ];
-                      const colorClass = colors[index % colors.length];
-
-                      return (
-                        <div key={item.category} className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium text-foreground">
-                                {item.category}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                {formatCurrency(item.amount)}
-                              </span>
-                            </div>
-                            <div className="w-full bg-muted/30 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${colorClass}`}
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg">
-                    <div className="text-center">
-                      <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">Nenhum gasto categorizado este mês</p>
-                      <p className="text-sm text-muted-foreground mt-2">
-                        Adicione categorias às suas transações para visualizar os gastos por categoria
-                      </p>
-                    </div>
-                  </div>
-                )
-              ) : categoryExpenses.length > 0 ? (
-                <div className="h-[300px] w-full">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={categoryExpenses}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={100}
-                        dataKey="amount"
-                        nameKey="category"
-                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
-                      >
-                        {categoryExpenses.map((entry, index) => {
-                          const colors = [
-                            '#3b82f6', '#10b981', '#f59e0b',
-                            '#ef4444', '#8b5cf6', '#ec4899'
-                          ];
-                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                        })}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                        labelFormatter={(label) => `Categoria: ${label}`}
-                      />
-                      <Legend />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-[300px] bg-muted/20 rounded-lg">
-                  <div className="text-center">
-                    <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground">Nenhum gasto categorizado este mês</p>
-                    <p className="text-sm text-muted-foreground mt-2">
-                      Adicione categorias às suas transações para visualizar o gráfico
-                    </p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Upcoming Transactions */}
-          <Card className="bg-gradient-card shadow-md">
-            <CardHeader>
-              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <Calendar className="h-5 w-5 text-primary" />
-                  Próximos Lançamentos
-                </CardTitle>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={upcomingPeriod === 7 ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setUpcomingPeriod(7)}
-                    className="h-8 px-3"
-                  >
-                    7d
-                  </Button>
-                  <Button
-                    variant={upcomingPeriod === 15 ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setUpcomingPeriod(15)}
-                    className="h-8 px-3"
-                  >
-                    15d
-                  </Button>
-                  <Button
-                    variant={upcomingPeriod === 30 ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setUpcomingPeriod(30)}
-                    className="h-8 px-3"
-                  >
-                    30d
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {transactionsLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-                </div>
-              ) : upcomingTransactions.length === 0 ? (
-                <div className="flex items-center justify-center h-32 text-muted-foreground">
-                  <p>Nenhum lançamento pendente para os próximos {upcomingPeriod} dias</p>
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {upcomingTransactions.map((transaction) => (
-                    <div key={transaction.id} className="flex items-center justify-between p-3 bg-muted/20 rounded-lg hover:bg-muted/30 transition-colors">
-                      <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                        <div className={`w-2 h-8 rounded-full flex-shrink-0 ${transaction.type === 'income' ? 'bg-success' : 'bg-destructive'}`} />
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                            <p className="font-medium text-foreground" title={transaction.description}>{truncateText(transaction.description, 30)}</p>
-                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
-                              <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                {transaction.installmentNumber}/{transaction.totalInstallments}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                            <span className="whitespace-nowrap">{formatDateForDisplay(transaction.date)}</span>
-                            {transaction.categories?.name && (
-                              <>
-                                <span>•</span>
-                                <span className="truncate" title={transaction.categories.name}>{transaction.categories.name}</span>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <div className="text-right">
-                          <p className={`font-semibold text-sm ${transaction.type === 'income' ? 'text-success' : 'text-destructive'}`}>
-                            {transaction.type === 'income' ? '+' : '-'}{formatCurrency(Math.abs(transaction.value))}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {transaction.status === 'PAID' ? (transaction.type === 'income' ? 'Recebido' : 'Pago') : 'Pendente'}
-                          </p>
-                        </div>
-
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          className="h-7 w-7"
-                          onClick={() => {
-                            navigate('/sistema/statement?edit=' + transaction.id);
-                          }}
-                        >
-                          <Edit className="h-3.5 w-3.5" />
-                        </Button>
-
-                        <ConfirmationDialog
-                          title="Confirmar Exclusão"
-                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                          confirmText="Excluir"
-                          onConfirm={() => deleteTransaction(transaction.id)}
-                          variant="destructive"
-                        >
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
-                            disabled={deletingTransaction === transaction.id}
-                          >
-                            {deletingTransaction === transaction.id ? (
-                              <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
-                            ) : (
-                              <Trash2 className="h-3.5 w-3.5" />
-                            )}
-                          </Button>
-                        </ConfirmationDialog>
-
-                        {transaction.status === 'PENDING' ? (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => markAsPaid(transaction.id)}
-                          >
-                            <CheckCircle className="h-3.5 w-3.5" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => markAsPending(transaction.id)}
-                          >
-                            <BanknoteXIcon className="h-3.5 w-3.5" />
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+        <div className="lg:col-span-1">
+          <SubscriptionChart className="h-full" />
         </div>
+      </section>
 
-        {/* Recent Transactions */}
-        <Card className="bg-gradient-card shadow-md">
+      {/* Análise */}
+      <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">
+        <Card>
           <CardHeader>
-            <CardTitle>Últimas Transações</CardTitle>
+            <SectionHead title="Gastos por categoria" icon={PieChart}>
+              <Segmented
+                label="Formato da visualização"
+                value={categoryViewMode}
+                onChange={setCategoryViewMode}
+                options={[
+                  { value: "list", label: "Lista", icon: List },
+                  { value: "chart", label: "Gráfico", icon: BarChart3 },
+                ]}
+              />
+            </SectionHead>
           </CardHeader>
           <CardContent>
-            {transactionsLoading ? (
-              <div className="flex items-center justify-center h-32">
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary"></div>
-              </div>
-            ) : recentTransactions.length === 0 ? (
-              <div className="flex items-center justify-center h-32 text-muted-foreground">
-                <p>Nenhuma transação encontrada</p>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {recentTransactions.map((transaction) => {
-                  const isPendingIncome = transaction.type === 'income' && transaction.status === 'PENDING';
-                  const isPaidExpense = transaction.type === 'expense' && transaction.status === 'PAID' && transaction.is_shared;
-
+            {categoryExpenses.length === 0 ? (
+              <EmptyState
+                icon={PieChart}
+                title="Nenhum gasto categorizado este mês"
+                hint="Atribua categorias às suas transações para ver a distribuição aqui."
+              />
+            ) : categoryViewMode === "list" ? (
+              <ul className="space-y-4">
+                {categoryExpenses.map((item, index) => {
+                  const percentage = categoryTotal > 0 ? (item.amount / categoryTotal) * 100 : 0;
                   return (
-                    <div
-                      key={transaction.id}
-                      className={`flex items-center justify-between p-4 rounded-lg border bg-card hover:bg-accent/50 transition-colors ${
-                        transaction.status === 'PAID' && isPendingIncome ? 'opacity-60' : ''
-                      }`}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        {isPendingIncome ? (
-                          <div className="p-2 rounded-full bg-yellow-100">
-                            <BanknoteXIcon className="h-4 w-4 text-yellow-600" />
-                          </div>
-                        ) : (
-                          getTransactionIcon(transaction)
-                        )}
-                        <div className="flex-1 min-w-0 overflow-hidden">
-                          <div className="flex items-center gap-2 min-w-0 overflow-hidden">
-                            <span className="font-medium" title={transaction.description}>{truncateText(transaction.description, 35)}</span>
-                            {transaction.series_id && transaction.is_shared && (
-                              <Badge variant="secondary" className="text-xs bg-purple-100 text-purple-800 flex-shrink-0">
-                                Rateio
-                              </Badge>
-                            )}
-                            {transaction.linked_txn_id && (
-                              <Badge variant="outline" className="text-xs flex-shrink-0">
-                                Ligada
-                              </Badge>
-                            )}
-                            {viewMode === 'couple' && currentUserId && transaction.user_id !== currentUserId && (
-                              <Badge variant="outline" className="text-xs flex-shrink-0">
-                                Parceiro
-                              </Badge>
-                            )}
-                            {transaction.installmentNumber && transaction.totalInstallments && transaction.totalInstallments > 1 && (
-                              <Badge variant="secondary" className="text-xs flex-shrink-0">
-                                {transaction.installmentNumber}/{transaction.totalInstallments}
-                              </Badge>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
-                            <span title={getAccountName(transaction)}>{truncateText(getAccountName(transaction), 15)}</span>
-                            {transaction.categories?.name && (
-                              <>
-                                <span>•</span>
-                                <span title={transaction.categories.name}>{truncateText(transaction.categories.name, 15)}</span>
-
-                              </>
-                            )}
-                            {transaction.people?.name && (
-                              <>
-                                <span>•</span>
-                                <span title={transaction.people.name}>{truncateText(transaction.people.name, 15)}</span>
-                              </>
-                            )}
-                             <span>•</span>
-                             <span className="whitespace-nowrap">{formatDateForDisplay(transaction.date)}</span>
-                            {isPaidExpense && (
-                              <>
-                                <span>•</span>
-                                <span className="text-purple-600 whitespace-nowrap">
-                                  Minha parte: {formatCurrency(transaction.value)}
-                                </span>
-                              </>
-                            )}
-                          </div>
-                        </div>
+                    <li key={item.category}>
+                      <div className="mb-1.5 flex items-baseline justify-between gap-3">
+                        <span className="flex min-w-0 items-center gap-2">
+                          <span
+                            aria-hidden
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: palette.at(index) }}
+                          />
+                          <span className="truncate text-sm text-foreground">{item.category}</span>
+                        </span>
+                        <span className="flex shrink-0 items-baseline gap-2">
+                          <span className="tabular text-2xs text-muted-foreground">{percentage.toFixed(0)}%</span>
+                          <span className="figure-sm tabular text-foreground">{formatCurrency(item.amount)}</span>
+                        </span>
                       </div>
-
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className={`font-semibold ${
-                            transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
-                          }`}>
-                            {transaction.type === 'income' ? '+' : '-'}
-                            {formatCurrency(transaction.value)}
-                          </div>
-                          <div className="text-xs text-muted-foreground">
-                            {transaction.status === 'PAID'
-                              ? (transaction.type === 'income' ? 'Recebido' : 'Pago') + 
-                                ((transaction as any).liquidation_date ? ` em ${new Date((transaction as any).liquidation_date).toLocaleDateString('pt-BR')}` : '')
-                              : 'Pendente'}
-                              
-                          </div>
-                        </div>
-
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={!isMine(transaction.user_id)}
-                          onClick={() => {
-                            navigate('/sistema/statement?edit=' + transaction.id);
-                          }}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-
-                        <ConfirmationDialog
-                          title="Confirmar Exclusão"
-                          description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                          confirmText="Excluir"
-                          onConfirm={() => deleteTransaction(transaction.id)}
-                          variant="destructive"
-                        >
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={deletingTransaction === transaction.id || !isMine(transaction.user_id)}
-                            className="text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
-                          >
-                            {deletingTransaction === transaction.id ? (
-                              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-600"></div>
-                            ) : (
-                              <Trash2 className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </ConfirmationDialog>
-
-                        {transaction.status === 'PENDING' ? (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!isMine(transaction.user_id)}
-                            onClick={() => markAsPaid(transaction.id)}
-                          >
-                            <CheckCircle className="h-4 w-4" />
-                          </Button>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            disabled={!isMine(transaction.user_id)}
-                            onClick={() => markAsPending(transaction.id)}
-                          >
-                            <BanknoteXIcon className="h-4 w-4" />
-                          </Button>
-                        )}
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        <div
+                          className="h-full rounded-full"
+                          style={{ width: `${percentage}%`, backgroundColor: palette.at(index) }}
+                        />
                       </div>
-                    </div>
+                    </li>
                   );
                 })}
+              </ul>
+            ) : (
+              <div className="h-[19rem] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={categoryExpenses}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={62}
+                      outerRadius={104}
+                      paddingAngle={2}
+                      dataKey="amount"
+                      nameKey="category"
+                      stroke="none"
+                    >
+                      {categoryExpenses.map((entry, index) => (
+                        <Cell key={entry.category} fill={palette.at(index)} />
+                      ))}
+                    </Pie>
+                    <Tooltip
+                      cursor={false}
+                      formatter={(value: number) => [formatCurrency(value), "Valor"]}
+                      contentStyle={{
+                        background: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: "0.5rem",
+                        boxShadow: "var(--shadow-md)",
+                        fontSize: "0.8125rem",
+                      }}
+                      labelStyle={{ color: "hsl(var(--muted-foreground))" }}
+                      itemStyle={{ color: "hsl(var(--foreground))" }}
+                    />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
               </div>
             )}
           </CardContent>
         </Card>
-      </main>
+
+        {/* Próximos lançamentos */}
+        <Card>
+          <CardHeader>
+            <SectionHead title="Próximos lançamentos" icon={Calendar}>
+              <Segmented
+                label="Período"
+                value={upcomingPeriod}
+                onChange={setUpcomingPeriod}
+                options={[
+                  { value: 7, label: "7 dias" },
+                  { value: 15, label: "15 dias" },
+                  { value: 30, label: "30 dias" },
+                ]}
+              />
+            </SectionHead>
+          </CardHeader>
+          <CardContent>
+            {upcomingTransactions.length === 0 ? (
+              <EmptyState
+                icon={Calendar}
+                title={`Nada pendente nos próximos ${upcomingPeriod} dias`}
+                hint="Você está em dia com o que estava agendado para este período."
+              />
+            ) : (
+              <ul className="divide-y divide-border-subtle">
+                {upcomingTransactions.map((transaction) => (
+                  <li key={transaction.id} className="flex items-center gap-3 py-3 first:pt-0 last:pb-0">
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "h-8 w-0.5 shrink-0 rounded-full",
+                        transaction.type === "income" ? "bg-success" : "bg-destructive",
+                      )}
+                    />
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-sm font-medium text-foreground" title={transaction.description}>
+                          {transaction.description}
+                        </p>
+                        {transaction.installmentNumber && transaction.totalInstallments > 1 && (
+                          <Badge variant="outline">
+                            {transaction.installmentNumber}/{transaction.totalInstallments}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="truncate text-xs text-muted-foreground">
+                        <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
+                        {transaction.categories?.name && ` · ${transaction.categories.name}`}
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 text-right">
+                      <p className={cn("figure-sm tabular", transactionTone(transaction.type))}>
+                        {transaction.type === "income" ? "+" : "−"}
+                        {formatCurrency(Math.abs(transaction.value))}
+                      </p>
+                      <p className="text-2xs text-muted-foreground">Pendente</p>
+                    </div>
+
+                    <div className="flex shrink-0 items-center">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Editar ${transaction.description}`}
+                        onClick={() => navigate(`/sistema/statement?edit=${transaction.id}`)}
+                      >
+                        <Edit />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label={`Marcar ${transaction.description} como liquidada`}
+                        onClick={() => setStatus(transaction.id, "PAID")}
+                      >
+                        <CheckCircle />
+                      </Button>
+                      <ConfirmationDialog
+                        title="Excluir transação"
+                        description="Esta ação não pode ser desfeita."
+                        confirmText="Excluir"
+                        onConfirm={() => deleteTransaction(transaction.id)}
+                        variant="destructive"
+                      >
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Excluir ${transaction.description}`}
+                          className="hover:text-destructive"
+                          disabled={deletingTransaction === transaction.id}
+                        >
+                          <Trash2 />
+                        </Button>
+                      </ConfirmationDialog>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Últimas transações */}
+      <section>
+        <Card>
+          <CardHeader>
+            <SectionHead title="Últimas transações">
+              <Button variant="outline" size="sm" onClick={() => navigate("/sistema/statement")}>
+                Ver extrato
+              </Button>
+            </SectionHead>
+          </CardHeader>
+          <CardContent>
+            {recentTransactions.length === 0 ? (
+              <EmptyState
+                icon={List}
+                title="Nenhuma transação este mês"
+                hint="Registre a primeira transação para começar a acompanhar seu saldo."
+              />
+            ) : (
+              <ul className="divide-y divide-border-subtle">
+                {recentTransactions.map((transaction) => {
+                  const isPaidSharedExpense =
+                    transaction.type === "expense" && transaction.status === "PAID" && transaction.is_shared;
+                  const isSettled = transaction.status === "PAID";
+
+                  return (
+                    <li key={transaction.id} className="flex items-center gap-3 py-4 first:pt-0 last:pb-0">
+                      <TransactionIcon type={transaction.type} />
+
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="truncate text-sm font-medium text-foreground" title={transaction.description}>
+                            {transaction.description}
+                          </span>
+                          {transaction.series_id && transaction.is_shared && <Badge variant="secondary">Rateio</Badge>}
+                          {transaction.linked_txn_id && <Badge variant="outline">Ligada</Badge>}
+                          {viewMode === "couple" && currentUserId && transaction.user_id !== currentUserId && (
+                            <Badge variant="outline">Parceiro</Badge>
+                          )}
+                          {transaction.installmentNumber && transaction.totalInstallments > 1 && (
+                            <Badge variant="outline">
+                              {transaction.installmentNumber}/{transaction.totalInstallments}
+                            </Badge>
+                          )}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          {truncateText(getAccountName(transaction), 18)}
+                          {transaction.categories?.name && ` · ${truncateText(transaction.categories.name, 18)}`}
+                          {transaction.people?.name && ` · ${truncateText(transaction.people.name, 18)}`}
+                          {" · "}
+                          <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
+                          {isPaidSharedExpense && ` · minha parte ${formatCurrency(transaction.value)}`}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0 text-right">
+                        <p className={cn("figure-sm tabular", transactionTone(transaction.type))}>
+                          {transaction.type === "income" ? "+" : "−"}
+                          {formatCurrency(transaction.value)}
+                        </p>
+                        <p className="text-2xs text-muted-foreground">
+                          {isSettled ? (transaction.type === "income" ? "Recebido" : "Pago") : "Pendente"}
+                        </p>
+                      </div>
+
+                      <div className="flex shrink-0 items-center">
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={`Editar ${transaction.description}`}
+                          disabled={!isMine(transaction.user_id)}
+                          onClick={() => navigate(`/sistema/statement?edit=${transaction.id}`)}
+                        >
+                          <Edit />
+                        </Button>
+                        <Button
+                          size="icon-sm"
+                          variant="ghost"
+                          aria-label={
+                            isSettled
+                              ? `Reabrir ${transaction.description}`
+                              : `Marcar ${transaction.description} como liquidada`
+                          }
+                          disabled={!isMine(transaction.user_id)}
+                          onClick={() => setStatus(transaction.id, isSettled ? "PENDING" : "PAID")}
+                        >
+                          {isSettled ? <Undo2 /> : <CheckCircle />}
+                        </Button>
+                        <ConfirmationDialog
+                          title="Excluir transação"
+                          description="Esta ação não pode ser desfeita."
+                          confirmText="Excluir"
+                          onConfirm={() => deleteTransaction(transaction.id)}
+                          variant="destructive"
+                        >
+                          <Button
+                            size="icon-sm"
+                            variant="ghost"
+                            aria-label={`Excluir ${transaction.description}`}
+                            className="hover:text-destructive"
+                            disabled={deletingTransaction === transaction.id || !isMine(transaction.user_id)}
+                          >
+                            <Trash2 />
+                          </Button>
+                        </ConfirmationDialog>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </section>
     </div>
   );
 }

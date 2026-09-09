@@ -118,9 +118,9 @@ function CardsContent() {
   const getBrandIcon = (brand: string | null) => {
     if (!brand) return <CreditCard className="h-5 w-5" />;
     const brandLower = brand.toLowerCase();
-    if (brandLower.includes('visa')) return <CreditCard className="h-5 w-5 text-blue-600" />;
-    if (brandLower.includes('mastercard')) return <CreditCard className="h-5 w-5 text-red-600" />;
-    if (brandLower.includes('elo')) return <CreditCard className="h-5 w-5 text-yellow-600" />;
+    if (brandLower.includes('visa')) return <CreditCard className="h-5 w-5 text-primary" />;
+    if (brandLower.includes('mastercard')) return <CreditCard className="h-5 w-5 text-destructive" />;
+    if (brandLower.includes('elo')) return <CreditCard className="h-5 w-5 text-warning" />;
     return <CreditCard className="h-5 w-5" />;
   };
 
@@ -172,7 +172,7 @@ function CardsContent() {
     const usagePercentage = (usage / card.limit) * 100;
 
     return (
-      <Card className="group hover:shadow-lg transition-all duration-200">
+      <Card className="group transition-all duration-200">
         <CardHeader className="pb-3">
           <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
             <div className="flex items-center gap-3 flex-1">
@@ -227,10 +227,10 @@ function CardsContent() {
               <div
                 className={`h-2 rounded-full transition-all duration-300 ${
                   usagePercentage > 80
-                    ? "bg-red-500"
+                    ? "bg-destructive"
                     : usagePercentage > 50
-                    ? "bg-yellow-500"
-                    : "bg-green-500"
+                    ? "bg-warning"
+                    : "bg-success"
                 }`}
                 style={{ width: `${Math.min(usagePercentage, 100)}%` }}
               />
@@ -327,8 +327,8 @@ function CardsContent() {
                 <span>Limite: {formatCurrency(card.limit)}</span>
                 <span>Uso: {formatCurrency(usage)}</span>
                 <span className={`font-medium ${
-                  usagePercentage > 80 ? "text-red-600" :
-                  usagePercentage > 50 ? "text-yellow-600" : "text-green-600"
+                  usagePercentage > 80 ? "text-destructive" :
+                  usagePercentage > 50 ? "text-warning" : "text-success"
                 }`}>
                   {usagePercentage.toFixed(1)}%
                 </span>

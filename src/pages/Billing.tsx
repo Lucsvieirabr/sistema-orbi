@@ -71,7 +71,7 @@ export default function Billing() {
   const nextDue = formatDate(status.next_due_date);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
+    <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
           <img src={orbiLogo} alt="Orbi" className="h-7 w-7" />

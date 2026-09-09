@@ -198,13 +198,13 @@ export default function AdminManagement() {
                 </div>
               ) : (
                 filteredAdmins?.map((admin) => (
-                  <Card key={admin.user_id} className="group hover:shadow-lg transition-all duration-200">
+                  <Card key={admin.user_id} className="group transition-all duration-200">
                     <CardHeader className="pb-3">
                       <div className="flex items-start justify-between">
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2">
                             {admin.role === 'super_admin' && (
-                              <Crown className="h-4 w-4 text-yellow-500" />
+                              <Crown className="h-4 w-4 text-warning" />
                             )}
                             <h3 className="font-semibold text-lg truncate" title={admin.email || ''}>
                               {admin.full_name || admin.email || 'Admin sem nome'}
@@ -230,7 +230,7 @@ export default function AdminManagement() {
                         <div className="flex items-center justify-between">
                           <span className="text-sm text-muted-foreground">Status:</span>
                           {admin.is_active ? (
-                            <Badge variant="default" className="bg-green-500">Ativo</Badge>
+                            <Badge variant="default" className="bg-success">Ativo</Badge>
                           ) : (
                             <Badge variant="destructive">Inativo</Badge>
                           )}
@@ -297,7 +297,7 @@ export default function AdminManagement() {
                         <div className="flex items-center gap-4 flex-1 min-w-0">
                           <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
                             {admin.role === 'super_admin' ? (
-                              <Crown className="h-5 w-5 text-yellow-500" />
+                              <Crown className="h-5 w-5 text-warning" />
                             ) : (
                               <Shield className="h-5 w-5 text-primary" />
                             )}
@@ -314,7 +314,7 @@ export default function AdminManagement() {
                                 {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
                               </Badge>
                               {admin.is_active ? (
-                                <Badge variant="default" className="bg-green-500 text-xs">
+                                <Badge variant="default" className="bg-success text-xs">
                                   Ativo
                                 </Badge>
                               ) : (

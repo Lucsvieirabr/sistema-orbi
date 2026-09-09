@@ -58,8 +58,8 @@ export function PaymentDialog({ open, onOpenChange, paymentData }: PaymentDialog
         <div className="space-y-6 py-6">
           {/* Ícone de sucesso */}
           <div className="flex justify-center">
-            <div className="rounded-full bg-green-100 dark:bg-green-900/20 p-4">
-              <CheckCircle2 className="h-12 w-12 text-green-600 dark:text-green-400" />
+            <div className="rounded-full bg-success-soft p-4">
+              <CheckCircle2 className="h-12 w-12 text-success dark:text-success" />
             </div>
           </div>
 

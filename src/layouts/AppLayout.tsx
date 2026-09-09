@@ -1,7 +1,5 @@
-import { Outlet, NavLink, useNavigate, useSearchParams } from "react-router-dom";
+import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
-import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
 import { useToast } from "@/hooks/use-toast";
@@ -19,20 +17,17 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
   const isMobile = useIsMobile();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  // Detectar retorno de pagamento bem-sucedido
   useEffect(() => {
-    const paymentStatus = searchParams.get('payment');
-    if (paymentStatus === 'success') {
-      toast({
-        title: "🎉 Pagamento Confirmado!",
-        description: "Seu pagamento foi processado com sucesso. Sua assinatura será ativada em breve.",
-        duration: 8000,
-      });
-      
-      // Limpar parâmetro da URL
-      searchParams.delete('payment');
-      setSearchParams(searchParams, { replace: true });
-    }
+    if (searchParams.get("payment") !== "success") return;
+
+    toast({
+      title: "Pagamento confirmado",
+      description: "Sua assinatura é ativada em instantes.",
+      duration: 8000,
+    });
+
+    searchParams.delete("payment");
+    setSearchParams(searchParams, { replace: true });
   }, [searchParams, setSearchParams, toast]);
 
   const handleLogout = () => {
@@ -42,33 +37,34 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
 
   return (
     <SidebarProvider>
-      {/* Desktop Sidebar - hidden on mobile */}
       {!isMobile && <AppSidebar />}
-      
-      {/* Mobile Sidebar - in Sheet */}
-      {isMobile && (
-        <AppSidebar 
-          open={mobileMenuOpen} 
-          onOpenChange={setMobileMenuOpen}
-        />
-      )}
-      
+      {isMobile && <AppSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />}
+
       <SidebarInset>
-        <div className="flex flex-col min-h-screen">
-          <AppHeader 
-            title="Orbi" 
-            subtitle="Sua visão financeira" 
+        <a
+          href="#conteudo"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-primary focus:px-4 focus:py-2 focus:text-sm focus:text-primary-foreground"
+        >
+          Pular para o conteúdo
+        </a>
+
+        <div className="flex min-h-svh flex-col bg-background">
+          <AppHeader
+            title="Orbi"
+            subtitle="Sua visão financeira"
             onLogout={handleLogout}
             onMenuClick={() => setMobileMenuOpen(true)}
             showMenuButton={isMobile}
           />
-          <main className="flex-1 p-4">
-            <Outlet />
+
+          {/* Whitespace é o elemento de design: gutters largos, medida máxima controlada. */}
+          <main id="conteudo" className="flex-1 px-4 py-6 lg:px-8 lg:py-10">
+            <div className="mx-auto w-full max-w-[88rem]">
+              <Outlet />
+            </div>
           </main>
         </div>
       </SidebarInset>
     </SidebarProvider>
   );
 }
-
-

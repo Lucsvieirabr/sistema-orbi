@@ -50,6 +50,8 @@ import { useCreditCards } from "@/hooks/use-credit-cards";
 import { useCardTransactions } from "@/hooks/use-card-transactions";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
+import { chartColors } from "@/lib/chart-colors";
+
 import {
   formatCurrencyBRL,
   getCurrentDateString,
@@ -143,32 +145,32 @@ export default function CardStatements() {
     if (!brand) return <CreditCard className="h-5 w-5" />;
     const brandLower = brand.toLowerCase();
     if (brandLower.includes("visa"))
-      return <CreditCard className="h-5 w-5 text-blue-600" />;
+      return <CreditCard className="h-5 w-5 text-primary" />;
     if (brandLower.includes("mastercard"))
-      return <CreditCard className="h-5 w-5 text-red-600" />;
+      return <CreditCard className="h-5 w-5 text-destructive" />;
     if (brandLower.includes("elo"))
-      return <CreditCard className="h-5 w-5 text-yellow-600" />;
+      return <CreditCard className="h-5 w-5 text-warning" />;
     return <CreditCard className="h-5 w-5" />;
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "PAID":
-        return <CheckCircle className="h-4 w-4 text-green-600" />;
+        return <CheckCircle className="h-4 w-4 text-success" />;
       case "PENDING":
-        return <Clock className="h-4 w-4 text-yellow-600" />;
+        return <Clock className="h-4 w-4 text-warning" />;
       case "CANCELED":
-        return <AlertTriangle className="h-4 w-4 text-red-600" />;
+        return <AlertTriangle className="h-4 w-4 text-destructive" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-600" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
   const getTypeIcon = (type: string) => {
     return type === "income" ? (
-      <TrendingUp className="h-4 w-4 text-green-600" />
+      <TrendingUp className="h-4 w-4 text-success" />
     ) : (
-      <TrendingDown className="h-4 w-4 text-red-600" />
+      <TrendingDown className="h-4 w-4 text-destructive" />
     );
   };
 
@@ -380,15 +382,15 @@ export default function CardStatements() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Left Column - Stats */}
         <div className="space-y-4">
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+          <Card className="shadow-md transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground">
                 Fatura Atual
               </CardTitle>
-              <TrendingDown className="h-3.5 w-3.5 text-red-600" />
+              <TrendingDown className="h-3.5 w-3.5 text-destructive" />
             </CardHeader>
             <CardContent className="pb-3">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-destructive">
                 {formatCurrency(totals.totalExpenses)}
               </div>
               <p className="text-[10px] text-muted-foreground mt-0.5">
@@ -397,7 +399,7 @@ export default function CardStatements() {
               <Button
                 onClick={handlePayStatement}
                 disabled={payingStatement || !totals.hasPending}
-                className="w-full mt-3 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full mt-3 bg-success hover:bg-success disabled:opacity-50 disabled:cursor-not-allowed"
                 size="sm"
               >
                 <CheckCircle className="h-4 w-4 mr-2" />
@@ -406,15 +408,15 @@ export default function CardStatements() {
             </CardContent>
           </Card>
 
-          <Card className="bg-gradient-card shadow-md hover:shadow-lg transition-all duration-200">
+          <Card className="shadow-md transition-all duration-200">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-xs font-medium text-muted-foreground">
                 Total de Transações
               </CardTitle>
-              <ReceiptIcon className="h-3.5 w-3.5 text-blue-600" />
+              <ReceiptIcon className="h-3.5 w-3.5 text-primary" />
             </CardHeader>
             <CardContent className="pb-3">
-              <div className="text-2xl font-bold text-blue-600">{totals.count}</div>
+              <div className="text-2xl font-bold text-primary">{totals.count}</div>
               <p className="text-[10px] text-muted-foreground mt-0.5">
                 No período da fatura
               </p>
@@ -424,7 +426,7 @@ export default function CardStatements() {
 
         {/* Right Column - Category Chart */}
         <div className="lg:col-span-2">
-          <Card className="bg-gradient-card shadow-md h-full">
+          <Card className="shadow-md h-full">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
@@ -464,8 +466,8 @@ export default function CardStatements() {
                     {categoryExpenses.map((item, index) => {
                       const percentage = (item.amount / categoryExpenses.reduce((sum, cat) => sum + cat.amount, 0)) * 100;
                       const colors = [
-                        'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-                        'bg-red-500', 'bg-purple-500', 'bg-pink-500'
+                        'bg-primary', 'bg-success', 'bg-warning',
+                        'bg-destructive', 'bg-chart-6', 'bg-chart-6'
                       ];
                       const colorClass = colors[index % colors.length];
 
@@ -514,10 +516,7 @@ export default function CardStatements() {
                         label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
                       >
                         {categoryExpenses.map((entry, index) => {
-                          const colors = [
-                            '#3b82f6', '#10b981', '#f59e0b',
-                            '#ef4444', '#8b5cf6', '#ec4899'
-                          ];
+                          const colors = chartColors();
                           return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                         })}
                       </Pie>
@@ -628,8 +627,8 @@ export default function CardStatements() {
                         <span
                           className={`font-semibold ${
                             transaction.type === "income"
-                              ? "text-green-600"
-                              : "text-red-600"
+                              ? "text-success"
+                              : "text-destructive"
                           }`}
                         >
                           {transaction.type === "income" ? "+" : "-"}
@@ -656,11 +655,11 @@ export default function CardStatements() {
                             <Button
                               size="icon"
                               variant="ghost"
-                              className="h-7 w-7 text-red-600 hover:text-red-700 hover:bg-red-50 disabled:opacity-50"
+                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive-soft disabled:opacity-50"
                               disabled={deletingTransaction === transaction.id}
                             >
                               {deletingTransaction === transaction.id ? (
-                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-red-600"></div>
+                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-destructive"></div>
                               ) : (
                                 <Trash2 className="h-3.5 w-3.5" />
                               )}

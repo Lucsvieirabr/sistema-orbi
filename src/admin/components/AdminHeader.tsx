@@ -69,7 +69,7 @@ export function AdminHeader() {
   };
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-border bg-card/50 backdrop-blur-sm px-6">
+    <header className="sticky top-0 z-30 flex h-header items-center justify-between border-b border-border-subtle bg-background/90 px-4 backdrop-blur-[2px] lg:px-8">
       <div>
         <h1 className="text-xl md:text-2xl font-bold text-foreground">{pageInfo.title}</h1>
         <p className="text-xs md:text-sm text-muted-foreground hidden md:block">{pageInfo.description}</p>

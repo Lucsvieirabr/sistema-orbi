@@ -24,13 +24,13 @@ export default function AdminLayout() {
   // Se não for admin, mostra página de acesso negado (sem loop)
   if (!isAdmin) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-red-950/20 via-background to-red-950/10 p-4">
-        <Card className="w-full max-w-md shadow-2xl border-red-900/20">
+      <div className="flex items-center justify-center min-h-screen bg-background p-4">
+        <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-red-100 dark:bg-red-950 flex items-center justify-center">
-              <ShieldAlert className="h-8 w-8 text-red-600" />
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-destructive-soft flex items-center justify-center">
+              <ShieldAlert className="h-8 w-8 text-destructive" />
             </div>
-            <CardTitle className="text-2xl text-red-600">Acesso Negado</CardTitle>
+            <CardTitle className="text-2xl text-destructive">Acesso Negado</CardTitle>
             <CardDescription>
               Você não possui permissões de administrador para acessar esta área.
             </CardDescription>

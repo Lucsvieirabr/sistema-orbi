@@ -86,14 +86,14 @@ export default function SubscriptionManagement() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, { variant: any; label: string; color: string }> = {
-      trial: { variant: 'secondary', label: 'Trial', color: 'text-blue-500' },
-      active: { variant: 'default', label: 'Ativo', color: 'text-green-500' },
-      past_due: { variant: 'destructive', label: 'Atrasado', color: 'text-red-500' },
-      canceled: { variant: 'outline', label: 'Cancelado', color: 'text-gray-500' },
-      expired: { variant: 'destructive', label: 'Expirado', color: 'text-red-500' },
+      trial: { variant: 'secondary', label: 'Trial', color: 'text-primary' },
+      active: { variant: 'default', label: 'Ativo', color: 'text-success' },
+      past_due: { variant: 'destructive', label: 'Atrasado', color: 'text-destructive' },
+      canceled: { variant: 'outline', label: 'Cancelado', color: 'text-muted-foreground' },
+      expired: { variant: 'destructive', label: 'Expirado', color: 'text-destructive' },
     };
 
-    const config = variants[status] || { variant: 'outline', label: status, color: 'text-gray-500' };
+    const config = variants[status] || { variant: 'outline', label: status, color: 'text-muted-foreground' };
     return { ...config };
   };
 
@@ -184,7 +184,7 @@ export default function SubscriptionManagement() {
                 filteredSubscriptions?.map((sub) => {
                   const statusConfig = getStatusBadge(sub.status);
                   return (
-                    <Card key={sub.id} className="group hover:shadow-lg transition-all duration-200">
+                    <Card key={sub.id} className="group transition-all duration-200">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">

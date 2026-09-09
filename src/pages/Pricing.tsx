@@ -278,7 +278,7 @@ export default function Pricing() {
         paymentData={paymentData}
       />
 
-      <div className="min-h-screen bg-gradient-to-br from-background to-secondary/20">
+      <div className="min-h-screen bg-background">
       {/* Header */}
       <div className="container mx-auto px-4 py-2">
         <div className="flex items-center justify-between">
@@ -329,11 +329,11 @@ export default function Pricing() {
             </ToggleGroupItem>
             <ToggleGroupItem 
               value="yearly" 
-              className="px-4 py-2 data-[state=on]:bg-gradient-to-r data-[state=on]:from-primary data-[state=on]:to-primary/80 data-[state=on]:text-primary-foreground font-bold relative"
+              className="px-4 py-2 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground font-medium relative"
             >
               Anual
               {maxSavingsPercentage > 0 && (
-                <Badge className="ml-2 absolute -top-3 -right-3 text-xs font-bold px-2 py-0.5 shadow-lg bg-green-600 hover:bg-green-600 text-white">
+                <Badge className="ml-2 absolute -top-3 -right-3 text-xs font-bold px-2 py-0.5 shadow-lg bg-success hover:bg-success text-white">
                   -{maxSavingsPercentage}%
                 </Badge>
               )}
@@ -368,15 +368,15 @@ export default function Pricing() {
                 key={plan.id}
                 className={`relative flex flex-col w-full md:w-96 ${
                   isUserCurrentPlan
-                    ? 'border-green-500 shadow-xl scale-[1.02] ring-2 ring-green-500/50'
+                    ? 'border-success/30 shadow-xl scale-[1.02] ring-2 ring-success/50'
                     : plan.is_featured
                     ? 'border-primary shadow-xl scale-[1.02]'
-                    : 'hover:shadow-lg'
+                    : ''
                 } transition-all`}
               >
                 {isUserCurrentPlan && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <Badge className="bg-green-600 hover:bg-green-600 text-white text-xs font-bold">
+                    <Badge className="bg-success hover:bg-success text-white text-xs font-bold">
                       ✓ Seu Plano Atual
                     </Badge>
                   </div>
@@ -413,7 +413,7 @@ export default function Pricing() {
                     )}
                     {savings && savings.freeMonths > 0 && (
                       <div className="mt-2 text-center">
-                        <div className="text-sm font-bold text-green-600 dark:text-green-400" style={{ textShadow: '0 0 20px rgba(34, 197, 94, 0.6)' }}>
+                        <div className="text-sm font-bold text-success dark:text-success" style={{ textShadow: '0 0 20px rgba(34, 197, 94, 0.6)' }}>
                           🎁 {savings.isAlmost ? 'Quase ' : ''}{savings.isAlmost ? savings.freeMonths + 1 : savings.freeMonths} {(savings.isAlmost ? savings.freeMonths + 1 : savings.freeMonths) === 1 ? 'mês grátis' : 'meses grátis'}
                         </div>
                       </div>
@@ -425,9 +425,9 @@ export default function Pricing() {
                     {getSimplifiedFeatures(plan.features).map((feature) => (
                       <div key={feature.key} className="flex items-center gap-1.5">
                         {feature.enabled ? (
-                          <Check className="h-3.5 w-3.5 text-green-500 flex-shrink-0" />
+                          <Check className="h-3.5 w-3.5 text-success flex-shrink-0" />
                         ) : (
-                          <X className="h-3.5 w-3.5 text-red-500 flex-shrink-0" />
+                          <X className="h-3.5 w-3.5 text-destructive flex-shrink-0" />
                         )}
                         <span className={`text-xs ${feature.enabled ? 'text-foreground' : 'text-muted-foreground opacity-60'}`}>
                           {feature.label}

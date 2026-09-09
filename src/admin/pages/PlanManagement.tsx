@@ -206,7 +206,7 @@ export default function PlanManagement() {
                 filteredPlans.map((plan) => (
                   <Card 
                     key={plan.id} 
-                    className={`group hover:shadow-lg transition-all duration-200 ${
+                    className={`group  transition-all duration-200 ${
                       plan.is_featured ? 'border-primary shadow-md' : ''
                     }`}
                     style={{ borderTop: plan.is_featured ? '4px solid hsl(var(--primary))' : '' }}
@@ -216,9 +216,9 @@ export default function PlanManagement() {
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             {plan.is_active ? (
-                              <Check className="h-4 w-4 text-green-500" />
+                              <Check className="h-4 w-4 text-success" />
                             ) : (
-                              <X className="h-4 w-4 text-red-500" />
+                              <X className="h-4 w-4 text-destructive" />
                             )}
                             <h3 className="font-semibold text-lg">{plan.name}</h3>
                             {plan.is_featured && (
@@ -320,12 +320,12 @@ export default function PlanManagement() {
                       >
                         <div className="flex items-center gap-4">
                           {plan.is_active ? (
-                            <div className="h-10 w-10 rounded-full bg-green-100 flex items-center justify-center">
-                              <Check className="h-5 w-5 text-green-600" />
+                            <div className="h-10 w-10 rounded-full bg-success-soft flex items-center justify-center">
+                              <Check className="h-5 w-5 text-success" />
                             </div>
                           ) : (
-                            <div className="h-10 w-10 rounded-full bg-red-100 flex items-center justify-center">
-                              <X className="h-5 w-5 text-red-600" />
+                            <div className="h-10 w-10 rounded-full bg-destructive-soft flex items-center justify-center">
+                              <X className="h-5 w-5 text-destructive" />
                             </div>
                           )}
                           <div>

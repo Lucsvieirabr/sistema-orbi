@@ -188,7 +188,7 @@ export function CompositionDialog({
                   >
                     <div className="flex-1 grid grid-cols-3 gap-2 text-sm">
                       <div>
-                        <span className="font-medium text-green-600">
+                        <span className="font-medium text-success">
                           R$ {item.value.toFixed(2)}
                         </span>
                       </div>
@@ -213,12 +213,12 @@ export function CompositionDialog({
           )}
 
           {/* Resumo */}
-          <div className="p-3 border rounded-lg bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+          <div className="p-3 border rounded-lg bg-info-soft border-primary/30">
             <div className="flex justify-between items-center">
-              <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              <span className="text-sm font-medium text-primary">
                 Valor Total do Rateio:
               </span>
-              <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+              <span className="text-lg font-bold text-primary">
                 R$ {itemsTotal.toFixed(2)}
               </span>
             </div>

@@ -165,7 +165,7 @@ export default function UserManagement() {
                   </div>
                 ) : (
                   filteredUsers?.map((user) => (
-                    <Card key={user.user_id} className="group hover:shadow-lg transition-all duration-200">
+                    <Card key={user.user_id} className="group transition-all duration-200">
                       <CardHeader className="pb-3">
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
@@ -207,7 +207,7 @@ export default function UserManagement() {
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-muted-foreground">Onboarding:</span>
                             {user.onboarding_completed ? (
-                              <Badge variant="default" className="bg-green-500">Completo</Badge>
+                              <Badge variant="default" className="bg-success">Completo</Badge>
                             ) : (
                               <Badge variant="secondary">Pendente</Badge>
                             )}
@@ -266,7 +266,7 @@ export default function UserManagement() {
                                 )}
                                 {getStatusBadge(user.subscription_status)}
                                 {user.onboarding_completed ? (
-                                  <Badge variant="default" className="bg-green-500 text-xs">
+                                  <Badge variant="default" className="bg-success text-xs">
                                     Onboarding OK
                                   </Badge>
                                 ) : (

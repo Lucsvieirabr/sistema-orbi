@@ -451,31 +451,31 @@ export function InstallmentForm({
   return (
     <div className="space-y-3">
       {/* Resumo do valor total fixo com controles integrados */}
-      <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+      <Card className="bg-info-soft border-primary/30">
         <CardContent className="p-2">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
                 Valor Total Fixo
               </span>
-              <span className="text-xs bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-300 px-1.5 py-0.5 rounded">
+              <span className="text-xs bg-info-soft text-primary px-1.5 py-0.5 rounded">
                 {seriesId ? 'Série' : 'Manual'}
               </span>
-              <span className="text-xs text-blue-600 font-medium">
+              <span className="text-xs text-primary font-medium">
                 {installmentsList.length} parcela{installmentsList.length !== 1 ? 's' : ''}
               </span>
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right mr-2">
-                <div className="text-lg font-bold text-blue-600">
+                <div className="text-lg font-bold text-primary">
                   {formatCurrencyBRL(totalValue)}
                 </div>
-                <div className="text-xs text-blue-600">
+                <div className="text-xs text-primary">
                   {formatCurrencyBRL(exactValuePerInstallment)} por parcela
                 </div>
                 {hasValueDiscrepancy && (
-                  <div className="text-xs text-orange-600 font-medium">
+                  <div className="text-xs text-warning font-medium">
                     Atual: {formatCurrencyBRL(currentTotalValue)}
                   </div>
                 )}
@@ -512,7 +512,7 @@ export function InstallmentForm({
       {/* Lista de parcelas - Layout ultra compacto */}
       <div className="space-y-1 max-h-96 overflow-y-auto">
         {installmentsList.map((installment, index) => (
-          <Card key={installment.id} className={`border-l-4 ${installment.isEdited ? 'border-l-orange-500 bg-orange-50/50 dark:bg-orange-950/10' : 'border-l-blue-500'}`}>
+          <Card key={installment.id} className={`border-l-4 ${installment.isEdited ? 'border-l-orange-500 bg-warning-soft/50' : 'border-l-blue-500'}`}>
             <CardContent className="p-2">
               {/* Cabeçalho ultra compacto */}
               <div className="flex items-center justify-between mb-1">
@@ -521,7 +521,7 @@ export function InstallmentForm({
                     {installment.installment_number || (index + 1)}
                   </Badge>
                   {installment.isEdited && (
-                    <span className="text-xs bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 px-1.5 py-0.5 rounded">
+                    <span className="text-xs bg-warning-soft text-warning px-1.5 py-0.5 rounded">
                       Editada
                     </span>
                   )}
@@ -535,9 +535,9 @@ export function InstallmentForm({
                       className="scale-75"
                     />
                     {installment.status === 'PAID' ? (
-                      <CheckCircle className="h-3 w-3 text-green-500" />
+                      <CheckCircle className="h-3 w-3 text-success" />
                     ) : (
-                      <BanknoteXIcon className="h-3 w-3 text-yellow-500" />
+                      <BanknoteXIcon className="h-3 w-3 text-warning" />
                     )}
                     <span className="text-xs font-medium">
                       {installment.status === 'PAID' ? 'Paga' : 'Pendente'}
@@ -551,7 +551,7 @@ export function InstallmentForm({
                   size="sm"
                   onClick={() => removeInstallment(installment.id)}
                   disabled={disabled || installmentsList.length <= 1}
-                  className="text-red-600 hover:text-red-700 hover:bg-red-50 h-6 w-6 p-0"
+                  className="text-destructive hover:text-destructive hover:bg-destructive-soft h-6 w-6 p-0"
                 >
                   <Trash2 className="h-3 w-3" />
                 </Button>
@@ -595,35 +595,35 @@ export function InstallmentForm({
 
       {/* Resumo Final - Estilo consistente */}
       {installmentsList.length > 0 && (
-        <Card className="bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+        <Card className="bg-info-soft border-primary/30">
           <CardContent className="p-3">
             <div className="flex items-center gap-2 mb-2">
-              <DollarSign className="h-4 w-4 text-blue-600" />
-              <span className="text-sm font-medium text-blue-900 dark:text-blue-100">
+              <DollarSign className="h-4 w-4 text-primary" />
+              <span className="text-sm font-medium text-primary">
                 Resumo das Parcelas
               </span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 border border-blue-100 dark:border-blue-800">
-                <div className="text-lg font-bold text-green-600">
+              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+                <div className="text-lg font-bold text-success">
                   {installmentsList.filter(i => i.status === 'PAID').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Pagas</div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 border border-blue-100 dark:border-blue-800">
-                <div className="text-lg font-bold text-yellow-600">
+              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+                <div className="text-lg font-bold text-warning">
                   {installmentsList.filter(i => i.status === 'PENDING').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Pendentes</div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 border border-blue-100 dark:border-blue-800">
-                <div className="text-lg font-bold text-blue-600">
+              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+                <div className="text-lg font-bold text-primary">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PAID').reduce((sum, i) => sum + i.value, 0))}
                 </div>
                 <div className="text-xs text-muted-foreground">Valor Pago</div>
               </div>
-              <div className="bg-white dark:bg-gray-800 rounded-lg p-2 border border-blue-100 dark:border-blue-800">
-                <div className="text-lg font-bold text-orange-600">
+              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+                <div className="text-lg font-bold text-warning">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PENDING').reduce((sum, i) => sum + i.value, 0))}
                 </div>
                 <div className="text-xs text-muted-foreground">Valor Pendente</div>

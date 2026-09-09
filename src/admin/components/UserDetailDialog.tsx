@@ -164,7 +164,7 @@ export function UserDetailDialog({ userId, open, onOpenChange }: UserDetailDialo
                   <label className="text-xs text-muted-foreground">Onboarding</label>
                   <div className="mt-1">
                     {userDetails.onboarding_completed ? (
-                      <Badge variant="default" className="bg-green-500">Completo</Badge>
+                      <Badge variant="default" className="bg-success">Completo</Badge>
                     ) : (
                       <Badge variant="secondary">Pendente</Badge>
                     )}

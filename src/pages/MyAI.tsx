@@ -44,6 +44,7 @@ import { useCategories } from '@/hooks/use-categories';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeaturePageGuard, FeatureGuard } from '@/components/guards/FeatureGuard';
 import { useFeature } from '@/hooks/use-feature';
+import { chartColors } from "@/lib/chart-colors";
 
 export default function MyAI() {
   return (
@@ -125,7 +126,7 @@ function MyAIContent() {
     
       {/* Padrões por Categoria */}
       {stats && stats.total > 0 && (
-        <Card className="bg-gradient-card shadow-md">
+        <Card className="shadow-md">
           <CardHeader>
             <div className="flex items-center justify-between">
               <CardTitle className="flex items-center gap-2">
@@ -161,8 +162,8 @@ function MyAIContent() {
                   {categoryData.map((item, index) => {
                     const percentage = (item.amount / stats.total) * 100;
                     const colors = [
-                      'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-                      'bg-red-500', 'bg-purple-500', 'bg-pink-500'
+                      'bg-primary', 'bg-success', 'bg-warning',
+                      'bg-destructive', 'bg-chart-6', 'bg-chart-6'
                     ];
                     const colorClass = colors[index % colors.length];
 
@@ -211,10 +212,7 @@ function MyAIContent() {
                       label={({ category, percent }) => `${category.substring(0, 20)} ${(percent * 100).toFixed(0)}%`}
                     >
                       {categoryData.map((entry, index) => {
-                        const colors = [
-                          '#3b82f6', '#10b981', '#f59e0b',
-                          '#ef4444', '#8b5cf6', '#ec4899'
-                        ];
+                        const colors = chartColors();
                         return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
                       })}
                     </Pie>

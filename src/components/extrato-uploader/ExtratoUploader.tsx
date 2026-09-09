@@ -505,7 +505,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       <DialogContent className="w-[95vw] max-w-6xl max-h-[95vh] overflow-y-auto p-4 lg:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
-            <Brain className="h-5 w-5 text-blue-500" />
+            <Brain className="h-5 w-5 text-primary" />
             Importar Extrato Bancário com IA
           </DialogTitle>
           <p className="text-xs lg:text-sm text-muted-foreground">
@@ -521,7 +521,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
               relative border-2 border-dashed rounded-lg p-4 lg:p-8 text-center transition-colors
               ${isDragActive
                 ? 'border-primary bg-primary/5'
-                : 'border-gray-300 hover:border-gray-400'
+                : 'border-border hover:border-border'
               }
               ${isProcessing || isInitializingClassifier ? 'pointer-events-none opacity-50' : ''}
             `}
@@ -541,9 +541,9 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
             <div className="space-y-4">
               <div className="flex justify-center">
                 {uploadedFile ? (
-                  <CheckCircle className="h-12 w-12 text-green-500" />
+                  <CheckCircle className="h-12 w-12 text-success" />
                 ) : (
-                  <FileText className="h-12 w-12 text-gray-400" />
+                  <FileText className="h-12 w-12 text-muted-foreground" />
                 )}
               </div>
 
@@ -557,7 +557,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                   }
                 </p>
 
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted-foreground">
                   {isInitializingClassifier
                     ? 'Carregando padrões de classificação e modelos de IA...'
                     : 'Formatos suportados: CSV, PDF'
@@ -567,8 +567,8 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
               {isInitializingClassifier && (
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
-                    <Brain className="h-4 w-4 animate-pulse text-blue-500" />
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
+                    <Brain className="h-4 w-4 animate-pulse text-primary" />
                     Preparando classificador inteligente...
                   </p>
                   <Progress value={50} className="w-full animate-pulse" />
@@ -577,7 +577,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
               {isProcessing && !isInitializingClassifier && (
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-600 flex items-center justify-center gap-2">
+                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                     <Brain className="h-4 w-4 animate-pulse" />
                     {progress < 65 && uploadedFile?.name.toLowerCase().includes('.pdf')
                       ? 'Extraindo texto do PDF (OCR)...'
@@ -587,7 +587,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                     }
                   </p>
                   <Progress value={progress} className="w-full" />
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-muted-foreground text-center">
                     {Math.round(progress)}%
                   </p>
                 </div>

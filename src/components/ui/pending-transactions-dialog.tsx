@@ -52,9 +52,9 @@ export function PendingTransactionsDialog({
 }: PendingTransactionsDialogProps) {
   const getTransactionIcon = (transaction: Transaction) => {
     if (transaction.type === 'transfer') {
-      return <TrendingUp className="h-4 w-4 text-blue-500" />;
+      return <TrendingUp className="h-4 w-4 text-primary" />;
     }
-    return transaction.type === 'income' ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />;
+    return transaction.type === 'income' ? <TrendingUp className="h-4 w-4 text-success" /> : <TrendingDown className="h-4 w-4 text-destructive" />;
   };
 
   const getAccountName = (transaction: Transaction) => {
@@ -88,9 +88,9 @@ export function PendingTransactionsDialog({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {type === 'income' ? (
-              <TrendingUp className="h-5 w-5 text-green-500" />
+              <TrendingUp className="h-5 w-5 text-success" />
             ) : (
-              <TrendingDown className="h-5 w-5 text-red-500" />
+              <TrendingDown className="h-5 w-5 text-destructive" />
             )}
             {title}
           </DialogTitle>
@@ -117,7 +117,7 @@ export function PendingTransactionsDialog({
           ) : (
             <div className="space-y-3">
               {transactions.map((transaction) => (
-                <Card key={transaction.id} className={`p-4 ${isOverdue(transaction) ? 'border-red-200 bg-red-50/50 dark:border-red-800 dark:bg-red-950/20' : ''}`}>
+                <Card key={transaction.id} className={`p-4 ${isOverdue(transaction) ? 'border-destructive/30 bg-destructive-soft/50' : ''}`}>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 flex-1">
                       {getTransactionIcon(transaction)}
@@ -162,7 +162,7 @@ export function PendingTransactionsDialog({
                     <div className="flex items-center gap-2">
                       <div className="text-right mr-3">
                         <div className={`font-semibold ${
-                          transaction.type === 'income' ? 'text-green-600' : 'text-red-600'
+                          transaction.type === 'income' ? 'text-success' : 'text-destructive'
                         }`}>
                           {transaction.type === 'income' ? '+' : '-'}
                           {formatCurrencyBRL(transaction.value)}
@@ -182,7 +182,7 @@ export function PendingTransactionsDialog({
                         size="sm"
                         variant="outline"
                         onClick={() => onDelete(transaction.id)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive-soft"
                       >
                         <Trash2 className="h-3 w-3" />
                       </Button>
@@ -192,7 +192,7 @@ export function PendingTransactionsDialog({
                           size="sm"
                           variant="outline"
                           onClick={() => onMarkAsPaid(transaction.id)}
-                          className="h-8 px-3 text-green-600 hover:text-green-700 hover:bg-green-50"
+                          className="h-8 px-3 text-success hover:text-success hover:bg-success-soft"
                         >
                           <CheckCircle className="h-3 w-3 mr-1" />
                           Marcar Pago
@@ -202,7 +202,7 @@ export function PendingTransactionsDialog({
                           size="sm"
                           variant="outline"
                           onClick={() => onMarkAsPending(transaction.id)}
-                          className="h-8 px-3 text-yellow-600 hover:text-yellow-700 hover:bg-yellow-50"
+                          className="h-8 px-3 text-warning hover:text-warning hover:bg-warning-soft"
                         >
                           <BanknoteXIcon className="h-3 w-3 mr-1" />
                           Marcar Pendente

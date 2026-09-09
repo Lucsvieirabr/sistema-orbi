@@ -51,9 +51,9 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 
 const priorityColors = {
-  1: "text-red-500 border-red-500",
-  2: "text-yellow-500 border-yellow-500",
-  3: "text-green-500 border-green-500",
+  1: "text-destructive border-destructive/30",
+  2: "text-warning border-warning/30",
+  3: "text-success border-success/30",
 };
 
 const priorityLabels = {
@@ -235,13 +235,13 @@ export default function Notes() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="1">
-                  <span className="text-red-500">Alta</span>
+                  <span className="text-destructive">Alta</span>
                 </SelectItem>
                 <SelectItem value="2">
-                  <span className="text-yellow-500">Média</span>
+                  <span className="text-warning">Média</span>
                 </SelectItem>
                 <SelectItem value="3">
-                  <span className="text-green-500">Baixa</span>
+                  <span className="text-success">Baixa</span>
                 </SelectItem>
               </SelectContent>
             </Select>
@@ -302,9 +302,9 @@ export default function Notes() {
                   <Card
                     key={note.id}
                     className={cn(
-                      "p-3 transition-all hover:shadow-md",
+                      "p-3 transition-all ",
                       note.is_completed && "opacity-60 bg-muted/50",
-                      isOverdue && "border-red-500/50 bg-red-500/5"
+                      isOverdue && "border-destructive/50 bg-destructive/5"
                     )}
                   >
                     <div className="flex items-start gap-3">
@@ -387,7 +387,7 @@ export default function Notes() {
                                   variant="outline" 
                                   className={cn(
                                     "text-xs",
-                                    isOverdue && "border-red-500/50 text-red-500"
+                                    isOverdue && "border-destructive/50 text-destructive"
                                   )}
                                 >
                                   <CalendarDays className="h-3 w-3 mr-1" />

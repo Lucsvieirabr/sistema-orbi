@@ -24,11 +24,11 @@ import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
 const STATUS_OPTIONS = [
-  { value: "novo", label: "Novo", color: "bg-blue-500" },
-  { value: "em-analise", label: "Em Análise", color: "bg-yellow-500" },
-  { value: "em-desenvolvimento", label: "Em Desenvolvimento", color: "bg-purple-500" },
-  { value: "resolvido", label: "Resolvido", color: "bg-green-500" },
-  { value: "rejeitado", label: "Rejeitado", color: "bg-red-500" },
+  { value: "novo", label: "Novo", color: "bg-primary" },
+  { value: "em-analise", label: "Em Análise", color: "bg-warning" },
+  { value: "em-desenvolvimento", label: "Em Desenvolvimento", color: "bg-chart-6" },
+  { value: "resolvido", label: "Resolvido", color: "bg-success" },
+  { value: "rejeitado", label: "Rejeitado", color: "bg-destructive" },
 ];
 
 interface BugReportDetail {
@@ -51,7 +51,7 @@ export default function BugReportsManagement() {
 
   const getStatusColor = (status: string) => {
     const option = STATUS_OPTIONS.find((opt) => opt.value === status);
-    return option?.color || "bg-gray-500";
+    return option?.color || "bg-border";
   };
 
   const getStatusLabel = (status: string) => {
@@ -122,8 +122,8 @@ export default function BugReportsManagement() {
         <Card className="shadow-lg">
           <CardHeader>
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-yellow-500/10 rounded-lg">
-                <Bug className="h-6 w-6 text-yellow-500" />
+              <div className="p-2 bg-warning/10 rounded-lg">
+                <Bug className="h-6 w-6 text-warning" />
               </div>
               <div>
                 <CardTitle className="text-2xl">Defeitos & Sugestões</CardTitle>
@@ -180,7 +180,7 @@ export default function BugReportsManagement() {
                       className="cursor-grab active:cursor-grabbing"
                     >
                       <Card
-                        className="hover:shadow-md transition-all bg-card hover:bg-card/80"
+                        className="transition-all bg-card hover:bg-card/80"
                         onClick={() => handleViewDetails(report as BugReportDetail)}
                       >
                         <CardContent className="p-3">
@@ -253,7 +253,7 @@ export default function BugReportsManagement() {
         <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Bug className="h-5 w-5 text-yellow-500" />
+              <Bug className="h-5 w-5 text-warning" />
               Detalhes do Relatório
             </DialogTitle>
           </DialogHeader>

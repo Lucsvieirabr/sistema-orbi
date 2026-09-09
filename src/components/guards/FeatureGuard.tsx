@@ -158,7 +158,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
   
   if (isNearLimit) {
     return (
-      <Alert className="mb-4 border-yellow-500/50 bg-yellow-50 dark:bg-yellow-950/20">
+      <Alert className="mb-4 border-warning/50 bg-warning-soft">
         <AlertDescription className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <span className="text-sm">
             ⚠️ Restam <strong>{remaining}</strong> de <strong>{maxLimit} {resourceName || 'itens'}</strong> disponíveis no seu plano.

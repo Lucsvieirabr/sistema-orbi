@@ -98,42 +98,42 @@ export default function AdminDashboard() {
       value: metrics?.total_users || 0,
       icon: Users,
       description: "Usuários cadastrados",
-      color: "text-blue-500",
+      color: "text-primary",
     },
     {
       title: "Assinaturas Ativas",
       value: metrics?.active_subscriptions || 0,
       icon: CreditCard,
       description: "Assinaturas pagas",
-      color: "text-green-500",
+      color: "text-success",
     },
     {
       title: "Usuários em Trial",
       value: metrics?.trial_users || 0,
       icon: UserPlus,
       description: "Período de teste",
-      color: "text-yellow-500",
+      color: "text-warning",
     },
     {
       title: "MRR",
       value: `R$ ${(metrics?.mrr || 0).toFixed(2)}`,
       icon: DollarSign,
       description: "Receita recorrente mensal",
-      color: "text-emerald-500",
+      color: "text-success",
     },
     {
       title: "Novos Usuários",
       value: metrics?.new_users_this_month || 0,
       icon: TrendingUp,
       description: "Este mês",
-      color: "text-purple-500",
+      color: "text-chart-6",
     },
     {
       title: "Transações Hoje",
       value: metrics?.total_transactions_today || 0,
       icon: Activity,
       description: "Atividade do sistema",
-      color: "text-orange-500",
+      color: "text-warning",
     },
   ];
 
@@ -163,7 +163,7 @@ export default function AdminDashboard() {
         {metricCards.map((card) => {
           const Icon = card.icon;
           return (
-            <Card key={card.title} className="hover:shadow-lg transition-shadow">
+            <Card key={card.title} className="transition-shadow">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">
                   {card.title}
@@ -225,8 +225,8 @@ export default function AdminDashboard() {
                   const total = planDistributionData.reduce((sum, p) => sum + p.count, 0);
                   const percentage = (item.count / total) * 100;
                   const colors = [
-                    'bg-blue-500', 'bg-green-500', 'bg-yellow-500',
-                    'bg-red-500', 'bg-purple-500', 'bg-pink-500'
+                    'bg-primary', 'bg-success', 'bg-warning',
+                    'bg-destructive', 'bg-chart-6', 'bg-chart-6'
                   ];
                   const colorClass = colors[index % colors.length];
 

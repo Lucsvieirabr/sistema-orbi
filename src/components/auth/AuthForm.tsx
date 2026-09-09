@@ -46,11 +46,11 @@ export function AuthForm() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-background to-secondary/20 p-4">
+    <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
-      <Card className="w-full max-w-md bg-gradient-card shadow-lg border-0">
+      <Card className="w-full max-w-md shadow-lg border-0">
         <CardHeader className="text-center pb-4">
           <div className="flex justify-center">
             <img 
@@ -83,7 +83,7 @@ export function AuthForm() {
                     type="email"
                     placeholder="seu@email.com"
                     required
-                    className="transition-all duration-200 focus:shadow-primary"
+                    className="transition-all duration-200"
                   />
                 </div>
                 
@@ -94,13 +94,13 @@ export function AuthForm() {
                     type="password"
                     placeholder="••••••••"
                     required
-                    className="transition-all duration-200 focus:shadow-primary"
+                    className="transition-all duration-200"
                   />
                 </div>
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200 shadow-primary"
+                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200"
                   disabled={isLoading}
                 >
                   {isLoading ? "Entrando..." : "Entrar"}
@@ -117,7 +117,7 @@ export function AuthForm() {
                     type="text"
                     placeholder="Seu nome completo"
                     required
-                    className="transition-all duration-200 focus:shadow-primary"
+                    className="transition-all duration-200"
                   />
                 </div>
 
@@ -128,7 +128,7 @@ export function AuthForm() {
                     type="email"
                     placeholder="seu@email.com"
                     required
-                    className="transition-all duration-200 focus:shadow-primary"
+                    className="transition-all duration-200"
                   />
                 </div>
                 
@@ -140,14 +140,14 @@ export function AuthForm() {
                     placeholder="••••••••"
                     required
                     minLength={6}
-                    className="transition-all duration-200 focus:shadow-primary"
+                    className="transition-all duration-200"
                   />
                   <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
                 </div>
 
                 <Button 
                   type="submit" 
-                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200 shadow-primary"
+                  className="w-full bg-gradient-primary hover:scale-105 transition-all duration-200"
                   disabled={isLoading}
                 >
                   {isLoading ? "Criando conta..." : "Criar Conta"}

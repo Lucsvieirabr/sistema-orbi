@@ -76,7 +76,7 @@ export function ReportBugDialog() {
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start gap-3 text-yellow-500 border-yellow-500 hover:bg-yellow-500/10 hover:text-yellow-400"
+          className="w-full justify-start gap-2 border-transparent bg-transparent text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
         >
           <Bug className="h-4 w-4" />
           Defeitos e Sugestões
@@ -85,7 +85,7 @@ export function ReportBugDialog() {
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Bug className="h-5 w-5 text-yellow-500" />
+            <Bug className="h-5 w-5 text-warning" />
             Reportar Defeito ou Sugestão
           </DialogTitle>
           <DialogDescription>

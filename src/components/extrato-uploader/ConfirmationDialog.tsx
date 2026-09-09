@@ -359,7 +359,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       <DialogContent className="w-[95vw] max-w-7xl max-h-[90vh] overflow-y-auto p-4 lg:p-6">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
-            <CheckCircle className="h-5 w-5 text-green-500" />
+            <CheckCircle className="h-5 w-5 text-success" />
             Confirmar Importação de Transações
           </DialogTitle>
           <DialogDescription className="text-xs lg:text-sm">
@@ -392,11 +392,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                     {/* Header: Ícone + Número + Excluir */}
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                        <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-success-soft' : 'bg-destructive-soft'}`}>
                           {transaction.type === 'income' ? (
-                            <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
+                            <TrendingUp className="h-3 w-3 text-success dark:text-success" />
                           ) : (
-                            <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
+                            <TrendingDown className="h-3 w-3 text-destructive dark:text-destructive" />
                           )}
                         </div>
                         <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
@@ -405,7 +405,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                         variant="ghost"
                         size="sm"
                         onClick={() => removeTransaction(index)}
-                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-7 w-7 p-0 text-destructive hover:text-destructive hover:bg-destructive-soft"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -440,11 +440,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                   {/* Desktop: Layout em Grid */}
                   <div className="hidden lg:grid grid-cols-12 gap-2 items-center mb-2">
                     <div className="col-span-1 flex items-center gap-2">
-                      <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-green-100 dark:bg-green-900/20' : 'bg-red-100 dark:bg-red-900/20'}`}>
+                      <div className={`p-1.5 rounded-full ${transaction.type === 'income' ? 'bg-success-soft' : 'bg-destructive-soft'}`}>
                         {transaction.type === 'income' ? (
-                          <TrendingUp className="h-3 w-3 text-green-600 dark:text-green-400" />
+                          <TrendingUp className="h-3 w-3 text-success dark:text-success" />
                         ) : (
-                          <TrendingDown className="h-3 w-3 text-red-600 dark:text-red-400" />
+                          <TrendingDown className="h-3 w-3 text-destructive dark:text-destructive" />
                         )}
                       </div>
                       <span className="text-xs text-muted-foreground font-medium">#{index + 1}</span>
@@ -483,7 +483,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
                         variant="ghost"
                         size="sm"
                         onClick={() => removeTransaction(index)}
-                        className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive-soft"
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>
@@ -642,14 +642,14 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-2xl font-bold text-success">
                 {formatCurrency(editedTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.value, 0))}
               </div>
               <div className="text-sm text-muted-foreground">Total de Receitas</div>
             </div>
 
             <div className="text-center">
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-destructive">
                 {formatCurrency(editedTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.value, 0))}
               </div>
               <div className="text-sm text-muted-foreground">Total de Despesas</div>

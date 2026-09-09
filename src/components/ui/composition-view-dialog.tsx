@@ -26,7 +26,7 @@ export function CompositionViewDialog({
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
           <div className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-blue-600" />
+            <Receipt className="h-5 w-5 text-primary" />
             <DialogTitle>Detalhes da Composição</DialogTitle>
           </div>
           <DialogDescription>
@@ -53,7 +53,7 @@ export function CompositionViewDialog({
                         {item.totalValue ? (
                           // Transação parte: mostra valor individual / valor total
                           <div className="flex flex-col">
-                            <span className="text-sm font-medium text-green-600">
+                            <span className="text-sm font-medium text-success">
                               R$ {item.value.toFixed(2)}
                             </span>
                             <span className="text-xs text-muted-foreground">
@@ -62,7 +62,7 @@ export function CompositionViewDialog({
                           </div>
                         ) : (
                           // Transação total: mostra apenas o valor
-                          <span className="text-sm font-medium text-green-600">
+                          <span className="text-sm font-medium text-success">
                             R$ {item.value.toFixed(2)}
                           </span>
                         )}
@@ -77,12 +77,12 @@ export function CompositionViewDialog({
               </div>
 
               {/* Total */}
-              <div className="p-4 border rounded-lg bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800">
+              <div className="p-4 border rounded-lg bg-info-soft border-primary/30">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
+                  <span className="text-sm font-medium text-primary">
                     Total dos Itens:
                   </span>
-                  <span className="text-lg font-bold text-blue-900 dark:text-blue-100">
+                  <span className="text-lg font-bold text-primary">
                     R$ {total.toFixed(2)}
                   </span>
                 </div>

@@ -2239,15 +2239,15 @@ function MonthlyStatementContent() {
 
   const getTransactionIcon = (transaction: any) => {
     if (transaction.type === "transfer") {
-      return <ArrowUpCircle className="h-4 w-4 text-blue-500" />;
+      return <ArrowUpCircle className="h-4 w-4 text-primary" />;
     }
     if (transaction.type === "fixed") {
-      return <ArrowUpCircle className="h-4 w-4 text-blue-600" />;
+      return <ArrowUpCircle className="h-4 w-4 text-primary" />;
     }
     return transaction.type === "income" ? (
-      <TrendingUp className="h-4 w-4 text-green-500" />
+      <TrendingUp className="h-4 w-4 text-success" />
     ) : (
-      <TrendingDown className="h-4 w-4 text-red-500" />
+      <TrendingDown className="h-4 w-4 text-destructive" />
     );
   };
 
@@ -2353,7 +2353,7 @@ function MonthlyStatementContent() {
                   })}
                 </span>
                 {showMonthSelector && (
-                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-gray-800 border rounded-lg shadow-lg z-50 p-3 lg:p-4 min-w-[240px] lg:min-w-64">
+                  <div className="absolute top-full left-0 mt-1 bg-white dark:bg-foreground border rounded-lg shadow-lg z-50 p-3 lg:p-4 min-w-[240px] lg:min-w-64">
                     <div className="grid grid-cols-3 gap-2">
                       {Array.from({ length: 12 }, (_, i) => {
                         const month = i;
@@ -2436,11 +2436,11 @@ function MonthlyStatementContent() {
                 <p className="text-[10px] lg:text-sm text-muted-foreground">
                   Ganhos
                 </p>
-                <p className="text-base lg:text-2xl font-bold text-green-600">
+                <p className="text-base lg:text-2xl font-bold text-success">
                   {formatCurrencyBRL(indicators.incomeReceived)}
                 </p>
               </div>
-              <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-green-500" />
+              <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-success" />
             </div>
           </CardContent>
         </Card>
@@ -2450,11 +2450,11 @@ function MonthlyStatementContent() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
                 <p className="text-[10px] lg:text-sm text-muted-foreground">Gastos</p>
-                <p className="text-base lg:text-2xl font-bold text-red-600">
+                <p className="text-base lg:text-2xl font-bold text-destructive">
                   {formatCurrencyBRL(indicators.expensesPaid)}
                 </p>
               </div>
-              <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-red-500" />
+              <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -2466,11 +2466,11 @@ function MonthlyStatementContent() {
                 <p className="text-[10px] lg:text-sm text-muted-foreground">
                   A Receber
                 </p>
-                <p className="text-base lg:text-2xl font-bold text-blue-600">
+                <p className="text-base lg:text-2xl font-bold text-primary">
                   {formatCurrencyBRL(indicators.incomePending)}
                 </p>
               </div>
-              <Clock10Icon className="h-5 w-5 lg:h-8 lg:w-8 text-blue-500" />
+              <Clock10Icon className="h-5 w-5 lg:h-8 lg:w-8 text-primary" />
             </div>
           </CardContent>
         </Card>
@@ -2480,11 +2480,11 @@ function MonthlyStatementContent() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
               <div>
                 <p className="text-[10px] lg:text-sm text-muted-foreground">A Pagar</p>
-                <p className="text-base lg:text-2xl font-bold text-red-600">
+                <p className="text-base lg:text-2xl font-bold text-destructive">
                   {formatCurrencyBRL(indicators.expensesPending)}
                 </p>
               </div>
-              <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-red-600 dark:text-red-400" />
+              <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive dark:text-destructive" />
             </div>
           </CardContent>
         </Card>
@@ -2497,17 +2497,17 @@ function MonthlyStatementContent() {
                 <p
                   className={`text-base lg:text-2xl font-bold ${
                     indicators.netBalance >= 0
-                      ? "text-green-600"
-                      : "text-red-600"
+                      ? "text-success"
+                      : "text-destructive"
                   }`}
                 >
                   {formatCurrencyBRL(indicators.netBalance)}
                 </p>
               </div>
               {indicators.netBalance >= 0 ? (
-                <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-green-500" />
+                <TrendingUp className="h-5 w-5 lg:h-8 lg:w-8 text-success" />
               ) : (
-                <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-red-500" />
+                <TrendingDown className="h-5 w-5 lg:h-8 lg:w-8 text-destructive" />
               )}
             </div>
           </CardContent>
@@ -2517,27 +2517,27 @@ function MonthlyStatementContent() {
       {/* Pending Transactions Management */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <Card
-          className="cursor-pointer hover:shadow-lg transition-shadow"
+          className="cursor-pointer transition-shadow"
           onClick={() => setShowPendingIncomeDialog(true)}
         >
           <CardContent className="p-4 lg:p-6">
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex items-center gap-3">
-                <div className="p-1.5 lg:p-2 bg-green-100 dark:bg-green-900/20 rounded-lg">
-                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-green-600 dark:text-green-400" />
+                <div className="p-1.5 lg:p-2 bg-success-soft rounded-lg">
+                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-success dark:text-success" />
                 </div>
                 <div>
                   <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Receber
                   </p>
-                  <p className="text-xl lg:text-2xl font-bold text-green-600">
+                  <p className="text-xl lg:text-2xl font-bold text-success">
                     {pendingIncomeTransactions.length}
                   </p>
                 </div>
               </div>
               <div className="text-left lg:text-right">
                 <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
-                <p className="text-base lg:text-lg font-semibold text-green-600">
+                <p className="text-base lg:text-lg font-semibold text-success">
                   {formatCurrencyBRL(
                     roundCurrency(
                       pendingIncomeTransactions.reduce(
@@ -2560,9 +2560,9 @@ function MonthlyStatementContent() {
         </Card>
 
         <Card
-          className={`cursor-pointer hover:shadow-lg transition-shadow ${
+          className={`cursor-pointer  transition-shadow ${
             overdueExpenseTransactions.length > 0
-              ? "ring-2 ring-red-200 dark:ring-red-800"
+              ? "ring-2 ring-destructive-soft"
               : ""
           }`}
           onClick={() => setShowPendingExpenseDialog(true)}
@@ -2571,11 +2571,11 @@ function MonthlyStatementContent() {
             <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
               <div className="flex items-center gap-3">
                 <div className="relative">
-                  <div className="p-1.5 lg:p-2 bg-red-100 dark:bg-red-900/20 rounded-lg">
-                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-red-600 dark:text-red-400" />
+                  <div className="p-1.5 lg:p-2 bg-destructive-soft rounded-lg">
+                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive dark:text-destructive" />
                   </div>
                   {overdueExpenseTransactions.length > 0 && (
-                    <div className="absolute -top-1 -right-1 p-0.5 lg:p-1 bg-red-500 rounded-full">
+                    <div className="absolute -top-1 -right-1 p-0.5 lg:p-1 bg-destructive rounded-full">
                       <AlertTriangle className="h-2 w-2 lg:h-3 lg:w-3 text-white" />
                     </div>
                   )}
@@ -2584,10 +2584,10 @@ function MonthlyStatementContent() {
                   <p className="text-xs lg:text-sm text-muted-foreground">
                     Contas a Pagar
                   </p>
-                  <p className="text-xl lg:text-2xl font-bold text-red-600">
+                  <p className="text-xl lg:text-2xl font-bold text-destructive">
                     {pendingExpenseTransactions.length}
                     {overdueExpenseTransactions.length > 0 && (
-                      <span className="ml-2 text-xs lg:text-sm font-normal text-red-500">
+                      <span className="ml-2 text-xs lg:text-sm font-normal text-destructive">
                         ({overdueExpenseTransactions.length})
                       </span>
                     )}
@@ -2596,7 +2596,7 @@ function MonthlyStatementContent() {
               </div>
               <div className="text-left lg:text-right">
                 <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
-                <p className="text-base lg:text-lg font-semibold text-red-600">
+                <p className="text-base lg:text-lg font-semibold text-destructive">
                   {formatCurrencyBRL(
                     roundCurrency(
                       pendingExpenseTransactions.reduce(
@@ -2696,8 +2696,8 @@ function MonthlyStatementContent() {
                             {/* Mobile: Layout vertical */}
                             <div className="flex items-start gap-3 flex-1">
                               {isPendingIncome ? (
-                                <div className="p-1.5 lg:p-2 rounded-full bg-yellow-100 flex-shrink-0">
-                                  <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4 text-yellow-600" />
+                                <div className="p-1.5 lg:p-2 rounded-full bg-warning-soft flex-shrink-0">
+                                  <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4 text-warning" />
                                 </div>
                               ) : (
                                 <div className="flex-shrink-0">
@@ -2712,7 +2712,7 @@ function MonthlyStatementContent() {
                                   {isPartOfShared && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] lg:text-xs bg-purple-100 text-purple-800"
+                                      className="text-[10px] lg:text-xs bg-secondary text-chart-6"
                                     >
                                       Rateio
                                     </Badge>
@@ -2720,7 +2720,7 @@ function MonthlyStatementContent() {
                                   {(transaction as any).is_fixed && (
                                     <Badge
                                       variant="secondary"
-                                      className="text-[10px] lg:text-xs bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                                      className="text-[10px] lg:text-xs bg-info-soft text-primary"
                                     >
                                       Fixa
                                     </Badge>
@@ -2771,8 +2771,8 @@ function MonthlyStatementContent() {
                                 <div
                                   className={`font-semibold text-sm lg:text-base ${
                                     transaction.type === "income"
-                                      ? "text-green-600"
-                                      : "text-red-600"
+                                      ? "text-success"
+                                      : "text-destructive"
                                   }`}
                                 >
                                   {transaction.type === "income" ? "+" : "-"}
@@ -2817,7 +2817,7 @@ function MonthlyStatementContent() {
                                         (transaction as any).composition_details
                                       )
                                     }
-                                    className="text-white-600 hover:text-blue-700 hover:bg-blue-50 dark:hover:bg-blue-950/30 h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
+                                    className="hidden h-7 w-7 text-muted-foreground hover:text-primary lg:flex lg:h-8 lg:w-8"
                                     title="Ver detalhes da composição"
                                   >
                                     <Info className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2849,7 +2849,7 @@ function MonthlyStatementContent() {
                                     <Button
                                       size="icon"
                                       variant="outline"
-                                      className="text-red-600 hover:text-red-700 hover:bg-red-50 h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
+                                      className="text-destructive hover:text-destructive hover:bg-destructive-soft h-7 w-7 lg:h-8 lg:w-8 hidden lg:flex"
                                     >
                                       <Trash2 className="h-3 w-3 lg:h-4 lg:w-4" />
                                     </Button>
@@ -2879,7 +2879,7 @@ function MonthlyStatementContent() {
             {/* Tipo de Transação - IMUTÁVEL em edição */}
             <div className="space-y-2">
               {editingId ? (
-                <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 lg:p-3">
+                <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
                   <div className="mt-2 grid grid-cols-2 lg:flex gap-2">
                     <Button
                       type="button"
@@ -2918,8 +2918,8 @@ function MonthlyStatementContent() {
                       disabled
                       className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                         type === "fixed" || (editingId && isFixed)
-                          ? "border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30"
-                          : "hover:border-blue-500/30 hover:bg-blue-500/5 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
+                          ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                          : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                       }`}
                     >
                       <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2975,8 +2975,8 @@ function MonthlyStatementContent() {
                     onClick={() => handleTypeChange("fixed")}
                     className={`flex items-center gap-1 lg:gap-2 flex-1 text-xs lg:text-sm h-8 lg:h-auto ${
                       type === "fixed"
-                        ? "border-blue-500/50 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 hover:bg-blue-500/20 dark:hover:bg-blue-500/30"
-                        : "hover:border-blue-500/30 hover:bg-blue-500/5 dark:hover:bg-blue-500/10 hover:text-blue-600 dark:hover:text-blue-400"
+                        ? "border-primary/50 bg-primary/10 dark:bg-primary/20 text-primary dark:text-primary hover:bg-primary/20 dark:hover:bg-primary/30"
+                        : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
                     }`}
                   >
                     <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2992,7 +2992,7 @@ function MonthlyStatementContent() {
                 {type === "expense" && (
                   <div className="space-y-2">
                     {editingId ? (
-                      <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-2 lg:p-3">
+                      <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
                         <div className="flex flex-wrap lg:flex-nowrap gap-2">
                           <Button
                             type="button"
@@ -3054,8 +3054,8 @@ function MonthlyStatementContent() {
                           }}
                           className={`flex-1 h-8 lg:h-9 text-[10px] lg:text-xs ${
                             isLoan && !isRateio
-                              ? "border-2 border-purple-500 bg-purple-100/50 dark:bg-purple-900/20 text-purple-700 dark:text-purple-300 hover:bg-purple-100/70 dark:hover:bg-purple-900/30"
-                              : "hover:border-purple-300 hover:bg-purple-50/50 dark:hover:bg-purple-900/10 hover:text-purple-600 dark:hover:text-purple-400"
+                              ? "border-2 border-border bg-secondary/50 text-chart-6 hover:bg-secondary/70"
+                              : "hover:border-border hover:bg-secondary/50 hover:text-chart-6 dark:hover:text-chart-6"
                           }`}
                         >
                           Emprést.
@@ -3435,11 +3435,11 @@ function MonthlyStatementContent() {
                         }}
                         className={`flex items-center gap-2 flex-1 h-9 ${
                           fixedType === "income"
-                            ? "border-green-500/50 bg-green-500/10 dark:bg-green-500/20 text-green-600 dark:text-green-400"
-                            : "hover:border-green-500/30 hover:bg-green-500/5 dark:hover:bg-green-500/10 hover:text-green-600 dark:hover:text-green-400"
+                            ? "border-success/50 bg-success/10 dark:bg-success/20 text-success dark:text-success"
+                            : "hover:border-success/30 hover:bg-success/5 dark:hover:bg-success/10 hover:text-success dark:hover:text-success"
                         }`}
                       >
-                        <ArrowUpCircle className="h-4 w-4 text-green-500" />
+                        <ArrowUpCircle className="h-4 w-4 text-success" />
                         Ganho
                       </Button>
                       <Button
@@ -3450,11 +3450,11 @@ function MonthlyStatementContent() {
                         onClick={() => setFixedType("expense")}
                         className={`flex items-center gap-2 flex-1 h-9 ${
                           fixedType === "expense"
-                            ? "border-red-500/50 bg-red-500/10 dark:bg-red-500/20 text-red-600 dark:text-red-400"
-                            : "hover:border-red-500/30 hover:bg-red-500/5 dark:hover:bg-red-500/10 hover:text-red-600 dark:hover:text-red-400"
+                            ? "border-destructive/50 bg-destructive/10 dark:bg-destructive/20 text-destructive dark:text-destructive"
+                            : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
                         }`}
                       >
-                        <ArrowDownCircle className="h-4 w-4 text-red-500" />
+                        <ArrowDownCircle className="h-4 w-4 text-destructive" />
                         Gasto
                       </Button>
                     </div>
@@ -3482,7 +3482,7 @@ function MonthlyStatementContent() {
               <div className="space-y-1">
                 <Label className="text-sm">Método de Pagamento</Label>
                 {editingId ? (
-                  <div className="bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg p-3">
+                  <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-3">
                     <div className="flex gap-2 mt-3">
                       <Button
                         type="button"
@@ -3585,18 +3585,18 @@ function MonthlyStatementContent() {
               paymentMethod === "credit" &&
               installments &&
               installments > 1 && (
-                <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-lg p-3">
+                <div className="bg-destructive-soft border border-destructive/30 rounded-lg p-3">
                   {installmentData.installments.length > 0 ? (
                     <>
                       <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-red-700 dark:text-red-300 font-medium">
+                        <span className="text-destructive font-medium">
                           Parcelas Configuradas:
                         </span>
-                        <span className="text-red-900 dark:text-red-100 font-semibold">
+                        <span className="text-destructive font-semibold">
                           {installmentData.installments.length} parcelas
                         </span>
                       </div>
-                      <div className="text-xs text-red-600 dark:text-red-400 mb-2">
+                      <div className="text-xs text-destructive dark:text-destructive mb-2">
                         <div>
                           Valor Total:{" "}
                           {formatCurrencyBRL(installmentData.totalValue)}
@@ -3624,14 +3624,14 @@ function MonthlyStatementContent() {
                   ) : (
                     <>
                       <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-red-700 dark:text-red-300 font-medium">
+                        <span className="text-destructive font-medium">
                           Valor por Parcela:
                         </span>
-                        <span className="text-red-900 dark:text-red-100 font-semibold">
+                        <span className="text-destructive font-semibold">
                           {formatCurrencyBRL(installmentValue)}
                         </span>
                       </div>
-                      <div className="text-xs text-red-600 dark:text-red-400 mb-3">
+                      <div className="text-xs text-destructive dark:text-destructive mb-3">
                         {installments} parcelas de{" "}
                         {formatCurrencyBRL(installmentValue)} ={" "}
                         {formatCurrencyBRL(value)}
@@ -3643,7 +3643,7 @@ function MonthlyStatementContent() {
                       type="button"
                       variant="outline"
                       onClick={showInstallmentFormHandler}
-                      className="flex items-center gap-2 border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30"
+                      className="flex items-center gap-2 border-destructive/30 text-destructive hover:bg-destructive-soft"
                     >
                       <Edit className="h-4 w-4" />
                       {installmentData.installments.length > 0
@@ -3688,8 +3688,8 @@ function MonthlyStatementContent() {
                       }}
                       className={`h-8 ${
                         selectedPeople.includes(person.id)
-                          ? "bg-purple-100 text-purple-800 border-2 border-purple-300 hover:bg-purple-200"
-                          : "border-2 border-gray-300 hover:bg-transparent"
+                          ? "bg-secondary text-chart-6 border-2 border-border hover:bg-secondary"
+                          : "border-2 border-border hover:bg-transparent"
                       }`}
                     >
                       {person.name}
@@ -3697,24 +3697,24 @@ function MonthlyStatementContent() {
                   ))}
                 </div>
                 {selectedPeople.length > 0 && (
-                  <div className="bg-purple-50 dark:bg-purple-950/20 border border-purple-200 dark:border-purple-800 rounded-lg p-3 mt-3">
+                  <div className="bg-secondary border border-border rounded-lg p-3 mt-3">
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
                         <div className="flex items-center gap-1">
-                          <span className="text-purple-700 dark:text-purple-300 font-medium">
+                          <span className="text-chart-6 font-medium">
                             {selectedPeople.length} pessoa
                             {selectedPeople.length !== 1 ? "s" : ""}
                           </span>
-                          <span className="text-purple-600 dark:text-purple-400">
+                          <span className="text-chart-6 dark:text-chart-6">
                             selecionada{selectedPeople.length !== 1 ? "s" : ""}
                           </span>
                         </div>
                       </div>
                       <div className="text-right">
-                        <div className="text-purple-700 dark:text-purple-300 font-medium">
+                        <div className="text-chart-6 font-medium">
                           Valor por pessoa
                         </div>
-                        <div className="text-purple-900 dark:text-purple-100 font-semibold">
+                        <div className="text-chart-6 font-semibold">
                           {formatCurrencyBRL(
                             roundCurrency(value / (selectedPeople.length + 1))
                           )}
@@ -3730,7 +3730,7 @@ function MonthlyStatementContent() {
                     type="button"
                     variant="outline"
                     onClick={() => setCompositionDialogOpen(true)}
-                    className="w-full border-purple-300 dark:border-purple-700 hover:bg-purple-50 dark:hover:bg-purple-950/30"
+                    className="w-full border-border hover:bg-secondary"
                   >
                     <Receipt className="h-4 w-4 mr-2" />
                     Personalizar Rateio
@@ -4083,7 +4083,7 @@ function MonthlyStatementContent() {
         <button
           aria-label="Importar Extrato"
           onClick={() => setImportDialogOpen(true)}
-          className="fixed bottom-6 right-20 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-green-400 text-green-400 shadow-lg hover:bg-green-400/10 hover:border-green-300 hover:text-green-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+          className="fixed bottom-6 right-20 z-50 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-card text-muted-foreground shadow-md transition-colors duration-200 ease-swift hover:border-ring/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <Upload className="h-4 w-4" />
         </button>
@@ -4096,7 +4096,7 @@ function MonthlyStatementContent() {
             <DialogTrigger asChild>
               <button
                 aria-label="Nova Transação"
-                className="fixed bottom-6 right-6 h-12 w-12 rounded-lg bg-transparent border-2 border-dashed border-blue-400 text-blue-400 shadow-lg hover:bg-blue-400/10 hover:border-blue-300 hover:text-blue-300 flex items-center justify-center text-lg font-semibold transition-all duration-300 z-50"
+                className="fixed bottom-6 right-6 z-50 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md transition-colors duration-200 ease-swift hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
               >
                 <Plus className="h-4 w-4" />
               </button>

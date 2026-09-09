@@ -261,7 +261,7 @@ function AccountsContent() {
                 </div>
               ) : (
                 filteredAccounts.map((a) => (
-                  <Card key={a.id} className="group hover:shadow-lg transition-all duration-200 w-full overflow-hidden" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
+                  <Card key={a.id} className="group transition-all duration-200 w-full overflow-hidden" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
                     <CardHeader className="pb-3 p-4 w-full overflow-hidden">
                       <div className="flex flex-col gap-3 w-full overflow-hidden">
                         <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
