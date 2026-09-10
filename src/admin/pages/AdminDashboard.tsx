@@ -5,6 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Users, CreditCard, DollarSign, TrendingUp, UserPlus, Activity, PieChart, List, BarChart3 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { StatCard } from "@/components/ui/stat-card";
+import { PageHeader, SectionHeader } from "@/components/ui/page";
+import { cn } from "@/lib/utils";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
 
 interface DashboardMetrics {
@@ -157,94 +160,88 @@ export default function AdminDashboard() {
   }
 
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Métricas principais */}
-      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        {metricCards.map((card) => {
-          const Icon = card.icon;
-          return (
-            <Card key={card.title} className="transition-shadow">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {card.title}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${card.color}`} />
-              </CardHeader>
-              <CardContent>
-                <div className={`figure-lg tabular ${card.color}`}>
-                  {card.value}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {card.description}
-                </p>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+    <div className="min-w-0 space-y-5 md:space-y-7">
+      <PageHeader
+        eyebrow="Administração"
+        icon={Activity}
+        title="Painel"
+        description="Como o Orbi está indo: contas, assinaturas e receita, no estado atual."
+      />
+
+      {/* Métricas principais — ledger tiles do design system, não cards soltos. */}
+      <section aria-label="Métricas" className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+        {metricCards.map((card) => (
+          <StatCard
+            key={card.title}
+            label={card.title}
+            value={<span className="tabular">{card.value}</span>}
+            hint={card.description}
+            icon={card.icon}
+          />
+        ))}
+      </section>
 
       {/* Distribuição de Planos */}
-      <Card className="shadow-md">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <PieChart className="h-5 w-5 text-primary" />
-              Distribuição de Planos
-            </CardTitle>
-            <div className="flex items-center gap-2">
+      <Card>
+        <CardHeader className="gap-0 space-y-0">
+          <SectionHeader
+            eyebrow="Composição"
+            title="Distribuição de planos"
+            actions={
+            <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1">
               <Button
-                variant={planViewMode === 'list' ? 'default' : 'outline'}
+                variant="ghost"
                 size="sm"
                 onClick={() => setPlanViewMode('list')}
-                className="h-8 px-3"
+                aria-pressed={planViewMode === 'list'}
+                className={cn("h-8", planViewMode === 'list' && "bg-card text-foreground shadow-sm")}
               >
-                <List className="h-4 w-4 mr-1" />
-                Lista
+                <List className="h-4 w-4" />
+                <span className="hidden sm:inline">Lista</span>
               </Button>
               <Button
-                variant={planViewMode === 'chart' ? 'default' : 'outline'}
+                variant="ghost"
                 size="sm"
                 onClick={() => setPlanViewMode('chart')}
-                className="h-8 px-3"
+                aria-pressed={planViewMode === 'chart'}
+                className={cn("h-8", planViewMode === 'chart' && "bg-card text-foreground shadow-sm")}
               >
-                <BarChart3 className="h-4 w-4 mr-1" />
-                Gráfico
+                <BarChart3 className="h-4 w-4" />
+                <span className="hidden sm:inline">Gráfico</span>
               </Button>
             </div>
-          </div>
+            }
+          />
         </CardHeader>
         <CardContent>
           {isLoading ? (
-            <div className="flex items-center justify-center h-48">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <Skeleton key={i} className="h-8 w-full" />
+              ))}
             </div>
           ) : planViewMode === 'list' ? (
             planDistributionData.length > 0 ? (
               <div className="space-y-3">
                 {planDistributionData.map((item, index) => {
                   const total = planDistributionData.reduce((sum, p) => sum + p.count, 0);
-                  const percentage = (item.count / total) * 100;
-                  const colors = [
-                    'bg-primary', 'bg-success', 'bg-warning',
-                    'bg-destructive', 'bg-chart-6', 'bg-chart-6'
-                  ];
-                  const colorClass = colors[index % colors.length];
+                  const percentage = total > 0 ? (item.count / total) * 100 : 0;
+                  const colorClass = `bg-chart-${(index % 6) + 1}`;
 
                   return (
-                    <div key={item.plan} className="flex items-center gap-3">
-                      <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-                      <div className="flex-1">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm font-medium text-foreground">
+                    <div key={item.plan} className="grid gap-1.5">
+                      <div>
+                        <div className="flex items-baseline justify-between gap-3">
+                          <span className="min-w-0 truncate text-sm font-medium text-foreground">
                             {item.plan}
                           </span>
-                          <span className="text-sm text-muted-foreground">
+                          <span className="shrink-0 text-xs tabular text-muted-foreground">
                             {item.count} {item.count === 1 ? 'usuário' : 'usuários'}
                           </span>
                         </div>
-                        <div className="w-full bg-muted/30 rounded-full h-2">
+                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
                           <div
-                            className={`h-2 rounded-full ${colorClass}`}
+                            className={cn("h-1 rounded-full transition-[width] duration-500 ease-swift", colorClass)}
                             style={{ width: `${percentage}%` }}
                           />
                         </div>
@@ -254,15 +251,9 @@ export default function AdminDashboard() {
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg">
-                <div className="text-center">
-                  <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">Nenhuma assinatura ativa</p>
-                  <p className="text-sm text-muted-foreground mt-2">
-                    Quando houver assinaturas ativas, a distribuição aparecerá aqui
-                  </p>
-                </div>
-              </div>
+              <p className="py-12 text-center text-sm text-muted-foreground">
+                Nenhuma assinatura ativa ainda. A distribuição aparece assim que a primeira for confirmada.
+              </p>
             )
           ) : planDistributionData.length > 0 ? (
             <div className="h-[300px] w-full">
@@ -272,10 +263,11 @@ export default function AdminDashboard() {
                     data={planDistributionData}
                     cx="50%"
                     cy="50%"
+                    innerRadius={62}
                     outerRadius={100}
+                    paddingAngle={1}
                     dataKey="count"
                     nameKey="plan"
-                    label={({ plan, percent }) => `${plan} ${(percent * 100).toFixed(0)}%`}
                   >
                     {planDistributionData.map((entry, index) => {
                       const colors = [
@@ -294,15 +286,9 @@ export default function AdminDashboard() {
               </ResponsiveContainer>
             </div>
           ) : (
-            <div className="flex items-center justify-center h-[300px] bg-muted/20 rounded-lg">
-              <div className="text-center">
-                <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                <p className="text-muted-foreground">Nenhuma assinatura ativa</p>
-                <p className="text-sm text-muted-foreground mt-2">
-                  Quando houver assinaturas ativas, o gráfico aparecerá aqui
-                </p>
-              </div>
-            </div>
+            <p className="py-12 text-center text-sm text-muted-foreground">
+              Nenhuma assinatura ativa ainda.
+            </p>
           )}
         </CardContent>
       </Card>

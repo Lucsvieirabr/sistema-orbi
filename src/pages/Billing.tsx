@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Clock, ExternalLink, LogOut, RefreshCw, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,6 +10,8 @@ import { SUBSCRIPTION_QUERY_KEY, useSubscription } from "@/hooks/use-subscriptio
 import { syncSubscriptionStatus, usePayment } from "@/hooks/use-payment";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import orbiLogo from "@/assets/orbi-logo_white.png";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString("pt-BR") : null;
@@ -60,8 +61,9 @@ export default function Billing() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full" />
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+        <span className="sr-only">Verificando sua assinatura…</span>
       </div>
     );
   }
@@ -72,105 +74,107 @@ export default function Billing() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="container mx-auto px-4 py-3 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <img src={orbiLogo} alt="Orbi" className="h-7 w-7" />
-          <span className="text-lg font-semibold">Orbi</span>
+      <header className="border-b border-border-subtle">
+        <div className="mx-auto flex h-header max-w-[64rem] items-center justify-between px-4 md:px-6 lg:h-header-lg">
+          <div className="flex items-center gap-2.5">
+            <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+            <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut className="h-4 w-4" />
+              Sair
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-3">
-          <ThemeToggle />
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Sair
-          </Button>
-        </div>
-      </div>
+      </header>
 
-      <div className="container mx-auto flex justify-center px-4 py-6 md:py-10">
-        <Card className="w-full max-w-2xl border-destructive/30 shadow-lg">
-          <CardHeader className="text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-destructive/10 flex items-center justify-center">
-              {isPending ? (
-                <Clock className="h-8 w-8 text-primary" />
-              ) : (
-                <AlertTriangle className="h-8 w-8 text-destructive" />
-              )}
-            </div>
-            <CardTitle className="text-xl md:text-2xl">
-              {isPending ? "Aguardando confirmação do pagamento" : "Acesso bloqueado"}
-            </CardTitle>
-            <CardDescription className="text-base mt-2">
-              {isPending
-                ? "Assim que o gateway confirmar o pagamento, seu acesso é liberado automaticamente."
-                : blockedReason || "Sua assinatura está inadimplente ou expirada."}
-            </CardDescription>
-          </CardHeader>
-
-          <CardContent className="space-y-6">
-            <div className="rounded-lg bg-muted/50 p-4 space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Plano</span>
-                <span className="font-medium">{status.plan_name ?? "—"}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Situação</span>
-                <span className="font-medium uppercase">{status.status ?? "—"}</span>
-              </div>
-              {periodEnd && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Válido até</span>
-                  <span className="font-medium">{periodEnd}</span>
-                </div>
-              )}
-              {nextDue && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Próximo vencimento</span>
-                  <span className="font-medium">{nextDue}</span>
-                </div>
-              )}
-            </div>
-
-            {paymentData?.url ? (
-              <div className="space-y-3">
-                <Button
-                  className="w-full"
-                  size="lg"
-                  onClick={() => window.open(paymentData.url, "_blank", "noopener,noreferrer")}
-                >
-                  <ExternalLink className="mr-2 h-5 w-5" />
-                  Pagar {formatCurrency(paymentData.value)}
-                </Button>
-                <p className="text-center text-xs text-muted-foreground">
-                  PIX, boleto ou cartão. A liberação é automática após a confirmação.
-                </p>
-              </div>
-            ) : (
-              <Alert>
-                <AlertTitle>Nenhuma cobrança em aberto localizada</AlertTitle>
-                <AlertDescription>
-                  Atualize o status ou escolha um plano para gerar uma nova cobrança.
-                </AlertDescription>
-              </Alert>
+      <main className="mx-auto max-w-[40rem] px-4 py-10 md:px-6 md:py-16">
+        {/* Cabeçalho editorial: o estado da cobrança é a manchete, não um
+            ícone gigante dentro de um círculo colorido. */}
+        <div className="animate-rise">
+          <p
+            className={cn(
+              "label-eyebrow flex items-center gap-1.5",
+              isPending ? "text-warning" : "text-destructive",
             )}
+          >
+            {isPending ? <Clock className="h-3 w-3" aria-hidden /> : <AlertTriangle className="h-3 w-3" aria-hidden />}
+            {isPending ? "Pagamento em processamento" : "Assinatura irregular"}
+          </p>
+          <h1 className="mt-3 font-display text-2xl font-semibold leading-tight tracking-[-0.02em] text-balance md:text-3xl">
+            {isPending ? "Estamos aguardando a confirmação do seu pagamento." : "Seu acesso ao Orbi está pausado."}
+          </h1>
+          <p className="mt-4 text-base leading-relaxed text-pretty text-muted-foreground">
+            {isPending
+              ? "Assim que o gateway confirmar, o acesso volta sozinho — você não precisa fazer mais nada."
+              : blockedReason || "A cobrança da sua assinatura não foi concluída. Regularize abaixo para voltar de onde parou."}
+          </p>
+        </div>
 
-            <div className="flex flex-col gap-3 sm:flex-row">
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={handleRefresh}
-                disabled={isSyncing || isPaymentLoading}
-              >
-                <RefreshCw className={`mr-2 h-4 w-4 ${isSyncing ? "animate-spin" : ""}`} />
-                Já paguei, atualizar
-              </Button>
-              <Button className="flex-1" variant="secondary" onClick={() => navigate("/pricing")}>
-                <Sparkles className="mr-2 h-4 w-4" />
-                Ver planos
-              </Button>
+        {/* Situação da assinatura: lista de definição com hairline. */}
+        <dl className="mt-8 border-t border-border-subtle">
+          <div className="flex items-baseline justify-between gap-4 border-b border-border-subtle py-2.5">
+            <dt className="text-sm text-muted-foreground">Plano</dt>
+            <dd className="text-sm font-medium text-foreground">{status.plan_name ?? "—"}</dd>
+          </div>
+          <div className="flex items-baseline justify-between gap-4 border-b border-border-subtle py-2.5">
+            <dt className="text-sm text-muted-foreground">Situação</dt>
+            <dd>
+              <Badge variant={isPending ? "warning" : "destructive"}>{status.status ?? "—"}</Badge>
+            </dd>
+          </div>
+          {periodEnd && (
+            <div className="flex items-baseline justify-between gap-4 border-b border-border-subtle py-2.5">
+              <dt className="text-sm text-muted-foreground">Válido até</dt>
+              <dd className="text-sm font-medium tabular text-foreground">{periodEnd}</dd>
             </div>
-          </CardContent>
-        </Card>
-      </div>
+          )}
+          {nextDue && (
+            <div className="flex items-baseline justify-between gap-4 border-b border-border-subtle py-2.5">
+              <dt className="text-sm text-muted-foreground">Próximo vencimento</dt>
+              <dd className="text-sm font-medium tabular text-foreground">{nextDue}</dd>
+            </div>
+          )}
+        </dl>
+
+        <div className="mt-8 space-y-4">
+          {paymentData?.url ? (
+            <>
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={() => window.open(paymentData.url, "_blank", "noopener,noreferrer")}
+              >
+                <ExternalLink className="h-4 w-4" />
+                Pagar {formatCurrency(paymentData.value)}
+              </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                PIX, boleto ou cartão. A liberação é automática após a confirmação.
+              </p>
+            </>
+          ) : (
+            <Alert variant="info">
+              <AlertTitle>Nenhuma cobrança em aberto</AlertTitle>
+              <AlertDescription>
+                Atualize o status abaixo ou escolha um plano para gerar uma nova cobrança.
+              </AlertDescription>
+            </Alert>
+          )}
+
+          <div className="flex flex-col gap-2 border-t border-border-subtle pt-4 sm:flex-row">
+            <Button variant="outline" className="flex-1" onClick={handleRefresh} disabled={isSyncing || isPaymentLoading}>
+              <RefreshCw className={cn("h-4 w-4", isSyncing && "animate-spin")} />
+              Já paguei, atualizar
+            </Button>
+            <Button variant="ghost" className="flex-1" onClick={() => navigate("/pricing")}>
+              <Sparkles className="h-4 w-4" />
+              Ver planos
+            </Button>
+          </div>
+        </div>
+      </main>
     </div>
   );
 }

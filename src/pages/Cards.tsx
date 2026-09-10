@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SelectItem } from "@/components/ui/select";
@@ -14,14 +14,14 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { useCardUsage } from "@/hooks/use-card-usage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
-import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus, CreditCard, Receipt, TrendingUp, TrendingDown, Calendar, Wallet, Edit, Trash2 } from "lucide-react";
+import { LayoutGrid, List, Plus, CreditCard, Receipt, Edit, Trash2, Search } from "lucide-react";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
+import { cn } from "@/lib/utils";
+import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 
 export default function Cards() {
   return (
@@ -161,358 +161,299 @@ function CardsContent() {
     return { startDate: periodStart, endDate: periodEnd };
   };
 
-  // Componente para card individual com uso real
-  const CreditCardItem = ({ card }: { card: any }) => {
-    const { data: usageData } = useCardUsage({
-      cardId: card.id,
-      statementDay: card.statement_date,
-    });
+  /* Tom do medidor de fatura: gastar não é "sucesso". Neutro até a metade do
+     limite, alerta a partir de 50%, crítico a partir de 85%. */
+  const usageTone = (pct: number) =>
+    pct >= 85 ? "destructive" : pct >= 50 ? "warning" : "neutral";
 
+  const meterBar = "h-1 rounded-full transition-[width] duration-500 ease-swift";
+  const meterColor: Record<string, string> = {
+    neutral: "bg-primary",
+    warning: "bg-warning",
+    destructive: "bg-destructive",
+  };
+  const meterText: Record<string, string> = {
+    neutral: "text-muted-foreground",
+    warning: "text-warning",
+    destructive: "text-destructive",
+  };
+
+  const cardActions = (card: any) => (
+    <div className="flex items-center gap-0.5">
+      <FeatureGuard feature="cartoes_editar">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!isMine(card.user_id)}
+          onClick={() => onEdit(card.id)}
+          aria-label={`Editar ${card.name}`}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+      </FeatureGuard>
+      <FeatureGuard feature="cartoes_excluir">
+        <ConfirmationDialog
+          title="Excluir cartão"
+          description="As transações lançadas neste cartão perdem o vínculo com a fatura. Não dá para desfazer."
+          confirmText="Excluir cartão"
+          onConfirm={() => onDelete(card.id)}
+          variant="destructive"
+        >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={!isMine(card.user_id)}
+            aria-label={`Excluir ${card.name}`}
+            className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </ConfirmationDialog>
+      </FeatureGuard>
+    </div>
+  );
+
+  /**
+   * Tile de cartão. A fatura em aberto é o protagonista — é o número que o
+   * usuário veio conferir. Limite, fechamento e vencimento entram como lista
+   * de definição, separados por hairline.
+   */
+  const CreditCardItem = ({ card }: { card: any }) => {
+    const { data: usageData } = useCardUsage({ cardId: card.id, statementDay: card.statement_date });
     const usage = usageData?.used || 0;
-    const usagePercentage = (usage / card.limit) * 100;
+    const pct = card.limit > 0 ? (usage / card.limit) * 100 : 0;
+    const tone = usageTone(pct);
+    const linkedAccount = accountsWithBalance.find((acc) => acc.id === card.connected_account_id);
 
     return (
-      <Card className="group">
-        <CardHeader className="pb-3">
-          <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-3">
-            <div className="flex items-center gap-3 flex-1">
-              <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
-              <div className="min-w-0 flex-1">
-                <h3 className="truncate font-display text-base font-semibold tracking-tight lg:text-lg">{card.name}</h3>
-                {card.brand && (
-                  <Badge variant="secondary" className="mt-1 text-xs">
-                    {card.brand}
-                  </Badge>
-                )}
+      <Card interactive className="flex flex-col overflow-hidden">
+        <span aria-hidden className={cn("h-px w-full shrink-0", meterColor[tone])} />
+
+        <CardHeader className="gap-0 space-y-0">
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <span className="shrink-0">{getBrandIcon(card.brand)}</span>
+              <div className="min-w-0">
+                <h2
+                  className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
+                  title={card.name}
+                >
+                  {card.name}
+                </h2>
+                {card.brand && <p className="label-eyebrow mt-0.5">{card.brand}</p>}
               </div>
             </div>
-            <div className="flex items-center gap-1 justify-end lg:justify-start">
-              <FeatureGuard feature="cartoes_editar">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  disabled={!isMine((card as any).user_id)}
-                  onClick={() => onEdit(card.id)}
-                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                >
-                  <Edit className="h-4 w-4" />
-                </Button>
-              </FeatureGuard>
-              <FeatureGuard feature="cartoes_excluir">
-                <ConfirmationDialog
-                  title="Confirmar Exclusão"
-                  description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
-                  confirmText="Excluir"
-                  onConfirm={() => onDelete(card.id)}
-                  variant="destructive"
-                >
-                  <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-11 w-11 p-0 lg:h-8 lg:w-8">
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </ConfirmationDialog>
-              </FeatureGuard>
-            </div>
+            {cardActions(card)}
           </div>
         </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Usage Bar */}
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Uso da fatura</span>
-              <span className="font-medium">
-                {formatCurrency(usage)} / {formatCurrency(card.limit)}
+
+        <CardContent className="flex flex-1 flex-col gap-5">
+          <div>
+            <p className="label-eyebrow">Fatura em aberto</p>
+            <p className={cn("figure-xl mt-1 tabular", tone === "neutral" ? "text-foreground" : meterText[tone])}>
+              {formatCurrency(usage)}
+            </p>
+            <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
+              <div className={cn(meterBar, meterColor[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
+            </div>
+            <div className="mt-1.5 flex items-baseline justify-between gap-3 text-xs">
+              <span className={cn("tabular font-medium", meterText[tone])}>{pct.toFixed(0)}% do limite</span>
+              <span className="tabular text-muted-foreground">
+                {formatCurrency(Math.max(card.limit - usage, 0))} disponível
               </span>
             </div>
-            <div className="w-full bg-muted rounded-full h-2">
-              <div
-                className={`h-2 rounded-full transition-all duration-300 ${
-                  usagePercentage > 80
-                    ? "bg-destructive"
-                    : usagePercentage > 50
-                    ? "bg-warning"
-                    : "bg-success"
-                }`}
-                style={{ width: `${Math.min(usagePercentage, 100)}%` }}
-              />
-            </div>
-            <div className="flex justify-between text-xs text-muted-foreground">
-              <span>{usagePercentage.toFixed(1)}% utilizado</span>
-              <span>{formatCurrency(card.limit - usage)} disponível</span>
-            </div>
           </div>
 
-          <Separator />
-
-          {/* Card Details */}
-          <div className="grid grid-cols-2 gap-3 text-sm sm:gap-4">
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-muted-foreground">Fechamento</p>
-                  <p className="font-medium">Dia {card.statement_date}</p>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <Receipt className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-muted-foreground">Vencimento</p>
-                  <p className="font-medium">Dia {card.due_date}</p>
-                </div>
-              </div>
+          <dl className="mt-auto">
+            <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle py-1.5">
+              <dt className="text-xs text-muted-foreground">Limite</dt>
+              <dd className="text-xs font-medium tabular text-foreground">{formatCurrency(card.limit)}</dd>
             </div>
-            <div className="space-y-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" />
-                <div>
-                  <p className="text-muted-foreground">Limite</p>
-                  <p className="font-medium">{formatCurrency(card.limit)}</p>
-                </div>
-              </div>
-              {card.connected_account_id && (
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-muted-foreground" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-muted-foreground">Conta Vinculada</p>
-                    <p className="font-medium text-xs truncate" title={accountsWithBalance.find(acc => acc.id === card.connected_account_id)?.name}>
-                      {accountsWithBalance.find(acc => acc.id === card.connected_account_id)?.name}
-                    </p>
-                  </div>
-                </div>
-              )}
+            <div className="flex items-baseline justify-between gap-3 border-b border-border-subtle py-1.5">
+              <dt className="text-xs text-muted-foreground">Fecha</dt>
+              <dd className="text-xs font-medium tabular text-foreground">dia {card.statement_date}</dd>
             </div>
-          </div>
-
-          {/* Actions */}
-          <div className="pt-2">
-            <FeatureGuard feature="cartoes_faturas">
-              <Button
-                variant="outline"
-                className="w-full gap-2"
-                onClick={() => navigateToCardStatements(card.id)}
-              >
-                <Receipt className="h-4 w-4" />
-                Ver Faturas
-              </Button>
-            </FeatureGuard>
-          </div>
+            <div className="flex items-baseline justify-between gap-3 py-1.5">
+              <dt className="text-xs text-muted-foreground">Vence</dt>
+              <dd className="text-xs font-medium tabular text-foreground">dia {card.due_date}</dd>
+            </div>
+            {linkedAccount && (
+              <div className="flex items-baseline justify-between gap-3 border-t border-border-subtle py-1.5">
+                <dt className="text-xs text-muted-foreground">Paga com</dt>
+                <dd className="min-w-0 truncate text-xs font-medium text-foreground" title={linkedAccount.name}>
+                  {linkedAccount.name}
+                </dd>
+              </div>
+            )}
+          </dl>
         </CardContent>
+
+        <FeatureGuard feature="cartoes_faturas">
+          <CardFooter>
+            <Button variant="outline" className="w-full" onClick={() => navigateToCardStatements(card.id)}>
+              <Receipt className="h-4 w-4" />
+              Ver faturas
+            </Button>
+          </CardFooter>
+        </FeatureGuard>
       </Card>
     );
   };
 
-  // Componente para item de lista
+  /** Linha da visão em lista: mesma informação, densidade de tabela. */
   const CreditCardListItem = ({ card }: { card: any }) => {
-    const { data: usageData } = useCardUsage({
-      cardId: card.id,
-      statementDay: card.statement_date,
-    });
-
+    const { data: usageData } = useCardUsage({ cardId: card.id, statementDay: card.statement_date });
     const usage = usageData?.used || 0;
-    const usagePercentage = (usage / card.limit) * 100;
+    const pct = card.limit > 0 ? (usage / card.limit) * 100 : 0;
+    const tone = usageTone(pct);
 
     return (
-      <div className="p-3 transition-colors hover:bg-muted/30 md:p-4 lg:p-6">
-        <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div className="flex items-center gap-3 lg:gap-4 flex-1 min-w-0">
-            <div className="flex-shrink-0">{getBrandIcon(card.brand)}</div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <h3 className="font-semibold truncate">{card.name}</h3>
-                {card.brand && (
-                  <Badge variant="secondary" className="text-xs">{card.brand}</Badge>
-                )}
+      <li className="flex flex-col gap-3 px-3 py-3 transition-colors duration-200 ease-swift hover:bg-accent/40 md:px-4 lg:flex-row lg:items-center lg:gap-6">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <span className="shrink-0">{getBrandIcon(card.brand)}</span>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2">
+              <p className="truncate text-sm font-medium text-foreground" title={card.name}>
+                {card.name}
+              </p>
+              {card.brand && <span className="label-eyebrow shrink-0">{card.brand}</span>}
+            </div>
+            <div className="mt-1.5 flex items-center gap-2">
+              <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-sunken">
+                <div className={cn(meterBar, meterColor[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
               </div>
-              <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs text-muted-foreground lg:gap-4 lg:text-sm">
-                <span>Limite: {formatCurrency(card.limit)}</span>
-                <span>Uso: {formatCurrency(usage)}</span>
-                <span className={`font-medium ${
-                  usagePercentage > 80 ? "text-destructive" :
-                  usagePercentage > 50 ? "text-warning" : "text-success"
-                }`}>
-                  {usagePercentage.toFixed(1)}%
-                </span>
-              </div>
+              <span className={cn("text-xs tabular font-medium", meterText[tone])}>{pct.toFixed(0)}%</span>
+              <span className="hidden text-xs tabular text-muted-foreground sm:inline">
+                de {formatCurrency(card.limit)}
+              </span>
             </div>
           </div>
-          <div className="flex items-center justify-end gap-1 border-t border-border-subtle pt-2 lg:gap-2 lg:border-t-0 lg:pt-0">
-            <FeatureGuard feature="cartoes_editar">
-              <Button 
-                variant="outline" 
-                size="sm"
-                disabled={!isMine((card as any).user_id)}
-                onClick={() => onEdit(card.id)}
-                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-              >
-                <Edit className="h-4 w-4" />
-              </Button>
-            </FeatureGuard>
-            <FeatureGuard feature="cartoes_excluir">
-              <ConfirmationDialog
-                title="Confirmar Exclusão"
-                description="Tem certeza que deseja excluir este cartão? Esta ação não pode ser desfeita."
-                confirmText="Excluir"
-                onConfirm={() => onDelete(card.id)}
-                variant="destructive"
-              >
-                <Button variant="destructive" size="sm" disabled={!isMine((card as any).user_id)} className="h-11 w-11 p-0 lg:h-8 lg:w-8">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </ConfirmationDialog>
-            </FeatureGuard>
+        </div>
+
+        <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-2 lg:justify-end lg:border-t-0 lg:pt-0">
+          <div className="text-left lg:text-right">
+            <p className="label-eyebrow">Fatura</p>
+            <p className={cn("figure-sm tabular md:text-base", tone === "neutral" ? "text-foreground" : meterText[tone])}>
+              {formatCurrency(usage)}
+            </p>
+          </div>
+          <div className="flex items-center gap-0.5">
             <FeatureGuard feature="cartoes_faturas">
               <Button
-                variant="outline"
-                size="sm"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => navigateToCardStatements(card.id)}
-                className="gap-2"
+                aria-label={`Faturas de ${card.name}`}
+                title="Ver faturas"
               >
                 <Receipt className="h-4 w-4" />
-                <span className="hidden sm:inline">Faturas</span>
               </Button>
             </FeatureGuard>
+            {cardActions(card)}
           </div>
         </div>
-      </div>
+      </li>
     );
   };
 
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Aviso de Limite */}
-      <LimitWarningBanner 
-        limit="max_cartoes" 
+    <PageBody>
+      <LimitWarningBanner
+        limit="max_cartoes"
         currentValue={creditCards?.length || 0}
         resourceName="cartões"
       />
-      
-      {/* Header Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                <CreditCard className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Cartões</CardTitle>
-                <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
-                  Gerencie seus cartões e acompanhe suas faturas mensais
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-48 lg:w-64"
-              />
-              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
-                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
-                  <ToggleGroupItem
-                    value="list"
-                    aria-label="Lista"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="cards"
-                    aria-label="Cards"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <FeatureGuard feature="cartoes_criar">
-                  <LimitGuard limit="max_cartoes" currentValue={creditCards?.length || 0}>
-                    <Button onClick={handleOpenDialog} className="gap-2 w-full sm:w-auto">
-                      <Plus className="h-4 w-4" />
-                      <span className="sm:inline">Novo Cartão</span>
-                    </Button>
-                  </LimitGuard>
-                </FeatureGuard>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
 
-      {/* Cards Grid/List */}
+      <PageHeader
+        eyebrow="Saldos"
+        icon={CreditCard}
+        title="Cartões"
+        description="Quanto já foi para a fatura de cada cartão no período corrente, e quanto do limite ainda sobra."
+        actions={
+          <FeatureGuard feature="cartoes_criar">
+            <LimitGuard limit="max_cartoes" currentValue={creditCards?.length || 0}>
+              <Button onClick={handleOpenDialog} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4" />
+                Novo cartão
+              </Button>
+            </LimitGuard>
+          </FeatureGuard>
+        }
+      />
+
+      <PageToolbar>
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar cartão"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar cartões"
+          />
+        </div>
+        <ToolbarSpacer />
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={onChangeView}
+          aria-label="Visualização"
+          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
+        >
+          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </PageToolbar>
+
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-4"}>
+        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
+            <Skeleton key={i} className={view === "cards" ? "h-72 w-full" : "h-20 w-full"} />
+          ))}
+        </div>
+      ) : filteredCreditCards.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          title={searchTerm ? "Nenhum cartão encontrado" : "Nenhum cartão cadastrado"}
+          description={
+            searchTerm
+              ? `Nada corresponde a “${searchTerm}”.`
+              : "Cadastre um cartão para o Orbi acompanhar a fatura e o limite disponível."
+          }
+          action={
+            !searchTerm ? (
+              <FeatureGuard feature="cartoes_criar">
+                <Button onClick={handleOpenDialog}>
+                  <Plus className="h-4 w-4" />
+                  Novo cartão
+                </Button>
+              </FeatureGuard>
+            ) : undefined
+          }
+        />
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredCreditCards.map((card) => (
+            <CreditCardItem key={card.id} card={card} />
           ))}
         </div>
       ) : (
-        <>
-          {view === "cards" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-              {filteredCreditCards.length === 0 ? (
-                <div className="col-span-full">
-                  <Card className="border-dashed border-border">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="p-4 bg-muted/50 rounded-full mb-4">
-                        <CreditCard className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {searchTerm ? "Nenhum cartão encontrado" : "Nenhum cartão cadastrado"}
-                      </h3>
-                      <p className="text-muted-foreground mb-4">
-                        {searchTerm
-                          ? `Nenhum cartão encontrado para "${searchTerm}"`
-                          : "Adicione seu primeiro cartão de crédito para começar a acompanhar suas faturas"}
-                      </p>
-                      {!searchTerm && (
-                        <Button onClick={handleOpenDialog} className="gap-2">
-                          <Plus className="h-4 w-4" />
-                          Adicionar Cartão
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : (
-                filteredCreditCards.map((card) => <CreditCardItem key={card.id} card={card} />)
-              )}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                {filteredCreditCards.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <CreditCard className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      {searchTerm ? "Nenhum cartão encontrado" : "Nenhum cartão cadastrado"}
-                    </h3>
-                    <p className="mb-4">
-                      {searchTerm
-                        ? `Nenhum cartão encontrado para "${searchTerm}"`
-                        : "Adicione seu primeiro cartão de crédito para começar"}
-                    </p>
-                    {!searchTerm && (
-                      <Button onClick={handleOpenDialog} className="gap-2">
-                        <Plus className="h-4 w-4" />
-                        Adicionar Cartão
-                      </Button>
-                    )}
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border">
-                    {filteredCreditCards.map((card) => <CreditCardListItem key={card.id} card={card} />)}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </>
+        <Card className="overflow-hidden">
+          <ul className="divide-y divide-border-subtle">
+            {filteredCreditCards.map((card) => (
+              <CreditCardListItem key={card.id} card={card} />
+            ))}
+          </ul>
+        </Card>
       )}
 
-      {/* Dialog for Add/Edit Card */}
       <Dialog open={open} onOpenChange={handleCloseDialog}>
         <DialogContent className="max-w-md">
           <DialogHeader>
@@ -527,14 +468,11 @@ function CardsContent() {
             }}
             showFooter={true}
             accountSelector={
-              <SelectWithAddButton
-                entityType="accounts"
-                placeholder="Selecione uma conta"
-              >
+              <SelectWithAddButton entityType="accounts" placeholder="Selecione uma conta">
                 <SelectItem value="none">Nenhuma conta</SelectItem>
                 {accountsWithBalance.map((account) => (
                   <SelectItem key={account.id} value={account.id}>
-                    {account.name} - {formatCurrency(account.current_balance ?? 0)}
+                    {account.name} — {formatCurrency(account.current_balance ?? 0)}
                   </SelectItem>
                 ))}
               </SelectWithAddButton>
@@ -542,8 +480,6 @@ function CardsContent() {
           />
         </DialogContent>
       </Dialog>
-    </div>
+    </PageBody>
   );
 }
-
-

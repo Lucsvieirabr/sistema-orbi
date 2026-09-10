@@ -12,13 +12,14 @@ import { useAccounts } from "@/hooks/use-accounts";
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { toast } from "@/hooks/use-toast";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus, Wallet, Edit, Trash2 } from "lucide-react";
+import { LayoutGrid, List, Plus, Wallet, Edit, Trash2, Search } from "lucide-react";
 import { ColorPicker } from "@/components/ui/color-picker";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 import { cn, onColorClass } from "@/lib/utils";
+import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 
 export default function Accounts() {
   return (
@@ -111,288 +112,256 @@ function AccountsContent() {
 
   const formatCurrency = (amount: number) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(amount);
 
-  const truncateText = (text: string, maxLength: number = 15) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
   // Filtra contas por busca
   const filteredAccounts = accountsWithBalance?.filter((account) =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account.type.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
+  const accountDialog = (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Nova conta
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Conta corrente" />
+          </div>
+          <div className="space-y-2">
+            <Label>Tipo</Label>
+            <Select value={type} onValueChange={setType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Tipo" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Corrente">Corrente</SelectItem>
+                <SelectItem value="Poupança">Poupança</SelectItem>
+                <SelectItem value="Investimento">Investimento</SelectItem>
+                <SelectItem value="Outros">Outros</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="initial_balance">Saldo inicial</Label>
+            <NumericInput
+              id="initial_balance"
+              currency
+              value={initialBalance}
+              onChange={setInitialBalance}
+              placeholder="0,00"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="color">Cor</Label>
+            <ColorPicker value={color} onChange={setColor} />
+          </div>
+        </div>
+        <DialogFooter>
+          <Button onClick={onSubmit}>Salvar conta</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+
+  const rowActions = (a: any) => (
+    <div className="flex items-center gap-0.5">
+      <FeatureGuard feature="contas_editar">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          disabled={!isMine(a.user_id)}
+          onClick={() => onEdit(a.id)}
+          aria-label={`Editar ${a.name}`}
+        >
+          <Edit className="h-4 w-4" />
+        </Button>
+      </FeatureGuard>
+      <FeatureGuard feature="contas_excluir">
+        <ConfirmationDialog
+          title="Excluir conta"
+          description="A conta sai da lista e as transações ligadas a ela perdem o vínculo de saldo. Não dá para desfazer."
+          confirmText="Excluir conta"
+          onConfirm={() => onDelete(a.id)}
+          variant="destructive"
+        >
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={!isMine(a.user_id)}
+            aria-label={`Excluir ${a.name}`}
+            className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </ConfirmationDialog>
+      </FeatureGuard>
+    </div>
+  );
+
+  const emptyTitle = searchTerm ? "Nenhuma conta encontrada" : "Nenhuma conta cadastrada";
+  const emptyDescription = searchTerm
+    ? `Nada corresponde a “${searchTerm}”. Tente outro nome ou tipo.`
+    : "Cadastre a primeira conta para o Orbi começar a calcular seus saldos.";
+
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Aviso de Limite */}
-      <LimitWarningBanner 
-        limit="max_contas" 
+    <PageBody>
+      <LimitWarningBanner
+        limit="max_contas"
         currentValue={accountsWithBalance?.length || 0}
         resourceName="contas"
       />
-      
-      {/* Header Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-3">
-              <div className="shrink-0 rounded-lg bg-primary/10 p-2">
-                <Wallet className="h-5 w-5 text-primary lg:h-6 lg:w-6" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Contas</CardTitle>
-                <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
-                  Gerencie suas contas bancárias e acompanhe seus saldos
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-              <Input
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full sm:w-48 lg:w-64"
-              />
-              <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start">
-                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
-                  <ToggleGroupItem
-                    value="list"
-                    aria-label="Lista"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="cards"
-                    aria-label="Cards"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <FeatureGuard feature="contas_criar">
-                  <LimitGuard limit="max_contas" currentValue={accountsWithBalance?.length || 0}>
-                    <Dialog open={open} onOpenChange={setOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="gap-2 w-full sm:w-auto">
-                          <Plus className="h-4 w-4" />
-                          <span className="sm:inline">Nova Conta</span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{title}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="name">Nome</Label>
-                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Tipo</Label>
-                            <Select value={type} onValueChange={setType}>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Tipo" />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="Corrente">Corrente</SelectItem>
-                                <SelectItem value="Poupança">Poupança</SelectItem>
-                                <SelectItem value="Investimento">Investimento</SelectItem>
-                                <SelectItem value="Outros">Outros</SelectItem>
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="initial_balance">Saldo Inicial</Label>
-                            <NumericInput
-                              id="initial_balance"
-                              currency
-                              value={initialBalance}
-                              onChange={setInitialBalance}
-                              placeholder="0,00"
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="color">Cor</Label>
-                            <ColorPicker value={color} onChange={setColor} />
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button onClick={onSubmit}>Salvar</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </LimitGuard>
-                </FeatureGuard>
-              </div>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
 
-      {/* Accounts Grid/List */}
+      <PageHeader
+        eyebrow="Saldos"
+        icon={Wallet}
+        title="Contas"
+        description="Onde o dinheiro está. Cada conta soma seu saldo inicial às transações já lançadas."
+        actions={
+          <FeatureGuard feature="contas_criar">
+            <LimitGuard limit="max_contas" currentValue={accountsWithBalance?.length || 0}>
+              {accountDialog}
+            </LimitGuard>
+          </FeatureGuard>
+        }
+      />
+
+      <PageToolbar>
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar por nome ou tipo"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar contas"
+          />
+        </div>
+        <ToolbarSpacer />
+        <div className="flex items-center gap-3">
+          {!isLoading && (
+            <span className="hidden text-xs tabular text-muted-foreground sm:inline">
+              {filteredAccounts.length}
+              {filteredAccounts.length === 1 ? " conta" : " contas"}
+            </span>
+          )}
+          <ToggleGroup
+            type="single"
+            value={view}
+            onValueChange={onChangeView}
+            aria-label="Visualização"
+            className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
+          >
+            <ToggleGroupItem value="list" aria-label="Lista" size="sm">
+              <List className="h-4 w-4" />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
+              <LayoutGrid className="h-4 w-4" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </PageToolbar>
+
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
+        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3" : "space-y-2"}>
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-20 w-full"} />
+            <Skeleton key={i} className={view === "cards" ? "h-40 w-full" : "h-16 w-full"} />
+          ))}
+        </div>
+      ) : filteredAccounts.length === 0 ? (
+        <EmptyState
+          icon={Wallet}
+          title={emptyTitle}
+          description={emptyDescription}
+        />
+      ) : view === "cards" ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {filteredAccounts.map((a, i) => (
+            <Card
+              key={a.id}
+              interactive
+              className="flex animate-rise flex-col overflow-hidden"
+              style={{ animationDelay: `${Math.min(i, 8) * 45}ms` }}
+            >
+              {/* Régua de 1px com a cor da conta: identidade sem bloco de cor. */}
+              <span
+                aria-hidden
+                className="h-0.5 w-full shrink-0"
+                style={{ backgroundColor: a.color ?? "hsl(var(--border))" }}
+              />
+              <CardHeader className="gap-0 space-y-0">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <h2
+                      className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
+                      title={a.name}
+                    >
+                      {a.name}
+                    </h2>
+                    <p className="label-eyebrow mt-1">{a.type}</p>
+                  </div>
+                  {rowActions(a)}
+                </div>
+              </CardHeader>
+              <CardContent className="mt-auto">
+                <p className="label-eyebrow">Saldo atual</p>
+                <p
+                  className={cn(
+                    "figure-lg mt-1 tabular",
+                    (a.current_balance ?? 0) < 0 ? "text-destructive" : "text-foreground",
+                  )}
+                >
+                  {formatCurrency(a.current_balance ?? 0)}
+                </p>
+              </CardContent>
+            </Card>
           ))}
         </div>
       ) : (
-        <>
-          {view === "cards" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-              {filteredAccounts.length === 0 ? (
-                <div className="col-span-full">
-                  <Card className="border-dashed border-border">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="p-4 bg-muted/50 rounded-full mb-4">
-                        <Wallet className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {searchTerm ? "Nenhuma conta encontrada" : "Nenhuma conta cadastrada"}
-                      </h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm 
-                          ? `Nenhuma conta encontrada para "${searchTerm}"`
-                          : "Adicione sua primeira conta para começar a gerenciar suas finanças"}
-                      </p>
-                    </CardContent>
-                  </Card>
+        <Card className="overflow-hidden">
+          <ul className="divide-y divide-border-subtle">
+            {filteredAccounts.map((a) => (
+              <li
+                key={a.id}
+                className="relative flex flex-col gap-2 py-3 pl-5 pr-3 transition-colors duration-200 ease-swift hover:bg-accent/40 md:py-3.5 md:pr-4 lg:flex-row lg:items-center lg:gap-4"
+              >
+                <span
+                  aria-hidden
+                  className="absolute inset-y-2 left-2.5 w-0.5 rounded-full"
+                  style={{ backgroundColor: a.color ?? "hsl(var(--border))" }}
+                />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-foreground" title={a.name}>
+                    {a.name}
+                  </p>
+                  <p className="mt-0.5 text-xs text-muted-foreground">{a.type}</p>
                 </div>
-              ) : (
-                filteredAccounts.map((a) => (
-                  <Card key={a.id} className="group w-full overflow-hidden" style={{ borderTop: `4px solid ${a.color ?? "#e5e7eb"}` }}>
-                    <CardHeader className="w-full overflow-hidden pb-3">
-                      <div className="flex flex-col gap-3 w-full overflow-hidden">
-                        <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
-                          <div className="flex items-center gap-3 min-w-0 flex-1 overflow-hidden">
-                            <div className="h-10 w-10 rounded-full flex items-center justify-center flex-shrink-0" style={{ backgroundColor: a.color ?? "#e5e7eb" }}>
-                              <Wallet className={cn("h-5 w-5", onColorClass(a.color))} />
-                            </div>
-                            <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                              <h3 className="font-semibold text-base" title={a.name}>{truncateText(a.name, 20)}</h3>
-                              <span className="text-xs text-muted-foreground">{truncateText(a.type, 15)}</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 justify-end lg:justify-start">
-                          <FeatureGuard feature="contas_editar">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              disabled={!isMine((a as any).user_id)}
-                              onClick={() => onEdit(a.id)}
-                              aria-label={`Editar ${a.name}`}
-                              className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                            >
-                              <Edit className="h-4 w-4" />
-                            </Button>
-                          </FeatureGuard>
-                          <FeatureGuard feature="contas_excluir">
-                            <ConfirmationDialog
-                              title="Confirmar Exclusão"
-                              description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                              confirmText="Excluir"
-                              onConfirm={() => onDelete(a.id)}
-                              variant="destructive"
-                            >
-                              <Button
-                                variant="destructive"
-                                size="sm"
-                                disabled={!isMine((a as any).user_id)}
-                                aria-label={`Excluir ${a.name}`}
-                                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            </ConfirmationDialog>
-                          </FeatureGuard>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="text-left lg:text-right">
-                        <p className="label-eyebrow">Saldo Atual</p>
-                        <p className="figure-lg tabular mt-1">{formatCurrency(a.current_balance ?? 0)}</p>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0 rounded-lg">
-                {filteredAccounts.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <Wallet className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      {searchTerm ? "Nenhuma conta encontrada" : "Nenhuma conta cadastrada"}
-                    </h3>
-                    <p>
-                      {searchTerm 
-                        ? `Nenhuma conta encontrada para "${searchTerm}"`
-                        : "Adicione sua primeira conta para começar"}
-                    </p>
-                  </div>
-                ) : (
-                  <div className="divide-y divide-border w-full">
-                    {filteredAccounts.map((a) => (
-                      <div key={a.id} className="flex w-full flex-col justify-between gap-2.5 overflow-hidden rounded-lg p-3 transition-colors hover:bg-muted/40 md:gap-3 md:p-4 lg:flex-row lg:items-center" style={{ borderLeft: `4px solid ${a.color ?? "#e5e7eb"}` }}>
-                          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                          <div className="h-8 w-8 rounded-full flex-shrink-0" style={{ backgroundColor: a.color ?? "#e5e7eb" }} />
-                          <div className="flex flex-col min-w-0 flex-1 overflow-hidden">
-                            <span className="font-medium" title={a.name}>{truncateText(a.name, 25)}</span>
-                            <span className="text-xs lg:text-sm text-muted-foreground">{truncateText(a.type, 20)}</span>
-                          </div>
-                        </div>
-                        <div className="flex items-center justify-between gap-2 border-t border-border-subtle pt-2 lg:justify-end lg:gap-3 lg:border-t-0 lg:pt-0">
-                          <span className="figure-sm tabular md:text-base">{formatCurrency(a.current_balance ?? 0)}</span>
-                          <div className="flex items-center gap-1">
-                            <FeatureGuard feature="contas_editar">
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                disabled={!isMine((a as any).user_id)}
-                                onClick={() => onEdit(a.id)}
-                                aria-label={`Editar ${a.name}`}
-                                className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                            </FeatureGuard>
-                            <FeatureGuard feature="contas_excluir">
-                              <ConfirmationDialog
-                                title="Confirmar Exclusão"
-                                description="Tem certeza que deseja excluir esta conta? Esta ação não pode ser desfeita e afetará o saldo das transações."
-                                confirmText="Excluir"
-                                onConfirm={() => onDelete(a.id)}
-                                variant="destructive"
-                              >
-                                <Button
-                                  variant="destructive"
-                                  size="sm"
-                                  disabled={!isMine((a as any).user_id)}
-                                  aria-label={`Excluir ${a.name}`}
-                                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </ConfirmationDialog>
-                            </FeatureGuard>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-        </>
+                <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-2 lg:justify-end lg:border-t-0 lg:pt-0">
+                  <span
+                    className={cn(
+                      "figure-sm tabular md:text-base",
+                      (a.current_balance ?? 0) < 0 ? "text-destructive" : "text-foreground",
+                    )}
+                  >
+                    {formatCurrency(a.current_balance ?? 0)}
+                  </span>
+                  {rowActions(a)}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </Card>
       )}
-    </div>
+    </PageBody>
   );
 }

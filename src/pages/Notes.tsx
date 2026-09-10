@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useNotes, Note } from "@/hooks/use-notes";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
 import { Card } from "@/components/ui/card";
 import { useIsMobile } from "@/hooks/use-mobile";
 import {
@@ -28,7 +26,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -49,11 +46,21 @@ import {
 import { format, isPast, isToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, PageBody, PageHeader } from "@/components/ui/page";
 
 const priorityColors = {
   1: "text-destructive border-destructive/30",
   2: "text-warning border-warning/30",
-  3: "text-success border-success/30",
+  3: "text-muted-foreground border-border",
+};
+
+/* Régua vertical de 2px na borda do item: a prioridade vira estrutura, não
+   só mais um chip disputando atenção com o texto da nota. */
+const priorityRail = {
+  1: "bg-destructive",
+  2: "bg-warning",
+  3: "bg-border",
 };
 
 const priorityLabels = {
@@ -164,298 +171,296 @@ export default function Notes() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
-      </div>
+      <PageBody>
+        <Skeleton className="h-16 w-64" />
+        <Skeleton className="h-36 w-full" />
+        <Skeleton className="h-64 w-full" />
+      </PageBody>
     );
   }
 
+  const emptyCopy =
+    activeTab === "completed"
+      ? { title: "Nada concluído ainda", description: "As notas que você marcar como feitas aparecem aqui." }
+      : activeTab === "pending"
+      ? { title: "Nenhuma nota pendente", description: "Tudo em dia. Novas notas entram nesta aba." }
+      : { title: "Nenhuma nota ainda", description: "Escreva a primeira acima — um lembrete de boleto, uma meta, um recado." };
+
+  const filters: { value: typeof activeTab; label: string; count: number }[] = [
+    { value: "all", label: "Todas", count: notes.length },
+    { value: "pending", label: "Pendentes", count: pendingCount },
+    { value: "completed", label: "Concluídas", count: completedCount },
+  ];
+
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="space-y-1">
-        <div className="flex min-w-0 items-center gap-2 md:gap-3">
-          <StickyNote className="h-5 w-5 shrink-0 text-primary md:h-6 md:w-6 lg:h-7 lg:w-7" />
-          <h1 className="min-w-0 truncate font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl">
-            Minhas Notas
-          </h1>
-        </div>
-        <p className="text-xs text-muted-foreground md:text-sm">
-          Organize suas tarefas e lembretes financeiros em um só lugar
-        </p>
-      </div>
-      {/* Create Note Card */}
-      <Card className="border border-dashed p-3 md:p-4">
-        <div className="space-y-3">
-          <div className="flex items-start gap-2">
-            <Textarea
-              placeholder="Digite sua nota ou tarefa aqui..."
-              value={newNoteContent}
-              onChange={(e) => setNewNoteContent(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && e.ctrlKey) {
-                  handleCreateNote();
-                }
-              }}
-              className="flex-1 min-h-[70px] resize-none"
-            />
-          </div>
-          
-          <div className="flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-2 sm:gap-3">
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className={cn(
-                    "justify-start text-left font-normal w-full sm:w-auto",
-                    !newNoteDueDate && "text-muted-foreground"
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {newNoteDueDate ? format(newNoteDueDate, "dd/MM/yyyy", { locale: ptBR }) : "Data limite"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="single"
-                  selected={newNoteDueDate}
-                  onSelect={setNewNoteDueDate}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-
-            <Select
-              value={newNotePriority.toString()}
-              onValueChange={(value) => setNewNotePriority(parseInt(value))}
-            >
-              <SelectTrigger className="w-full sm:w-[140px]">
-                <Flag className="mr-2 h-4 w-4" />
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="1">
-                  <span className="text-destructive">Alta</span>
-                </SelectItem>
-                <SelectItem value="2">
-                  <span className="text-warning">Média</span>
-                </SelectItem>
-                <SelectItem value="3">
-                  <span className="text-success">Baixa</span>
-                </SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Button onClick={handleCreateNote} disabled={!newNoteContent.trim()} size="sm" className="w-full sm:w-auto sm:ml-auto">
-              <Plus className="mr-2 h-4 w-4" />
-              Adicionar Nota
-            </Button>
-          </div>
-
-          <p className="text-xs text-muted-foreground hidden lg:block">
-            Dica: Pressione <kbd className="px-1.5 py-0.5 text-xs font-semibold bg-muted rounded">Ctrl + Enter</kbd> para adicionar rapidamente
+    <PageBody>
+      <PageHeader
+        eyebrow="Organização"
+        icon={StickyNote}
+        title="Notas"
+        description="Lembretes financeiros com prazo e prioridade — o que precisa acontecer antes do mês fechar."
+      >
+        {pendingCount > 0 && (
+          <p className="mt-3 text-sm text-muted-foreground">
+            <span className="tabular font-medium text-foreground">{pendingCount}</span>
+            {pendingCount === 1 ? " nota pendente" : " notas pendentes"}
           </p>
+        )}
+      </PageHeader>
+
+      {/* Composer: a caixa de escrever é a primeira coisa da página. */}
+      <Card>
+        <div className="px-3 pt-3 md:px-4 md:pt-4">
+          <Textarea
+            placeholder="Pagar boleto da luz, revisar assinatura da academia…"
+            value={newNoteContent}
+            onChange={(e) => setNewNoteContent(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && e.ctrlKey) handleCreateNote();
+            }}
+            aria-label="Nova nota"
+            className="min-h-[72px] resize-none border-0 px-0 text-sm shadow-none focus-visible:border-0 focus-visible:ring-0"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2 border-t border-border-subtle px-3 py-3 sm:flex-row sm:items-center sm:gap-3 md:px-4">
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn("justify-start font-normal", !newNoteDueDate && "text-muted-foreground")}
+              >
+                <CalendarIcon className="h-4 w-4" />
+                {newNoteDueDate ? format(newNoteDueDate, "dd/MM/yyyy", { locale: ptBR }) : "Prazo"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar mode="single" selected={newNoteDueDate} onSelect={setNewNoteDueDate} initialFocus />
+            </PopoverContent>
+          </Popover>
+
+          <Select value={newNotePriority.toString()} onValueChange={(value) => setNewNotePriority(parseInt(value))}>
+            <SelectTrigger className="h-10 w-full sm:w-[150px] md:h-9" aria-label="Prioridade">
+              <Flag className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="1">Alta</SelectItem>
+              <SelectItem value="2">Média</SelectItem>
+              <SelectItem value="3">Baixa</SelectItem>
+            </SelectContent>
+          </Select>
+
+          <span className="hidden flex-1 lg:block" />
+
+          <p className="hidden text-xs text-muted-foreground lg:block">
+            <kbd className="rounded border border-border-subtle bg-surface-sunken px-1.5 py-0.5 text-3xs font-medium">
+              Ctrl
+            </kbd>
+            {" + "}
+            <kbd className="rounded border border-border-subtle bg-surface-sunken px-1.5 py-0.5 text-3xs font-medium">
+              Enter
+            </kbd>{" "}
+            adiciona
+          </p>
+
+          <Button onClick={handleCreateNote} disabled={!newNoteContent.trim()} size="sm" className="w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Adicionar
+          </Button>
         </div>
       </Card>
 
-      {/* Notes List with Tabs */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as any)} className="space-y-4">
-        <TabsList className="grid w-full grid-cols-3 gap-1">
-          <TabsTrigger value="all" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
-            Todas
-            <Badge variant="secondary">{notes.length}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="pending" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
-            Pendentes
-            <Badge variant="secondary">{pendingCount}</Badge>
-          </TabsTrigger>
-          <TabsTrigger value="completed" className="gap-1 px-1.5 text-xs sm:px-3 sm:text-sm">
-            Concluídas
-            <Badge variant="secondary">{completedCount}</Badge>
-          </TabsTrigger>
-        </TabsList>
+      {/* Filtros: trilho segmentado solto sobre a página, com a contagem real. */}
+      <div className="flex items-center gap-1 overflow-x-auto rounded-lg border border-border bg-surface-sunken p-1 no-scrollbar sm:w-fit">
+        {filters.map((f) => (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => setActiveTab(f.value)}
+            aria-pressed={activeTab === f.value}
+            className={cn(
+              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium",
+              "transition-[background-color,color,box-shadow,transform] duration-200 ease-swift",
+              "motion-safe:active:scale-[0.97]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              activeTab === f.value
+                ? "bg-card text-foreground shadow-sm"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {f.label}
+            <span className="text-xs tabular text-muted-foreground">{f.count}</span>
+          </button>
+        ))}
+      </div>
 
-        <TabsContent value={activeTab}>
-          {filteredNotes.length === 0 ? (
-            <Card className="p-8 text-center">
-              <StickyNote className="h-10 w-10 mx-auto mb-3 text-muted-foreground opacity-50" />
-              <p className="text-muted-foreground">
-                {activeTab === "completed" 
-                  ? "Nenhuma nota concluída ainda" 
-                  : activeTab === "pending"
-                  ? "Nenhuma nota pendente"
-                  : "Nenhuma nota criada ainda"}
-              </p>
-              <p className="text-sm text-muted-foreground mt-2">
-                Adicione sua primeira nota acima!
-              </p>
-            </Card>
-          ) : (
-            <div className="space-y-2 max-h-[calc(100vh-32rem)] overflow-y-auto pr-2">
-              {filteredNotes.map((note) => {
-                const isOverdue = isNoteOverdue(note);
-                const isExpanded = expandedNotes.has(note.id);
-                const truncateLimit = isMobile ? 72 : 140;
-                const shouldTruncate = note.content.length > truncateLimit;
-                
-                return (
-                  <Card
-                    key={note.id}
+      {filteredNotes.length === 0 ? (
+        <EmptyState icon={StickyNote} title={emptyCopy.title} description={emptyCopy.description} />
+      ) : (
+        <Card className="overflow-hidden">
+          <ul className="divide-y divide-border-subtle">
+            {filteredNotes.map((note) => {
+              const isOverdue = isNoteOverdue(note);
+              const isExpanded = expandedNotes.has(note.id);
+              const truncateLimit = isMobile ? 72 : 140;
+              const shouldTruncate = note.content.length > truncateLimit;
+              const rail = priorityRail[note.priority as keyof typeof priorityRail];
+
+              return (
+                <li
+                  key={note.id}
+                  className={cn(
+                    "relative flex gap-3 py-3 pl-5 pr-3 transition-colors duration-200 ease-swift md:pr-4",
+                    note.is_completed ? "bg-surface-sunken/50" : "hover:bg-accent/40",
+                  )}
+                >
+                  <span
+                    aria-hidden
                     className={cn(
-                      "p-3 transition-colors md:p-4",
-                      note.is_completed && "opacity-60 bg-muted/50",
-                      isOverdue && "border-destructive/50 bg-destructive/5"
+                      "absolute inset-y-2.5 left-2.5 w-0.5 rounded-full",
+                      note.is_completed ? "bg-border" : rail,
                     )}
+                  />
+
+                  <button
+                    type="button"
+                    onClick={() => handleToggleComplete(note)}
+                    aria-label={note.is_completed ? "Reabrir nota" : "Concluir nota"}
+                    className="-m-1.5 h-11 w-11 shrink-0 rounded-md p-1.5 text-muted-foreground transition-colors duration-200 ease-swift hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 md:h-8 md:w-8 md:p-1"
                   >
-                    <div className="flex flex-wrap items-start gap-x-3 gap-y-2">
-                      <button
-                        onClick={() => handleToggleComplete(note)}
-                        aria-label={note.is_completed ? "Reabrir nota" : "Concluir nota"}
-                        className="-m-2 shrink-0 p-2 transition-transform hover:scale-110"
-                      >
-                        {note.is_completed ? (
-                          <CheckCircle2 className="h-5 w-5 text-primary" />
-                        ) : (
-                          <Circle className="h-5 w-5 text-muted-foreground" />
-                        )}
-                      </button>
+                    {note.is_completed ? (
+                      <CheckCircle2 className="h-5 w-5 text-success" />
+                    ) : (
+                      <Circle className="h-5 w-5" />
+                    )}
+                  </button>
 
-                      <div className="min-w-0 flex-1 space-y-2">
-                        {editingNote === note.id ? (
-                          <div className="space-y-2">
-                            <Textarea
-                              value={editContent}
-                              onChange={(e) => setEditContent(e.target.value)}
-                              className="w-full min-h-[120px]"
-                              autoFocus
-                            />
-                            <div className="flex gap-2">
-                              <Button size="sm" onClick={() => handleSaveEdit(note.id)}>
-                                <Check className="h-4 w-4 mr-1" />
-                                Salvar
-                              </Button>
-                              <Button size="sm" variant="outline" onClick={handleCancelEdit}>
-                                <X className="h-4 w-4 mr-1" />
-                                Cancelar
-                              </Button>
-                            </div>
-                          </div>
-                        ) : (
-                          <>
-                            <div className="flex items-center gap-2">
-                              <p
-                                className={cn(
-                                  "text-sm leading-relaxed flex-1",
-                                  note.is_completed && "line-through text-muted-foreground"
-                                )}
-                              >
-                                {shouldTruncate && !isExpanded 
-                                  ? truncateText(note.content, truncateLimit)
-                                  : note.content
-                                }
-                              </p>
-                              {shouldTruncate && (
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  onClick={() => toggleExpandNote(note.id)}
-                                  className="h-11 w-11 shrink-0 lg:h-8 lg:w-8"
-                                  title={isExpanded ? "Ver menos" : "Ver mais"}
-                                >
-                                  <Info className="h-4 w-4" />
-                                </Button>
-                              )}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-2">
-                              {isOverdue && (
-                                <Badge variant="destructive" className="text-xs">
-                                  <AlertCircle className="h-3 w-3 mr-1" />
-                                  Atrasada
-                                </Badge>
-                              )}
-                              
-                              <Badge
-                                variant="outline"
-                                className={cn("text-xs", priorityColors[note.priority as keyof typeof priorityColors])}
-                              >
-                                <Flag className="h-3 w-3 mr-1" />
-                                {priorityLabels[note.priority as keyof typeof priorityLabels]}
-                              </Badge>
-
-                              {note.due_date && (
-                                <Badge 
-                                  variant="outline" 
-                                  className={cn(
-                                    "text-xs",
-                                    isOverdue && "border-destructive/50 text-destructive"
-                                  )}
-                                >
-                                  <CalendarDays className="h-3 w-3 mr-1" />
-                                  {format(new Date(note.due_date + 'T00:00:00'), "dd/MM/yyyy", { locale: ptBR })}
-                                </Badge>
-                              )}
-
-                              <span className="text-xs text-muted-foreground">
-                                {format(new Date(note.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                              </span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-
-                      {editingNote !== note.id && (
-                        <div className="flex w-full shrink-0 justify-end gap-1 border-t border-border-subtle pt-2 sm:w-auto sm:border-t-0 sm:pt-0">
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            aria-label="Editar nota"
-                            onClick={() => handleStartEdit(note)}
-                            className="h-11 w-11 lg:h-8 lg:w-8"
-                          >
-                            <Edit2 className="h-4 w-4" />
+                  <div className="min-w-0 flex-1">
+                    {editingNote === note.id ? (
+                      <div className="space-y-2 py-0.5">
+                        <Textarea
+                          value={editContent}
+                          onChange={(e) => setEditContent(e.target.value)}
+                          className="min-h-[110px] w-full"
+                          autoFocus
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={() => handleSaveEdit(note.id)}>
+                            <Check className="h-4 w-4" />
+                            Salvar
                           </Button>
-                          <Button
-                            size="icon"
-                            variant="ghost"
-                            onClick={() => handleDeleteClick(note.id)}
-                            aria-label="Excluir nota"
-                            className="h-11 w-11 text-destructive hover:text-destructive lg:h-8 lg:w-8"
-                          >
-                            <Trash2 className="h-4 w-4" />
+                          <Button size="sm" variant="ghost" onClick={handleCancelEdit}>
+                            Cancelar
                           </Button>
                         </div>
-                      )}
-                    </div>
-                  </Card>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-      </Tabs>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="flex items-start gap-2">
+                          <p
+                            className={cn(
+                              "flex-1 text-sm leading-relaxed text-pretty",
+                              note.is_completed ? "text-muted-foreground line-through" : "text-foreground",
+                            )}
+                          >
+                            {shouldTruncate && !isExpanded ? truncateText(note.content, truncateLimit) : note.content}
+                          </p>
+                          {shouldTruncate && (
+                            <Button
+                              size="icon-sm"
+                              variant="ghost"
+                              onClick={() => toggleExpandNote(note.id)}
+                              title={isExpanded ? "Ver menos" : "Ver mais"}
+                              aria-label={isExpanded ? "Ver menos" : "Ver mais"}
+                            >
+                              <Info className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
 
-      {/* Delete Confirmation Dialog */}
+                        <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                          {isOverdue && (
+                            <Badge variant="destructive">
+                              <AlertCircle className="h-3 w-3" />
+                              Atrasada
+                            </Badge>
+                          )}
+                          <span
+                            className={cn(
+                              "text-2xs font-medium uppercase tracking-[0.06em]",
+                              priorityColors[note.priority as keyof typeof priorityColors]?.split(" ")[0],
+                            )}
+                          >
+                            {priorityLabels[note.priority as keyof typeof priorityLabels]}
+                          </span>
+                          {note.due_date && (
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 text-xs tabular",
+                                isOverdue ? "text-destructive" : "text-muted-foreground",
+                              )}
+                            >
+                              <CalendarDays className="h-3 w-3" aria-hidden />
+                              {format(new Date(note.due_date + "T00:00:00"), "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          )}
+                          <span className="text-xs tabular text-muted-foreground">
+                            criada {format(new Date(note.created_at), "dd/MM", { locale: ptBR })}
+                          </span>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {editingNote !== note.id && (
+                    <div className="flex shrink-0 items-start gap-0.5">
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        aria-label="Editar nota"
+                        onClick={() => handleStartEdit(note)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon-sm"
+                        variant="ghost"
+                        onClick={() => handleDeleteClick(note.id)}
+                        aria-label="Excluir nota"
+                        className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        </Card>
+      )}
+
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir nota?</AlertDialogTitle>
             <AlertDialogDescription>
-              Esta ação não pode ser desfeita. A nota será permanentemente excluída.
+              A nota some para sempre. Não dá para desfazer.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setNoteToDelete(null)}>
-              Cancelar
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
-              Excluir
+            <AlertDialogCancel onClick={() => setNoteToDelete(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Excluir nota
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </div>
+    </PageBody>
   );
 }
-

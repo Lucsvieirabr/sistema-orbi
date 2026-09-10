@@ -12,11 +12,13 @@ import { IconSelector } from "@/components/ui/icon-selector";
 import { useCategories } from "@/hooks/use-categories";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { LayoutGrid, List, Plus, Tag, Edit, Trash2 } from "lucide-react";
+import { LayoutGrid, List, Plus, Tag, Edit, Trash2, Search } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { cn } from "@/lib/utils";
+import { EmptyState, PageBody, PageHeader, PageToolbar, SectionHeader, ToolbarSpacer } from "@/components/ui/page";
 
 export default function Categories() {
   return (
@@ -110,278 +112,247 @@ function CategoriesContent() {
     }
   };
 
-  const truncateText = (text: string, maxLength: number = 15) => {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + "...";
-  };
-
   // Filtra categorias por busca
   const filteredCategories = categories?.filter((category) =>
     category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     category.category_type?.toLowerCase().includes(searchTerm.toLowerCase())
   ) || [];
 
-  return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-        {/* Aviso de Limite */}
-        <LimitWarningBanner 
-          limit="max_categorias" 
-          currentValue={userCategoriesCount}
-          resourceName="categorias"
-        />
-        
-        {/* Header Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-              <div className="flex items-center gap-3 min-w-0 flex-1">
-                <div className="p-2 bg-primary/10 rounded-lg flex-shrink-0">
-                  <Tag className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Categorias</CardTitle>
-                  <p className="text-muted-foreground mt-1 text-sm hidden lg:block truncate">
-                    Organize suas transações em categorias personalizadas
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3 w-full lg:w-auto max-w-full">
-                <Input
-                  placeholder="Buscar..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full sm:w-48 lg:w-64 max-w-full"
-                />
-                <div className="flex items-center gap-2 sm:gap-3 justify-between sm:justify-start flex-shrink-0">
-                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
-                  <ToggleGroupItem
-                    value="list"
-                    aria-label="Lista"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="cards"
-                    aria-label="Cards"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-                <FeatureGuard feature="categorias_criar">
-                  <LimitGuard limit="max_categorias" currentValue={userCategoriesCount}>
-                    <Dialog open={open} onOpenChange={setOpen}>
-                      <DialogTrigger asChild>
-                        <Button className="gap-2 w-full sm:w-auto">
-                          <Plus className="h-4 w-4" />
-                          <span className="sm:inline">Nova Categoria</span>
-                        </Button>
-                      </DialogTrigger>
-                      <DialogContent>
-                        <DialogHeader>
-                          <DialogTitle>{title}</DialogTitle>
-                        </DialogHeader>
-                        <div className="space-y-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="name">Nome</Label>
-                            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
-                          </div>
-                          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-                            <div className="space-y-2">
-                              <Label htmlFor="categoryType">Tipo</Label>
-                              <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
-                                <SelectTrigger>
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  <SelectItem value="expense">Gasto</SelectItem>
-                                  <SelectItem value="income">Ganho</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-2">
-                              <Label htmlFor="icon">Ícone (opcional)</Label>
-                              <IconSelector
-                                value={icon}
-                                onChange={setIcon}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                        <DialogFooter>
-                          <Button onClick={onSubmit}>Salvar</Button>
-                        </DialogFooter>
-                      </DialogContent>
-                    </Dialog>
-                  </LimitGuard>
-                </FeatureGuard>
-              </div>
+  const expenseCategories = filteredCategories.filter((c) => c.category_type !== "income");
+  const incomeCategories = filteredCategories.filter((c) => c.category_type === "income");
+
+  const categoryDialog = (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button className="w-full sm:w-auto">
+          <Plus className="h-4 w-4" />
+          Nova categoria
+        </Button>
+      </DialogTrigger>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{title}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Nome</Label>
+            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mercado" />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="categoryType">Tipo</Label>
+              <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">Gasto</SelectItem>
+                  <SelectItem value="income">Ganho</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="icon">Ícone (opcional)</Label>
+              <IconSelector value={icon} onChange={setIcon} />
             </div>
           </div>
-        </CardHeader>
-      </Card>
+        </div>
+        <DialogFooter>
+          <Button onClick={onSubmit}>Salvar categoria</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
 
-        {/* Categories Grid/List */}
-        {isLoading ? (
-          <div className={view === "cards" ? "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 max-w-full" : "space-y-4 max-w-full"}>
-            {Array.from({ length: 3 }).map((_, i) => (
-              <Skeleton key={i} className={view === "cards" ? "h-32 w-full" : "h-16 w-full"} />
+  const categoryActions = (c: any) =>
+    c.is_system ? null : (
+      <div className="flex items-center gap-0.5">
+        <FeatureGuard feature="categorias_editar">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
+            aria-label={`Editar ${c.name}`}
+          >
+            <Edit className="h-4 w-4" />
+          </Button>
+        </FeatureGuard>
+        <FeatureGuard feature="categorias_excluir">
+          <ConfirmationDialog
+            title="Excluir categoria"
+            description="As transações já classificadas ficam sem categoria. Não dá para desfazer."
+            confirmText="Excluir categoria"
+            onConfirm={() => onDelete(c.id)}
+            variant="destructive"
+          >
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              aria-label={`Excluir ${c.name}`}
+              className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </ConfirmationDialog>
+        </FeatureGuard>
+      </div>
+    );
+
+  /* Glifo da categoria: caixa de 1px, não disco de cor. O tom vem do tipo
+     (gasto/ganho), que é a única informação que a cor precisa carregar aqui. */
+  const glyph = (c: any) => (
+    <span
+      aria-hidden
+      className={cn(
+        "flex h-8 w-8 shrink-0 items-center justify-center rounded-md border",
+        c.category_type === "income"
+          ? "border-success/25 bg-success-soft text-success"
+          : "border-border-subtle bg-surface-sunken text-muted-foreground",
+      )}
+    >
+      {c.icon ? <IconRenderer iconName={c.icon} className="h-4 w-4" /> : <Tag className="h-3.5 w-3.5" />}
+    </span>
+  );
+
+  const systemTag = (c: any) =>
+    c.is_system ? (
+      <span className="shrink-0 rounded border border-border-subtle px-1.5 py-0.5 text-3xs uppercase tracking-[0.08em] text-muted-foreground">
+        Sistema
+      </span>
+    ) : null;
+
+  const renderGroup = (label: string, items: typeof filteredCategories, hint: string) => {
+    if (items.length === 0) return null;
+    return (
+      <section className="space-y-3">
+        <SectionHeader
+          eyebrow={label}
+          description={hint}
+          actions={<span className="text-xs tabular text-muted-foreground">{items.length}</span>}
+          className="border-b border-border-subtle pb-2"
+        />
+        {view === "cards" ? (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {items.map((c, i) => (
+              <Card
+                key={c.id}
+                interactive
+                className="animate-rise"
+                style={{ animationDelay: `${Math.min(i, 10) * 35}ms` }}
+              >
+                <CardContent className="flex items-center gap-3 px-4 py-3.5">
+                  {glyph(c)}
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground" title={c.name}>
+                      {c.name}
+                    </span>
+                    {systemTag(c)}
+                  </div>
+                  {categoryActions(c)}
+                </CardContent>
+              </Card>
             ))}
           </div>
         ) : (
-          <>
-            {view === "cards" ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-full w-full">
-              {filteredCategories.length === 0 ? (
-                <div className="col-span-full">
-                  <Card className="border-dashed border-border">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="p-4 bg-muted/50 rounded-full mb-4">
-                        <Tag className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
-                      </h3>
-                      <p className="text-muted-foreground">
-                        {searchTerm
-                          ? `Nenhuma categoria encontrada para "${searchTerm}"`
-                          : "Crie sua primeira categoria para organizar suas transações"}
-                      </p>
-                    </CardContent>
-                  </Card>
-                </div>
-              ) : (
-                filteredCategories.map((c) => (
-                  <Card key={c.id} className="group w-full overflow-hidden">
-                    <CardHeader className="w-full overflow-hidden pb-3">
-                      <div className="flex flex-col gap-3 w-full overflow-hidden">
-                        <div className="flex items-center justify-between gap-2 w-full overflow-hidden">
-                          <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-                            {c.icon && (
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
-                              </div>
-                            )}
-                            <h3 className="truncate font-display text-base font-semibold tracking-tight" title={c.name}>{truncateText(c.name, 20)}</h3>
-                            {c.is_system && (
-                              <span className="shrink-0 whitespace-nowrap rounded bg-muted px-2 py-0.5 text-2xs text-muted-foreground">
-                                Sistema
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-1 justify-end flex-shrink-0">
-                          {!c.is_system && (
-                            <>
-                              <FeatureGuard feature="categorias_editar">
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                                  className="h-11 w-11 p-0 lg:h-8 lg:w-8"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                              </FeatureGuard>
-                              <FeatureGuard feature="categorias_excluir">
-                                <ConfirmationDialog
-                                  title="Confirmar Exclusão"
-                                  description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                                  confirmText="Excluir"
-                                  onConfirm={() => onDelete(c.id)}
-                                  variant="destructive"
-                                >
-                                  <Button variant="destructive" size="sm" className="h-11 w-11 p-0 lg:h-8 lg:w-8">
-                                    <Trash2 className="h-4 w-4" />
-                                  </Button>
-                                </ConfirmationDialog>
-                              </FeatureGuard>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    </CardHeader>
-                  </Card>
-                ))
-              )}
-            </div>
-          ) : (
-            <Card className="overflow-hidden">
-              <CardContent className="p-0">
-                {filteredCategories.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <Tag className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      {searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
-                    </h3>
-                    <p>
-                      {searchTerm
-                        ? `Nenhuma categoria encontrada para "${searchTerm}"`
-                        : "Crie sua primeira categoria para começar"}
-                    </p>
+          <Card className="overflow-hidden">
+            <ul className="divide-y divide-border-subtle">
+              {items.map((c) => (
+                <li
+                  key={c.id}
+                  className="flex items-center gap-3 px-3 py-2.5 transition-colors duration-200 ease-swift hover:bg-accent/40 md:px-4"
+                >
+                  {glyph(c)}
+                  <div className="flex min-w-0 flex-1 items-center gap-2">
+                    <span className="truncate text-sm font-medium text-foreground" title={c.name}>
+                      {c.name}
+                    </span>
+                    {systemTag(c)}
                   </div>
-                ) : (
-                  <div className="divide-y divide-border w-full">
-                    {filteredCategories.map((c) => (
-                      <div key={c.id} className="w-full overflow-hidden p-3 transition-colors hover:bg-muted/30 md:p-4">
-                        <div className="flex items-center justify-between gap-3 w-full overflow-hidden">
-                          <div className="flex items-center gap-3 flex-1 min-w-0 overflow-hidden">
-                            {c.icon && (
-                              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                <IconRenderer iconName={c.icon} className="h-5 w-5 text-primary" />
-                              </div>
-                            )}
-                            <div className="flex items-center gap-2 min-w-0 flex-1 overflow-hidden">
-                              <span className="truncate font-medium" title={c.name}>{truncateText(c.name, 25)}</span>
-                              {c.is_system && (
-                                <span className="shrink-0 whitespace-nowrap rounded bg-muted px-2 py-0.5 text-2xs text-muted-foreground">
-                                  Sistema
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 lg:gap-2 justify-end flex-shrink-0">
-                            {!c.is_system && (
-                              <>
-                                <FeatureGuard feature="categorias_editar">
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => onEdit(c.id, c.name, c.category_type, c.icon)}
-                                    className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8"
-                                  >
-                                    <Edit className="h-4 w-4" />
-                                  </Button>
-                                </FeatureGuard>
-                                <FeatureGuard feature="categorias_excluir">
-                                  <ConfirmationDialog
-                                    title="Confirmar Exclusão"
-                                    description="Tem certeza que deseja excluir esta categoria? Esta ação não pode ser desfeita."
-                                    confirmText="Excluir"
-                                    onConfirm={() => onDelete(c.id)}
-                                    variant="destructive"
-                                  >
-                                    <Button variant="destructive" size="sm" className="h-11 w-11 shrink-0 p-0 lg:h-8 lg:w-8">
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </ConfirmationDialog>
-                                </FeatureGuard>
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
-          </>
+                  {categoryActions(c)}
+                </li>
+              ))}
+            </ul>
+          </Card>
         )}
-    </div>
+      </section>
+    );
+  };
+
+  return (
+    <PageBody>
+      <LimitWarningBanner
+        limit="max_categorias"
+        currentValue={userCategoriesCount}
+        resourceName="categorias"
+      />
+
+      <PageHeader
+        eyebrow="Organização"
+        icon={Tag}
+        title="Categorias"
+        description="O vocabulário que o Orbi usa para classificar cada lançamento. As de sistema vêm prontas; as suas você define."
+        actions={
+          <FeatureGuard feature="categorias_criar">
+            <LimitGuard limit="max_categorias" currentValue={userCategoriesCount}>
+              {categoryDialog}
+            </LimitGuard>
+          </FeatureGuard>
+        }
+      />
+
+      <PageToolbar>
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar categoria"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar categorias"
+          />
+        </div>
+        <ToolbarSpacer />
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={onChangeView}
+          aria-label="Visualização"
+          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
+        >
+          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </PageToolbar>
+
+      {isLoading ? (
+        <div className="space-y-2">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <Skeleton key={i} className="h-14 w-full" />
+          ))}
+        </div>
+      ) : filteredCategories.length === 0 ? (
+        <EmptyState
+          icon={Tag}
+          title={searchTerm ? "Nenhuma categoria encontrada" : "Nenhuma categoria cadastrada"}
+          description={
+            searchTerm
+              ? `Nada corresponde a “${searchTerm}”.`
+              : "Crie a primeira categoria para o Orbi começar a organizar seus lançamentos."
+          }
+        />
+      ) : (
+        <div className="space-y-7">
+          {renderGroup("Gastos", expenseCategories, "Saídas: o que sai da conta.")}
+          {renderGroup("Ganhos", incomeCategories, "Entradas: o que chega na conta.")}
+        </div>
+      )}
+    </PageBody>
   );
 }

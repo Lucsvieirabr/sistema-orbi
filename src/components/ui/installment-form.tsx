@@ -604,25 +604,25 @@ export function InstallmentForm({
               </span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
-              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+              <div className="bg-card rounded-lg p-2 border border-info-soft">
                 <div className="text-lg font-semibold text-success">
                   {installmentsList.filter(i => i.status === 'PAID').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Pagas</div>
               </div>
-              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+              <div className="bg-card rounded-lg p-2 border border-info-soft">
                 <div className="text-lg font-semibold text-warning">
                   {installmentsList.filter(i => i.status === 'PENDING').length}
                 </div>
                 <div className="text-xs text-muted-foreground">Pendentes</div>
               </div>
-              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+              <div className="bg-card rounded-lg p-2 border border-info-soft">
                 <div className="text-lg font-semibold text-primary">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PAID').reduce((sum, i) => sum + i.value, 0))}
                 </div>
                 <div className="text-xs text-muted-foreground">Valor Pago</div>
               </div>
-              <div className="bg-white dark:bg-foreground rounded-lg p-2 border border-info-soft">
+              <div className="bg-card rounded-lg p-2 border border-info-soft">
                 <div className="text-lg font-semibold text-warning">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PENDING').reduce((sum, i) => sum + i.value, 0))}
                 </div>

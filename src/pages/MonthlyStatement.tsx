@@ -36,6 +36,7 @@ import { Badge } from "@/components/ui/badge";
 import { RecurringTransactionForm } from "@/components/ui/recurring-transaction-form";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
 import { assertOwnTransaction } from "@/lib/family-access";
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
@@ -46,14 +47,12 @@ import { usePeople } from "@/hooks/use-people";
 // Removido: useDebts, useMarkDebtAsPaid - usando apenas transactions
 import { supabase } from "@/integrations/supabase/client";
 import { toast, useToast } from "@/hooks/use-toast";
-import {
-  formatCurrencyBRL,
+import { formatCurrencyBRL,
   getCurrentDateString,
   formatDateForDisplay,
   roundCurrency,
   getMinAllowedDate,
-  getMaxAllowedDate,
-} from "@/lib/utils";
+  getMaxAllowedDate, cn } from "@/lib/utils";
 import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
 import { InstallmentForm } from "@/components/ui/installment-form";
 import { useInstallments } from "@/hooks/use-installments";
@@ -2315,41 +2314,37 @@ function MonthlyStatementContent() {
     );
   }
 
-  return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-        {/* Plano Casal: alterna dados pessoais x do casal */}
-        <ViewModeToggle />
+  const monthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
-        {/* Aviso de Limite */}
-        <LimitWarningBanner 
-        limit="max_transacoes_mes" 
+  return (
+    <PageBody>
+      <LimitWarningBanner
+        limit="max_transacoes_mes"
         currentValue={transactionsCount}
         resourceName="transações neste mês"
       />
-      
-      {/* Header with month selector and filters */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            {/* Seletor de mês: ocupa a linha no telefone, alvo de 44px. */}
-            <div className="relative flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleMonthChange("prev")}
-                aria-label="Mês anterior"
-                className="shrink-0 lg:h-9 lg:w-9"
-              >
+
+      <PageHeader
+        eyebrow={<span className="capitalize">{monthLabel}</span>}
+        title="Extrato"
+        description="Tudo que entrou e saiu no mês, dia a dia. Marque como pago para o saldo acompanhar."
+        actions={
+          <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
+            <ViewModeToggle />
+
+            {/* Navegação de mês: trilho afundado, com o seletor no meio. */}
+            <div className="relative flex flex-1 items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1 lg:flex-none">
+              <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("prev")} aria-label="Mês anterior">
                 <ChevronLeft className="h-4 w-4" />
               </Button>
               <Button
-                variant="outline"
+                variant="ghost"
                 size="sm"
                 onClick={() => setShowMonthSelector(!showMonthSelector)}
                 aria-expanded={showMonthSelector}
-                className="min-w-0 flex-1 justify-center lg:flex-none lg:justify-start"
+                className="min-w-0 flex-1 justify-center capitalize lg:min-w-[8.5rem]"
               >
-                <Calendar className="mr-2 h-4 w-4 shrink-0" />
+                <Calendar className="h-4 w-4 shrink-0" />
                 <span className="truncate">
                   {currentDate.toLocaleDateString("pt-BR", {
                     month: isMobile ? "short" : "long",
@@ -2357,80 +2352,70 @@ function MonthlyStatementContent() {
                   })}
                 </span>
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleMonthChange("next")}
-                aria-label="Próximo mês"
-                className="shrink-0 lg:h-9 lg:w-9"
-              >
+              <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("next")} aria-label="Próximo mês">
                 <ChevronRight className="h-4 w-4" />
               </Button>
 
               {showMonthSelector && (
-                  <div className="absolute left-0 right-0 top-full z-50 mt-1 w-full rounded-lg border bg-popover p-3 text-popover-foreground shadow-lg lg:right-auto lg:w-64 lg:p-4">
-                    <div className="grid grid-cols-3 gap-2">
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const month = i;
-                        const year = currentDate.getFullYear();
-                        return (
-                          <Button
-                            key={month}
-                            variant="outline"
-                            size="sm"
-                            className="h-10 text-xs lg:h-9"
-                            onClick={() => setMonthYear(year, month + 1)}
-                          >
-                            {new Date(year, month).toLocaleDateString("pt-BR", {
-                              month: "short",
-                            })}
-                          </Button>
-                        );
-                      })}
-                    </div>
-                    <div className="grid grid-cols-5 gap-1 mt-2">
-                      {Array.from({ length: 5 }, (_, i) => {
-                        const year = currentDate.getFullYear() + (i - 2);
-                        return (
-                          <Button
-                            key={year}
-                            variant="outline"
-                            size="sm"
-                            className="h-10 px-0 text-xs lg:h-9"
-                            onClick={() =>
-                              setMonthYear(year, currentDate.getMonth() + 1)
-                            }
-                          >
-                            {year}
-                          </Button>
-                        );
-                      })}
-                    </div>
+                <div className="absolute left-0 right-0 top-full z-50 mt-2 rounded-xl border border-border bg-popover p-3 text-popover-foreground shadow-lg lg:right-auto lg:w-72">
+                  <p className="label-eyebrow">Mês</p>
+                  <div className="mt-2 grid grid-cols-4 gap-1">
+                    {Array.from({ length: 12 }, (_, i) => {
+                      const month = i;
+                      const year = currentDate.getFullYear();
+                      const isActive = currentDate.getMonth() === month;
+                      return (
+                        <Button
+                          key={month}
+                          variant={isActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className="h-9 px-0 text-xs capitalize"
+                          onClick={() => setMonthYear(year, month + 1)}
+                        >
+                          {new Date(year, month).toLocaleDateString("pt-BR", { month: "short" })}
+                        </Button>
+                      );
+                    })}
                   </div>
+                  <p className="label-eyebrow mt-3 border-t border-border-subtle pt-3">Ano</p>
+                  <div className="mt-2 grid grid-cols-5 gap-1">
+                    {Array.from({ length: 5 }, (_, i) => {
+                      const year = currentDate.getFullYear() + (i - 2);
+                      const isActive = currentDate.getFullYear() === year;
+                      return (
+                        <Button
+                          key={year}
+                          variant={isActive ? "secondary" : "ghost"}
+                          size="sm"
+                          className="h-9 px-0 text-xs tabular"
+                          onClick={() => setMonthYear(year, currentDate.getMonth() + 1)}
+                        >
+                          {year}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
               )}
             </div>
 
-            <div className="flex items-center gap-2">
-              <Select
-                value={filterType}
-                onValueChange={(value: any) => setFilterType(value)}
-              >
-                <SelectTrigger className="w-full lg:h-9 lg:w-40">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="income">Ganhos</SelectItem>
-                  <SelectItem value="expense">Gastos</SelectItem>
-                  <SelectItem value="fixed">Fixas</SelectItem>
-                  <SelectItem value="pending">Pendentes</SelectItem>
-                  <SelectItem value="paid">Pagas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+              <SelectTrigger className="h-10 w-full md:h-9 lg:w-36" aria-label="Filtrar lançamentos">
+                <Filter className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="income">Ganhos</SelectItem>
+                <SelectItem value="expense">Gastos</SelectItem>
+                <SelectItem value="fixed">Fixas</SelectItem>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="paid">Pagas</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-        </CardHeader>
-      </Card>
+        }
+      />
 
       {/* Indicadores — 2 colunas no telefone, 5 no desktop. Ledger tiles do DS. */}
       <section aria-label="Indicadores do mês" className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">
@@ -2472,126 +2457,94 @@ function MonthlyStatementContent() {
         />
       </section>
 
-      {/* Pending Transactions Management */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <Card
-          className="cursor-pointer transition-shadow"
+      {/* Pendências: dois tiles clicáveis. A contagem é o dado, o total é o
+          contexto — e a régua de 1px no topo dá o tom sem pintar um quadrado. */}
+      <section aria-label="Pendências do mês" className="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <button
+          type="button"
           onClick={() => setShowPendingIncomeDialog(true)}
+          className="group rounded-xl border border-border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:border-ring/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="p-1.5 lg:p-2 bg-success-soft rounded-lg">
-                  <Receipt className="h-5 w-5 lg:h-6 lg:w-6 text-success" />
-                </div>
-                <div>
-                  <p className="text-xs lg:text-sm text-muted-foreground">
-                    Contas a Receber
-                  </p>
-                  <p className="text-xl lg:text-2xl font-semibold text-success">
-                    {pendingIncomeTransactions.length}
-                  </p>
-                </div>
-              </div>
-              <div className="text-left lg:text-right">
-                <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
-                <p className="text-base lg:text-lg font-semibold text-success">
-                  {formatCurrencyBRL(
-                    roundCurrency(
-                      pendingIncomeTransactions.reduce(
-                        (sum, t) => sum + t.value,
-                        0
-                      )
-                    )
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t">
-              <p className="text-xs lg:text-sm text-muted-foreground">
-                {pendingIncomeTransactions.length > 0
-                  ? `Clique para gerenciar ${pendingIncomeTransactions.length} conta${pendingIncomeTransactions.length > 1 ? 's' : ''}`
-                  : "Não há contas a receber pendentes"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+          <span aria-hidden className="block h-px w-full rounded-t-xl bg-success" />
+          <span className="flex items-start justify-between gap-4 px-4 pt-4 md:px-5 md:pt-5">
+            <span className="min-w-0">
+              <span className="label-eyebrow block">A receber</span>
+              <span className="figure-lg mt-1 block tabular text-success">
+                {pendingIncomeTransactions.length}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {pendingIncomeTransactions.length === 1 ? "conta pendente" : "contas pendentes"}
+              </span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="label-eyebrow block">Total</span>
+              <span className="figure-sm mt-1 block tabular text-success md:text-base">
+                {formatCurrencyBRL(roundCurrency(pendingIncomeTransactions.reduce((sum, t) => sum + t.value, 0)))}
+              </span>
+            </span>
+          </span>
+          <span className="mt-4 block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
+            {pendingIncomeTransactions.length > 0 ? "Abrir e dar baixa" : "Nada pendente por aqui"}
+          </span>
+        </button>
 
-        <Card
-          className={`cursor-pointer  transition-shadow ${
-            overdueExpenseTransactions.length > 0
-              ? "ring-2 ring-destructive-soft"
-              : ""
-          }`}
+        <button
+          type="button"
           onClick={() => setShowPendingExpenseDialog(true)}
+          className={cn(
+            "group rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            overdueExpenseTransactions.length > 0 ? "border-destructive/45" : "border-border hover:border-ring/40",
+          )}
         >
-          <CardContent className="p-4 lg:p-6">
-            <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
-              <div className="flex items-center gap-3">
-                <div className="relative">
-                  <div className="p-1.5 lg:p-2 bg-destructive-soft rounded-lg">
-                    <DollarSign className="h-5 w-5 lg:h-6 lg:w-6 text-destructive" />
-                  </div>
-                  {overdueExpenseTransactions.length > 0 && (
-                    <div className="absolute -top-1 -right-1 p-0.5 lg:p-1 bg-destructive rounded-full">
-                      <AlertTriangle className="h-2 w-2 lg:h-3 lg:w-3 text-destructive-foreground" />
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <p className="text-xs lg:text-sm text-muted-foreground">
-                    Contas a Pagar
-                  </p>
-                  <p className="text-xl lg:text-2xl font-semibold text-destructive">
-                    {pendingExpenseTransactions.length}
-                    {overdueExpenseTransactions.length > 0 && (
-                      <span className="ml-2 text-xs lg:text-sm font-normal text-destructive">
-                        ({overdueExpenseTransactions.length})
-                      </span>
-                    )}
-                  </p>
-                </div>
-              </div>
-              <div className="text-left lg:text-right">
-                <p className="text-xs lg:text-sm text-muted-foreground">Total</p>
-                <p className="text-base lg:text-lg font-semibold text-destructive">
-                  {formatCurrencyBRL(
-                    roundCurrency(
-                      pendingExpenseTransactions.reduce(
-                        (sum, t) => sum + t.value,
-                        0
-                      )
-                    )
-                  )}
-                </p>
-              </div>
-            </div>
-            <div className="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t">
-              <p className="text-xs lg:text-sm text-muted-foreground">
-                {pendingExpenseTransactions.length > 0
-                  ? `Clique para gerenciar ${pendingExpenseTransactions.length} conta${pendingExpenseTransactions.length > 1 ? 's' : ''}`
-                  : "Não há contas a pagar pendentes"}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+          <span aria-hidden className="block h-px w-full rounded-t-xl bg-destructive" />
+          <span className="flex items-start justify-between gap-4 px-4 pt-4 md:px-5 md:pt-5">
+            <span className="min-w-0">
+              <span className="label-eyebrow block">A pagar</span>
+              <span className="figure-lg mt-1 flex items-baseline gap-2 tabular text-destructive">
+                {pendingExpenseTransactions.length}
+                {overdueExpenseTransactions.length > 0 && (
+                  <Badge variant="destructive-solid">
+                    <AlertTriangle className="h-3 w-3" />
+                    {overdueExpenseTransactions.length} em atraso
+                  </Badge>
+                )}
+              </span>
+              <span className="mt-0.5 block text-xs text-muted-foreground">
+                {pendingExpenseTransactions.length === 1 ? "conta pendente" : "contas pendentes"}
+              </span>
+            </span>
+            <span className="shrink-0 text-right">
+              <span className="label-eyebrow block">Total</span>
+              <span className="figure-sm mt-1 block tabular text-destructive md:text-base">
+                {formatCurrencyBRL(roundCurrency(pendingExpenseTransactions.reduce((sum, t) => sum + t.value, 0)))}
+              </span>
+            </span>
+          </span>
+          <span className="mt-4 block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
+            {pendingExpenseTransactions.length > 0 ? "Abrir e dar baixa" : "Nada pendente por aqui"}
+          </span>
+        </button>
+      </section>
 
-      {/* Transactions List */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Extrato Mensal</CardTitle>
-        </CardHeader>
-        <CardContent className="px-3 md:px-5 lg:px-6">
+      {/* Lançamentos do mês */}
+      <section className="space-y-4">
+        <SectionHeader
+          eyebrow="Lançamentos"
+          title="Dia a dia do mês"
+          className="border-b border-border-subtle pb-2"
+          actions={
+            <span className="text-xs tabular text-muted-foreground">
+              {transactionsCount} {transactionsCount === 1 ? "lançamento" : "lançamentos"}
+            </span>
+          }
+        />
+        <Card className="px-3 py-4 md:px-5 lg:px-6">
           {isLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between p-4 border-b"
-                >
+                <div key={i} className="flex items-center justify-between border-b border-border-subtle p-4">
                   <div className="flex-1">
-                    <Skeleton className="h-4 w-48 mb-2" />
+                    <Skeleton className="mb-2 h-4 w-48" />
                     <Skeleton className="h-3 w-32" />
                   </div>
                   <Skeleton className="h-6 w-20" />
@@ -2599,10 +2552,12 @@ function MonthlyStatementContent() {
               ))}
             </div>
           ) : Object.keys(filteredGroupedTransactions).length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
-              <p>Nenhuma transação encontrada para este período</p>
-            </div>
+            <EmptyState
+              icon={Calendar}
+              title="Nenhum lançamento neste período"
+              description="Mude o filtro acima, navegue para outro mês, ou registre a primeira transação do mês."
+              className="border-0"
+            />
           ) : (
             <div className="space-y-6">
               {Object.entries(filteredGroupedTransactions).map(
@@ -2829,8 +2784,8 @@ function MonthlyStatementContent() {
               )}
             </div>
           )}
-        </CardContent>
-      </Card>
+        </Card>
+      </section>
 
       {/* Transaction Creation Modal */}
       <Dialog open={open} onOpenChange={handleDialogOpenChange}>
@@ -2842,7 +2797,7 @@ function MonthlyStatementContent() {
             {/* Tipo de Transação - IMUTÁVEL em edição */}
             <div className="space-y-2">
               {editingId ? (
-                <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
+                <div className="bg-surface-sunken border border-border rounded-lg p-2 lg:p-3">
                   <div className="mt-2 grid grid-cols-2 gap-2 lg:flex">
                     <Button
                       type="button"
@@ -2882,7 +2837,7 @@ function MonthlyStatementContent() {
                       className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                         type === "fixed" || (editingId && isFixed)
                           ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
-                          : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
+                          : "hover:border-primary/30 hover:bg-accent hover:text-primary"
                       }`}
                     >
                       <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2899,7 +2854,7 @@ function MonthlyStatementContent() {
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "income"
                         ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
-                        : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
+                        : "hover:border-primary/30 hover:bg-accent hover:text-primary"
                     }`}
                   >
                     <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2912,7 +2867,7 @@ function MonthlyStatementContent() {
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "expense"
                         ? "border-destructive/50 bg-destructive-soft text-destructive hover:bg-destructive-soft/70"
-                        : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
+                        : "hover:border-destructive/30 hover:bg-destructive-soft hover:text-destructive"
                     }`}
                   >
                     <ArrowDownCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2925,7 +2880,7 @@ function MonthlyStatementContent() {
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "transfer"
                         ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
-                        : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
+                        : "hover:border-primary/30 hover:bg-accent hover:text-primary"
                     }`}
                   >
                     <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2939,7 +2894,7 @@ function MonthlyStatementContent() {
                     className={`flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm ${
                       type === "fixed"
                         ? "border-primary/50 bg-info-soft text-primary hover:bg-info-soft/70"
-                        : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
+                        : "hover:border-primary/30 hover:bg-accent hover:text-primary"
                     }`}
                   >
                     <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
@@ -2955,7 +2910,7 @@ function MonthlyStatementContent() {
                 {type === "expense" && (
                   <div className="space-y-2">
                     {editingId ? (
-                      <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-2 lg:p-3">
+                      <div className="bg-surface-sunken border border-border rounded-lg p-2 lg:p-3">
                         <div className="grid grid-cols-3 gap-2 lg:flex lg:flex-nowrap">
                           <Button
                             type="button"
@@ -3002,7 +2957,7 @@ function MonthlyStatementContent() {
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && !isRateio
                               ? "border border-destructive bg-destructive-soft text-destructive hover:bg-destructive-soft/70"
-                              : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
+                              : "hover:border-destructive/30 hover:bg-destructive-soft hover:text-destructive"
                           }`}
                         >
                           Normal
@@ -3018,7 +2973,7 @@ function MonthlyStatementContent() {
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             isLoan && !isRateio
                               ? "border border-border bg-secondary/50 text-chart-6 hover:bg-secondary/70"
-                              : "hover:border-border hover:bg-secondary/50 hover:text-chart-6 dark:hover:text-chart-6"
+                              : "hover:border-border hover:bg-secondary/50 hover:text-chart-6"
                           }`}
                         >
                           Emprést.
@@ -3034,7 +2989,7 @@ function MonthlyStatementContent() {
                           className={`h-11 flex-1 text-xs lg:h-9 ${
                             !isLoan && isRateio
                               ? "border border-primary bg-info-soft text-primary hover:bg-info-soft/70"
-                              : "hover:border-primary/30 hover:bg-primary/5 dark:hover:bg-primary/10 hover:text-primary dark:hover:text-primary"
+                              : "hover:border-primary/30 hover:bg-accent hover:text-primary"
                           }`}
                         >
                           Rateio
@@ -3398,8 +3353,8 @@ function MonthlyStatementContent() {
                         }}
                         className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "income"
-                            ? "border-success/50 bg-success/10 dark:bg-success/20 text-success"
-                            : "hover:border-success/30 hover:bg-success/5 dark:hover:bg-success/10 hover:text-success dark:hover:text-success"
+                            ? "border-success/50 bg-success-soft text-success"
+                            : "hover:border-success/30 hover:bg-success-soft hover:text-success"
                         }`}
                       >
                         <ArrowUpCircle className="h-4 w-4 text-success" />
@@ -3414,7 +3369,7 @@ function MonthlyStatementContent() {
                         className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
                           fixedType === "expense"
                             ? "border-destructive/50 bg-destructive-soft text-destructive"
-                            : "hover:border-destructive/30 hover:bg-destructive/5 dark:hover:bg-destructive/10 hover:text-destructive dark:hover:text-destructive"
+                            : "hover:border-destructive/30 hover:bg-destructive-soft hover:text-destructive"
                         }`}
                       >
                         <ArrowDownCircle className="h-4 w-4 text-destructive" />
@@ -3445,7 +3400,7 @@ function MonthlyStatementContent() {
               <div className="space-y-1">
                 <Label className="text-sm">Método de Pagamento</Label>
                 {editingId ? (
-                  <div className="bg-muted dark:bg-foreground border border-border rounded-lg p-3">
+                  <div className="bg-surface-sunken border border-border rounded-lg p-3">
                     <div className="flex gap-2 mt-3">
                       <Button
                         type="button"
@@ -3668,7 +3623,7 @@ function MonthlyStatementContent() {
                             {selectedPeople.length} pessoa
                             {selectedPeople.length !== 1 ? "s" : ""}
                           </span>
-                          <span className="text-chart-6 dark:text-chart-6">
+                          <span className="text-chart-6">
                             selecionada{selectedPeople.length !== 1 ? "s" : ""}
                           </span>
                         </div>
@@ -3760,9 +3715,9 @@ function MonthlyStatementContent() {
                   {/* Header com título e badge */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <Edit className="h-4 w-4 text-primary" />
-                      </div>
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
+                        <Edit className="h-4 w-4 text-muted-foreground" aria-hidden />
+                      </span>
                       <div>
                         <h3 className="text-sm font-semibold text-foreground">
                           {isFixedSeries
@@ -4185,6 +4140,6 @@ function MonthlyStatementContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageBody>
   );
 }

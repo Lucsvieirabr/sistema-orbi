@@ -3,7 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Plus, Edit, Trash2, Check, X, Receipt, LayoutGrid, List } from "lucide-react";
+import { EmptyState, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
+import { Plus, Edit, Trash2, Check, X, Receipt, LayoutGrid, List, Search } from 'lucide-react';
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -119,53 +120,50 @@ export default function PlanManagement() {
   ) || [];
 
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Header Section */}
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Receipt className="h-6 w-6 text-primary" />
-              </div>
-              <div>
-                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Planos de Assinatura</CardTitle>
-                <p className="text-muted-foreground mt-1">
-                  Configure e gerencie os planos disponíveis no sistema
-                </p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Input
-                placeholder="Buscar planos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-64"
-              />
-              <ToggleGroup type="single" value={view} onValueChange={onChangeView}>
-                <ToggleGroupItem
-                  value="list"
-                  aria-label="Lista"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <List className="h-4 w-4" />
-                </ToggleGroupItem>
-                <ToggleGroupItem
-                  value="cards"
-                  aria-label="Cards"
-                  className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                >
-                  <LayoutGrid className="h-4 w-4" />
-                </ToggleGroupItem>
-              </ToggleGroup>
-              <Button className="gap-2" onClick={handleCreate}>
-                <Plus className="h-4 w-4" />
-                Novo Plano
-              </Button>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+    <div className="min-w-0 space-y-5 md:space-y-7">
+      <PageHeader
+        eyebrow="Administração"
+        icon={Receipt}
+        title="Planos de assinatura"
+        description="O que cada plano libera e quanto custa. Alterações valem para novas assinaturas."
+        actions={
+          <Button onClick={handleCreate} className="w-full sm:w-auto">
+            <Plus className="h-4 w-4" />
+            Novo plano
+          </Button>
+        }
+      />
+
+      <PageToolbar>
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar plano"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar planos"
+          />
+        </div>
+        <ToolbarSpacer />
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={onChangeView}
+          aria-label="Visualização"
+          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
+        >
+          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </PageToolbar>
 
       {/* Plans Grid/List */}
       {isLoading ? (
@@ -180,27 +178,15 @@ export default function PlanManagement() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
               {filteredPlans.length === 0 ? (
                 <div className="col-span-full">
-                  <Card className="border-dashed border-border">
-                    <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                      <div className="p-4 bg-muted/50 rounded-full mb-4">
-                        <Receipt className="h-8 w-8 text-muted-foreground" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {searchTerm ? "Nenhum plano encontrado" : "Nenhum plano cadastrado"}
-                      </h3>
-                      <p className="text-muted-foreground mb-4">
-                        {searchTerm
-                          ? `Nenhum plano encontrado para "${searchTerm}"`
-                          : "Crie seu primeiro plano de assinatura"}
-                      </p>
-                      {!searchTerm && (
-                        <Button onClick={handleCreate}>
+                  <EmptyState
+                      icon={Receipt}
+                      title={searchTerm ? "Nenhum plano encontrado" : "Nenhum plano cadastrado"}
+                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Crie seu primeiro plano de assinatura"}
+                      action={!searchTerm ? <Button onClick={handleCreate}>
                           <Plus className="h-4 w-4 mr-2" />
                           Criar Plano
-                        </Button>
-                      )}
-                    </CardContent>
-                  </Card>
+                        </Button> : undefined}
+                    />
                 </div>
               ) : (
                 filteredPlans.map((plan) => (
@@ -292,25 +278,24 @@ export default function PlanManagement() {
             <Card>
               <CardContent className="p-0">
                 {filteredPlans.length === 0 ? (
-                  <div className="p-8 text-center text-muted-foreground">
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                      <Receipt className="h-6 w-6" />
-                    </div>
-                    <h3 className="text-lg font-semibold mb-2">
-                      {searchTerm ? "Nenhum plano encontrado" : "Nenhum plano cadastrado"}
-                    </h3>
-                    <p className="mb-4">
-                      {searchTerm
-                        ? `Nenhum plano encontrado para "${searchTerm}"`
-                        : "Crie seu primeiro plano para começar"}
-                    </p>
-                    {!searchTerm && (
-                      <Button onClick={handleCreate}>
-                        <Plus className="h-4 w-4 mr-2" />
-                        Criar Plano
-                      </Button>
-                    )}
-                  </div>
+                  <EmptyState
+                    icon={Receipt}
+                    title={searchTerm ? "Nenhum plano encontrado" : "Nenhum plano cadastrado"}
+                    description={
+                      searchTerm
+                        ? `Nada corresponde a “${searchTerm}”.`
+                        : "Crie o primeiro plano de assinatura para começar a cobrar."
+                    }
+                    action={
+                      !searchTerm ? (
+                        <Button onClick={handleCreate}>
+                          <Plus className="h-4 w-4" />
+                          Criar plano
+                        </Button>
+                      ) : undefined
+                    }
+                    className="border-0"
+                  />
                 ) : (
                   <div className="divide-y divide-border">
                     {filteredPlans.map((plan) => (

@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Brain, TrendingUp, Search, Trash2, Edit2, CheckCircle2, List, BarChart3 } from 'lucide-react';
+import { Brain, Search, Trash2, Edit2, CheckCircle2, List, BarChart3, Sparkles, Layers, Repeat } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from 'recharts';
 import { Input } from '@/components/ui/input';
@@ -44,7 +44,19 @@ import { useCategories } from '@/hooks/use-categories';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeaturePageGuard, FeatureGuard } from '@/components/guards/FeatureGuard';
 import { useFeature } from '@/hooks/use-feature';
+import {
+  RecordActions,
+  RecordCard,
+  RecordCardHead,
+  RecordCardList,
+  RecordField,
+  RecordFields,
+  TableView,
+} from "@/components/ui/record-card";
 import { chartColors } from "@/lib/chart-colors";
+import { cn } from "@/lib/utils";
+import { StatCard } from "@/components/ui/stat-card";
+import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 
 export default function MyAI() {
   return (
@@ -109,259 +121,275 @@ function MyAIContent() {
       }));
   }, [stats]);
 
+  const topPattern = filteredPatterns?.length
+    ? [...filteredPatterns].sort((a, b) => (b.usage_count ?? 0) - (a.usage_count ?? 0))[0]
+    : null;
+
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Header */}
-      <div className="space-y-1.5">
-        <div className="flex min-w-0 items-center gap-2">
-          <Brain className="h-6 w-6 shrink-0 text-primary lg:h-8 lg:w-8" />
-          <h1 className="min-w-0 font-display text-lg font-semibold tracking-tight md:text-2xl lg:text-3xl">
-            IA de Classificação
-          </h1>
-        </div>
-        <p className="text-sm text-muted-foreground">
-            Sua IA pessoal aprende como você prefere categorizar cada transação. 
-          Cada vez que você corrige uma classificação durante a importação, a IA memoriza e aplica automaticamente nas próximas vezes!
-        </p>
+    <PageBody>
+      <PageHeader
+        eyebrow="Inteligência"
+        icon={Brain}
+        title="Classificação automática"
+        description="Cada correção que você faz durante uma importação vira uma regra. Na próxima vez, o Orbi já classifica sozinho."
+      />
+
+      {/* Faixa de indicadores: o que a IA já aprendeu, em três números. */}
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
+        <StatCard
+          dense
+          label="Regras aprendidas"
+          value={<span className="tabular">{stats?.total ?? 0}</span>}
+          hint="descrições que a IA já reconhece"
+          tone="accent"
+          icon={Sparkles}
+        />
+        <StatCard
+          dense
+          label="Categorias cobertas"
+          value={<span className="tabular">{categoryData.length}</span>}
+          hint="destinos distintos de classificação"
+          icon={Layers}
+        />
+        <StatCard
+          dense
+          className="col-span-2 lg:col-span-1"
+          label="Regra mais usada"
+          value={<span className="tabular">{topPattern?.usage_count ?? 0}×</span>}
+          hint={topPattern ? topPattern.description : "nenhuma regra ainda"}
+          icon={Repeat}
+        />
       </div>
 
-      {/* Padrões por Categoria */}
+      {/* Distribuição por categoria */}
       {stats && stats.total > 0 && (
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle className="flex items-center gap-2">
-                <Brain className="h-5 w-5 text-primary" />
-                Classificações Aprendidas por Categoria
-              </CardTitle>
-              <div className="flex items-center gap-2">
+        <section className="space-y-4">
+          <SectionHeader
+            eyebrow="Distribuição"
+            title="Onde a IA classifica"
+            className="border-b border-border-subtle pb-2"
+            actions={
+              <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1">
                 <Button
-                  variant={categoryViewMode === 'list' ? 'default' : 'outline'}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCategoryViewMode('list')}
-                  className="h-8 px-3"
+                  aria-pressed={categoryViewMode === 'list'}
+                  className={cn("h-8", categoryViewMode === 'list' && "bg-card text-foreground shadow-sm")}
                 >
-                  <List className="h-4 w-4 mr-1" />
-                  Lista
+                  <List className="h-4 w-4" />
+                  <span className="hidden sm:inline">Lista</span>
                 </Button>
                 <Button
-                  variant={categoryViewMode === 'chart' ? 'default' : 'outline'}
+                  variant="ghost"
                   size="sm"
                   onClick={() => setCategoryViewMode('chart')}
-                  className="h-8 px-3"
+                  aria-pressed={categoryViewMode === 'chart'}
+                  className={cn("h-8", categoryViewMode === 'chart' && "bg-card text-foreground shadow-sm")}
                 >
-                  <BarChart3 className="h-4 w-4 mr-1" />
-                  Gráfico
+                  <BarChart3 className="h-4 w-4" />
+                  <span className="hidden sm:inline">Gráfico</span>
                 </Button>
               </div>
-            </div>
-          </CardHeader>
-          <CardContent>
-            {categoryViewMode === 'list' ? (
-              categoryData.length > 0 ? (
-                <div className="space-y-3">
-                  {categoryData.map((item, index) => {
-                    const percentage = (item.amount / stats.total) * 100;
-                    const colors = [
-                      'bg-primary', 'bg-success', 'bg-warning',
-                      'bg-destructive', 'bg-chart-6', 'bg-chart-6'
-                    ];
-                    const colorClass = colors[index % colors.length];
+            }
+          />
 
-                    return (
-                      <div key={item.category} className="flex items-center gap-3">
-                        <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-                        <div className="flex-1">
-                          <div className="flex justify-between items-center mb-1">
-                            <span className="text-sm font-medium text-foreground">
-                              {item.category}
-                            </span>
-                            <span className="text-sm text-muted-foreground">
-                              {item.amount} padrão{item.amount !== 1 ? 'ões' : ''}
-                            </span>
-                          </div>
-                          <div className="w-full bg-muted/30 rounded-full h-2">
-                            <div
-                              className={`h-2 rounded-full ${colorClass}`}
-                              style={{ width: `${percentage}%` }}
-                            />
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
+          {categoryData.length === 0 ? (
+            <EmptyState
+              icon={Brain}
+              title="Nenhum padrão aprendido ainda"
+              description="Importe um extrato e corrija as categorias sugeridas — a IA começa a aprender a partir daí."
+            />
+          ) : categoryViewMode === 'list' ? (
+            /* Ranking: barra proporcional de 1 linha por categoria, ordenada.
+               A ordem é a informação; a cor só distingue as séries. */
+            <ul className="space-y-3">
+              {categoryData.map((item, index) => {
+                const percentage = (item.amount / stats.total) * 100;
+                const chart = `bg-chart-${(index % 6) + 1}`;
+                return (
+                  <li key={item.category} className="grid gap-1.5">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="min-w-0 truncate text-sm font-medium text-foreground" title={item.category}>
+                        {item.category}
+                      </span>
+                      <span className="shrink-0 text-xs tabular text-muted-foreground">
+                        {item.amount} {item.amount === 1 ? 'regra' : 'regras'} · {percentage.toFixed(0)}%
+                      </span>
+                    </div>
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
+                      <div
+                        className={cn("h-1 rounded-full transition-[width] duration-500 ease-swift", chart)}
+                        style={{ width: `${percentage}%` }}
+                      />
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <Card>
+              <CardContent className="pt-5">
+                <div className="h-[300px] w-full">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <RechartsPieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        innerRadius={62}
+                        outerRadius={100}
+                        paddingAngle={1}
+                        dataKey="amount"
+                        nameKey="category"
+                      >
+                        {categoryData.map((entry, index) => {
+                          const colors = chartColors();
+                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke="none" />;
+                        })}
+                      </Pie>
+                      <Tooltip
+                        formatter={(value: number) => [`${value} ${value === 1 ? 'regra' : 'regras'}`, 'Aprendidas']}
+                        labelFormatter={(label) => `${label}`}
+                      />
+                      <Legend />
+                    </RechartsPieChart>
+                  </ResponsiveContainer>
                 </div>
-              ) : (
-                <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg">
-                  <div className="text-center">
-                    <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground">Nenhum padrão aprendido ainda</p>
-                  </div>
-                </div>
-              )
-            ) : categoryData.length > 0 ? (
-              <div className="h-[300px] w-full">
-                <ResponsiveContainer width="100%" height="100%">
-                  <RechartsPieChart>
-                    <Pie
-                      data={categoryData}
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={100}
-                      dataKey="amount"
-                      nameKey="category"
-                      label={({ category, percent }) => `${category.substring(0, 20)} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      {categoryData.map((entry, index) => {
-                        const colors = chartColors();
-                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                      })}
-                    </Pie>
-                    <Tooltip
-                      formatter={(value: number) => [`${value} padrão${value !== 1 ? 'ões' : ''}`, 'Quantidade']}
-                      labelFormatter={(label) => `Categoria: ${label}`}
-                    />
-                    <Legend />
-                  </RechartsPieChart>
-                </ResponsiveContainer>
-              </div>
-            ) : (
-              <div className="flex items-center justify-center h-[300px] bg-muted/20 rounded-lg">
-                <div className="text-center">
-                  <Brain className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">Nenhum padrão aprendido ainda</p>
-                </div>
-              </div>
-            )}
-          </CardContent>
-        </Card>
+              </CardContent>
+            </Card>
+          )}
+        </section>
       )}
 
-      
+      {/* Regras */}
+      <section className="space-y-4">
+        <SectionHeader
+          eyebrow="Regras"
+          title="O que a IA aprendeu"
+          description="Uma linha por descrição reconhecida. Edite a categoria ou remova a regra."
+          className="border-b border-border-subtle pb-2"
+        />
 
-      {/* Busca e Tabela */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <CardTitle>Regras de Classificação Automática</CardTitle>
+        <div className="relative w-full sm:max-w-sm">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar descrição ou categoria"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar regras"
+          />
+        </div>
 
-            {/* Campo de busca */}
-            <Input
-              placeholder="Buscar transação ou categoria..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full lg:w-80"
-            />
+        {isLoading ? (
+          <div className="space-y-2">
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Skeleton key={i} className="h-12 w-full" />
+            ))}
           </div>
-        </CardHeader>
-
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-2">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : filteredPatterns && filteredPatterns.length > 0 ? (
-            <>
-              {/* Mobile: uma regra por card — sem tabela espremida. */}
-              <RecordCardList>
-                {filteredPatterns.map((pattern) => (
-                  <RecordCard key={pattern.id}>
-                    <RecordCardHead
-                      title={pattern.description}
-                      value={<Badge variant="secondary">{pattern.usage_count}x</Badge>}
-                    />
-
-                    <RecordFields className="grid-cols-1">
-                      <RecordField label="Categoria aprendida">{pattern.category}</RecordField>
-                    </RecordFields>
-
-                    <RecordActions>
-                      <FeatureGuard feature="ia_classificacao_automatica">
+        ) : filteredPatterns && filteredPatterns.length > 0 ? (
+          <>
+            {/* Telefone: uma regra por card — sem tabela espremida. */}
+            <RecordCardList>
+              {filteredPatterns.map((pattern) => (
+                <RecordCard key={pattern.id}>
+                  <RecordCardHead
+                    title={pattern.description}
+                    value={<Badge variant="secondary">{pattern.usage_count}×</Badge>}
+                  />
+                  <RecordFields className="grid-cols-1">
+                    <RecordField label="Categoria aprendida">{pattern.category}</RecordField>
+                  </RecordFields>
+                  <RecordActions>
+                    <FeatureGuard feature="ia_classificacao_automatica">
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
+                        aria-label={`Editar regra de ${pattern.description}`}
+                        onClick={() => handleEdit(pattern)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                    </FeatureGuard>
+                    <FeatureGuard feature="ia_classificacao_automatica">
+                      <ConfirmationDialog
+                        title="Remover regra"
+                        description={`A IA deixa de classificar “${pattern.description}” automaticamente como “${pattern.category}”.`}
+                        confirmText="Remover regra"
+                        onConfirm={() => handleDelete(pattern.id)}
+                        variant="destructive"
+                      >
                         <Button
                           variant="ghost"
                           size="icon-sm"
-                          aria-label={`Editar regra de ${pattern.description}`}
-                          onClick={() => handleEdit(pattern)}
+                          aria-label={`Remover regra de ${pattern.description}`}
+                          className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
                         >
-                          <Edit2 className="h-4 w-4" />
+                          <Trash2 className="h-4 w-4" />
                         </Button>
-                      </FeatureGuard>
-                      <FeatureGuard feature="ia_classificacao_automatica">
-                        <ConfirmationDialog
-                          title="Remover Regra de Classificação"
-                          description={`Tem certeza que deseja remover esta regra? A IA não irá mais classificar "${pattern.description}" automaticamente como "${pattern.category}".`}
-                          confirmText="Remover Regra"
-                          onConfirm={() => handleDelete(pattern.id)}
-                          variant="destructive"
-                        >
-                          <Button
-                            variant="ghost"
-                            size="icon-sm"
-                            aria-label={`Remover regra de ${pattern.description}`}
-                            className="text-destructive hover:bg-destructive-soft hover:text-destructive"
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </ConfirmationDialog>
-                      </FeatureGuard>
-                    </RecordActions>
-                  </RecordCard>
-                ))}
-              </RecordCardList>
+                      </ConfirmationDialog>
+                    </FeatureGuard>
+                  </RecordActions>
+                </RecordCard>
+              ))}
+            </RecordCardList>
 
-              {/* md+: tabela, com rolagem contida no contêiner. */}
-              <TableView>
+            {/* md+: tabela real, com rolagem contida no contêiner. */}
+            <TableView>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Descrição da Transação</TableHead>
-                    <TableHead>Categoria Aprendida</TableHead>
-                    <TableHead className="text-center">Vezes Usada</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead>Descrição reconhecida</TableHead>
+                    <TableHead>Classifica como</TableHead>
+                    <TableHead className="text-right">Usos</TableHead>
+                    <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredPatterns.map((pattern) => (
                     <TableRow key={pattern.id}>
-                      <TableCell className="font-medium max-w-xs">
+                      <TableCell className="max-w-xs font-medium">
                         <div className="truncate" title={pattern.description}>
                           {pattern.description}
                         </div>
                       </TableCell>
-                      <TableCell className="max-w-[150px]">
+                      <TableCell className="max-w-[180px] text-muted-foreground">
                         <div className="truncate" title={pattern.category}>
                           {pattern.category}
                         </div>
                       </TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary">{pattern.usage_count}x</Badge>
-                      </TableCell>
+                      <TableCell className="text-right tabular text-muted-foreground">{pattern.usage_count}×</TableCell>
                       <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-0.5">
                           <FeatureGuard feature="ia_classificacao_automatica">
                             <Button
                               variant="ghost"
-                              size="sm"
+                              size="icon-sm"
                               onClick={() => handleEdit(pattern)}
+                              aria-label={`Editar regra de ${pattern.description}`}
                             >
                               <Edit2 className="h-4 w-4" />
                             </Button>
                           </FeatureGuard>
                           <FeatureGuard feature="ia_classificacao_automatica">
                             <ConfirmationDialog
-                              title="Remover Regra de Classificação"
-                              description={`Tem certeza que deseja remover esta regra? A IA não irá mais classificar "${pattern.description}" automaticamente como "${pattern.category}".`}
-                              confirmText="Remover Regra"
+                              title="Remover regra"
+                              description={`A IA deixa de classificar “${pattern.description}” automaticamente como “${pattern.category}”.`}
+                              confirmText="Remover regra"
                               onConfirm={() => handleDelete(pattern.id)}
                               variant="destructive"
                             >
                               <Button
                                 variant="ghost"
-                                size="sm"
+                                size="icon-sm"
+                                aria-label={`Remover regra de ${pattern.description}`}
+                                className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
                               >
-                                <Trash2 className="h-4 w-4 text-destructive" />
+                                <Trash2 className="h-4 w-4" />
                               </Button>
                             </ConfirmationDialog>
                           </FeatureGuard>
@@ -371,68 +399,58 @@ function MyAIContent() {
                   ))}
                 </TableBody>
               </Table>
-              </TableView>
-            </>
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              {searchTerm ? (
-                <p>Nenhuma regra de classificação encontrada para "{searchTerm}"</p>
-              ) : (
-                <div className="space-y-2">
-                  <Brain className="h-12 w-12 mx-auto opacity-20" />
-                  <p className="font-medium">Sua IA ainda não aprendeu nenhuma classificação.</p>
-                  <p className="text-sm">
-                    Importe um extrato bancário e corrija as categorias sugeridas. 
-                    A IA vai memorizar suas preferências e aplicar automaticamente nas próximas importações!
-                  </p>
-                </div>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+            </TableView>
+          </>
+        ) : (
+          <EmptyState
+            icon={Brain}
+            title={searchTerm ? "Nenhuma regra encontrada" : "A IA ainda não aprendeu nada"}
+            description={
+              searchTerm
+                ? `Nada corresponde a “${searchTerm}”.`
+                : "Importe um extrato bancário e corrija as categorias sugeridas. O Orbi memoriza suas escolhas e aplica sozinho nas próximas importações."
+            }
+          />
+        )}
+      </section>
 
-      {/* Dialog de Edição */}
       <Dialog open={!!editingPattern} onOpenChange={() => setEditingPattern(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Editar Classificação Automática</DialogTitle>
+            <DialogTitle>Editar regra</DialogTitle>
             <DialogDescription>
-              Altere como a IA deve classificar transações com a descrição:<br/>
-              <strong>"{editingPattern?.description}"</strong>
+              Escolha como a IA deve classificar transações descritas como{" "}
+              <strong className="text-foreground">{editingPattern?.description}</strong>.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="category">Nova Categoria</Label>
-              <SelectWithAddButton
-                entityType="categories"
-                value={editCategory}
-                onValueChange={setEditCategory}
-                placeholder="Selecione a categoria"
-              >
-                {categories?.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.name}>
-                    {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectWithAddButton>
-            </div>
+          <div className="space-y-2 py-2">
+            <Label htmlFor="category">Categoria</Label>
+            <SelectWithAddButton
+              entityType="categories"
+              value={editCategory}
+              onValueChange={setEditCategory}
+              placeholder="Selecione a categoria"
+            >
+              {categories?.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
+                  {cat.name}
+                </SelectItem>
+              ))}
+            </SelectWithAddButton>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setEditingPattern(null)}>
+            <Button variant="ghost" onClick={() => setEditingPattern(null)}>
               Cancelar
             </Button>
             <Button onClick={handleSaveEdit} disabled={!editCategory}>
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Salvar
+              <CheckCircle2 className="h-4 w-4" />
+              Salvar regra
             </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </PageBody>
   );
 }
-

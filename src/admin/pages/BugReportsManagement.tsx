@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Bug, Trash2, Eye, Image as ImageIcon } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { useBugReports } from "@/hooks/use-bug-reports";
@@ -117,23 +118,13 @@ export default function BugReportsManagement() {
 
   return (
     <>
-      <div className="min-w-0 space-y-4 md:space-y-6">
-        {/* Header Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-warning/10 rounded-lg">
-                <Bug className="h-6 w-6 text-warning" />
-              </div>
-              <div>
-                <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Defeitos & Sugestões</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  Total: {bugReports.length} relatório{bugReports.length !== 1 ? "s" : ""}
-                </p>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+      <div className="min-w-0 space-y-5 md:space-y-7">
+      <PageHeader
+        eyebrow="Administração"
+        icon={Bug}
+        title="Defeitos & sugestões"
+        description={`${bugReports.length} ${bugReports.length === 1 ? "relatório enviado" : "relatórios enviados"} pelos usuários. Arraste um cartão para mudar o estágio.`}
+      />
 
         {/* Kanban Board */}
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5 lg:gap-4">

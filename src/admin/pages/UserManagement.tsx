@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Search, Eye, Users, LayoutGrid, List } from "lucide-react";
@@ -87,52 +88,44 @@ export default function UserManagement() {
 
   return (
     <>
-      <div className="min-w-0 space-y-4 md:space-y-6">
-        {/* Header Section */}
-        <Card>
-          <CardHeader>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-primary/10 rounded-lg">
-                  <Users className="h-5 w-5 lg:h-6 lg:w-6 text-primary" />
-                </div>
-                <div>
-                  <CardTitle className="truncate text-lg md:text-xl lg:text-2xl">Usuários</CardTitle>
-                  <p className="text-muted-foreground mt-1 text-sm">
-                    Total de {users?.length || 0} usuários cadastrados
-                  </p>
-                </div>
-              </div>
-              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                <div className="relative w-full sm:w-auto">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Buscar..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full sm:w-48 lg:w-64 pl-10"
-                  />
-                </div>
-                <ToggleGroup type="single" value={view} onValueChange={onChangeView} className="hidden sm:flex">
-                  <ToggleGroupItem
-                    value="list"
-                    aria-label="Lista"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <List className="h-4 w-4" />
-                  </ToggleGroupItem>
-                  <ToggleGroupItem
-                    value="cards"
-                    aria-label="Cards"
-                    className="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
-                  >
-                    <LayoutGrid className="h-4 w-4" />
-                  </ToggleGroupItem>
-                </ToggleGroup>
-              </div>
-            </div>
-          </CardHeader>
-        </Card>
+      <div className="min-w-0 space-y-5 md:space-y-7">
+      <PageHeader
+        eyebrow="Administração"
+        icon={Users}
+        title="Usuários"
+        description={`${users?.length || 0} contas cadastradas no Orbi.`}
+      />
+
+      <PageToolbar>
+        <div className="relative w-full sm:w-64">
+          <Search
+            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+            aria-hidden
+          />
+          <Input
+            placeholder="Buscar por nome ou e-mail"
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-9"
+            aria-label="Buscar usuários"
+          />
+        </div>
+        <ToolbarSpacer />
+        <ToggleGroup
+          type="single"
+          value={view}
+          onValueChange={onChangeView}
+          aria-label="Visualização"
+          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
+        >
+          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
+            <List className="h-4 w-4" />
+          </ToggleGroupItem>
+          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
+            <LayoutGrid className="h-4 w-4" />
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </PageToolbar>
 
         {/* Users Grid/List */}
         {isLoading ? (
@@ -147,21 +140,11 @@ export default function UserManagement() {
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
                 {filteredUsers && filteredUsers.length === 0 ? (
                   <div className="col-span-full">
-                    <Card className="border-dashed border-border">
-                      <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-                        <div className="p-4 bg-muted/50 rounded-full mb-4">
-                          <Users className="h-8 w-8 text-muted-foreground" />
-                        </div>
-                        <h3 className="text-lg font-semibold mb-2">
-                          {searchTerm ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
-                        </h3>
-                        <p className="text-muted-foreground">
-                          {searchTerm
-                            ? `Nenhum usuário encontrado para "${searchTerm}"`
-                            : "Ainda não há usuários no sistema"}
-                        </p>
-                      </CardContent>
-                    </Card>
+                    <EmptyState
+                      icon={Users}
+                      title={searchTerm ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
+                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há usuários no sistema"}
+                    />
                   </div>
                 ) : (
                   filteredUsers?.map((user) => (
@@ -227,19 +210,12 @@ export default function UserManagement() {
               <Card>
                 <CardContent className="p-0">
                   {filteredUsers && filteredUsers.length === 0 ? (
-                    <div className="p-8 text-center text-muted-foreground">
-                      <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                        <Users className="h-6 w-6" />
-                      </div>
-                      <h3 className="text-lg font-semibold mb-2">
-                        {searchTerm ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
-                      </h3>
-                      <p>
-                        {searchTerm
-                          ? `Nenhum usuário encontrado para "${searchTerm}"`
-                          : "Ainda não há usuários no sistema"}
-                      </p>
-                    </div>
+                    <EmptyState
+                      icon={Users}
+                      title={searchTerm ? "Nenhum usuário encontrado" : "Nenhum usuário cadastrado"}
+                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há usuários no sistema"}
+                      className="border-0"
+                    />
                   ) : (
                     <div className="divide-y divide-border">
                       {filteredUsers?.map((user) => (
@@ -248,9 +224,9 @@ export default function UserManagement() {
                           className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center lg:p-6"
                         >
                           <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                              <Users className="h-5 w-5 text-primary" />
-                            </div>
+                            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken">
+                              <Users className="h-4 w-4 text-muted-foreground" />
+                            </span>
                             <div className="flex-1 min-w-0">
                               <div className="font-semibold truncate" title={user.full_name || user.email || ''}>
                                 {user.full_name || user.email || 'Usuário sem nome'}

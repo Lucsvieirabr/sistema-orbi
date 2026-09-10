@@ -1,15 +1,19 @@
 import orbiLogo from "@/assets/orbi-logo_white.png";
 
+/** Splash de bootstrap. Aparece por um instante antes do redirecionamento. */
 const Index = () => {
   return (
-    <div className="container mx-auto p-4 space-y-6">
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center">
-          <img src={orbiLogo} alt="Orbi" className="h-16 w-16 mx-auto mb-6" />
-          <h1 className="mb-4 text-4xl font-semibold">Sistema Orbi</h1>
-          <p className="text-xl text-muted-foreground">Sua visão financeira completa</p>
-        </div>
+    <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 text-center">
+      <img src={orbiLogo} alt="" aria-hidden className="h-14 w-14" />
+      <div>
+        <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Sistema Orbi</h1>
+        <p className="mt-2 text-base text-muted-foreground">Sua visão financeira completa</p>
       </div>
+      <div
+        className="h-6 w-6 animate-spin rounded-full border-2 border-border border-t-primary"
+        role="status"
+        aria-label="Carregando"
+      />
     </div>
   );
 };

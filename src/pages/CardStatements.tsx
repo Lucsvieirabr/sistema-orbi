@@ -31,6 +31,8 @@ import {
   RecordFields,
   TableView,
 } from "@/components/ui/record-card";
+import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
+import { cn } from "@/lib/utils";
 import {
   CreditCard,
   Receipt,
@@ -304,448 +306,363 @@ export default function CardStatements() {
 
   if (!currentCard) {
     return (
-      <div className="container mx-auto p-4">
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12 text-center">
-            <AlertTriangle className="h-12 w-12 text-muted-foreground mb-4" />
-            <h3 className="text-lg font-semibold mb-2">
-              Cartão não encontrado
-            </h3>
-            <p className="text-muted-foreground mb-4">
-              O cartão solicitado não foi encontrado ou não está disponível.
-            </p>
-            <Button onClick={goBack} variant="outline">
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Voltar para Cartões
+      <PageBody>
+        <EmptyState
+          icon={AlertTriangle}
+          title="Cartão não encontrado"
+          description="O cartão que você tentou abrir não existe mais ou não está disponível nesta conta."
+          action={
+            <Button variant="outline" onClick={goBack}>
+              <ArrowLeft className="h-4 w-4" />
+              Voltar para cartões
             </Button>
-          </CardContent>
-        </Card>
-      </div>
+          }
+        />
+      </PageBody>
     );
   }
 
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(currentDate);
+  const periodLabel = `${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
+    statementPeriod.startDate,
+  )} até ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(statementPeriod.endDate)}`;
+  const categoryTotal = categoryExpenses.reduce((sum, cat) => sum + cat.amount, 0);
+
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      {/* Header */}
-      <Card>
-        <CardHeader>
-          <div className="flex min-w-0 flex-col gap-3 lg:flex-row lg:items-center lg:justify-between lg:gap-4">
-            <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-              <Button variant="outline" size="icon" onClick={goBack} aria-label="Voltar para Cartões" className="shrink-0 lg:hidden">
-                <ArrowLeft className="h-4 w-4" />
-              </Button>
-              <Button variant="outline" size="sm" onClick={goBack} className="hidden shrink-0 lg:inline-flex">
-                <ArrowLeft className="mr-2 h-4 w-4" />
-                Voltar
-              </Button>
-              <div className="flex min-w-0 flex-1 items-center gap-2 md:gap-3">
-                <span className="shrink-0">{getCardBrandIcon(currentCard.brand)}</span>
-                <div className="min-w-0 flex-1">
-                  <h1 className="truncate font-display text-lg font-semibold tracking-tight md:text-xl lg:text-2xl" title={currentCard.name}>
-                    {currentCard.name}
-                  </h1>
-                  <p className="truncate text-xs text-muted-foreground md:text-sm">
-                    Faturas mensais • {currentCard.brand || "Cartão de Crédito"}
-                  </p>
-                </div>
-              </div>
-            </div>
+    <PageBody>
+      <Button variant="subtle" size="sm" onClick={goBack} className="-ml-1 px-1">
+        <ArrowLeft className="h-4 w-4" />
+        Cartões
+      </Button>
 
-            {/* Seletor de mês: linha inteira no telefone, pílula no desktop. */}
-            <div className="flex w-full items-center justify-between gap-2 rounded-lg bg-muted/50 px-2 py-1.5 lg:w-auto lg:justify-start lg:px-3 lg:py-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleMonthChange("prev")}
-                aria-label="Mês anterior"
-                className="shrink-0 lg:h-8 lg:w-8"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="min-w-0 flex-1 text-center lg:min-w-[200px] lg:flex-none">
-                <div className="truncate text-sm font-medium capitalize">
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    month: "long",
-                    year: "numeric",
-                  }).format(currentDate)}
-                </div>
-                <div className="truncate text-2xs text-muted-foreground md:text-xs">
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    day: "2-digit",
-                    month: "short",
-                  }).format(statementPeriod.startDate)}{" "}
-                  até{" "}
-                  {new Intl.DateTimeFormat("pt-BR", {
-                    day: "2-digit",
-                    month: "short",
-                  }).format(statementPeriod.endDate)}
-                </div>
-              </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleMonthChange("next")}
-                aria-label="Próximo mês"
-                className="shrink-0 lg:h-8 lg:w-8"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
+      <PageHeader
+        eyebrow={
+          <span className="flex items-center gap-1.5">
+            <span className="shrink-0 [&_svg]:h-3 [&_svg]:w-3">{getCardBrandIcon(currentCard.brand)}</span>
+            Fatura · {currentCard.brand || "cartão de crédito"}
+          </span>
+        }
+        title={<span className="truncate" title={currentCard.name}>{currentCard.name}</span>}
+        description={`Período de ${periodLabel}. Uma compra entra na fatura que fecha depois dela, não no mês do calendário.`}
+        actions={
+          /* Stepper de mês: o controle que rege tudo abaixo. Fica ancorado à
+             direita do cabeçalho, não perdido dentro de um card. */
+          <div className="flex w-full items-center justify-between gap-1 rounded-lg border border-border bg-surface-sunken p-1 lg:w-auto">
+            <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("prev")} aria-label="Mês anterior">
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <div className="min-w-0 flex-1 px-2 text-center lg:min-w-[9rem] lg:flex-none">
+              <p className="truncate text-sm font-medium capitalize text-foreground">{monthLabel}</p>
+              <p className="truncate text-2xs tabular text-muted-foreground">{periodLabel}</p>
             </div>
+            <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("next")} aria-label="Próximo mês">
+              <ChevronRight className="h-4 w-4" />
+            </Button>
           </div>
-        </CardHeader>
-      </Card>
+        }
+      />
 
-      {/* Summary Cards and Chart */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:gap-6">
-        {/* Left Column - Stats (lado a lado no telefone, empilhado no desktop) */}
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-1 lg:content-start">
-          <Card className="col-span-2 sm:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="label-eyebrow">
-                Fatura Atual
-              </CardTitle>
-              <TrendingDown className="h-3.5 w-3.5 shrink-0 text-destructive" />
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="figure-lg tabular text-destructive">
-                {formatCurrency(totals.totalExpenses)}
-              </div>
-              <p className="mt-0.5 text-2xs text-muted-foreground">
-                Total da fatura
-              </p>
-              <Button
-                onClick={handlePayStatement}
-                disabled={payingStatement || !totals.hasPending}
-                className="w-full mt-3 bg-success hover:bg-success disabled:opacity-50 disabled:cursor-not-allowed"
-                size="sm"
-              >
-                <CheckCircle className="h-4 w-4 mr-2" />
-                {payingStatement ? "Pagando..." : totals.hasPending ? "Pagar Fatura" : "Sem Pendências"}
-              </Button>
-            </CardContent>
-          </Card>
+      {/* Fatura: o número é a manchete da tela, e a ação fica colada nele. */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="overflow-hidden lg:col-span-1">
+          <span aria-hidden className="block h-px w-full bg-destructive" />
+          <CardContent className="pt-4 md:pt-5">
+            <p className="label-eyebrow">Fatura do período</p>
+            <p className="figure-xl mt-1 tabular text-destructive">{formatCurrency(totals.totalExpenses)}</p>
+            <p className="mt-1.5 text-xs tabular text-muted-foreground">
+              {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"}
+            </p>
+            <Button
+              onClick={handlePayStatement}
+              disabled={payingStatement || !totals.hasPending}
+              variant={totals.hasPending ? "default" : "outline"}
+              className="mt-4 w-full"
+            >
+              <CheckCircle className="h-4 w-4" />
+              {payingStatement ? "Marcando como paga…" : totals.hasPending ? "Marcar fatura como paga" : "Fatura sem pendências"}
+            </Button>
+          </CardContent>
+        </Card>
 
-          <Card className="col-span-2 sm:col-span-1">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="label-eyebrow">
-                Total de Transações
-              </CardTitle>
-              <ReceiptIcon className="h-3.5 w-3.5 shrink-0 text-primary" />
-            </CardHeader>
-            <CardContent className="pb-4">
-              <div className="figure-lg tabular text-primary">{totals.count}</div>
-              <p className="mt-0.5 text-2xs text-muted-foreground">
-                No período da fatura
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right Column - Category Chart */}
-        <div className="lg:col-span-2">
-          <Card className="h-full">
-            <CardHeader>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <CardTitle className="flex items-center gap-2">
-                  <PieChart className="h-4 w-4 shrink-0 text-primary" />
-                  Gastos por Categoria
-                </CardTitle>
-                <div className="flex items-center gap-2">
+        {/* Distribuição por categoria: mesmo vocabulário de ranking usado na
+            tela da IA — barra de 1px, ordem como informação. */}
+        <Card className="lg:col-span-2">
+          <CardHeader className="gap-0 space-y-0">
+            <SectionHeader
+              eyebrow="Composição"
+              title="Gastos por categoria"
+              actions={
+                <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1">
                   <Button
-                    variant={categoryViewMode === 'list' ? 'default' : 'outline'}
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setCategoryViewMode('list')}
-                    className="flex-1 sm:flex-none"
+                    onClick={() => setCategoryViewMode("list")}
+                    aria-pressed={categoryViewMode === "list"}
+                    className={cn("h-8", categoryViewMode === "list" && "bg-card text-foreground shadow-sm")}
                   >
-                    <ListIcon className="mr-1 h-4 w-4" />
-                    Lista
+                    <ListIcon className="h-4 w-4" />
+                    <span className="hidden sm:inline">Lista</span>
                   </Button>
                   <Button
-                    variant={categoryViewMode === 'chart' ? 'default' : 'outline'}
+                    variant="ghost"
                     size="sm"
-                    onClick={() => setCategoryViewMode('chart')}
-                    className="flex-1 sm:flex-none"
+                    onClick={() => setCategoryViewMode("chart")}
+                    aria-pressed={categoryViewMode === "chart"}
+                    className={cn("h-8", categoryViewMode === "chart" && "bg-card text-foreground shadow-sm")}
                   >
-                    <BarChart3 className="mr-1 h-3.5 w-3.5" />
-                    Gráfico
+                    <BarChart3 className="h-4 w-4" />
+                    <span className="hidden sm:inline">Gráfico</span>
                   </Button>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="flex items-center justify-center h-48">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : categoryViewMode === 'list' ? (
-                categoryExpenses.length > 0 ? (
-                  <div className="space-y-3">
-                    {categoryExpenses.map((item, index) => {
-                      const percentage = (item.amount / categoryExpenses.reduce((sum, cat) => sum + cat.amount, 0)) * 100;
-                      const colors = [
-                        'bg-primary', 'bg-success', 'bg-warning',
-                        'bg-destructive', 'bg-chart-6', 'bg-chart-6'
-                      ];
-                      const colorClass = colors[index % colors.length];
+              }
+            />
+          </CardHeader>
 
-                      return (
-                        <div key={item.category} className="flex items-center gap-3">
-                          <div className={`w-3 h-3 rounded-full ${colorClass}`} />
-                          <div className="flex-1">
-                            <div className="flex justify-between items-center mb-1">
-                              <span className="text-sm font-medium text-foreground">
-                                {item.category}
-                              </span>
-                              <span className="text-sm text-muted-foreground">
-                                {formatCurrency(item.amount)}
-                              </span>
-                            </div>
-                            <div className="w-full bg-muted/30 rounded-full h-2">
-                              <div
-                                className={`h-2 rounded-full ${colorClass}`}
-                                style={{ width: `${percentage}%` }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-48 bg-muted/20 rounded-lg">
-                    <div className="text-center">
-                      <PieChart className="h-12 w-12 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-muted-foreground">Nenhum gasto categorizado</p>
-                    </div>
-                  </div>
-                )
-              ) : categoryExpenses.length > 0 ? (
-                <div className="h-56 w-full sm:h-[185px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <RechartsPieChart>
-                      <Pie
-                        data={categoryExpenses}
-                        cx="50%"
-                        cy="50%"
-                        outerRadius={60}
-                        dataKey="amount"
-                        nameKey="category"
-                        label={({ percent }) => `${(percent * 100).toFixed(0)}%`}
-                      >
-                        {categoryExpenses.map((entry, index) => {
-                          const colors = chartColors();
-                          return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                        })}
-                      </Pie>
-                      <Tooltip
-                        formatter={(value: number) => [formatCurrency(value), 'Valor']}
-                        labelFormatter={(label) => `Categoria: ${label}`}
-                      />
-                      <Legend />
-                    </RechartsPieChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center h-42 bg-muted/20 rounded-lg">
-                  <div className="text-center">
-                    <PieChart className="h-10 w-10 text-muted-foreground mx-auto mb-2" />
-                    <p className="text-muted-foreground">Nenhum gasto categorizado</p>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+          <CardContent>
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            ) : categoryExpenses.length === 0 ? (
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                Nenhum gasto categorizado neste período.
+              </p>
+            ) : categoryViewMode === "list" ? (
+              <ul className="space-y-3">
+                {categoryExpenses.map((item, index) => {
+                  const percentage = categoryTotal > 0 ? (item.amount / categoryTotal) * 100 : 0;
+                  return (
+                    <li key={item.category} className="grid gap-1.5">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 truncate text-sm font-medium text-foreground" title={item.category}>
+                          {item.category}
+                        </span>
+                        <span className="shrink-0 text-sm tabular text-muted-foreground">
+                          {formatCurrency(item.amount)}
+                        </span>
+                      </div>
+                      <div className="h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        <div
+                          className={cn(
+                            "h-1 rounded-full transition-[width] duration-500 ease-swift",
+                            `bg-chart-${(index % 6) + 1}`,
+                          )}
+                          style={{ width: `${percentage}%` }}
+                        />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <div className="h-64 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartsPieChart>
+                    <Pie
+                      data={categoryExpenses}
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={48}
+                      outerRadius={78}
+                      paddingAngle={1}
+                      dataKey="amount"
+                      nameKey="category"
+                    >
+                      {categoryExpenses.map((entry, index) => {
+                        const colors = chartColors();
+                        return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} stroke="none" />;
+                      })}
+                    </Pie>
+                    <Tooltip
+                      formatter={(value: number) => [formatCurrency(value), "Gasto"]}
+                      labelFormatter={(label) => `${label}`}
+                    />
+                    <Legend />
+                  </RechartsPieChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Filters and Transactions */}
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Receipt className="h-4 w-4 shrink-0" />
-              Transações da Fatura
-            </CardTitle>
-            <div className="flex items-center gap-2">
-              <Select
-                value={filterType}
-                onValueChange={(value: any) => setFilterType(value)}
-              >
-                <SelectTrigger className="w-full sm:w-[180px]">
-                  <Filter className="h-4 w-4 mr-2" />
-                  <SelectValue placeholder="Filtrar por tipo" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Todas</SelectItem>
-                  <SelectItem value="expense">Despesas</SelectItem>
-                  <SelectItem value="income">Receitas</SelectItem>
-                  <SelectItem value="pending">Pendentes</SelectItem>
-                  <SelectItem value="paid">Pagas</SelectItem>
-                  <SelectItem value="fixed">Fixas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+      {/* Lançamentos */}
+      <section className="space-y-4">
+        <SectionHeader
+          eyebrow="Lançamentos"
+          title="O que entrou nesta fatura"
+          className="border-b border-border-subtle pb-2"
+          actions={
+            <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
+              <SelectTrigger className="h-10 w-[10.5rem] md:h-9" aria-label="Filtrar lançamentos">
+                <Filter className="h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+                <SelectValue placeholder="Filtrar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas</SelectItem>
+                <SelectItem value="expense">Despesas</SelectItem>
+                <SelectItem value="income">Receitas</SelectItem>
+                <SelectItem value="pending">Pendentes</SelectItem>
+                <SelectItem value="paid">Pagas</SelectItem>
+                <SelectItem value="fixed">Fixas</SelectItem>
+              </SelectContent>
+            </Select>
+          }
+        />
+
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full" />
+            ))}
           </div>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 5 }).map((_, i) => (
-                <Skeleton key={i} className="h-16 w-full" />
-              ))}
-            </div>
-          ) : filteredTransactions.length === 0 ? (
-            <div className="text-center py-12">
-              <Receipt className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">
-                Nenhuma transação encontrada
-              </h3>
-              <p className="text-muted-foreground mb-4">
-                Não há transações para este cartão neste período.
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Mobile: cada transação vira um card. Nada de rolar a tela. */}
-              <RecordCardList>
-                {filteredTransactions.map((transaction) => (
-                  <RecordCard
-                    key={transaction.id}
-                    accent={transaction.type === "income" ? "positive" : "negative"}
-                  >
-                    <RecordCardHead
-                      title={transaction.description}
-                      meta={
-                        <span className="flex items-center gap-1.5">
-                          {getTypeIcon(transaction.type)}
-                          {formatDateForDisplay(transaction.date)}
-                        </span>
-                      }
-                      value={`${transaction.type === "income" ? "+" : "-"}${formatCurrency(transaction.value)}`}
-                      valueClassName={
-                        transaction.type === "income" ? "text-success" : "text-destructive"
-                      }
-                    />
+        ) : filteredTransactions.length === 0 ? (
+          <EmptyState
+            icon={Receipt}
+            title="Nenhum lançamento neste período"
+            description="Compras feitas depois do fechamento entram na fatura do mês seguinte — navegue pelos meses acima."
+          />
+        ) : (
+          <>
+            {/* Telefone: cada lançamento vira um card. Nada de rolar a tela. */}
+            <RecordCardList>
+              {filteredTransactions.map((transaction) => (
+                <RecordCard
+                  key={transaction.id}
+                  accent={transaction.type === "income" ? "positive" : "negative"}
+                >
+                  <RecordCardHead
+                    title={transaction.description}
+                    meta={
+                      <span className="flex items-center gap-1.5">
+                        {getTypeIcon(transaction.type)}
+                        {formatDateForDisplay(transaction.date)}
+                      </span>
+                    }
+                    value={`${transaction.type === "income" ? "+" : "−"}${formatCurrency(transaction.value)}`}
+                    valueClassName={transaction.type === "income" ? "text-success" : "text-destructive"}
+                  />
 
-                    <RecordFields>
-                      <RecordField label="Categoria">
-                        {transaction.categories?.name || "Sem categoria"}
-                      </RecordField>
-                      {transaction.person_id && (
-                        <RecordField label="Pessoa">Pessoa relacionada</RecordField>
-                      )}
-                    </RecordFields>
+                  <RecordFields>
+                    <RecordField label="Categoria">
+                      {transaction.categories?.name || "Sem categoria"}
+                    </RecordField>
+                    {transaction.person_id && <RecordField label="Rateio">Com outra pessoa</RecordField>}
+                  </RecordFields>
 
-                    <RecordActions>
+                  <RecordActions>
+                    <Button
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label={`Editar ${transaction.description}`}
+                      onClick={() => navigate("/sistema/statement?edit=" + transaction.id)}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <ConfirmationDialog
+                      title="Excluir lançamento"
+                      description="O lançamento sai da fatura e do extrato. Não dá para desfazer."
+                      confirmText="Excluir lançamento"
+                      onConfirm={() => deleteTransaction(transaction.id)}
+                      variant="destructive"
+                    >
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label={`Editar ${transaction.description}`}
-                        onClick={() => navigate('/sistema/statement?edit=' + transaction.id)}
+                        aria-label={`Excluir ${transaction.description}`}
+                        className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
+                        disabled={deletingTransaction === transaction.id}
                       >
-                        <Edit className="h-4 w-4" />
+                        {deletingTransaction === transaction.id ? (
+                          <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
                       </Button>
-                      <ConfirmationDialog
-                        title="Confirmar Exclusão"
-                        description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                        confirmText="Excluir"
-                        onConfirm={() => deleteTransaction(transaction.id)}
-                        variant="destructive"
-                      >
-                        <Button
-                          size="icon-sm"
-                          variant="ghost"
-                          aria-label={`Excluir ${transaction.description}`}
-                          className="text-destructive hover:bg-destructive-soft hover:text-destructive"
-                          disabled={deletingTransaction === transaction.id}
-                        >
-                          {deletingTransaction === transaction.id ? (
-                            <div className="h-4 w-4 animate-spin rounded-full border-b-2 border-destructive" />
-                          ) : (
-                            <Trash2 className="h-4 w-4" />
-                          )}
-                        </Button>
-                      </ConfirmationDialog>
-                    </RecordActions>
-                  </RecordCard>
-                ))}
-              </RecordCardList>
+                    </ConfirmationDialog>
+                  </RecordActions>
+                </RecordCard>
+              ))}
+            </RecordCardList>
 
-              {/* md+: volta a ser tabela, com rolagem contida no contêiner. */}
-              <TableView>
+            {/* md+: volta a ser tabela, com rolagem contida no contêiner. */}
+            <TableView>
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
+                    <TableHead className="w-32">Data</TableHead>
                     <TableHead>Descrição</TableHead>
                     <TableHead>Categoria</TableHead>
-                    <TableHead>Valor</TableHead>
-                    <TableHead className="text-right">Ações</TableHead>
+                    <TableHead className="text-right">Valor</TableHead>
+                    <TableHead className="w-24 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredTransactions.map((transaction) => (
                     <TableRow key={transaction.id}>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
+                      <TableCell className="tabular text-muted-foreground">
+                        <span className="flex items-center gap-2">
                           {getTypeIcon(transaction.type)}
                           {formatDateForDisplay(transaction.date)}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <div className="font-medium truncate max-w-xs" title={transaction.description}>
-                          {transaction.description}
-                        </div>
-                        {transaction.person_id && (
-                          <div className="text-sm text-muted-foreground">
-                            Pessoa relacionada
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <span className="truncate block max-w-[150px]" title={transaction.categories?.name || "Sem categoria"}>
-                          {transaction.categories?.name || "Sem categoria"}
                         </span>
                       </TableCell>
                       <TableCell>
+                        <div className="max-w-xs truncate font-medium" title={transaction.description}>
+                          {transaction.description}
+                        </div>
+                        {transaction.person_id && (
+                          <div className="mt-0.5 text-xs text-muted-foreground">Rateado com outra pessoa</div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">
                         <span
-                          className={`font-semibold ${
-                            transaction.type === "income"
-                              ? "text-success"
-                              : "text-destructive"
-                          }`}
+                          className="block max-w-[150px] truncate"
+                          title={transaction.categories?.name || "Sem categoria"}
                         >
-                          {transaction.type === "income" ? "+" : "-"}
+                          {transaction.categories?.name || "Sem categoria"}
+                        </span>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <span
+                          className={cn(
+                            "font-medium tabular",
+                            transaction.type === "income" ? "text-success" : "text-destructive",
+                          )}
+                        >
+                          {transaction.type === "income" ? "+" : "−"}
                           {formatCurrency(transaction.value)}
                         </span>
                       </TableCell>
                       <TableCell className="text-right">
-                        <div className="flex items-center justify-end gap-1">
-                          <Button 
-                            size="icon"
+                        <div className="flex items-center justify-end gap-0.5">
+                          <Button
+                            size="icon-sm"
                             variant="ghost"
-                            className="h-7 w-7"
-                            onClick={() => navigate('/sistema/statement?edit=' + transaction.id)}
+                            aria-label={`Editar ${transaction.description}`}
+                            onClick={() => navigate("/sistema/statement?edit=" + transaction.id)}
                           >
-                            <Edit className="h-3.5 w-3.5" />
+                            <Edit className="h-4 w-4" />
                           </Button>
                           <ConfirmationDialog
-                            title="Confirmar Exclusão"
-                            description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                            confirmText="Excluir"
+                            title="Excluir lançamento"
+                            description="O lançamento sai da fatura e do extrato. Não dá para desfazer."
+                            confirmText="Excluir lançamento"
                             onConfirm={() => deleteTransaction(transaction.id)}
                             variant="destructive"
                           >
                             <Button
-                              size="icon"
+                              size="icon-sm"
                               variant="ghost"
-                              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive-soft disabled:opacity-50"
+                              aria-label={`Excluir ${transaction.description}`}
+                              className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
                               disabled={deletingTransaction === transaction.id}
                             >
                               {deletingTransaction === transaction.id ? (
-                                <div className="animate-spin rounded-full h-3.5 w-3.5 border-b-2 border-destructive"></div>
+                                <span className="h-4 w-4 animate-spin rounded-full border-2 border-current/30 border-t-current" />
                               ) : (
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <Trash2 className="h-4 w-4" />
                               )}
                             </Button>
                           </ConfirmationDialog>
@@ -755,11 +672,10 @@ export default function CardStatements() {
                   ))}
                 </TableBody>
               </Table>
-              </TableView>
-            </>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+            </TableView>
+          </>
+        )}
+      </section>
+    </PageBody>
   );
 }

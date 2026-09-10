@@ -1,14 +1,19 @@
+import { Settings2 } from "lucide-react";
+
 import { FamilyGroupSettings } from "@/components/family/FamilyGroupSettings";
+import { PageBody, PageHeader } from "@/components/ui/page";
 
 export default function Settings() {
   return (
-    <div className="min-w-0 space-y-4 md:space-y-6">
-      <div className="space-y-2">
-        <h2 className="font-display text-lg font-semibold tracking-tight md:text-xl">Configurações</h2>
-        <p className="text-sm text-muted-foreground">Preferências do usuário e do app.</p>
-      </div>
+    <PageBody>
+      <PageHeader
+        eyebrow="Conta"
+        icon={Settings2}
+        title="Configurações"
+        description="Preferências da sua conta e do compartilhamento com quem divide as finanças com você."
+      />
 
       <FamilyGroupSettings />
-    </div>
+    </PageBody>
   );
 }

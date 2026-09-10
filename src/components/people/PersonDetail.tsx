@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { EmptyState } from "@/components/ui/page";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -168,9 +169,9 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                 Voltar
               </Button>
               <CardTitle className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
-                  <Users className="h-5 w-5 text-primary" />
-                </div>
+                <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken">
+                  <Users className="h-4 w-4 text-muted-foreground" />
+                </span>
                 {person.name}
               </CardTitle>
             </div>
@@ -299,12 +300,12 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
         </CardHeader>
         <CardContent>
           {transactions.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="mx-auto mb-4 h-12 w-12 rounded-full bg-muted flex items-center justify-center">
-                <FileText className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <p className="text-muted-foreground">Nenhuma transação encontrada para esta pessoa</p>
-            </div>
+            <EmptyState
+              icon={FileText}
+              title="Nenhum acerto com esta pessoa"
+              description="Quando você registrar um rateio envolvendo esta pessoa, ele aparece aqui."
+              className="border-0"
+            />
           ) : (
             <div className="space-y-3">
               {transactions.map((transaction) => (

@@ -34,6 +34,7 @@ import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { assertOwnTransaction } from "@/lib/family-access";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 
 interface DashboardProps {
   onLogout: () => void;
@@ -42,7 +43,7 @@ interface DashboardProps {
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 const formatCurrency = (amount: number) => currency.format(amount);
 
-/** Cabeçalho de seção: hierarquia sem o peso de um card aninhado. */
+/** Cabeçalho de seção do dashboard: usa o primitivo compartilhado da página. */
 function SectionHead({
   title,
   icon: Icon,
@@ -53,13 +54,15 @@ function SectionHead({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <CardTitle className="flex items-center gap-2">
-        {Icon && <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />}
-        {title}
-      </CardTitle>
-      {children}
-    </div>
+    <SectionHeader
+      eyebrow={
+        <span className="flex items-center gap-1.5">
+          {Icon && <Icon className="h-3 w-3" aria-hidden />}
+          {title}
+        </span>
+      }
+      actions={children}
+    />
   );
 }
 
@@ -76,7 +79,7 @@ function Segmented<T extends string | number>({
   label: string;
 }) {
   return (
-    <div role="group" aria-label={label} className="inline-flex rounded-lg border border-border p-0.5">
+    <div role="group" aria-label={label} className="inline-flex rounded-lg border border-border bg-surface-sunken p-1">
       {options.map((option) => {
         const Icon = option.icon;
         const isActive = option.value === value;
@@ -87,10 +90,10 @@ function Segmented<T extends string | number>({
             aria-pressed={isActive}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex h-7 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium",
-              "transition-colors duration-200 ease-swift",
-              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 focus-visible:ring-offset-background",
-              isActive ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground",
+              "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium",
+              "transition-[background-color,color,box-shadow,transform] duration-200 ease-swift motion-safe:active:scale-[0.97]",
+              "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+              isActive ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
             )}
           >
             {Icon && <Icon className="h-3.5 w-3.5" aria-hidden />}
@@ -98,16 +101,6 @@ function Segmented<T extends string | number>({
           </button>
         );
       })}
-    </div>
-  );
-}
-
-function EmptyState({ icon: Icon, title, hint }: { icon: typeof PieChart; title: string; hint?: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border py-12 text-center">
-      <Icon className="h-6 w-6 text-muted-foreground/50" aria-hidden />
-      <p className="text-sm font-medium text-foreground">{title}</p>
-      {hint && <p className="max-w-xs text-xs leading-5 text-muted-foreground">{hint}</p>}
     </div>
   );
 }
@@ -270,9 +263,16 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   const debtsNegative = Boolean(debtStats && debtStats.totalToPay > debtStats.totalToReceive);
 
+  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(currentDate);
+
   return (
-    <div className="animate-fade-in min-w-0 space-y-6 md:space-y-8 lg:space-y-10">
-      <ViewModeToggle />
+    <PageBody className="animate-fade-in space-y-6 md:space-y-8 lg:space-y-10">
+      <PageHeader
+        eyebrow={<span className="capitalize">{monthLabel}</span>}
+        title="Visão geral"
+        description="Como o mês está fechando: o que já entrou, o que já saiu e o que ainda está por vir."
+        actions={<ViewModeToggle />}
+      />
 
       {/* KPIs — os protagonistas da tela */}
       <section aria-label="Indicadores do mês" className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-3">
@@ -340,7 +340,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <EmptyState
                 icon={PieChart}
                 title="Nenhum gasto categorizado este mês"
-                hint="Atribua categorias às suas transações para ver a distribuição aqui."
+                description="Atribua categorias às suas transações para ver a distribuição aqui."
               />
             ) : categoryViewMode === "list" ? (
               <ul className="space-y-4">
@@ -432,7 +432,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <EmptyState
                 icon={Calendar}
                 title={`Nada pendente nos próximos ${upcomingPeriod} dias`}
-                hint="Você está em dia com o que estava agendado para este período."
+                description="Você está em dia com o que estava agendado para este período."
               />
             ) : (
               <ul className="divide-y divide-border-subtle">
@@ -530,7 +530,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
               <EmptyState
                 icon={List}
                 title="Nenhuma transação este mês"
-                hint="Registre a primeira transação para começar a acompanhar seu saldo."
+                description="Registre a primeira transação para começar a acompanhar seu saldo."
               />
             ) : (
               <ul className="divide-y divide-border-subtle">
@@ -632,6 +632,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
           </CardContent>
         </Card>
       </section>
-    </div>
+    </PageBody>
   );
 }
