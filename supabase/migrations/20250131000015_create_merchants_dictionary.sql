@@ -4,8 +4,20 @@
 
 BEGIN;
 
--- Habilitar extensão pg_trgm para busca fuzzy
-CREATE EXTENSION IF NOT EXISTS pg_trgm;
+-- Habilitar extensão pg_trgm para busca fuzzy.
+-- No Supabase gerenciado a extensão vive no schema `extensions`; migrations rodam
+-- com search_path = public, então `gin_trgm_ops` não resolve sem o search_path abaixo.
+-- Sem isto o CREATE INDEX ... USING gin(... gin_trgm_ops) aborta a migration e
+-- derruba em cascata todas as migrations que dependem de merchants_dictionary.
+CREATE SCHEMA IF NOT EXISTS extensions;
+DO $ext$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM pg_extension WHERE extname = 'pg_trgm') THEN
+    CREATE EXTENSION pg_trgm WITH SCHEMA extensions;
+  END IF;
+END
+$ext$;
+SET LOCAL search_path = public, extensions, pg_temp;
 
 -- ============================================================================
 -- TABLE: merchants_dictionary
@@ -370,7 +382,15 @@ CREATE INDEX idx_mv_frequent_merchants_key ON public.mv_frequent_merchants(merch
 CREATE OR REPLACE FUNCTION public.refresh_frequent_merchants()
 RETURNS void AS $$
 BEGIN
-  REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_frequent_merchants;
+  -- REFRESH ... CONCURRENTLY não pode rodar dentro de bloco de transação
+-- (esta migration está em BEGIN/COMMIT) e exige a matview já populada.
+DO $refresh$
+BEGIN
+  IF to_regclass('public.mv_frequent_merchants') IS NOT NULL THEN
+    REFRESH MATERIALIZED VIEW public.mv_frequent_merchants;
+  END IF;
+END
+$refresh$;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 

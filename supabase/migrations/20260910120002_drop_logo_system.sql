@@ -27,18 +27,28 @@ ALTER TABLE public.series DROP CONSTRAINT IF EXISTS orbi_series_logo_url_safe;
 ALTER TABLE public.series DROP COLUMN IF EXISTS logo_url;
 
 -- --------------------------------------------------- Storage: company-logos
-DROP POLICY IF EXISTS "Public read access to company logos"        ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can upload company logos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can update company logos" ON storage.objects;
-DROP POLICY IF EXISTS "Authenticated users can delete company logos" ON storage.objects;
--- Policies reescritas por 20260910000000_zero_trust_rls_force.
-DROP POLICY IF EXISTS "orbi_logos_insert_own" ON storage.objects;
-DROP POLICY IF EXISTS "orbi_logos_update_own" ON storage.objects;
-DROP POLICY IF EXISTS "orbi_logos_delete_own" ON storage.objects;
-DROP POLICY IF EXISTS "orbi_logos_select_public" ON storage.objects;
+DO $storage_cleanup$
+BEGIN
+  -- storage.objects/buckets só existem quando a extensão Storage está provisionada.
+  -- Sem esta guarda, um banco recém-criado aborta a migration inteira aqui.
+  IF to_regclass('storage.objects') IS NOT NULL THEN
+    DROP POLICY IF EXISTS "Public read access to company logos"        ON storage.objects;
+    DROP POLICY IF EXISTS "Authenticated users can upload company logos" ON storage.objects;
+    DROP POLICY IF EXISTS "Authenticated users can update company logos" ON storage.objects;
+    DROP POLICY IF EXISTS "Authenticated users can delete company logos" ON storage.objects;
+    -- Policies reescritas por 20260910000000_zero_trust_rls_force.
+    DROP POLICY IF EXISTS "orbi_logos_insert_own" ON storage.objects;
+    DROP POLICY IF EXISTS "orbi_logos_update_own" ON storage.objects;
+    DROP POLICY IF EXISTS "orbi_logos_delete_own" ON storage.objects;
+    DROP POLICY IF EXISTS "orbi_logos_select_public" ON storage.objects;
 
-DELETE FROM storage.objects WHERE bucket_id = 'company-logos';
-DELETE FROM storage.buckets WHERE id = 'company-logos';
+    DELETE FROM storage.objects WHERE bucket_id = 'company-logos';
+  END IF;
+  IF to_regclass('storage.buckets') IS NOT NULL THEN
+    DELETE FROM storage.buckets WHERE id = 'company-logos';
+  END IF;
+END
+$storage_cleanup$;
 
 -- ------------------------------------------- Feature de plano correspondente
 UPDATE public.subscription_plans

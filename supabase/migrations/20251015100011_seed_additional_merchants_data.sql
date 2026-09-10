@@ -630,7 +630,15 @@ ON CONFLICT (merchant_key) DO NOTHING;
 -- ATUALIZAR MATERIALIZED VIEW
 -- ============================================================================
 
-REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_frequent_merchants;
+-- REFRESH ... CONCURRENTLY não pode rodar dentro de bloco de transação
+-- (esta migration está em BEGIN/COMMIT) e exige a matview já populada.
+DO $refresh$
+BEGIN
+  IF to_regclass('public.mv_frequent_merchants') IS NOT NULL THEN
+    REFRESH MATERIALIZED VIEW public.mv_frequent_merchants;
+  END IF;
+END
+$refresh$;
 
 COMMIT;
 
