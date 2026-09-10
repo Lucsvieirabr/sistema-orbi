@@ -6,10 +6,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { CSVParser } from './CSVParser';
-import { StatementParser } from './StatementParser';
+import { StatementParser, type StatementParseDiagnostics } from './StatementParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { processPdfFile } from '@/integrations/parser_api';
+import { processPdfFileDetailed, type PdfExtractionResult } from '@/integrations/parser_api';
 
 const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
 const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10MB
@@ -35,6 +35,42 @@ async function decodeCsvFile(file: File): Promise<string> {
     // Fallback: exportações bancárias BR costumam vir em ISO-8859-1/Windows-1252
     return new TextDecoder('windows-1252').decode(bytes);
   }
+}
+
+/**
+ * Mensagem de erro acionável para "0 transações".
+ *
+ * O texto antigo ("Nenhuma transação foi detectada no arquivo") era o mesmo
+ * para PDF sem camada de texto, layout não suportado e arquivo realmente
+ * vazio — o usuário não tinha como saber o que fazer. Agora a mensagem usa o
+ * diagnóstico da extração e da interpretação.
+ */
+function buildNoTransactionsMessage(
+  fileType: 'csv' | 'pdf',
+  extraction: PdfExtractionResult | null,
+  diagnostics: StatementParseDiagnostics | null,
+): string {
+  if (fileType === 'csv') {
+    return 'Nenhuma transação foi detectada no CSV. Verifique se o arquivo tem as colunas de data, descrição e valor.';
+  }
+
+  if (!extraction || extraction.characters === 0) {
+    return 'Não foi possível ler o conteúdo do PDF. Baixe o arquivo original pelo aplicativo do banco e tente novamente.';
+  }
+
+  if (extraction.source === 'ocr') {
+    return `O PDF foi lido por OCR (${extraction.pages} página(s), ${extraction.characters} caracteres), ` +
+      'mas nenhuma linha de transação foi reconhecida. PDFs digitalizados ou fotografados perdem o alinhamento ' +
+      'das colunas. Baixe a fatura/extrato em PDF nativo pelo aplicativo do banco, ou importe o CSV/OFX.';
+  }
+
+  const detalhe = diagnostics
+    ? ` (formato detectado: ${diagnostics.format}; ${diagnostics.candidateLines} linha(s) com data em ${diagnostics.totalLines})`
+    : '';
+
+  return `O texto do PDF foi extraído com sucesso (${extraction.pages} página(s), ${extraction.lines} linhas), ` +
+    `mas nenhuma linha foi reconhecida como transação${detalhe}. ` +
+    'Esse layout de extrato ainda não é suportado — se possível, importe o CSV/OFX do mesmo período.';
 }
 
 interface ExtratoUploaderProps {
@@ -74,7 +110,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       setIsInitializingClassifier(true);
       try {
         const { data: { user }, error: userError } = await supabase.auth.getUser();
-        
+
         if (userError) {
           console.error('Erro ao buscar usuário:', userError);
           toast({
@@ -98,10 +134,10 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         }
 
         const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
-        
+
         // Pré-carrega padrões frequentes
         await intelligentClassifier.preloadFrequentPatterns();
-        
+
         setClassifier(intelligentClassifier);
       } catch (error) {
         console.error('Erro ao inicializar classificador:', error);
@@ -151,6 +187,8 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       setProgress(10);
 
       let rawTransactions: any[] = [];
+      let parseDiagnostics: StatementParseDiagnostics | null = null;
+      let extraction: PdfExtractionResult | null = null;
 
       if (fileType === 'csv') {
         // Para arquivos CSV, usar processamento existente
@@ -162,35 +200,38 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
         rawTransactions = parseResult.transactions;
 
       } else if (fileType === 'pdf') {
-        // Para arquivos PDF, usar novo processamento com OCR
         setProgress(20);
 
-        // Extrair texto do PDF (com OCR para PDFs de imagem)
-        const extractedText = await processPdfFile(file, (ocrProgress) => {
-          // Mapear progresso do OCR (20-60) para a barra de progresso geral
-          const mappedProgress = 20 + (ocrProgress * 0.4);
-          setProgress(mappedProgress);
+        // Extração nativa (Edge Function) com fallback automático para OCR.
+        // `processPdfFileDetailed` já lança erro explícito quando o PDF é uma
+        // imagem digitalizada ilegível — não chega aqui com texto vazio.
+        extraction = await processPdfFileDetailed(file, (extractProgress) => {
+          // Mapear progresso da extração (20-60) para a barra geral
+          setProgress(20 + (extractProgress * 0.4));
         });
-        
-        // LOG TEMPORÁRIO: Ver texto extraído
-        console.log('📄 TEXTO EXTRAÍDO DO PDF (primeiros 2000 chars):');
-        console.log(extractedText.substring(0, 2000));
-        console.log('...');
-        console.log('📄 TEXTO EXTRAÍDO DO PDF (últimos 1000 chars):');
-        console.log(extractedText.substring(extractedText.length - 1000));
-        
+
+        console.info('[ExtratoUploader] texto extraído:', {
+          origem: extraction.source,
+          paginas: extraction.pages,
+          linhas: extraction.lines,
+          caracteres: extraction.characters,
+        });
+
         setProgress(65);
 
         // Usar StatementParser para interpretar texto bruto
         const statementParser = new StatementParser();
-        rawTransactions = await statementParser.parseRawTextStatement(extractedText);
-        
+        rawTransactions = await statementParser.parseRawTextStatement(extraction.rawText);
+        parseDiagnostics = statementParser.getDiagnostics();
+
+        console.info('[ExtratoUploader] interpretação:', parseDiagnostics);
+
         setProgress(75);
       }
 
       // Verificar se há transações para processar
       if (rawTransactions.length === 0) {
-        throw new Error('Nenhuma transação foi detectada no arquivo. Verifique o formato do extrato.');
+        throw new Error(buildNoTransactionsMessage(fileType, extraction, parseDiagnostics));
       }
 
       // Processar transações com IA (fluxo comum para ambos os tipos)
@@ -361,7 +402,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
       // ⚡ UMA ÚNICA REQUEST classifica TODAS as transações
       const batchResponse = await batchClassifier.classifyBatch(transactionsToClassify);
-      
+
       console.log('📥 Resposta da IA:', batchResponse.results.length, 'classificações');
       console.log('Primeira classificação:', batchResponse.results[0]);
 
@@ -369,7 +410,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       for (let i = 0; i < parsedTransactions.length; i++) {
         const parsedTransaction = parsedTransactions[i];
         const classification = batchResponse.results[i];
-        
+
         stats.total++;
         stats.processed++;
 

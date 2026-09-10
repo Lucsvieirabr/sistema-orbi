@@ -20,76 +20,210 @@ export interface NormalizedTransaction {
   payment_method?: 'debit' | 'credit';
 }
 
+/** Diagnóstico da interpretação — usado para mensagens de erro acionáveis. */
+export interface StatementParseDiagnostics {
+  format: StatementFormat;
+  totalLines: number;
+  candidateLines: number;
+  matchedLines: number;
+  skippedLines: number;
+  transactions: number;
+}
+
+export type StatementFormat =
+  | 'card_invoice'
+  | 'caixa'
+  | 'sicredi'
+  | 'generic_table'
+  | 'generic';
+
+/**
+ * Abreviações de mês em faturas/extratos brasileiros (pt-BR).
+ * Nubank, Itaú, Inter e C6 usam todos o formato "DD MMM".
+ */
+const MONTH_ABBR: Record<string, number> = {
+  JAN: 1, FEV: 2, MAR: 3, ABR: 4, MAI: 5, JUN: 6,
+  JUL: 7, AGO: 8, SET: 9, OUT: 10, NOV: 11, DEZ: 12,
+  // Variações que aparecem em PDFs gerados com locale en-US.
+  FEB: 2, APR: 4, MAY: 5, AUG: 8, SEP: 9, OCT: 10, DEC: 12,
+};
+
+/**
+ * Sinal negativo: faturas usam MINUS SIGN (U+2212) e EN/EM DASH, não apenas o
+ * hífen ASCII. Tratar só "-" fazia todo pagamento/estorno virar despesa.
+ */
+const MINUS_CHARS = '\\-−–—';
+const MINUS_CLASS = `[${MINUS_CHARS}]`;
+const SIGN_CLASS = `[+${MINUS_CHARS}]`;
+
+/** Máscara de cartão: "•••• 0040", "···· 0040", "**** 0040". */
+const CARD_MASK = /[•·∙●*.]{3,}\s*\d{3,4}/g;
+
+/**
+ * Linhas que começam com data mas NÃO são transações (totais, subtotais,
+ * blocos de detalhamento de parcelamento, conversão de moeda, rodapé).
+ */
+const NON_TRANSACTION_PATTERNS: RegExp[] = [
+  /^total\s+a\s+pagar/i,
+  /^total\s+de\s+compras/i,
+  /^total\s+d[eo]s?\s/i,
+  /^subtotal/i,
+  /^convers[ãa]o\s*[:=]/i,
+  /^pagamentos?\s+e\s+financiamentos/i,
+  /^saldo\b/i,
+  /^fatura\s+anterior/i,
+  /^pagamento\s+m[íi]nimo/i,
+  /^limite\s+(total|dispon|adicional|utilizado)/i,
+  /^iof\s+de\s+compras\s+internacionais/i,
+  /^encargos/i,
+  /^juros\s+(rotativo|de\s+parcelamento|e\s+mora)/i,
+  /^valor\s+(de\s+entrada|da\s+parcela|m[áa]ximo|total)/i,
+  /^parcelar\s+em/i,
+  /^cet\b/i,
+  /^BRL\s+[\d.,]+\s*=/i,
+  /^USD\s+[\d.,]+\s*=/i,
+  /^fechamento\s+da\s+pr[óo]xima/i,
+  /^pr[óo]ximas\s+faturas/i,
+  /^resumo\s+da\s+fatura/i,
+  /^\d{1,3}\s+de\s+\d{1,3}$/, // rodapé "5 de 8"
+];
+
 /**
  * Motor de interpretação heurística universal para textos de extratos bancários
- * Suporta tanto dados estruturados (CSV) quanto texto bruto extraído de PDFs (OCR)
+ * Suporta dados estruturados (CSV), texto de PDF nativo e texto de OCR.
  */
 export class StatementParser {
   private categoryMap: { [key: string]: { id: string; type: 'income' | 'expense' } } = {};
+  private lastDiagnostics: StatementParseDiagnostics | null = null;
 
   constructor() {
     this.loadCategoryMap();
   }
 
+  /** Diagnóstico da última execução de `parseRawTextStatement`. */
+  getDiagnostics(): StatementParseDiagnostics | null {
+    return this.lastDiagnostics;
+  }
+
   /**
-   * Método principal: interpreta texto bruto de extrato bancário
-   * Converte texto em CSV estruturado e usa o parser CSV existente (mais robusto)
+   * Método principal: interpreta texto bruto de extrato/fatura.
+   *
+   * Faturas de cartão (Nubank & cia) são tratadas por um parser dedicado que
+   * devolve `ParsedTransaction` direto. O caminho antigo — converter para CSV
+   * e reaproveitar o `CSVParser` — permanece para extratos de conta corrente,
+   * mas NÃO serve para fatura: o `CSVParser` descarta qualquer linha cujo
+   * texto contenha "conta"/"período"/"extrato" (`isMetadataRow`), o que
+   * eliminaria lançamentos legítimos como "Limite convertido em saldo na sua
+   * conta do Nubank", e além disso perde `installments`/`installment_number`.
    */
   async parseRawTextStatement(rawText: string): Promise<ParsedTransaction[]> {
-    // Estratégia: converter texto bruto em CSV e usar CSVParser existente
-    const csvData = this.convertTextToCSV(rawText);
-    
+    const text = this.normalizeRawText(rawText);
+
+    if (!text) {
+      this.lastDiagnostics = {
+        format: 'generic',
+        totalLines: 0,
+        candidateLines: 0,
+        matchedLines: 0,
+        skippedLines: 0,
+        transactions: 0,
+      };
+      return [];
+    }
+
+    const format = this.detectStatementFormat(text);
+    const lines = text.split('\n');
+
+    console.log('[StatementParser] formato detectado:', format, {
+      caracteres: text.length,
+      linhas: lines.length,
+    });
+
+    if (format === 'card_invoice') {
+      const transactions = this.extractCardInvoiceFormat(text);
+      this.lastDiagnostics = {
+        format,
+        totalLines: lines.length,
+        candidateLines: lines.filter(l => this.hasAnyDate(l)).length,
+        matchedLines: transactions.length,
+        skippedLines: 0,
+        transactions: transactions.length,
+      };
+      return transactions;
+    }
+
+    const csvData = this.convertTextToCSV(text, format);
+
+    this.lastDiagnostics = {
+      format,
+      totalLines: lines.length,
+      candidateLines: lines.filter(l => this.hasAnyDate(l)).length,
+      matchedLines: csvData.length,
+      skippedLines: 0,
+      transactions: 0,
+    };
+
     if (csvData.length === 0) {
       return [];
     }
-    
-    // Usar o CSVParser existente que já funciona perfeitamente
+
     const { CSVParser } = await import('./CSVParser');
     const csvParser = new CSVParser();
     const result = csvParser.parseCSVData(csvData);
-    
+
+    this.lastDiagnostics.transactions = result.transactions.length;
+
     return result.transactions;
   }
 
   /**
-   * Converte texto bruto de extrato em formato CSV estruturado
-   * Detecta padrão de transações e gera array de objetos compatível com CSVParser
+   * Normaliza o texto bruto antes de qualquer heurística.
+   *
+   * IMPORTANTE: colapsa apenas espaço HORIZONTAL. Nunca `\s+`, que destruiria
+   * as quebras de linha — todo o parsing abaixo é orientado a linha.
    */
-  private convertTextToCSV(rawText: string): Array<Record<string, string>> {
-    const transactions: Array<Record<string, string>> = [];
+  private normalizeRawText(rawText: string): string {
+    if (!rawText) return '';
 
-    // Detectar automaticamente o formato do extrato
-    const formatType = this.detectStatementFormat(rawText);
+    return rawText
+      .replace(/\r\n?/g, '\n')
+      // Controle/format (categoria Unicode C), preservando \n.
+      .replace(/[^\P{C}\n]/gu, '')
+      // Espaço horizontal (inclui NBSP e espaços tipográficos), sem \n.
+      .replace(/[^\S\n]+/g, ' ')
+      .split('\n')
+      .map(line => line.trim())
+      .join('\n')
+      .trim();
+  }
 
-    console.log(`🔍 Formato detectado: ${formatType}`);
-    console.log(`📄 Tamanho do texto: ${rawText.length} caracteres`);
+  private hasAnyDate(line: string): boolean {
+    return /\d{1,2}\/\d{1,2}(\/\d{2,4})?/.test(line) ||
+           new RegExp(`\\b\\d{1,2}\\s+(${Object.keys(MONTH_ABBR).join('|')})\\b`, 'i').test(line);
+  }
 
+  /**
+   * Converte texto bruto de extrato em formato CSV estruturado
+   */
+  private convertTextToCSV(rawText: string, formatType: StatementFormat): Array<Record<string, string>> {
     if (formatType === 'caixa') {
-      console.log('📋 Usando formato CAIXA');
       return this.extractCaixaFormat(rawText);
-    } else if (formatType === 'sicredi') {
-      console.log('📋 Usando formato SICREDI');
-      return this.extractGenericTableFormat(rawText);
-    } else if (formatType === 'generic_table') {
-      console.log('📋 Usando formato TABELA GENÉRICA');
-      return this.extractGenericTableFormat(rawText);
-    } else {
-      console.log('📋 Usando formato GENÉRICO (fallback)');
-      // Fallback: tentar padrão genérico
-      return this.extractGenericFormat(rawText);
     }
+    if (formatType === 'sicredi' || formatType === 'generic_table') {
+      return this.extractGenericTableFormat(rawText);
+    }
+    return this.extractGenericFormat(rawText);
   }
 
   /**
    * Limpa descrição de transação removendo padrões bancários comuns
    * Exemplo: "CARTAO DEBITO - ROYAL CAKE - BR - R" → "ROYAL CAKE"
-   * Exemplo: "SUBADQ PANIFICADORA L - BR - R" → "PANIFICADORA L"
    */
   private cleanDescription(description: string): string {
     if (!description) return '';
-    
+
     let cleaned = description;
-    
+
     // 1. Remover prefixos bancários comuns
     cleaned = cleaned.replace(/^CARTAO\s+(?:DE\s+)?DEBITO\s*[-—]?\s*/i, '');
     cleaned = cleaned.replace(/^CARTAO\s+(?:DE\s+)?CREDITO\s*[-—]?\s*/i, '');
@@ -103,45 +237,53 @@ export class StatementParser {
     cleaned = cleaned.replace(/^DEB\s+AUT\s*[-—]?\s*/i, '');
     cleaned = cleaned.replace(/^PAGAMENTO\s+(?:DE\s+)?(?:BOLETO|CONTA|FATURA)\s*[-—]?\s*/i, '');
     cleaned = cleaned.replace(/^PAG\s+(?:BOL|BOLETO)\s*[-—]?\s*/i, '');
-    
+
     // 2. Remover códigos de sub-adquirente e estabelecimento
-    cleaned = cleaned.replace(/^SUBADQ\s+/i, ''); // "SUBADQ PANIFICADORA" → "PANIFICADORA"
-    cleaned = cleaned.replace(/\s*-\s*SUBADQ\s+/i, ' '); // Remover do meio também
-    
+    cleaned = cleaned.replace(/^SUBADQ\s+/i, '');
+    cleaned = cleaned.replace(/\s*-\s*SUBADQ\s+/i, ' ');
+
     // 3. Remover sufixos bancários/geográficos do final
-    cleaned = cleaned.replace(/\s*-?\s*BR\s*-?\s*[A-Z]\s*$/i, ''); // " BR R" ou " - BR - R"
-    cleaned = cleaned.replace(/\s+BR\s+R\s*$/i, ''); // " BR R" sem travessão
+    cleaned = cleaned.replace(/\s*-?\s*BR\s*-?\s*[A-Z]\s*$/i, '');
+    cleaned = cleaned.replace(/\s+BR\s+R\s*$/i, '');
     cleaned = cleaned.replace(/\s*-\s*BRASIL\s*$/i, '');
     cleaned = cleaned.replace(/\s*-\s*BRA\s*$/i, '');
-    cleaned = cleaned.replace(/\s*-\s*[A-Z]{2}\s*-\s*[A-Z]{1,2}\s*$/i, ''); // " - XX - Y"
-    
+    cleaned = cleaned.replace(/\s*-\s*[A-Z]{2}\s*-\s*[A-Z]{1,2}\s*$/i, '');
+
     // 4. Remover CPF/CNPJ mascarados e números de documento
-    cleaned = cleaned.replace(/[-—]\s*[\*\d,\.\/]{5,}/g, ' '); // CPF/CNPJ mascarado
-    cleaned = cleaned.replace(/\*{3,}[\d,\.\/]+\*{3,}/g, ' '); // ***123.456***
-    cleaned = cleaned.replace(/\$\*\*/g, ''); // $**
-    
+    cleaned = cleaned.replace(/[-—]\s*[\*\d,\.\/]{5,}/g, ' ');
+    cleaned = cleaned.replace(/\*{3,}[\d,\.\/]+\*{3,}/g, ' ');
+    cleaned = cleaned.replace(/\$\*\*/g, '');
+
     // 5. Travessão grudado em palavras
-    cleaned = cleaned.replace(/[-—]([A-Z])/g, ' $1'); // —PALAVRA → PALAVRA
-    
+    cleaned = cleaned.replace(/[-—]([A-Z])/g, ' $1');
+
     // 6. Normalizar espaços e travessões isolados
-    cleaned = cleaned.replace(/\s+/g, ' '); // Múltiplos espaços → um espaço
-    cleaned = cleaned.replace(/^[-—]\s*/, ''); // Travessão no início
-    cleaned = cleaned.replace(/\s*[-—]$/,''); // Travessão no final
-    cleaned = cleaned.replace(/\s*-\s*/g, ' '); // Travessões entre palavras
-    
+    cleaned = cleaned.replace(/\s+/g, ' ');
+    cleaned = cleaned.replace(/^[-—]\s*/, '');
+    cleaned = cleaned.replace(/\s*[-—]$/, '');
+    cleaned = cleaned.replace(/\s*-\s*/g, ' ');
+
     return cleaned.trim();
   }
 
   /**
    * Detecta automaticamente o formato do extrato
    */
-  private detectStatementFormat(text: string): 'caixa' | 'sicredi' | 'generic_table' | 'generic' {
+  private detectStatementFormat(text: string): StatementFormat {
+    // Fatura de cartão (Nubank, Itaú, Inter, C6...): datas "DD MMM" + valores
+    // "R$ 0,00" na mesma linha. Precisa vir ANTES dos demais: o texto de uma
+    // fatura também contém datas DD/MM/YYYY soltas no cabeçalho/rodapé, o que
+    // levaria à detecção errada de 'generic_table'.
+    if (this.countCardInvoiceLines(text) >= 3) {
+      return 'card_invoice';
+    }
+
     // Formato Caixa: tem hora (HH:MM:SS) e travessão —
     if (/\d{1,2}\/\d{1,2}\/\d{4}\s*[-—]\s*\d{2}:\d{2}:\d{2}/.test(text)) {
       return 'caixa';
     }
 
-    // Formato Sicredi: contém "Sicredi" ou padrão típico do extrato Sicredi
+    // Formato Sicredi
     if (/sicredi/i.test(text) ||
         (/Extrato de conta corrente/i.test(text) && /\d{2}\/\d{2}\/\d{4}/.test(text))) {
       return 'sicredi';
@@ -149,7 +291,7 @@ export class StatementParser {
 
     // Formato tabular genérico: linhas com data seguida de texto e valor
     if (text.split('\n').some(line => {
-      return /\d{2}\/\d{2}\/\d{4}\s+.+?\s+R?\$?\s*[\d.,]+/.test(line);
+      return /\d{1,2}\/\d{1,2}\/\d{2,4}\s+.+?\s+R?\$?\s*[\d.]*\d,\d{2}/.test(line);
     })) {
       return 'generic_table';
     }
@@ -157,32 +299,214 @@ export class StatementParser {
     return 'generic';
   }
 
+  /** Regex de uma linha de lançamento em fatura: "DD MMM [máscara] desc R$ 0,00". */
+  private cardInvoiceLineRegex(): RegExp {
+    const months = Object.keys(MONTH_ABBR).join('|');
+    return new RegExp(
+      `^(\\d{1,2})\\s+(${months})\\.?\\s+(.+?)\\s+(${MINUS_CLASS})?\\s*R\\$\\s*(\\d{1,3}(?:\\.\\d{3})*,\\d{2})$`,
+      'i',
+    );
+  }
+
+  private countCardInvoiceLines(text: string): number {
+    const re = this.cardInvoiceLineRegex();
+    let count = 0;
+    for (const line of text.split('\n')) {
+      if (re.test(line.trim())) count++;
+    }
+    return count;
+  }
+
+  private monthFromAbbr(abbr: string): number | null {
+    const key = abbr
+      .normalize('NFD')
+      .replace(/\p{M}/gu, '') // remove acentos combinantes
+      .toUpperCase()
+      .slice(0, 3);
+    return MONTH_ABBR[key] ?? null;
+  }
+
+  /**
+   * Descobre o ano de cada lançamento da fatura.
+   *
+   * Faturas brasileiras omitem o ano nas linhas de transação ("29 JUN"). O ano
+   * vem do cabeçalho ("FATURA 06 AGO 2026" / "Data de vencimento: 06 AGO 2026")
+   * combinado com o período de apuração ("TRANSAÇÕES DE 29 JUN A 30 JUL").
+   * Quando o período cruza a virada do ano (ex.: 28 DEZ a 27 JAN), os meses do
+   * início do período pertencem ao ano anterior.
+   */
+  private buildYearResolver(text: string): (month: number) => number {
+    const months = Object.keys(MONTH_ABBR).join('|');
+    const now = new Date();
+
+    const dueMatch =
+      text.match(new RegExp(
+        `(?:data\\s+de\\s+vencimento|vencimento(?:\\s+da\\s+fatura)?)\\s*:?\\s*(\\d{1,2})\\s+(${months})\\.?\\s+(\\d{4})`,
+        'i',
+      )) ||
+      text.match(new RegExp(`\\bFATURA\\s+(\\d{1,2})\\s+(${months})\\.?\\s+(\\d{4})`, 'i'));
+
+    const dueMonth = dueMatch ? this.monthFromAbbr(dueMatch[2]) : null;
+    const dueYear = dueMatch ? parseInt(dueMatch[3], 10) : null;
+
+    const periodMatch = text.match(new RegExp(
+      `(?:TRANSA[ÇC][ÕO]ES\\s+DE|Per[íi]odo\\s+vigente\\s*:?)\\s*(\\d{1,2})\\s+(${months})\\.?\\s*(?:a|à|at[ée])\\s*(\\d{1,2})\\s+(${months})`,
+      'i',
+    ));
+
+    const periodStartMonth = periodMatch ? this.monthFromAbbr(periodMatch[2]) : null;
+    const periodEndMonth = periodMatch ? this.monthFromAbbr(periodMatch[4]) : null;
+
+    const refYear = dueYear ?? now.getFullYear();
+    const refMonth = dueMonth ?? (now.getMonth() + 1);
+
+    if (periodStartMonth && periodEndMonth) {
+      // O período sempre termina antes (ou no mesmo mês) do vencimento.
+      const endYear = periodEndMonth > refMonth ? refYear - 1 : refYear;
+      const startYear = periodStartMonth > periodEndMonth ? endYear - 1 : endYear;
+
+      return (month: number) =>
+        (startYear !== endYear && month >= periodStartMonth) ? startYear : endYear;
+    }
+
+    // Sem período no cabeçalho: mês posterior ao vencimento só pode ser do ano
+    // anterior (fatura de janeiro com compras de dezembro).
+    return (month: number) => (month > refMonth ? refYear - 1 : refYear);
+  }
+
+  /**
+   * Extrai lançamentos de FATURA DE CARTÃO DE CRÉDITO (Nubank e similares).
+   *
+   * Formato tratado (uma transação por linha):
+   *   "29 JUN •••• 0040 Komprao Koch Atacadis R$ 60,37"
+   *   "29 JUN •••• 0040 C A Modas - Parcela 3/3 R$ 59,99"
+   *   "02 JUL IOF de \"Cursor, Ai Powered Ide\" R$ 3,94"
+   *   "04 JUL Pagamento em 04 JUL −R$ 2.678,34"   (crédito: MINUS SIGN U+2212)
+   *
+   * Devolve `ParsedTransaction` direto (sem passar pelo CSVParser) para
+   * preservar `installments`/`installment_number` e a descrição original —
+   * que é o insumo do classificador de IA.
+   */
+  private extractCardInvoiceFormat(rawText: string): ParsedTransaction[] {
+    const lineRegex = this.cardInvoiceLineRegex();
+    const yearOf = this.buildYearResolver(rawText);
+    const parcelaRegex = new RegExp(
+      `\\s*${MINUS_CLASS}?\\s*parcela\\s+(\\d{1,2})\\s*/\\s*(\\d{1,2})\\s*$`,
+      'i',
+    );
+
+    const transactions: ParsedTransaction[] = [];
+    let skipped = 0;
+    let index = 0;
+
+    for (const rawLine of rawText.split('\n')) {
+      const line = rawLine.trim();
+      if (!line) continue;
+
+      const match = line.match(lineRegex);
+      if (!match) continue;
+
+      const day = parseInt(match[1], 10);
+      const month = this.monthFromAbbr(match[2]);
+      const isNegative = Boolean(match[4]);
+      const rawValue = match[5];
+      let description = match[3].trim();
+
+      if (!month || day < 1 || day > 31) {
+        skipped++;
+        continue;
+      }
+
+      if (NON_TRANSACTION_PATTERNS.some(pattern => pattern.test(description))) {
+        skipped++;
+        continue;
+      }
+
+      // Máscara do cartão ("•••• 0040") não é descrição.
+      description = description.replace(CARD_MASK, ' ');
+      // Prefixo de CNPJ do estabelecimento ("39.489.726 MARCOS ROBERTO...").
+      description = description.replace(/^\d{2}\.\d{3}\.\d{3}(?:\/\d{4}-\d{2})?\s+/, '');
+      description = description.replace(/\s+/g, ' ').trim();
+
+      let installments: number | undefined;
+      let installmentNumber: number | undefined;
+
+      const parcela = description.match(parcelaRegex);
+      if (parcela) {
+        const current = parseInt(parcela[1], 10);
+        const total = parseInt(parcela[2], 10);
+        if (current > 0 && total > 0 && current <= total) {
+          installmentNumber = current;
+          installments = total;
+        }
+        description = description.slice(0, parcela.index).trim();
+      }
+
+      description = description.replace(/\s*[-–—]\s*$/, '').trim();
+
+      if (description.length < 2) {
+        skipped++;
+        continue;
+      }
+
+      if (NON_TRANSACTION_PATTERNS.some(pattern => pattern.test(description))) {
+        skipped++;
+        continue;
+      }
+
+      const value = this.parseValue(rawValue);
+      if (value === null || value === 0) {
+        skipped++;
+        continue;
+      }
+
+      const year = yearOf(month);
+      const date = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
+      transactions.push({
+        id: `TXN-${date.replace(/-/g, '')}-${String(++index).padStart(3, '0')}`,
+        date,
+        description,
+        value: Math.abs(value),
+        // Em fatura, valor negativo é pagamento/estorno (entra como crédito).
+        type: isNegative ? 'income' : 'expense',
+        payment_method: 'credit',
+        installments,
+        installment_number: installmentNumber,
+      });
+    }
+
+    console.log('[StatementParser] fatura de cartão:', {
+      transacoes: transactions.length,
+      linhasIgnoradas: skipped,
+    });
+
+    return transactions;
+  }
+
   /**
    * Extrai transações do formato Caixa
    */
   private extractCaixaFormat(rawText: string): Array<Record<string, string>> {
     const transactions: Array<Record<string, string>> = [];
-    
-    // Regex para formato Caixa: DD/MM/YYYY - HH:MM:SS NUMERO DESCRICAO VALOR C/D
+
     const caixaRegex = /(\d{1,2}\/\d{1,2}\/\d{4})\s*[-—]?\s*\d{2}:\d{2}:\d{2}\s+(?:[-—]?\s*)?\d+\s*[-—]?\s*(.+?)\s+(\d{1,3}(?:\.\d{3})*,\d{2})\s*([CD])(?=\s|$)/gi;
-    
+
     const matches = [...rawText.matchAll(caixaRegex)];
-    
+
     for (const match of matches) {
       const date = match[1];
       let description = match[2].trim();
       const value = match[3];
       const typeChar = match[4].toUpperCase();
-      
-      // Limpar descrição com padrões avançados
+
       description = this.cleanDescription(description);
-      
-      // Filtrar saldos
+
       if (description.toLowerCase().includes('saldo')) continue;
       if (!description || description.length < 3) {
         description = match[2].trim();
       }
-      
+
       transactions.push({
         'Data': date,
         'Lançamento': description,
@@ -190,93 +514,70 @@ export class StatementParser {
         'Tipo': typeChar === 'C' ? 'Crédito' : 'Débito'
       });
     }
-    
+
     return transactions;
   }
 
   /**
-   * Extrai transações de formato tabular genérico (Sicredi, Nubank, etc)
+   * Extrai transações de formato tabular genérico (Sicredi, extratos de conta).
+   *
+   * Correções: aceita ano com 2 dígitos, valor com ou sem "R$", sinal antes ou
+   * depois do "R$", e sinal negativo Unicode (U+2212 / en dash / em dash).
    */
   private extractGenericTableFormat(rawText: string): Array<Record<string, string>> {
     const transactions: Array<Record<string, string>> = [];
-
-    // LOG: Mostrar quantas linhas com data existem
-    const linesWithDate = rawText.split('\n').filter(line => /\d{2}\/\d{2}\/\d{4}/.test(line));
-    console.log(`🔍 SICREDI: ${linesWithDate.length} linhas com data encontradas no texto`);
-
-    // Mostrar algumas linhas para debug
-    console.log('Primeiras 5 linhas com data:');
-    linesWithDate.slice(0, 5).forEach((line, i) => {
-      console.log(`  ${i + 1}. ${line}`);
-    });
-
-    // Abordagem alternativa: processar linha por linha
     const lines = rawText.split('\n');
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+    const lineRegex = new RegExp(
+      `(\\d{1,2}\\/\\d{1,2}(?:\\/\\d{2,4})?)\\s+(.+?)\\s+(${SIGN_CLASS}?\\s*R?\\$?\\s*${MINUS_CLASS}?\\s*\\d{1,3}(?:\\.\\d{3})*,\\d{2})\\s*$`,
+      'i',
+    );
 
-      // Pular linhas vazias ou muito curtas
+    let skipped = 0;
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
       if (!line || line.length < 10) continue;
 
-      // Verificar se a linha tem formato de transação: data + descrição + valor
-      const transactionMatch = line.match(/(\d{2}\/\d{2}\/\d{4})\s+(.+?)\s+([-+]?\s*R?\$?\s*\d{1,3}(?:\.\d{3})*,\d{2})/i);
+      const match = line.match(lineRegex);
+      if (!match) continue;
 
-      if (transactionMatch) {
-        const date = transactionMatch[1];
-        let description = transactionMatch[2].trim();
-        let value = transactionMatch[3].trim();
+      const date = match[1];
+      let description = match[2].trim();
+      const value = match[3].trim();
 
-        console.log(`\n📝 Linha ${i + 1}:`, {
-          date,
-          description_original: description.substring(0, 60),
-          value
-        });
-
-        // Pular linhas de saldo e headers
-        if (description.toLowerCase().includes('saldo') ||
-            description.toLowerCase().includes('descrição') ||
-            description.toLowerCase().includes('movimentações') ||
-            description.toLowerCase().includes('lançamento') ||
-            description.toLowerCase().includes('data')) {
-          console.log('  ⏭️ Pulado (header/saldo)');
-          continue;
-        }
-
-        // Limpar descrição avançada
-        const cleanedDesc = this.cleanDescription(description);
-
-        console.log(`  🧹 Descrição limpa: "${cleanedDesc}"`);
-
-        if (!cleanedDesc || cleanedDesc.length < 3) {
-          console.log('  ❌ Descrição muito curta após limpeza');
-          continue;
-        }
-
-        description = cleanedDesc;
-
-        // Detectar tipo baseado no sinal (+ ou -)
-        const isCredit = value.includes('+') || (!value.includes('-') && !value.startsWith('R$-'));
-        const type = isCredit ? 'Crédito' : 'Débito';
-
-        // Limpar valor: remover R$, +, -, espaços (valor sempre positivo)
-        const cleanValue = value
-          .replace(/[R$\s]/g, '')
-          .replace(/^[+-]/, '')
-          .trim();
-
-        transactions.push({
-          'Data': date,
-          'Lançamento': description,
-          'Valor': cleanValue,
-          'Tipo': type
-        });
-
-        console.log(`  ✅ Transação adicionada: ${description.substring(0, 40)} - ${value} (${type})`);
+      if (/saldo|descri[çc][ãa]o|movimenta[çc][õo]es|^lan[çc]amento$|^data$/i.test(description)) {
+        skipped++;
+        continue;
       }
+
+      const cleanedDesc = this.cleanDescription(description);
+      if (!cleanedDesc || cleanedDesc.length < 3) {
+        skipped++;
+        continue;
+      }
+      description = cleanedDesc;
+
+      const isDebit = new RegExp(MINUS_CLASS).test(value);
+      const type = isDebit ? 'Débito' : 'Crédito';
+
+      const cleanValue = value
+        .replace(/[R$\s]/g, '')
+        .replace(new RegExp(`^${SIGN_CLASS}+`), '')
+        .trim();
+
+      transactions.push({
+        'Data': date,
+        'Lançamento': description,
+        'Valor': cleanValue,
+        'Tipo': type
+      });
     }
 
-    console.log(`\n📊 SICREDI: Total de ${transactions.length} transações extraídas`);
+    console.log('[StatementParser] tabela genérica:', {
+      transacoes: transactions.length,
+      linhasIgnoradas: skipped,
+    });
 
     return transactions;
   }
@@ -286,39 +587,39 @@ export class StatementParser {
    */
   private extractGenericFormat(rawText: string): Array<Record<string, string>> {
     const transactions: Array<Record<string, string>> = [];
-    
-    // Regex genérico: DD/MM/YYYY ... valor
-    const genericRegex = /(\d{1,2}\/\d{1,2}\/\d{4})\s+(.+?)\s+(-?\d{1,3}(?:\.\d{3})*,\d{2}|-?\d+,\d{2})/gi;
-    
+
+    const genericRegex = new RegExp(
+      `(\\d{1,2}\\/\\d{1,2}\\/\\d{2,4})\\s+(.+?)\\s+(${MINUS_CLASS}?\\s*R?\\$?\\s*\\d{1,3}(?:\\.\\d{3})*,\\d{2}|${MINUS_CLASS}?\\s*\\d+,\\d{2})`,
+      'gi',
+    );
+
     const matches = [...rawText.matchAll(genericRegex)];
-    
+
     for (const match of matches) {
       const date = match[1];
       let description = match[2].trim();
       const value = match[3];
-      
-      // Limpar descrição com padrões avançados
+
       description = this.cleanDescription(description);
-      
-      if (description.toLowerCase().includes('saldo') || 
+
+      if (description.toLowerCase().includes('saldo') ||
           description.toLowerCase().includes('total') ||
           description.length < 3) {
         continue;
       }
-      
-      const type = value.startsWith('-') ? 'Débito' : 'Crédito';
-      
+
+      const type = new RegExp(MINUS_CLASS).test(value) ? 'Débito' : 'Crédito';
+
       transactions.push({
         'Data': date,
         'Lançamento': description,
-        'Valor': value.replace('-', ''),
+        'Valor': value.replace(new RegExp(MINUS_CLASS, 'g'), '').replace(/[R$\s]/g, ''),
         'Tipo': type
       });
     }
-    
+
     return transactions;
   }
-
 
   /**
    * Converte diferentes formatos de data (reutilizando lógica do CSVParser)
@@ -329,53 +630,37 @@ export class StatementParser {
     const trimmedDate = rawDate.trim();
     const cleanedDate = trimmedDate.replace(/\s+/g, ' ').replace(/[^\d/.\-]/g, '');
 
-    const formats = [
-      /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, // DD/MM/YYYY
-      /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/, // DD/MM/YY
-      /^(\d{4})-(\d{1,2})-(\d{1,2})$/, // YYYY-MM-DD
-      /^(\d{1,2})-(\d{1,2})-(\d{4})$/, // DD-MM-YYYY
-      /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/, // DD.MM.YYYY
-      /^(\d{2})(\d{2})(\d{4})$/, // DDMMYYYY
-      /^(\d{4})(\d{2})(\d{2})$/ // YYYYMMDD
+    const formats: Array<{ re: RegExp; order: 'dmy' | 'ymd' }> = [
+      { re: /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/, order: 'dmy' },
+      { re: /^(\d{1,2})\/(\d{1,2})\/(\d{2})$/, order: 'dmy' },
+      { re: /^(\d{4})-(\d{1,2})-(\d{1,2})$/, order: 'ymd' },
+      { re: /^(\d{1,2})-(\d{1,2})-(\d{4})$/, order: 'dmy' },
+      { re: /^(\d{1,2})\.(\d{1,2})\.(\d{4})$/, order: 'dmy' },
+      { re: /^(\d{2})(\d{2})(\d{4})$/, order: 'dmy' },
+      { re: /^(\d{4})(\d{2})(\d{2})$/, order: 'ymd' },
     ];
 
     for (const format of formats) {
-      const match = cleanedDate.match(format);
-      if (match) {
-        const [, part1, part2, part3] = match;
+      const match = cleanedDate.match(format.re);
+      if (!match) continue;
 
-        try {
-          let year: number, month: number, day: number;
+      const [, part1, part2, part3] = match;
 
-          if (format === formats[0] || format === formats[2] || format === formats[4]) {
-            day = parseInt(part1);
-            month = parseInt(part2);
-            year = parseInt(part3);
-            if (year < 100) year += year < 50 ? 2000 : 1900;
-          } else if (format === formats[1]) {
-            day = parseInt(part1);
-            month = parseInt(part2);
-            year = parseInt(part3) + 2000;
-          } else if (format === formats[3]) {
-            year = parseInt(part1);
-            month = parseInt(part2);
-            day = parseInt(part3);
-          } else if (format === formats[5]) {
-            day = parseInt(part1);
-            month = parseInt(part2);
-            year = parseInt(part3);
-          } else if (format === formats[6]) {
-            year = parseInt(part1);
-            month = parseInt(part2);
-            day = parseInt(part3);
-          }
+      let year: number, month: number, day: number;
 
-          if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
-            return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
-          }
-        } catch (error) {
-          continue;
-        }
+      if (format.order === 'dmy') {
+        day = parseInt(part1, 10);
+        month = parseInt(part2, 10);
+        year = parseInt(part3, 10);
+        if (year < 100) year += year < 50 ? 2000 : 1900;
+      } else {
+        year = parseInt(part1, 10);
+        month = parseInt(part2, 10);
+        day = parseInt(part3, 10);
+      }
+
+      if (year >= 1900 && year <= 2100 && month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        return `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
       }
     }
 
@@ -391,6 +676,7 @@ export class StatementParser {
     const cleaned = rawValue.trim()
       .replace(/\s+/g, '')
       .replace(/[R$\s]/g, '')
+      .replace(new RegExp(MINUS_CLASS, 'g'), '-')
       .replace(/[^\d.,\-+]/g, '');
 
     if (!cleaned) return null;
@@ -401,8 +687,6 @@ export class StatementParser {
       numericValue = parseFloat(cleaned.replace(',', '.'));
     } else if (cleaned.includes(',') && cleaned.includes('.')) {
       numericValue = parseFloat(cleaned.replace(/\./g, '').replace(',', '.'));
-    } else if (cleaned.includes('.') && !cleaned.includes(',')) {
-      numericValue = parseFloat(cleaned);
     } else {
       numericValue = parseFloat(cleaned);
     }
@@ -425,7 +709,6 @@ export class StatementParser {
       }
     }
 
-    // Categoria padrão
     if (type === 'income') {
       return { category_name: 'Outras Receitas (Aluguéis, extras, reembolso etc.)' };
     } else {
@@ -440,17 +723,17 @@ export class StatementParser {
     const descText = description.toLowerCase();
 
     const patterns = [
-      /(\d+)\/(\d+)/,
+      /parcela\s+(\d+)\s*\/\s*(\d+)/i,
+      /(\d+)\s*\/\s*(\d+)\s*parc/i,
       /(\d+)\s+de\s+(\d+)/,
-      /parcela\s+(\d+)\/(\d+)/i,
-      /(\d+)\/(\d+)\s*parc/i,
+      /(\d+)\s*\/\s*(\d+)/,
     ];
 
     for (const pattern of patterns) {
       const match = descText.match(pattern);
       if (match) {
-        const current = parseInt(match[1]);
-        const total = parseInt(match[2]);
+        const current = parseInt(match[1], 10);
+        const total = parseInt(match[2], 10);
 
         if (current > 0 && total > 0 && current <= total) {
           return {
@@ -469,9 +752,11 @@ export class StatementParser {
    */
   private async loadCategoryMap() {
     try {
-      const { data: categories } = await supabase
+      const { data: categories, error } = await supabase
         .from('categories')
         .select('id, name, category_type');
+
+      if (error) throw error;
 
       if (categories) {
         categories.forEach(category => {
@@ -481,7 +766,6 @@ export class StatementParser {
           };
         });
 
-        // Adicionar mapeamentos de palavras-chave
         this.buildKeywordMap();
       }
     } catch (error) {

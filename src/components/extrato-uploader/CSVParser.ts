@@ -654,7 +654,7 @@ export class CSVParser {
         try {
           let year: number, month: number, day: number;
 
-          if (format === formats[0] || format === formats[2] || format === formats[4]) {
+          if (format === formats[0] || format === formats[3] || format === formats[4]) {
             // Formatos DD/MM/YYYY, DD-MM-YYYY, DD.MM.YYYY
             day = parseInt(part1);
             month = parseInt(part2);
@@ -669,7 +669,7 @@ export class CSVParser {
             day = parseInt(part1);
             month = parseInt(part2);
             year = parseInt(part3) + 2000; // Assumir século 21
-          } else if (format === formats[3]) {
+          } else if (format === formats[2]) {
             // Formato YYYY-MM-DD
             year = parseInt(part1);
             month = parseInt(part2);
