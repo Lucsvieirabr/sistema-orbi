@@ -12,6 +12,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { getMerchantCache, CachedMerchant } from './MerchantCache';
+import { sanitizeSearchTerm } from "@/lib/validation/schemas";
 
 /**
  * Tokeniza descrição da transação
@@ -233,7 +234,11 @@ export class BankDictionary {
     try {
       const { data: results } = await supabase
         .rpc('search_merchant', {
-          p_description: description,
+          // SEGURANCA: a descricao vira PADRAO de LIKE dentro da RPC. Sem
+          // higienizar, "%" casa o dicionario inteiro e "%a%a%a..." trava um
+          // worker do Postgres (backtracking exponencial). O banco repete a
+          // limpeza em orbi_sanitize_search_text().
+          p_description: sanitizeSearchTerm(description),
           p_user_location: this.userLocation,
           p_limit: 1
         }) as { data: any[] | null };
@@ -273,7 +278,7 @@ export class BankDictionary {
     try {
       const { data: results } = await supabase
         .rpc('search_banking_pattern', {
-          p_description: description,
+          p_description: sanitizeSearchTerm(description),
           p_context: null
         }) as { data: any[] | null };
 
@@ -309,7 +314,7 @@ export class BankDictionary {
     try {
       const { data: results } = await supabase
         .rpc('search_by_keywords', {
-          p_description: description,
+          p_description: sanitizeSearchTerm(description),
           p_type: type
         }) as { data: any[] | null };
 

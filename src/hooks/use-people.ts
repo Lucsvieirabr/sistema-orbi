@@ -2,6 +2,8 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { personSchema, parseOrThrow } from "@/lib/validation/schemas";
+import { assertUuid } from "@/lib/utils";
 
 type Person = Tables<"people">;
 
@@ -40,10 +42,12 @@ export function usePeople() {
 
   const createPerson = async (values: Pick<TablesInsert<"people">, "name"> & { pix?: string | null }) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const payload: TablesInsert<"people"> = { 
-      name: values.name, 
-      pix: values.pix || null, 
-      user_id: user!.id 
+    if (!user) throw new Error("Usuario nao autenticado");
+    const safe = parseOrThrow(personSchema, values);
+    const payload: TablesInsert<"people"> = {
+      name: safe.name,
+      pix: safe.pix ?? null,
+      user_id: user.id,
     };
     const { data, error } = await supabase.from("people").insert(payload).select().single();
     if (error) throw error;
@@ -51,16 +55,26 @@ export function usePeople() {
   };
 
   const updatePerson = async (id: string, values: Pick<TablesUpdate<"people">, "name"> & { pix?: string | null }) => {
-    const { error } = await supabase.from("people").update({ 
-      name: values.name, 
-      pix: values.pix || null 
-    }).eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario nao autenticado");
+    const safe = parseOrThrow(personSchema, values);
+    const { error } = await supabase
+      .from("people")
+      .update({ name: safe.name, pix: safe.pix ?? null })
+      .eq("id", assertUuid(id, "person_id"))
+      .eq("user_id", user.id);
     if (error) throw error;
   };
 
   const deletePerson = async (id: string) => {
     // A exclusão é permitida pois as transações têm ON DELETE SET NULL
-    const { error } = await supabase.from("people").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario nao autenticado");
+    const { error } = await supabase
+      .from("people")
+      .delete()
+      .eq("id", assertUuid(id, "person_id"))
+      .eq("user_id", user.id);
     if (error) throw error;
   };
 

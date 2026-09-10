@@ -470,7 +470,6 @@ export type Database = {
           frequency: string
           id: string
           is_fixed: boolean
-          logo_url: string | null
           start_date: string
           total_installments: number
           total_value: number
@@ -486,7 +485,6 @@ export type Database = {
           frequency?: string
           id?: string
           is_fixed?: boolean
-          logo_url?: string | null
           start_date?: string
           total_installments: number
           total_value: number
@@ -502,7 +500,6 @@ export type Database = {
           frequency?: string
           id?: string
           is_fixed?: boolean
-          logo_url?: string | null
           start_date?: string
           total_installments?: number
           total_value?: number

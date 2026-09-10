@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { gateUser, gateFailure } from '../_shared/gate.ts'
 import {
   AsaasPayment,
   AsaasSubscription,
@@ -26,7 +27,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const user = await requireUser(req)
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // rota de dinheiro: 10 cobrancas/h por usuario. strict = sem contador, nao abre.
+    const user = await gateUser(req, {
+      bucket: 'asaas-create-payment',
+      ipLimit: 20,
+      userLimit: 10,
+      windowSeconds: 3600,
+      strict: true,
+    })
     const supabase = adminClient()
     const body: Body = await req.json()
 
@@ -254,7 +263,6 @@ serve(async (req) => {
       upgraded: isPaidActive,
     })
   } catch (error) {
-    console.error('asaas-create-payment:', error)
-    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
+    return gateFailure(req, error, 'asaas-create-payment', true)
   }
 })

@@ -57,3 +57,6 @@ public/pdf.worker.min.mjs
 .backup/*.tgz
 Claude outputs/
 .backup/_to_delete/
+
+# Logs do reset-remote-db.sh
+.orbi-logs/

@@ -33,7 +33,7 @@ export function AppHeader({
   return (
     <header
       className={cn(
-        "sticky top-0 z-30 flex h-header shrink-0 items-center justify-between gap-2 lg:h-header-lg lg:gap-4",
+        "sticky top-0 z-header flex h-header shrink-0 items-center justify-between gap-2 lg:h-header-lg lg:gap-4",
         "border-b border-border-subtle bg-background/90 px-2 backdrop-blur-[2px] md:px-4 lg:px-8",
         className,
       )}

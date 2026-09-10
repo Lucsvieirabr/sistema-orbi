@@ -6,6 +6,7 @@ import { useToast } from "@/hooks/use-toast";
 import { User } from "@supabase/supabase-js";
 import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from "@/hooks/use-subscription";
 import { syncSubscriptionStatus } from "@/hooks/use-payment";
+import { buildSignupConsentMetadata } from "@/lib/legal";
 
 interface AuthState {
   user: User | null;
@@ -109,7 +110,10 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: { data: { full_name: fullName } },
+      // O aceite dos Termos e da Política é gravado junto da criação da conta
+      // (data, hora e versão dos documentos) — prova do consentimento exigida
+      // pelo art. 8º, §1º, da LGPD. A UI só chama `register` após o opt-in.
+      options: { data: { full_name: fullName, ...buildSignupConsentMetadata() } },
     });
 
     if (error) {

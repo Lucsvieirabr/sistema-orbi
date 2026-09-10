@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "./use-toast";
+import { bugReportSchema, bugReportStatusSchema, parseOrThrow } from "@/lib/validation/schemas";
 
 export interface BugReport {
   id: string;
@@ -57,14 +58,21 @@ export function useBugReports(isAdmin: boolean = false) {
   const createBugReport = async (titulo: string, descricao: string, imagem_url?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      
+      if (!user) throw new Error("Usuário não autenticado");
+
+      // SEGURANÇA: este conteúdo é renderizado no painel /admin. `imagem_url`
+      // sem allowlist de esquema (`javascript:...`) seria XSS refletido contra
+      // o próprio administrador — escalonamento de privilégio por um clique.
+      // O banco repete a validação na CHECK `orbi_bug_safe`.
+      const safe = parseOrThrow(bugReportSchema, { titulo, descricao, imagem_url });
+
       const { data, error } = await supabase
         .from("bug_reports")
         .insert({
-          user_id: user!.id,
-          titulo,
-          descricao,
-          imagem_url: imagem_url || null,
+          user_id: user.id,
+          titulo: safe.titulo,
+          descricao: safe.descricao,
+          imagem_url: safe.imagem_url ?? null,
           status: "novo",
         })
         .select()
@@ -90,6 +98,9 @@ export function useBugReports(isAdmin: boolean = false) {
   };
 
   const updateBugReportStatus = async (id: string, status: string) => {
+    // Whitelist: `status` alimenta o filtro/kanban do admin e antes aceitava
+    // qualquer string, criando colunas fantasma invisíveis na UI.
+    parseOrThrow(bugReportStatusSchema, status);
     try {
       const { error } = await supabase
         .from("bug_reports")

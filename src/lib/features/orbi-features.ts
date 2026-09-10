@@ -234,12 +234,16 @@ featureRegistry.registerFeatures([
     'automation',
     { dependencies: ['ia_classificador'], metadata: { module: 'ia' } }
   ),
+  // PAINEL DE ASSINATURAS (dashboard)
+  // Substitui 'ia_deteccao_logos', removida junto com a integração logo.dev.
+  // O card de assinaturas do dashboard nunca dependeu de logo — dependia do
+  // gate, e o gate estava pendurado na feature errada.
   defineFeature(
-    'ia_deteccao_logos',
-    'Detecção de Logos',
-    'Reconhecer e buscar logos de estabelecimentos automaticamente',
-    'automation',
-    { dependencies: ['ia_classificador'], metadata: { module: 'ia' } }
+    'dashboard_assinaturas',
+    'Painel de Assinaturas',
+    'Acompanhar assinaturas recorrentes e o custo mensal total no dashboard',
+    'financial',
+    { dependencies: ['dashboard'], metadata: { module: 'dashboard', icon: '🔁', moduleLabel: 'Dashboard' } }
   ),
 ]);
 
@@ -292,6 +296,14 @@ featureRegistry.registerLimits([
     'financial',
     20,
     { minValue: 10, maxValue: -1, unit: 'categorias' }
+  ),
+  defineLimit(
+    'max_membros_familia',
+    'Acessos Compartilhados',
+    'Quantas pessoas além do titular podem visualizar as finanças (Plano Casal)',
+    'core',
+    0,
+    { minValue: 0, maxValue: 1, unit: 'acessos' }
   ),
   defineLimit(
     'retencao_dados_meses',

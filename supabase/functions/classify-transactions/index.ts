@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cleanTransactionDescription, hasHighPriorityBankingContext, extractBankingContext, isCleanedDescriptionValid } from './description-cleaner.ts';
 import { corsFor, preflight, jsonFor } from '../_shared/cors.ts';
-import { enforceRateLimit, RateLimitError } from '../_shared/ratelimit.ts';
+import { gateUser, gateFailure } from '../_shared/gate.ts';
 
 // ============================================================================
 // CORRECOES DE SEGURANCA
@@ -123,14 +123,20 @@ serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') return preflight(req);
 
-  if (req.method !== 'POST') {
-    return jsonFor(req, { error: 'Method not allowed' }, 405);
-  }
-
   try {
     const startTime = Date.now();
 
-    // Cria cliente Supabase com auth do usuário
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // Antes de instanciar client, ler body ou tocar no dicionario de ML.
+    // 60 lotes/h por usuario (lote = ate 500 transacoes); 120/h por IP.
+    await gateUser(req, {
+      bucket: 'classify-transactions',
+      ipLimit: 120,
+      userLimit: 60,
+      windowSeconds: 3600,
+    });
+
+    // Cliente Supabase com auth do usuário (RLS preservada nas leituras)
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_ANON_KEY') ?? '',
@@ -149,9 +155,6 @@ serve(async (req) => {
     if (!user) {
       throw new Error('Unauthorized');
     }
-
-    // [3] Rate limit por usuario, antes de qualquer trabalho pesado.
-    await enforceRateLimit(user.id, 'classify-transactions', 60, 3600);
 
     const body: BatchClassificationRequest = await req.json();
     const rawTransactions = body?.transactions;
@@ -237,26 +240,7 @@ serve(async (req) => {
 
     return jsonFor(req, response, 200);
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 429,
-        headers: {
-          ...corsFor(req),
-          'Content-Type': 'application/json',
-          'Retry-After': String(error.retryAfter),
-        },
-      });
-    }
-
-    console.error('Error in classify-transactions:', error);
-    const status = (error as { status?: number })?.status ?? 400;
-
-    // [4] Sem detalhe interno em 5xx.
-    return jsonFor(
-      req,
-      { error: status >= 500 ? 'Internal server error' : (error as Error).message },
-      status,
-    );
+    return gateFailure(req, error, 'classify-transactions');
   }
 });
 

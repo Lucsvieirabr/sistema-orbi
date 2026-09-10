@@ -6,7 +6,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { Brain, Search, Trash2, Edit2, CheckCircle2, List, BarChart3, Sparkles, Layers, Repeat } from 'lucide-react';
+import { Brain, Search, Trash2, Edit2, CheckCircle2, List, BarChart3, Sparkles, Layers, Repeat, Upload } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from 'recharts';
 import { Input } from '@/components/ui/input';
@@ -43,7 +43,6 @@ import {
 import { useCategories } from '@/hooks/use-categories';
 import { Skeleton } from '@/components/ui/skeleton';
 import { FeaturePageGuard, FeatureGuard } from '@/components/guards/FeatureGuard';
-import { useFeature } from '@/hooks/use-feature';
 import {
   RecordActions,
   RecordCard,
@@ -57,6 +56,10 @@ import { chartColors } from "@/lib/chart-colors";
 import { cn } from "@/lib/utils";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
+import { FabAction, FabHint, FabStack, useFabHint } from "@/components/ui/floating-actions";
+import { ExtratoUploader } from "@/components/extrato-uploader";
+import { useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 export default function MyAI() {
   return (
@@ -71,15 +74,22 @@ function MyAIContent() {
   const [categoryViewMode, setCategoryViewMode] = useState<'list' | 'chart'>('list');
   const [editingPattern, setEditingPattern] = useState<LearnedPattern | null>(null);
   const [editCategory, setEditCategory] = useState('');
+  const [importOpen, setImportOpen] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  /* Esta é a única tela em que a ação flutuante precisa ser *descoberta*: a
+     IA só aprende quando um extrato entra, e nada aqui dizia isso. Aviso e
+     brilho compartilham o mesmo estado — somem juntos, para sempre, no
+     primeiro toque. */
+  const importHint = useFabHint('orbi.hint.my-ai.import');
 
   const { data: patterns, isLoading } = useLearnedPatterns();
   const { data: stats } = useLearnedPatternsStats();
   const { categories } = useCategories();
   const updatePattern = useUpdateLearnedPattern();
   const deletePattern = useDeleteLearnedPattern();
-
-  // Verificar permissões para detecção de logos
-  const { hasFeature: hasLogoDetection } = useFeature('ia_deteccao_logos');
 
   // Filtra padrões por busca
   const filteredPatterns = patterns?.filter((pattern) =>
@@ -125,8 +135,14 @@ function MyAIContent() {
     ? [...filteredPatterns].sort((a, b) => (b.usage_count ?? 0) - (a.usage_count ?? 0))[0]
     : null;
 
+  const openImport = () => {
+    importHint.dismiss();
+    setImportOpen(true);
+  };
+
   return (
-    <PageBody>
+    /* Respiro no rodapé: a última regra da lista não fica sob o botão. */
+    <PageBody className="pb-20 lg:pb-16">
       <PageHeader
         eyebrow="Inteligência"
         icon={Brain}
@@ -451,6 +467,40 @@ function MyAIContent() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <ExtratoUploader
+        open={importOpen}
+        onOpenChange={setImportOpen}
+        onTransactionsImported={() => {
+          queryClient.invalidateQueries({ queryKey: ['learned-patterns'] });
+          queryClient.invalidateQueries({ queryKey: ['learned-patterns-stats'] });
+          toast({
+            title: 'Importação concluída',
+            description: 'As correções que você fez viraram regras aqui.',
+          });
+        }}
+      />
+
+      {/* Ação flutuante desta tela: alimentar a IA. Vem com destaque e um
+          balão de onboarding — o resto do sistema usa o FAB sem nenhum dos
+          dois. */}
+      <FeatureGuard feature="transacoes_importar_csv">
+        <FabStack>
+          <FabHint
+            open={importHint.visible}
+            onDismiss={importHint.dismiss}
+            eyebrow="Comece por aqui"
+            title="Importe um extrato para treinar a IA"
+            description="Corrija as categorias sugeridas na importação: cada correção vira uma regra nesta lista."
+          />
+          <FabAction
+            icon={Upload}
+            label="Importar extrato"
+            highlight={importHint.visible}
+            onClick={openImport}
+          />
+        </FabStack>
+      </FeatureGuard>
     </PageBody>
   );
 }

@@ -1,6 +1,7 @@
 import { Settings2 } from "lucide-react";
 
 import { FamilyGroupSettings } from "@/components/family/FamilyGroupSettings";
+import { LegalDocumentsCard } from "@/components/legal";
 import { PageBody, PageHeader } from "@/components/ui/page";
 
 export default function Settings() {
@@ -14,6 +15,8 @@ export default function Settings() {
       />
 
       <FamilyGroupSettings />
+
+      <LegalDocumentsCard />
     </PageBody>
   );
 }

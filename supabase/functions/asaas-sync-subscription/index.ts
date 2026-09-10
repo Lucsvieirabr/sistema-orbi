@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, userClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { gateUser, gateFailure } from '../_shared/gate.ts'
 import { AsaasPayment, AsaasSubscription, addCycle, asaasFetch } from '../_shared/asaas.ts'
 
 const GRACE_DAYS = Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3')
@@ -11,7 +12,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const user = await requireUser(req)
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // chamada no login: teto alto e fail-open — contencao aqui nao pode bloquear entrada no produto.
+    const user = await gateUser(req, {
+      bucket: 'asaas-sync-subscription',
+      ipLimit: 120,
+      userLimit: 60,
+      windowSeconds: 3600,
+      strict: false,
+    })
     const supabase = adminClient()
     const asUser = userClient(req)
 
@@ -72,7 +81,6 @@ serve(async (req) => {
     const { data: status } = await asUser.rpc('get_my_subscription_status')
     return jsonFor(req, { success: true, synced: true, status })
   } catch (error) {
-    console.error('asaas-sync-subscription:', error)
-    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
+    return gateFailure(req, error, 'asaas-sync-subscription', true)
   }
 })

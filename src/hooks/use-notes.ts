@@ -1,6 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import { noteSchema, parseOrThrow } from "@/lib/validation/schemas";
+import { assertUuid } from "@/lib/utils";
 
 export interface Note {
   id: string;
@@ -55,13 +57,17 @@ export const useNotes = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      const safeNote = parseOrThrow(noteSchema, noteData);
+
       const { data, error } = await supabase
         .from("notes")
         .insert({
           user_id: user.id,
-          content: noteData.content,
-          due_date: noteData.due_date || null,
-          priority: noteData.priority || 2,
+          // SEGURANCA: conteudo higienizado (sem caracteres de controle) e
+          // prioridade dentro de 1..3; o banco repete via CHECK orbi_note_safe.
+          content: safeNote.content,
+          due_date: safeNote.due_date ?? null,
+          priority: safeNote.priority ?? 2,
         })
         .select()
         .single();
@@ -89,10 +95,24 @@ export const useNotes = () => {
   // Update a note
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateNoteData }) => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // SEGURANCA: `data` vinha do chamador e ia inteiro para o UPDATE — nada
+      // impedia enviar `user_id` de outro tenant no payload. Aqui so as
+      // colunas permitidas passam, higienizadas, e o filtro repete o dono.
+      const safe = parseOrThrow(noteSchema.partial(), data);
+      const patch: Record<string, unknown> = {};
+      if (safe.content !== undefined) patch.content = safe.content;
+      if (safe.priority !== undefined) patch.priority = safe.priority;
+      if (safe.due_date !== undefined) patch.due_date = safe.due_date ?? null;
+      if (typeof data?.is_completed === "boolean") patch.is_completed = data.is_completed;
+
       const { data: updatedNote, error } = await supabase
         .from("notes")
-        .update(data)
-        .eq("id", id)
+        .update(patch)
+        .eq("id", assertUuid(id, "note_id"))
+        .eq("user_id", user.id)
         .select()
         .single();
 

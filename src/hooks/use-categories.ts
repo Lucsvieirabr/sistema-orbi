@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { assertUuid } from "@/lib/utils";
+import { categorySchema, parseOrThrow } from "@/lib/validation/schemas";
 
 type Category = Tables<"categories">;
 
@@ -49,11 +50,16 @@ export function useCategories() {
 
   const createCategory = async (values: Pick<TablesInsert<"categories">, "name" | "category_type" | "icon">) => {
     const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado");
+    // SEGURANCA: `category_type` era texto livre — so 'expense'/'income'.
+    const safe = parseOrThrow(categorySchema, values);
     const payload: TablesInsert<"categories"> = {
-      name: values.name,
-      category_type: values.category_type || 'expense',
-      icon: values.icon,
-      user_id: user!.id
+      name: safe.name,
+      category_type: safe.category_type,
+      icon: safe.icon ?? null,
+      // is_system fica de fora de proposito: a policy exige is_system = FALSE
+      // no INSERT do usuario, e a CHECK do banco amarra dono x sistema.
+      user_id: user.id
     };
     const { data, error } = await supabase.from("categories").insert(payload).select().single();
     if (error) throw error;
@@ -72,14 +78,19 @@ export function useCategories() {
       throw new Error("Categorias do sistema não podem ser editadas.");
     }
     
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuário não autenticado");
+    const safe = parseOrThrow(categorySchema, values);
     const { error } = await supabase
       .from("categories")
       .update({
-        name: values.name,
-        category_type: values.category_type,
-        icon: values.icon
+        name: safe.name,
+        category_type: safe.category_type,
+        icon: safe.icon ?? null
       })
-      .eq("id", id);
+      .eq("id", assertUuid(id, "category_id"))
+      .eq("user_id", user.id)
+      .eq("is_system", false);
     if (error) throw error;
   };
 

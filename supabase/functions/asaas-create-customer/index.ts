@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { gateUser, gateFailure } from '../_shared/gate.ts'
 import { findOrCreateCustomer, onlyDigits } from '../_shared/asaas.ts'
 
 interface Body {
@@ -13,7 +14,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const user = await requireUser(req)
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // cria cliente no gateway: 10/h por usuario cobre retentativa de checkout e barra a criacao em massa de customers.
+    const user = await gateUser(req, {
+      bucket: 'asaas-create-customer',
+      ipLimit: 30,
+      userLimit: 10,
+      windowSeconds: 3600,
+      strict: true,
+    })
     const supabase = adminClient()
     const body: Body = await req.json().catch(() => ({}))
 
@@ -48,7 +57,6 @@ serve(async (req) => {
 
     return jsonFor(req, { success: true, customer_id: customer.id })
   } catch (error) {
-    console.error('asaas-create-customer:', error)
-    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
+    return gateFailure(req, error, 'asaas-create-customer', true)
   }
 })

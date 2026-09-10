@@ -1,7 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { corsFor, preflight, jsonFor } from "../_shared/cors.ts";
 import { requireUser, errorStatus } from "../_shared/auth.ts";
-import { enforceRateLimit, RateLimitError } from "../_shared/ratelimit.ts";
+import { gateUser, gateFailure } from "../_shared/gate.ts";
 
 /**
  * Edge Function para extrair texto de arquivos PDF.
@@ -26,15 +26,16 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req);
 
   try {
-    if (req.method !== 'POST') {
-      return jsonFor(req, { error: 'Metodo nao permitido. Use POST.' }, 405);
-    }
-
-    // [1] Autenticacao obrigatoria
-    const user = await requireUser(req);
-
-    // [2] Rate limit
-    await enforceRateLimit(user.id, 'extract-pdf-text', 20, 3600);
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // O teto por IP vem ANTES do JWT: parsing de PDF e a rota mais cara em CPU
+    // da aplicacao e validar token ja custa uma chamada ao GoTrue.
+    // 20 PDFs/h por usuario; 40/h por IP (cobre casal/escritorio atras de NAT).
+    await gateUser(req, {
+      bucket: 'extract-pdf-text',
+      ipLimit: 40,
+      userLimit: 20,
+      windowSeconds: 3600,
+    });
 
     let requestData: { pdf?: unknown };
     try {
@@ -91,26 +92,7 @@ serve(async (req) => {
 
     return jsonFor(req, { rawText });
   } catch (error) {
-    if (error instanceof RateLimitError) {
-      return new Response(JSON.stringify({ error: error.message }), {
-        status: 429,
-        headers: {
-          ...corsFor(req),
-          'Content-Type': 'application/json',
-          'Retry-After': String(error.retryAfter),
-        },
-      });
-    }
-
-    console.error('extract-pdf-text:', error);
-    const status = errorStatus(error);
-
-    // [4] Sem detalhe interno em 5xx.
-    return jsonFor(
-      req,
-      { error: status >= 500 ? 'Erro interno do servidor' : (error as Error).message },
-      status,
-    );
+    return gateFailure(req, error, 'extract-pdf-text');
   }
 });
 

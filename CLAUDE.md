@@ -10,11 +10,12 @@
 **UI**: shadcn/ui (Radix primitives) + Tailwind 3 + `class-variance-authority` + `lucide-react`. Componentes gerados em `src/components/ui/*` — NÃO reescrever do zero, seguir padrão existente.
 **State/Data**: `@tanstack/react-query` v5 (cache server-state) + hooks custom (`src/hooks/*`) — SEM Redux/Zustand/Context global de dados. Realtime via `supabase.channel().on('postgres_changes', ...)` (usado em `use-accounts.ts`) invalidando query-keys do React Query.
 **Forms**: `react-hook-form` + `zod` + `@hookform/resolvers`.
-**Backend**: Supabase (BaaS) = Postgres + Auth (`auth.users`) + Row Level Security + Edge Functions (Deno, `supabase/functions/*`) + Storage (bucket `logos`).
+**Backend**: Supabase (BaaS) = Postgres + Auth (`auth.users`) + Row Level Security + Edge Functions (Deno, `supabase/functions/*`) + Storage (sem bucket ativo — o `company-logos` foi removido junto com a integração logo.dev).
 **Cliente DB**: `@supabase/supabase-js` v2, instância única em `src/integrations/supabase/client.ts`. Tipos gerados em `src/integrations/supabase/types.ts` (`Tables<'x'>`, `TablesInsert<'x'>`, `TablesUpdate<'x'>`, `Database`) — fonte de verdade do schema real (mais confiável que migrations individuais para saber colunas atuais).
 **Migrations**: SQL puro em `supabase/migrations/*.sql`, aplicadas em ordem lexicográfica de timestamp (Postgres `CREATE OR REPLACE` sobrescreve silenciosamente — ver GOTCHAS).
 **Pagamentos**: Asaas (gateway BR) via Edge Functions (`asaas-create-customer`, `asaas-create-payment`, `asaas-webhook-handler`) — só para cobrança de **assinatura SaaS**, não para faturas de cartão de crédito do usuário (não há gateway de pagamento de fatura).
 **Parsing/ML client-side**: `papaparse`, `pdfjs-dist`, `tesseract.js` (OCR) — pipeline de importação de extrato em `src/components/extrato-uploader/*` com classificador heurístico próprio (`IntelligentTransactionClassifier.ts`, `TransactionMLClassifier.ts`, dicionário `BankDictionary.ts`) + Edge Function `classify-transactions` (server-side, usa tabela `learned_patterns` e `merchants_dictionary`).
+**Borda / anti-abuso**: `supabase/functions/_shared/gate.ts` é a porta única das Edge Functions — método → origem (`cors.ts`, allowlist `ALLOWED_ORIGINS`) → rate limit por IP → JWT → rate limit por usuário → handler. Contador em `public.rate_limit_counters` via RPC `consume_rate_limit_key` (janela fixa, UPSERT atômico, exclusiva de `service_role`). 429 sempre com `Retry-After`. Rotas de dinheiro (`asaas-create-payment`, `asaas-create-customer`, `asaas-manage-subscription`) são `strict: true` = contador indisponível BLOQUEIA; rotas de leitura/CPU são fail-open. `/auth/v1/*` não passa por Edge Function — o teto é `[auth.rate_limit]` em `supabase/config.toml`.
 **Deploy**: Netlify (`netlify.toml`) e/ou Vercel (`vercel.json`) + `nginx.conf` (self-host alternativo). SPA estática — Supabase é o único backend.
 **Lint**: ESLint 9 flat-config, `@typescript-eslint/no-unused-vars: off`, sem regra de formatação estrita (Prettier ausente).
 
@@ -41,7 +42,7 @@ auth.users (Supabase Auth)
  ├─ people (N)                   (ex-family_members, renomeada) name, pix — "quem" em rateios/dívidas
  ├─ series (N)                   description, total_value, total_installments, is_fixed,
  │                                frequency(daily/weekly/monthly/yearly), start_date, end_date,
- │                                category_id -> categories, created_by_txn_id, logo_url
+ │                                category_id -> categories, created_by_txn_id
  │                                ⚠ NÃO tem account_id/credit_card_id/person_id (ver GOTCHAS)
  ├─ transactions (N)             ★ ENTIDADE CENTRAL — ver detalhe abaixo
  ├─ merchants_dictionary / learned_patterns / keyword patterns  cache de ML de categorização
@@ -97,6 +98,9 @@ Sincronização de status: `useStatusSync().syncStatus()` — ao mudar status de
 1. **Frontend**: `useSubscription().checkLimit(key, count)` / `<LimitGuard>` / `<FeatureGuard>` — UX (bloqueia botão, mostra upsell).
 2. **Backend (fonte da verdade)**: triggers `BEFORE INSERT` em Postgres — `check_accounts_limit`, `check_categories_limit` (só conta `is_system=false`), `check_credit_cards_limit`, `check_people_limit`, `check_transactions_limit` (mensal, `DATE_TRUNC('month', date)`). Lêem `subscription_plans.limits->>'max_X'` da assinatura `status IN ('trial','active')` mais recente; `-1` = ilimitado; sem assinatura ativa = `RAISE EXCEPTION` (bloqueia insert). Defaults hardcoded se a key não existir no JSON: contas=3, categorias=20, cartões=2, pessoas=10, transações/mês=500.
 Qualquer feature nova com limite deve ganhar trigger simétrico — validação só no client é bypassável via API direta.
+3. **Atomicidade (migration `20260910120001`)**: todo trigger de cota chama `orbi_quota_lock(user_id, recurso)` (`pg_advisory_xact_lock`) ANTES do `COUNT(*)`. Sem isso, N requisições simultâneas do mesmo usuário liam o mesmo count em READ COMMITTED e passavam todas — comprovado: com teto 2 e 10 inserts concorrentes, a versão antiga gravava 10, a atual grava 2. Trigger novo de cota SEM advisory lock é bug, não estilo.
+4. **Erros de cota têm ERRCODE**: `P0004` = sem assinatura ativa, `P0005` = cota/feature do plano. O front traduz em `src/lib/limits.ts` (`diagnoseLimitError`) — não parsear a string da mensagem.
+5. **Fail-fast de UI**: `useQuota()` (`src/hooks/use-quota.ts`) lê a RPC `orbi_quota_snapshot()` — limites + uso agregado num round-trip só. É UX; a autoridade continua no trigger.
 
 ### 8. Categorias globais vs. custom
 `categories.user_id IS NULL AND is_system=true` = categoria compartilhada (seed único, todos usuários enxergam via RLS `is_system=true OR auth.uid()=user_id`). Usuário só pode INSERT/UPDATE/DELETE onde `is_system=false AND user_id=auth.uid()` — não pode alterar/apagar categoria de sistema.

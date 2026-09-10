@@ -158,6 +158,21 @@ export default {
         "bottom-nav": "4rem",
         "bottom-nav-offset": "var(--bottom-nav-offset)",
       },
+      /* Escala de empilhamento. Existir aqui e nao no JSX e o que impede o
+         proximo `z-50` avulso de subir na frente de um modal: cada camada tem
+         um nome e uma ordem.
+           header      30  cabecalho sticky
+           bottom-nav  40  barra inferior (mobile)
+           fab         45  acoes flutuantes — acima da barra, abaixo do overlay
+           overlay     50  Dialog/Sheet/Drawer/Popover/Tooltip (Radix)
+           toast      100  ultima palavra, sempre visivel */
+      zIndex: {
+        header: "30",
+        "bottom-nav": "40",
+        fab: "45",
+        overlay: "50",
+        toast: "100",
+      },
       minHeight: { touch: "2.75rem" },
       minWidth: { touch: "2.75rem" },
       height: {
@@ -182,12 +197,25 @@ export default {
           from: { opacity: "0", transform: "translateY(8px)" },
           to: { opacity: "1", transform: "none" },
         },
+        /* Halo do FAB em destaque. So `box-shadow`: nao reflui layout, nao
+           empurra o vizinho e nao pinta pixel fora do circulo. */
+        "fab-pulse": {
+          "0%, 100%": { boxShadow: "var(--shadow-primary), 0 0 0 0 hsl(var(--primary) / 0.42)" },
+          "55%": { boxShadow: "var(--shadow-primary), 0 0 0 12px hsl(var(--primary) / 0)" },
+        },
+        /* Respiro do balao de onboarding: 3px, quase subliminar. */
+        "hint-float": {
+          "0%, 100%": { transform: "translateY(0)" },
+          "50%": { transform: "translateY(-3px)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
         "accordion-up": "accordion-up 0.2s ease-out",
         "fade-in": "fade-in 0.25s cubic-bezier(0.22, 1, 0.36, 1) both",
         rise: "rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "fab-pulse": "fab-pulse 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "hint-float": "hint-float 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",

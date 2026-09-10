@@ -12,10 +12,30 @@ if (!SUPABASE_URL || !SUPABASE_PUBLISHABLE_KEY) {
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
+// ============================================================================
+// SEGURANCA DE TOKEN
+// ============================================================================
+// O supabase-js nao oferece cookie HttpOnly no fluxo SPA: o JWT fica em
+// localStorage e um XSS equivale a roubo de sessao. As mitigacoes sao a CSP
+// sem `script-src 'unsafe-inline'` (netlify.toml / vercel.json / nginx.conf) e
+// os dois ajustes abaixo:
+//
+//  * flowType 'pkce': o fluxo implicito devolvia o access_token no FRAGMENTO
+//    da URL, onde ele entra em historico, Referer e log de extensao. Com PKCE
+//    a URL carrega apenas um `code` de uso unico, trocado pelo token com o
+//    code_verifier que nunca sai deste navegador.
+//  * storageKey explicito: evita colisao de sessao com outra app Supabase
+//    servida do mesmo host.
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
   auth: {
     storage: localStorage,
+    storageKey: 'orbi-auth',
     persistSession: true,
     autoRefreshToken: true,
-  }
+    detectSessionInUrl: true,
+    flowType: 'pkce',
+  },
+  global: {
+    headers: { 'x-client-info': 'sistema-orbi' },
+  },
 });

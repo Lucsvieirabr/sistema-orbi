@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { gateUser, gateFailure } from '../_shared/gate.ts'
 import { AsaasPayment, asaasFetch } from '../_shared/asaas.ts'
 
 interface Body {
@@ -11,7 +12,15 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    const user = await requireUser(req)
+    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
+    // cancelar/reativar/2a via: 20/h. strict, porque muda estado de assinatura.
+    const user = await gateUser(req, {
+      bucket: 'asaas-manage-subscription',
+      ipLimit: 40,
+      userLimit: 20,
+      windowSeconds: 3600,
+      strict: true,
+    })
     const supabase = adminClient()
     const body: Body = await req.json()
 
@@ -95,7 +104,6 @@ serve(async (req) => {
 
     throw new Error('Ação inválida')
   } catch (error) {
-    console.error('asaas-manage-subscription:', error)
-    return jsonFor(req, { success: false, error: (error as Error).message }, errorStatus(error))
+    return gateFailure(req, error, 'asaas-manage-subscription', true)
   }
 })

@@ -5,23 +5,14 @@
 import Tesseract from 'tesseract.js';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configurar worker do PDF.js com múltiplas estratégias de fallback
-try {
-  // Estratégia 1: Tentar usar o worker do public (mais confiável)
-  pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
-} catch (error) {
-  try {
-    // Estratégia 2: Usar URL relativa ao módulo
-    pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-      'pdfjs-dist/build/pdf.worker.min.mjs',
-      import.meta.url
-    ).toString();
-  } catch (fallbackError) {
-    // Estratégia 3: Fallback para CDN com protocolo explícito
-    console.warn('Usando CDN como último recurso para PDF.js worker');
-    pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
-  }
-}
+// Worker do PDF.js.
+// O bundle da Vercel nao expoe `pdf.worker.min.mjs` na raiz do dominio (o
+// rewrite SPA devolve o index.html, quebrando o import dinamico do worker).
+// Apontamos para o mesmo build publicado no npm, travado na versao exata do
+// pacote instalado (`pdfjsLib.version`), o que elimina qualquer mismatch entre
+// a API e o worker. Sendo cross-origin, o proprio PDF.js encapsula o worker em
+// um blob (permitido pelo CSP: `worker-src 'self' blob:`).
+pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`;
 
 /**
  * Converte um arquivo File para base64

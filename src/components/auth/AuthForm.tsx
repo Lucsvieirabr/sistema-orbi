@@ -9,6 +9,7 @@ import orbiLogoLight from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
+import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/components/legal";
 
 /**
  * Formulário de autenticação simplificado
@@ -19,6 +20,14 @@ export function AuthForm() {
   const { theme } = useTheme();
   const [activeTab, setActiveTab] = useState<"login" | "register">("login");
   const { login, register } = useAuth();
+
+  /**
+   * Aceite legal do cadastro (LGPD art. 8º): estado próprio, SEMPRE iniciado
+   * como `false`. Não há caminho no código que marque isso automaticamente —
+   * só o clique do titular. O envio é bloqueado enquanto for `false`.
+   */
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [consentError, setConsentError] = useState<string | null>(null);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -34,13 +43,21 @@ export function AuthForm() {
 
   const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+
+    // Validação do aceite antes de qualquer chamada de rede.
+    if (!acceptedTerms) {
+      setConsentError("Para criar sua conta, aceite os Termos de Uso e a Política de Privacidade.");
+      return;
+    }
+
+    setConsentError(null);
     setIsLoading(true);
     
     const form = event.currentTarget;
     const email = (form.querySelector('#register-email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#register-password') as HTMLInputElement)?.value;
     const fullName = (form.querySelector('#register-name') as HTMLInputElement)?.value;
-    
+
     await register(email, password, fullName);
     setIsLoading(false);
   };
@@ -102,6 +119,10 @@ export function AuthForm() {
                 >
                   {isLoading ? "Entrando..." : "Entrar"}
                 </Button>
+
+                {/* Disclaimer sutil: informa sem pedir novo opt-in — o aceite
+                    formal ocorre no cadastro. */}
+                <LegalConsentNotice className="pt-1" />
               </form>
             </TabsContent>
 
@@ -139,10 +160,22 @@ export function AuthForm() {
                   <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
                 </div>
 
+                <LegalConsentCheckbox
+                  id="register-legal-consent"
+                  checked={acceptedTerms}
+                  onCheckedChange={(value) => {
+                    setAcceptedTerms(value);
+                    if (value) setConsentError(null);
+                  }}
+                  error={consentError}
+                  disabled={isLoading}
+                  className="pt-1"
+                />
+
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={isLoading}
+                  disabled={isLoading || !acceptedTerms}
                 >
                   {isLoading ? "Criando conta..." : "Criar Conta"}
                 </Button>
@@ -151,6 +184,10 @@ export function AuthForm() {
           </Tabs>
         </CardContent>
       </Card>
+
+      <p className="absolute bottom-4 left-0 right-0 text-center text-[0.6875rem] text-muted-foreground">
+        <LegalLinksInline />
+      </p>
     </div>
   );
 }

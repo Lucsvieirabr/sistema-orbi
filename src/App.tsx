@@ -24,6 +24,8 @@ import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
 import MyAI from "@/pages/MyAI";
 import Notes from "@/pages/Notes";
+import TermsOfUsePage, { TermsOfUseAppPage } from "@/pages/legal/TermsOfUse";
+import PrivacyPolicyPage, { PrivacyPolicyAppPage } from "@/pages/legal/PrivacyPolicy";
 import AdminDashboard from "@/admin/pages/AdminDashboard";
 import PlanManagement from "@/admin/pages/PlanManagement";
 import UserManagement from "@/admin/pages/UserManagement";
@@ -103,6 +105,16 @@ const App = () => {
               {/* Rotas públicas */}
               <Route path="/pricing" element={<Pricing />} />
 
+              {/* Documentos legais — leitura pública, sem sessão.
+                  Os checkboxes de consentimento apontam para cá em nova aba. */}
+              <Route path="/legal/termos-de-uso" element={<TermsOfUsePage />} />
+              <Route path="/legal/politica-de-privacidade" element={<PrivacyPolicyPage />} />
+              <Route path="/termos-de-uso" element={<Navigate to="/legal/termos-de-uso" replace />} />
+              <Route
+                path="/politica-de-privacidade"
+                element={<Navigate to="/legal/politica-de-privacidade" replace />}
+              />
+
               {/* Bloqueio por inadimplência / pagamento pendente */}
               <Route
                 path="/billing"
@@ -143,6 +155,10 @@ const App = () => {
                 <Route path="my-ai" element={<MyAI />} />
                 <Route path="notes" element={<Notes />} />
                 <Route path="settings" element={<Settings />} />
+
+                {/* Mesmos documentos, lidos dentro do sistema. */}
+                <Route path="legal/termos-de-uso" element={<TermsOfUseAppPage />} />
+                <Route path="legal/politica-de-privacidade" element={<PrivacyPolicyAppPage />} />
               </Route>
 
               {/* Rotas protegidas do admin */}

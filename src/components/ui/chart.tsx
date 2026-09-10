@@ -58,10 +58,24 @@ const ChartContainer = React.forwardRef<
 });
 ChartContainer.displayName = "Chart";
 
+// SEGURANCA (CSS injection): este componente injeta CSS via
+// dangerouslySetInnerHTML. `id` e os valores de cor eram interpolados crus —
+// um valor como `red; } body { display:none } .x {` reescrevia a folha de
+// estilo da pagina, e `url(...)` permitia exfiltrar dados por requisicao de
+// recurso. Agora id e cor passam por allowlist estrita.
+const SAFE_CSS_ID = /^[A-Za-z0-9_-]+$/;
+// Cor CSS aceita: hex, rgb()/rgba()/hsl()/hsla() numericos, var(--token) e
+// palavras-chave alfabeticas. Qualquer outra coisa e descartada.
+const SAFE_CSS_COLOR =
+  /^(#[0-9A-Fa-f]{3,8}|(?:rgb|rgba|hsl|hsla)\(\s*[0-9.,%\s/-]+\)|var\(--[A-Za-z0-9_-]+\)|[A-Za-z]+)$/;
+
+const isSafeCssColor = (value: unknown): value is string =>
+  typeof value === "string" && value.length <= 64 && SAFE_CSS_COLOR.test(value.trim());
+
 const ChartStyle = ({ id, config }: { id: string; config: ChartConfig }) => {
   const colorConfig = Object.entries(config).filter(([_, config]) => config.theme || config.color);
 
-  if (!colorConfig.length) {
+  if (!colorConfig.length || !SAFE_CSS_ID.test(id)) {
     return null;
   }
 
@@ -75,7 +89,10 @@ ${prefix} [data-chart=${id}] {
 ${colorConfig
   .map(([key, itemConfig]) => {
     const color = itemConfig.theme?.[theme as keyof typeof itemConfig.theme] || itemConfig.color;
-    return color ? `  --color-${key}: ${color};` : null;
+    // A chave vira nome de custom property e a cor vira valor: ambas com
+    // allowlist, nada de string arbitraria dentro da folha de estilo.
+    if (!SAFE_CSS_ID.test(key) || !isSafeCssColor(color)) return null;
+    return `  --color-${key}: ${String(color).trim()};`;
   })
   .join("\n")}
 }

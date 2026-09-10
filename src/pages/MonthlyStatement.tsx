@@ -39,6 +39,13 @@ import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
 import { assertOwnTransaction } from "@/lib/family-access";
+import {
+  sanitizeSingleLine,
+  moneySchema,
+  isoDateSchema,
+  transactionStatusSchema,
+  optionalUuid,
+} from "@/lib/validation/schemas";
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
@@ -63,6 +70,7 @@ import {
 } from "@/components/ui/composition-dialog";
 import { CompositionViewDialog } from "@/components/ui/composition-view-dialog";
 import { ExtratoUploader } from "@/components/extrato-uploader";
+import { FabAction, FabStack } from "@/components/ui/floating-actions";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 
@@ -949,11 +957,30 @@ function MonthlyStatementContent() {
       duration: 2000,
     });
     try {
-      // Validação básica
-      if (!description.trim()) {
+      // ----------------------------------------------------------------------
+      // SEGURANÇA — validação/sanitização de entrada antes de montar payload
+      // ----------------------------------------------------------------------
+      // Esta tela monta INSERTs diretos em `series`/`transactions`. Antes, os
+      // únicos filtros eram "descrição não vazia" e "valor > 0": descrição de
+      // tamanho arbitrário (com bytes de controle que quebram o export CSV/PDF
+      // e viabilizam CSV injection), valor sem teto, data em formato livre e
+      // ids de FK sem checagem de formato iam direto para o banco.
+      // O servidor repete tudo isso (CHECK constraints + RLS) — aqui é só a
+      // primeira barreira, com mensagem legível.
+      const safeDescription = sanitizeSingleLine(description);
+      if (!safeDescription) {
         toast({
           title: "Erro",
           description: "Descrição é obrigatória",
+          variant: "destructive",
+        });
+        setIsSubmitting(false);
+        return;
+      }
+      if (safeDescription.length > 300) {
+        toast({
+          title: "Erro",
+          description: "Descrição excede 300 caracteres",
           variant: "destructive",
         });
         setIsSubmitting(false);
@@ -966,6 +993,32 @@ function MonthlyStatementContent() {
           description: "Valor deve ser maior que zero",
           variant: "destructive",
         });
+        setIsSubmitting(false);
+        return;
+      }
+
+      const inputCheck = (() => {
+        const v = moneySchema.safeParse(value);
+        if (!v.success) return "Valor fora da faixa permitida";
+        if (!isoDateSchema.safeParse(date).success) return "Data inválida";
+        if (isFixed && endDate && !isoDateSchema.safeParse(endDate).success) return "Data final inválida";
+        if (!transactionStatusSchema.safeParse(status).success) return "Status inválido";
+        for (const [label, id] of [
+          ["Conta", accountId],
+          ["Cartão", creditCardId],
+          ["Categoria", categoryId],
+          ["Pessoa", personId],
+        ] as const) {
+          if (id && !optionalUuid.safeParse(id).success) return `${label} inválida`;
+        }
+        if (installments != null && (!Number.isInteger(installments) || installments < 1 || installments > 480)) {
+          return "Número de parcelas inválido (1 a 480)";
+        }
+        return null;
+      })();
+
+      if (inputCheck) {
+        toast({ title: "Erro", description: inputCheck, variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
@@ -1012,7 +1065,7 @@ function MonthlyStatementContent() {
       let payload: any = {
         type: type,
         value,
-        description,
+        description: safeDescription,
         date,
         person_id: personId,
         is_fixed: isFixed, // Campo is_fixed restaurado
@@ -1522,57 +1575,6 @@ function MonthlyStatementContent() {
       // Calcular data final se fornecida
       const endDateObj = payload.endDate ? new Date(payload.endDate) : null;
 
-      // Buscar logo automaticamente se for uma assinatura (com cache local)
-      let logoUrl: string | null = null;
-      try {
-        // Check if category is "Assinaturas"
-        if (payload.category_id) {
-          const { data: category } = await supabase
-            .from("categories")
-            .select("name")
-            .eq("id", payload.category_id)
-            .single();
-
-          const isSubscription = category?.name?.toLowerCase().includes("assinatura");
-          
-          // Verificar se usuário tem permissão para detecção de logos
-          const hasLogoDetection = features.ia_deteccao_logos?.hasFeature;
-          
-          if (isSubscription && hasLogoDetection) {
-            // Search for company logo (with local caching)
-            const { data: { session } } = await supabase.auth.getSession();
-            if (session) {
-              const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-              const logoResponse = await fetch(
-                `${supabaseUrl}/functions/v1/get-company-logo`,
-                {
-                  method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${session.access_token}`,
-                  },
-                  body: JSON.stringify({ 
-                    companyName: payload.description.toLowerCase().trim() 
-                  }),
-                }
-              );
-              
-              if (logoResponse.ok) {
-                const logoData = await logoResponse.json();
-                logoUrl = logoData.logo_url || null;
-                // logoData.source indica se veio do 'storage' ou 'api'
-                console.log(`Logo obtained from: ${logoData.source}`);
-              }
-            }
-          } else if (isSubscription && !hasLogoDetection) {
-            console.log("Logo detection disabled: feature not available in current plan");
-          }
-        }
-      } catch (logoError) {
-        // Logo search failed, but don't stop the transaction creation
-        console.warn("Failed to fetch logo:", logoError);
-      }
-
       // Criar registro na tabela series para controle inteligente
       const { error: seriesError } = await supabase.from("series").insert({
         id: seriesId,
@@ -1585,7 +1587,6 @@ function MonthlyStatementContent() {
         frequency: payload.frequency || "monthly",
         start_date: payload.date,
         end_date: payload.endDate || null,
-        logo_url: logoUrl,
       });
 
       if (seriesError) throw seriesError;
@@ -2317,7 +2318,9 @@ function MonthlyStatementContent() {
   const monthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
   return (
-    <PageBody>
+    /* Respiro extra no rodapé: a última linha do extrato nunca fica embaixo
+       da fila de botões flutuantes. */
+    <PageBody className="pb-20 lg:pb-16">
       <LimitWarningBanner
         limit="max_transacoes_mes"
         currentValue={transactionsCount}
@@ -3996,32 +3999,29 @@ function MonthlyStatementContent() {
         }}
       />
 
-      {/* Floating Button for Import */}
-      <FeatureGuard feature="transacoes_importar_csv">
-        <button
-          aria-label="Importar Extrato"
-          onClick={() => setImportDialogOpen(true)}
-          className="fixed bottom-[calc(var(--bottom-nav-offset)+1rem)] right-[4.75rem] z-50 flex h-14 w-14 items-center justify-center rounded-full border border-border bg-card lg:bottom-6 lg:right-20 lg:h-12 lg:w-12 text-muted-foreground shadow-md transition-colors duration-200 ease-swift hover:border-ring/50 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-        >
-          <Upload className="h-5 w-5 lg:h-4 lg:w-4" />
-        </button>
-      </FeatureGuard>
+      {/* Ações flutuantes: uma fila só, ancorada à direita. A ordem visual é
+          apoio → principal, e cada botão some sozinho com a sua guarda sem
+          deixar buraco na fila. */}
+      <FabStack>
+        <FeatureGuard feature="transacoes_importar_csv">
+          <FabAction
+            variant="secondary"
+            icon={Upload}
+            label="Importar extrato"
+            onClick={() => setImportDialogOpen(true)}
+          />
+        </FeatureGuard>
 
-      {/* Floating Button for New Transaction */}
-      <FeatureGuard feature="transacoes_criar">
-        <LimitGuard limit="max_transacoes_mes" currentValue={transactionsCount}>
-          <Dialog open={open} onOpenChange={handleDialogOpenChange}>
-            <DialogTrigger asChild>
-              <button
-                aria-label="Nova Transação"
-                className="fixed bottom-[calc(var(--bottom-nav-offset)+1rem)] right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary lg:bottom-6 lg:right-6 lg:h-12 lg:w-12 text-primary-foreground shadow-md transition-colors duration-200 ease-swift hover:bg-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
-              >
-                <Plus className="h-5 w-5 lg:h-4 lg:w-4" />
-              </button>
-            </DialogTrigger>
-          </Dialog>
-        </LimitGuard>
-      </FeatureGuard>
+        <FeatureGuard feature="transacoes_criar">
+          <LimitGuard limit="max_transacoes_mes" currentValue={transactionsCount}>
+            <Dialog open={open} onOpenChange={handleDialogOpenChange}>
+              <DialogTrigger asChild>
+                <FabAction icon={Plus} label="Nova transação" />
+              </DialogTrigger>
+            </Dialog>
+          </LimitGuard>
+        </FeatureGuard>
+      </FabStack>
 
       {/* Modal para gerenciar parcelas */}
       <Dialog open={showInstallmentForm} onOpenChange={setShowInstallmentForm}>

@@ -39,7 +39,7 @@ export function BottomNav({ onMenuClick, menuOpen = false }: BottomNavProps) {
     <nav
       aria-label="Navegação rápida"
       className={cn(
-        "fixed inset-x-0 bottom-0 z-40 lg:hidden",
+        "fixed inset-x-0 bottom-0 z-bottom-nav lg:hidden",
         "border-t border-border bg-background/95 backdrop-blur-[2px]",
         "pb-safe",
       )}

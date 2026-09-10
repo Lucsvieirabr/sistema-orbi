@@ -1,7 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { useSubscriptions, searchCompanyLogo, updateSeriesLogo } from "@/hooks/use-subscriptions";
+import { useSubscriptions } from "@/hooks/use-subscriptions";
 import { Smartphone, Building2, Captions, Loader2, ExternalLink, Lock, Sparkles } from "lucide-react";
-import { useMemo, useState, useEffect, useRef } from "react";
+import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
@@ -13,13 +13,15 @@ interface SubscriptionChartProps {
 }
 
 export function SubscriptionChart({ className }: SubscriptionChartProps) {
-  const { data: subscriptions, isLoading, refetch } = useSubscriptions();
+  const { data: subscriptions, isLoading } = useSubscriptions();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [fetchingLogos, setFetchingLogos] = useState<Set<string>>(new Set());
   const { toast } = useToast();
   const navigate = useNavigate();
-  const { hasFeature: hasLogoDetection, isLoading: isLoadingFeature } = useFeature('ia_deteccao_logos');
-  const processedSubscriptionsRef = useRef<Set<string>>(new Set()); // Track processed subscriptions
+  // O gate era 'ia_deteccao_logos', feature removida junto com a integracao
+  // logo.dev. O painel de assinaturas nao dependia de logo nenhum — passa a
+  // ser gated pela propria feature de acompanhamento de assinaturas.
+  const { hasFeature: hasSubscriptionsPanel, isLoading: isLoadingFeature } =
+    useFeature('dashboard_assinaturas');
 
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -27,46 +29,6 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
       currency: 'BRL'
     }).format(amount);
   };
-
-  // Buscar logos faltantes automaticamente
-  useEffect(() => {
-    if (!subscriptions || !hasLogoDetection) return;
-
-    const fetchMissingLogos = async () => {
-      const subsWithoutLogo = subscriptions.filter(
-        sub => !sub.logo_url && 
-               !fetchingLogos.has(sub.id) && 
-               !processedSubscriptionsRef.current.has(sub.id)
-      );
-
-      if (subsWithoutLogo.length === 0) return;
-
-      for (const sub of subsWithoutLogo) {
-        // Marcar como processado imediatamente para evitar duplicatas
-        processedSubscriptionsRef.current.add(sub.id);
-        setFetchingLogos(prev => new Set(prev).add(sub.id));
-
-        try {
-          // Buscar logo com query em minúsculo
-          const result = await searchCompanyLogo(sub.description.toLowerCase());
-          if (result.logo_url) {
-            await updateSeriesLogo(sub.id, result.logo_url);
-            refetch();
-          }
-        } catch (error) {
-          console.warn(`Failed to fetch logo for ${sub.description}:`, error);
-        } finally {
-          setFetchingLogos(prev => {
-            const newSet = new Set(prev);
-            newSet.delete(sub.id);
-            return newSet;
-          });
-        }
-      }
-    };
-
-    fetchMissingLogos();
-  }, [subscriptions, hasLogoDetection]); // Removido fetchingLogos e refetch das dependências
 
   // Calculate total monthly cost
   const totalMonthlyCost = useMemo(() => {
@@ -113,7 +75,7 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
   }
 
   // Se não tem a feature, mostrar card de upgrade
-  if (!hasLogoDetection) {
+  if (!hasSubscriptionsPanel) {
     return (
       <Card className={`h-full flex flex-col ${className ?? ""}`}>
         <CardHeader className="flex-shrink-0 pb-3">
@@ -128,7 +90,7 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
           </div>
           <h3 className="font-display text-base font-semibold mb-2">Recurso do plano superior</h3>
           <p className="text-sm text-muted-foreground mb-4">
-            Acompanhe suas assinaturas com detecção automática de logos e organização inteligente.
+            Acompanhe todas as suas assinaturas recorrentes em um só lugar, com o total mensal sempre à vista.
           </p>
           <Button 
             size="sm" 
@@ -165,27 +127,9 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
 
   const SubscriptionItem = ({ subscription }: { subscription: any }) => (
     <div className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors duration-200 ease-swift hover:bg-accent">
-      {/* Logo or Icon */}
+      {/* Icone derivado da descricao (o <img> de logo.dev foi removido) */}
       <div className="flex-shrink-0 w-9 h-9 flex items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken overflow-hidden">
-        {subscription.logo_url ? (
-          <img
-            src={subscription.logo_url}
-            alt={subscription.description}
-            className="w-9 h-9 object-cover"
-            onError={(e) => {
-              e.currentTarget.style.display = 'none';
-              const parent = e.currentTarget.parentElement;
-              if (parent) {
-                const defaultIcon = document.createElement('div');
-                defaultIcon.className = 'flex items-center justify-center bg-transparent';
-                defaultIcon.innerHTML = '<svg class="h-6 w-6 text-primary bg-transparent" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" /></svg>';
-                parent.appendChild(defaultIcon);
-              }
-            }}
-          />
-        ) : (
-          getDefaultIcon(subscription.description)
-        )}
+        {getDefaultIcon(subscription.description)}
       </div>
 
       {/* Subscription Info */}

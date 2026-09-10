@@ -3,6 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate, Database } from "@/integrations/supabase/types";
 import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
+import { accountSchema, parseOrThrow } from "@/lib/validation/schemas";
+import { assertUuid } from "@/lib/utils";
 
 type Account = Tables<"accounts">;
 type BalanceRow = Database["public"]["Views"]["vw_account_current_balance"]["Row"];
@@ -77,19 +79,39 @@ export function useAccounts() {
 
   const createAccount = async (values: Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
     const { data: { user } } = await supabase.auth.getUser();
-    const payload: TablesInsert<"accounts"> = { ...values, user_id: user!.id };
+    if (!user) throw new Error("Usuario nao autenticado");
+    // SEGURANCA: valida/sanitiza antes de ir ao banco (whitelist de `type`,
+    // cor so em hex, nome sem caractere de controle). O banco repete via CHECK.
+    const safe = parseOrThrow(accountSchema, values);
+    const payload: TablesInsert<"accounts"> = { ...safe, user_id: user.id };
     const { data, error } = await supabase.from("accounts").insert(payload).select().single();
     if (error) throw error;
     return data;
   };
 
   const updateAccount = async (id: string, values: Pick<TablesUpdate<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
-    const { error } = await supabase.from("accounts").update(values).eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario nao autenticado");
+    const safe = parseOrThrow(accountSchema, values);
+    // `.eq("user_id")` e defesa em profundidade: a RLS ja isola, mas o filtro
+    // explicito impede que um id de outro tenant vire um UPDATE de 0 linhas
+    // silencioso interpretado como sucesso pela UI.
+    const { error } = await supabase
+      .from("accounts")
+      .update(safe)
+      .eq("id", assertUuid(id, "account_id"))
+      .eq("user_id", user.id);
     if (error) throw error;
   };
 
   const deleteAccount = async (id: string) => {
-    const { error } = await supabase.from("accounts").delete().eq("id", id);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("Usuario nao autenticado");
+    const { error } = await supabase
+      .from("accounts")
+      .delete()
+      .eq("id", assertUuid(id, "account_id"))
+      .eq("user_id", user.id);
     if (error) throw error;
   };
 

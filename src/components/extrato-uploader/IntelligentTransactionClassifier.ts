@@ -798,6 +798,8 @@ export class IntelligentTransactionClassifier {
    */
   private async saveToUserLearning(description: string, category: string, subcategory?: string): Promise<void> {
     try {
+      // SEGURANCA: descricao higienizada; a RPC do banco tambem valida
+      // tamanho, caracteres de controle e se a categoria pertence ao usuario.
       const { error } = await supabase.rpc('update_user_learned_pattern', {
         p_description: description,
         p_category: category,

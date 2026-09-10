@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { adminClient } from '../_shared/auth.ts'
 import { addCycle } from '../_shared/asaas.ts'
+import { RateLimitError, enforceIpRateLimit, rateLimitHeaders } from '../_shared/ratelimit.ts'
 
 const GRACE_DAYS = Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3')
 
@@ -24,12 +25,36 @@ function timingSafeEqual(a: string, b: string): boolean {
 function jsonOk(body: Record<string, unknown>, status = 200) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store',
+      'Referrer-Policy': 'no-referrer',
+    },
   })
 }
 
 serve(async (req) => {
   if (req.method !== 'POST') return jsonOk({ error: 'Method not allowed' }, 405)
+
+  // ---- Rate limit por IP: este endpoint é público por definição. -----------
+  // verify_jwt = false, então antes disto qualquer um na internet pagava zero
+  // para forçar, a cada requisição, uma comparação de token e um INSERT no
+  // ledger de idempotência. 600 eventos / 5 min por IP acomoda um lote real do
+  // Asaas e fecha a porta ao flood e ao brute-force do webhook token.
+  // Fail-OPEN de propósito: contador indisponível não pode travar a baixa de
+  // pagamento (o Asaas reentrega, mas atrasar cobrança é pior que o flood).
+  try {
+    await enforceIpRateLimit(req, 'asaas-webhook', 600, 300, true)
+  } catch (err) {
+    if (err instanceof RateLimitError) {
+      return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
+        status: 429,
+        headers: { 'Content-Type': 'application/json', ...rateLimitHeaders(err.retryAfter) },
+      })
+    }
+    throw err
+  }
 
   // ---- Autenticação: fail-closed. Sem token configurado, nada é aceito. ----
   const expectedToken = Deno.env.get('ASAAS_WEBHOOK_TOKEN')

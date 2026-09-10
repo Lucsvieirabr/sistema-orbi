@@ -14,6 +14,8 @@ import type { Database } from "@/integrations/supabase/types";
 import { useToast } from "@/hooks/use-toast";
 import { usePayment } from "@/hooks/use-payment";
 import { PaymentDialog } from "@/components/payment";
+import { LegalLinksInline, SubscriptionConsentDialog } from "@/components/legal";
+import { recordLegalConsent } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
 /**
@@ -45,7 +47,8 @@ const FEATURE_ROWS = [
   { key: "ia_classificador", label: "IA classificadora" },
   { key: "transacoes_importar_csv", label: "Importar CSV" },
   { key: "ia_classificacao_automatica", label: "Classificação automática" },
-  { key: "ia_deteccao_logos", label: "Detecção de assinaturas" },
+  { key: "dashboard_assinaturas", label: "Painel de assinaturas" },
+  { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
 ] as const;
 
 const LIMIT_ROWS = [
@@ -55,6 +58,7 @@ const LIMIT_ROWS = [
   { key: "max_pessoas", label: "Pessoas" },
   { key: "max_categorias", label: "Categorias" },
   { key: "retencao_dados_meses", label: "Retenção", suffix: "meses" },
+  { key: "max_membros_familia", label: "Acessos extras" },
 ] as const;
 
 export default function Pricing() {
@@ -64,6 +68,18 @@ export default function Pricing() {
   const [userActivePlan, setUserActivePlan] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+
+  /**
+   * Plano pago aguardando confirmacao + aceite legal. Nenhuma cobranca e
+   * criada antes do opt-in explicito no dialogo (LGPD/CDC).
+   */
+  const [pendingPlan, setPendingPlan] = useState<{
+    id: string;
+    slug: string;
+    name: string;
+    price: number;
+  } | null>(null);
+  const [showConsentDialog, setShowConsentDialog] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -224,6 +240,73 @@ export default function Pricing() {
     }
   }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan]);
 
+  /**
+   * Porta de entrada da selecao de plano.
+   *
+   * Plano gratuito segue direto (nao ha cobranca a autorizar; o aceite dos
+   * documentos ja ocorreu no cadastro). Plano pago passa obrigatoriamente
+   * pelo dialogo de confirmacao com aceite legal.
+   */
+  const requestPlan = useCallback(async (
+    plan: { id: string; slug: string; name: string },
+    isFree: boolean,
+    price: number,
+  ) => {
+    const { data: { session } } = await supabase.auth.getSession();
+
+    if (!session) {
+      localStorage.setItem('orbi_selected_plan', JSON.stringify({
+        planId: plan.id,
+        planSlug: plan.slug,
+        billingCycle,
+        isFree,
+        timestamp: Date.now()
+      }));
+
+      toast({
+        title: "Login necessário",
+        description: isFree
+          ? "Faça login ou crie uma conta para ativar seu plano gratuito."
+          : "Faça login ou crie uma conta para continuar com a assinatura.",
+      });
+
+      navigate('/login');
+      return;
+    }
+
+    if (userActivePlan === plan.id) {
+      toast({
+        title: "Você já tem este plano ativo",
+        description: "Este é o seu plano atual.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (isFree) {
+      await handleSelectPlan(plan.id, plan.slug, true);
+      return;
+    }
+
+    setPendingPlan({ id: plan.id, slug: plan.slug, name: plan.name, price });
+    setShowConsentDialog(true);
+  }, [billingCycle, handleSelectPlan, navigate, toast, userActivePlan]);
+
+  /** Aceite confirmado: registra a prova do consentimento e cobra. */
+  const handleConfirmSubscription = useCallback(async () => {
+    if (!pendingPlan) return;
+
+    await recordLegalConsent({
+      context: 'subscription',
+      planId: pendingPlan.id,
+      billingCycle,
+    });
+
+    setShowConsentDialog(false);
+    await handleSelectPlan(pendingPlan.id, pendingPlan.slug, false);
+    setPendingPlan(null);
+  }, [pendingPlan, billingCycle, handleSelectPlan]);
+
   /** Verificar estado do usuario ao carregar a pagina */
   useEffect(() => {
     const checkUserState = async () => {
@@ -284,8 +367,17 @@ export default function Pricing() {
 
         localStorage.removeItem('orbi_selected_plan');
 
+        const cycle = storedPlan.billingCycle === 'monthly' ? 'monthly' : 'yearly';
+        const storedPrice = cycle === 'yearly' ? selectedPlan.price_yearly : selectedPlan.price_monthly;
+
         setTimeout(() => {
-          handleSelectPlan(selectedPlan.id, selectedPlan.slug, storedPlan.isFree);
+          // Passa pela mesma porta: plano pago volta do login direto para o
+          // dialogo de confirmacao com aceite, nunca para a cobranca.
+          requestPlan(
+            { id: selectedPlan.id, slug: selectedPlan.slug, name: selectedPlan.name },
+            storedPlan.isFree,
+            storedPrice,
+          );
         }, 500);
       } catch (error) {
         console.error('Erro ao processar plano salvo:', error);
@@ -294,7 +386,7 @@ export default function Pricing() {
     };
 
     processStoredPlan();
-  }, [isAuthenticated, plans, handleSelectPlan]);
+  }, [isAuthenticated, plans, requestPlan]);
 
   if (isLoading) {
     return (
@@ -314,6 +406,19 @@ export default function Pricing() {
         open={showPaymentDialog}
         onOpenChange={setShowPaymentDialog}
         paymentData={paymentData}
+      />
+
+      <SubscriptionConsentDialog
+        open={showConsentDialog}
+        onOpenChange={(open) => {
+          setShowConsentDialog(open);
+          if (!open) setPendingPlan(null);
+        }}
+        planName={pendingPlan?.name ?? ''}
+        price={pendingPlan?.price ?? 0}
+        billingCycle={billingCycle}
+        isProcessing={isProcessing || isPaymentLoading}
+        onConfirm={handleConfirmSubscription}
       />
 
       <div className="min-h-screen bg-background">
@@ -538,7 +643,11 @@ export default function Pricing() {
                       variant={
                         isUserCurrentPlan ? 'secondary' : (isUpgrade || featured) ? 'default' : 'outline'
                       }
-                      onClick={() => handleSelectPlan(plan.id, plan.slug, isFree)}
+                      onClick={() => requestPlan(
+                        { id: plan.id, slug: plan.slug, name: plan.name },
+                        isFree,
+                        price,
+                      )}
                       disabled={isProcessing || isUserCurrentPlan || isPaymentLoading}
                     >
                       {isUserCurrentPlan
@@ -568,9 +677,12 @@ export default function Pricing() {
             </div>
           )}
 
-          <p className="mt-10 border-t border-border-subtle pt-6 text-xs text-muted-foreground">
-            Você pode trocar ou cancelar seu plano quando quiser. Cobrança em reais, sem fidelidade.
-          </p>
+          <div className="mt-10 flex flex-col gap-3 border-t border-border-subtle pt-6 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-muted-foreground">
+              Você pode trocar ou cancelar seu plano quando quiser. Cobrança em reais, sem fidelidade.
+            </p>
+            <LegalLinksInline className="text-xs" />
+          </div>
         </main>
       </div>
     </>

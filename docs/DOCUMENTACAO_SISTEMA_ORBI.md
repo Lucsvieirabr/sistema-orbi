@@ -190,7 +190,6 @@ O **Sistema Orbi** é uma plataforma SaaS completa de gestão financeira pessoal
 - is_shared (BOOLEAN) -- Transação compartilhada
 - installment_number (INTEGER)
 - composition_details (JSONB)
-- logo_url (TEXT)
 - created_at (TIMESTAMP)
 - updated_at (TIMESTAMP)
 ```
@@ -229,7 +228,6 @@ O **Sistema Orbi** é uma plataforma SaaS completa de gestão financeira pessoal
 - category_id (UUID, FK)
 - is_recurring (BOOLEAN)
 - recurrence_type (TEXT) -- 'monthly', 'weekly'
-- logo_url (TEXT)
 - created_at (TIMESTAMP)
 ```
 
@@ -843,44 +841,7 @@ const PLAN_LIMITS = {
 }
 ```
 
-#### 2. `get-company-logo`
-
-**Descrição**: Busca logo de empresa
-
-**Entrada**:
-```json
-{
-  "companyName": "Netflix"
-}
-```
-
-**Saída**:
-```json
-{
-  "logoUrl": "https://..."
-}
-```
-
-#### 3. `search-logo`
-
-**Descrição**: Busca logo com múltiplas fontes
-
-**Entrada**:
-```json
-{
-  "query": "uber eats"
-}
-```
-
-**Saída**:
-```json
-{
-  "logoUrl": "https://...",
-  "source": "clearbit"
-}
-```
-
-#### 4. `asaas-create-customer`
+#### 2. `asaas-create-customer`
 
 **Descrição**: Cria customer no Asaas
 
@@ -903,7 +864,7 @@ const PLAN_LIMITS = {
 }
 ```
 
-#### 5. `asaas-create-payment`
+#### 3. `asaas-create-payment`
 
 **Descrição**: Cria cobrança no Asaas
 
@@ -931,7 +892,7 @@ const PLAN_LIMITS = {
 }
 ```
 
-#### 6. `asaas-webhook-handler`
+#### 4. `asaas-webhook-handler`
 
 **Descrição**: Processa webhooks do Asaas
 
@@ -1379,8 +1340,6 @@ npx supabase functions deploy asaas-create-customer
 npx supabase functions deploy asaas-create-payment
 npx supabase functions deploy asaas-webhook-handler
 npx supabase functions deploy classify-transactions
-npx supabase functions deploy get-company-logo
-npx supabase functions deploy search-logo
 ```
 
 #### 4. Configurar Secrets
@@ -1671,9 +1630,7 @@ SistemaOrbi-main/
 │   │   │   └── index.ts
 │   │   ├── classify-transactions/
 │   │   │   └── index.ts
-│   │   ├── get-company-logo/
 │   │   │   └── index.ts
-│   │   └── search-logo/
 │   │       └── index.ts
 │   ├── migrations/                 # Migrations SQL (87 arquivos)
 │   │   └── [migrations SQL]

@@ -112,9 +112,34 @@ auth_token = "env(SUPABASE_AUTH_SMS_TWILIO_AUTH_TOKEN)"
 
 # Configure one of the supported captcha providers: `hcaptcha`, `turnstile`.
 [auth.captcha]
+# Ligar em producao: e a unica defesa contra credential stuffing distribuido
+# (o rate limit abaixo e por IP; botnet troca de IP, captcha nao).
 enabled = false
 provider = "hcaptcha"
 secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
+
+# ============================================================================
+# RATE LIMIT DE AUTENTICACAO
+# ============================================================================
+# /auth/v1/* NAO passa pelas Edge Functions — e o GoTrue direto. O limitador
+# do _shared/ratelimit.ts nao alcanca essas rotas; o teto tem que ser aqui.
+# Sem isto, login/signup/recover ficavam abertos a enumeracao de e-mail,
+# brute-force de senha e flood de e-mail transacional (que e custo por envio).
+# Valores por hora, por IP.
+[auth.rate_limit]
+# E-mails transacionais (signup, recover, magic link, change email).
+email_sent = 10
+# SMS (provider desligado hoje; teto mantido para nao nascer aberto).
+sms_sent = 10
+# Login + signup: 30/h/IP absorve usuario legitimo errando a senha e mata
+# o brute-force barato.
+sign_in_sign_ups = 30
+# Verificacao de OTP/token (recover, invite, confirm).
+token_verifications = 30
+# Refresh de sessao: alto de proposito, e chamado por aba aberta.
+token_refresh = 150
+# Signup anonimo: nao usamos.
+anonymous_users = 10
 
 # Use an external OAuth provider. The full list of providers are: `apple`, `azure`, `bitbucket`,
 # `discord`, `facebook`, `github`, `gitlab`, `google`, `keycloak`, `linkedin`, `notion`, `twitch`,
@@ -295,6 +320,14 @@ port = 54327
 vector_port = 54328
 # Configure one of the supported backends: `postgres`, `bigquery`.
 backend = "postgres"
+# ============================================================================
+# EDGE FUNCTIONS — verify_jwt declarado em TODAS
+# ============================================================================
+# O default varia entre versoes do CLI. Declarar explicitamente evita que uma
+# funcao autenticada nasca publica por regressao de tooling.
+# Unica com verify_jwt = false: o webhook do Asaas (chamador e o gateway, nao
+# um usuario). Ele se autentica por asaas-access-token + rate limit por IP.
+
 [functions.asaas-webhook-handler]
 verify_jwt = false
 
@@ -308,4 +341,10 @@ verify_jwt = true
 verify_jwt = true
 
 [functions.asaas-sync-subscription]
+verify_jwt = true
+
+[functions.classify-transactions]
+verify_jwt = true
+
+[functions.extract-pdf-text]
 verify_jwt = true
