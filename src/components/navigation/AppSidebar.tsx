@@ -103,7 +103,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
       </div>
 
       {/* Ação primária — a única com preenchimento sólido na navegação */}
-      <div className="px-3 pb-2">
+      <div className="shrink-0 px-3 pb-3">
         <button
           type="button"
           onClick={() => handleNavigate("/sistema/statement?new=1")}
@@ -122,8 +122,8 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
       {/* Navegação */}
       <nav aria-label="Navegação principal" className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
         {groups.map((group, groupIndex) => (
-          <div key={group.label} className={cn(groupIndex > 0 && "mt-5 lg:mt-6")}>
-            <p className="px-3 pb-2 text-2xs font-medium uppercase tracking-eyebrow text-sidebar-muted">
+          <div key={group.label} className={cn(groupIndex > 0 && "mt-6 lg:mt-7")}>
+            <p className="px-3 pb-2.5 text-2xs font-medium uppercase tracking-eyebrow text-sidebar-muted/70">
               {group.label}
             </p>
             <ul className="space-y-0.5">
@@ -185,7 +185,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   }
 
   return (
-    <Sidebar collapsible="none" className="hidden border-r border-sidebar-border bg-sidebar lg:flex">
+    <Sidebar collapsible="none" className="hidden border-r border-sidebar-border bg-sidebar lg:flex lg:h-svh">
       <Nav />
     </Sidebar>
   );
