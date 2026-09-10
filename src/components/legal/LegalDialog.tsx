@@ -30,7 +30,7 @@ export function LegalDialog({ document: doc, open, onOpenChange }: LegalDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[95vw] flex-col gap-0 p-0 sm:max-w-[42rem]">
+      <DialogContent className="flex max-h-[85vh] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[42rem]">
         <DialogHeader className="border-b border-border-subtle px-5 py-4 text-left md:px-6">
           <DialogTitle className="text-base md:text-lg">{doc.title}</DialogTitle>
           <DialogDescription className="text-xs tabular">
