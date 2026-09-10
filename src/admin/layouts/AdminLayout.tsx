@@ -65,16 +65,20 @@ export default function AdminLayout() {
   }
 
   return (
-    <SidebarProvider>
+    <SidebarProvider className="h-svh overflow-hidden">
       {isCompact ? (
         <AdminSidebar open={mobileMenuOpen} onOpenChange={setMobileMenuOpen} />
       ) : (
         <AdminSidebar />
       )}
-      <SidebarInset className="min-w-0">
-        <AdminHeader onMenuClick={() => setMobileMenuOpen(true)} menuOpen={mobileMenuOpen} />
-        <div className="min-w-0 px-4 py-5 md:px-6 md:py-6 lg:px-8">
-          <Outlet />
+      {/* Mesmo contrato de rolagem do AppLayout: o shell trava em `h-svh` e
+          apenas o container de conteúdo rola. Ver AppLayout.tsx. */}
+      <SidebarInset className="h-svh min-h-0 min-w-0 overflow-hidden">
+        <div className="flex h-full min-h-0 min-w-0 flex-col bg-background">
+          <AdminHeader onMenuClick={() => setMobileMenuOpen(true)} menuOpen={mobileMenuOpen} />
+          <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 md:px-6 md:py-6 lg:px-8">
+            <Outlet />
+          </div>
         </div>
       </SidebarInset>
     </SidebarProvider>

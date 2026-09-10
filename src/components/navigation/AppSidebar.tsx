@@ -185,7 +185,10 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   }
 
   return (
-    <Sidebar collapsible="none" className="hidden border-r border-sidebar-border bg-sidebar lg:flex lg:h-svh">
+    <Sidebar
+      collapsible="none"
+      className="hidden border-r border-sidebar-border bg-sidebar lg:sticky lg:top-0 lg:flex lg:h-svh lg:shrink-0"
+    >
       <Nav />
     </Sidebar>
   );
