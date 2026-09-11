@@ -277,7 +277,7 @@ export function IconSelector({ value, onChange, trigger }: IconSelectorProps) {
             <Tabs defaultValue={Object.keys(groupedIcons)[0]} className="w-full">
               <div className="mb-4">
                 <ScrollArea className="w-full whitespace-nowrap">
-                  <TabsList className="inline-flex h-10 items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-max min-w-full">
+                  <TabsList className="inline-flex items-center justify-start rounded-lg bg-muted p-1 text-muted-foreground w-max min-w-full">
                     {Object.keys(groupedIcons).map((category) => (
                       <TabsTrigger
                         key={category}

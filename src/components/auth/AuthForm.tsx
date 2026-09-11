@@ -10,6 +10,11 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/components/legal";
+import { cn } from "@/lib/utils";
+
+/** Item do segmented control: o fundo ativo é do thumb, não do item. */
+const segmentTrigger =
+  "data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none";
 
 /**
  * Formulário de autenticação simplificado
@@ -85,9 +90,27 @@ export function AuthForm() {
         
         <CardContent>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")}>
-            <TabsList className="mb-4 grid w-full grid-cols-2 gap-1">
-              <TabsTrigger value="login">Entrar</TabsTrigger>
-              <TabsTrigger value="register">Criar Conta</TabsTrigger>
+            {/* Segmented control com thumb deslizante. Uma única superfície de
+                card (o thumb) desliza entre as duas colunas em vez de cada item
+                pintar e apagar o próprio fundo. Geometria: o thumb ocupa
+                exatamente uma coluna — left 4px + (50% do padding-box − 4px) —
+                e `translate-x-full` o leva para a segunda. Gutter uniforme de
+                4px nos quatro lados, raio concêntrico ao trilho. */}
+            <TabsList className="relative isolate mb-4 grid w-full grid-cols-2 gap-0">
+              <span
+                aria-hidden
+                className={cn(
+                  "pointer-events-none absolute inset-y-1 left-1 -z-10 w-[calc(50%-0.25rem)] rounded-lg border border-border bg-card shadow-sm",
+                  "transition-transform duration-300 ease-swift will-change-transform motion-reduce:transition-none",
+                  activeTab === "register" ? "translate-x-full" : "translate-x-0",
+                )}
+              />
+              <TabsTrigger value="login" className={segmentTrigger}>
+                Entrar
+              </TabsTrigger>
+              <TabsTrigger value="register" className={segmentTrigger}>
+                Criar Conta
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="login">

@@ -208,18 +208,26 @@ export default function Notes() {
         )}
       </PageHeader>
 
-      {/* Composer: a caixa de escrever é a primeira coisa da página. */}
+      {/* Composer: a caixa de escrever é a primeira coisa da página.
+          O campo é um poço afundado com respiro próprio (px-4/py-3) e o
+          wrapper tem padding nos quatro lados — o texto nunca encosta na
+          borda do fundo nem no rodapé. No foco o poço vira superfície de card
+          com a borda do anel: o foco é visível sem depender de ring-0. */}
       <Card>
-        <div className="px-3 pt-3 md:px-4 md:pt-4">
+        <div className="p-3 md:p-4">
           <Textarea
             placeholder="Pagar boleto da luz, revisar assinatura da academia…"
             value={newNoteContent}
             onChange={(e) => setNewNoteContent(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === "Enter" && e.ctrlKey) handleCreateNote();
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) handleCreateNote();
             }}
             aria-label="Nova nota"
-            className="min-h-[72px] resize-none border-0 px-0 text-sm shadow-none focus-visible:border-0 focus-visible:ring-0"
+            className={cn(
+              "min-h-[104px] resize-none border-transparent bg-surface-sunken px-4 py-3 shadow-none md:min-h-[96px]",
+              "scroll-py-3 transition-[background-color,border-color,box-shadow]",
+              "hover:border-border focus-visible:border-ring focus-visible:bg-card focus-visible:ring-4 focus-visible:ring-ring/15",
+            )}
           />
         </div>
 

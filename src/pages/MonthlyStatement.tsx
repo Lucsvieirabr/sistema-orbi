@@ -2461,15 +2461,17 @@ function MonthlyStatementContent() {
       </section>
 
       {/* Pendências: dois tiles clicáveis. A contagem é o dado, o total é o
-          contexto — e a régua de 1px no topo dá o tom sem pintar um quadrado. */}
+          contexto — e a régua de 2px no topo dá o tom sem pintar um quadrado.
+          A régua é absoluta e o tile tem `overflow-hidden`: ela é recortada
+          pelo raio do card e acompanha a curva dos cantos, sem somar altura. */}
       <section aria-label="Pendências do mês" className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <button
           type="button"
           onClick={() => setShowPendingIncomeDialog(true)}
-          className="group rounded-xl border border-border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:border-ring/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+          className="group relative isolate flex flex-col overflow-hidden rounded-xl border border-border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:border-ring/40 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          <span aria-hidden className="block h-px w-full rounded-t-xl bg-success" />
-          <span className="flex items-start justify-between gap-4 px-4 pt-4 md:px-5 md:pt-5">
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-success" />
+          <span className="flex items-start justify-between gap-4 px-4 pb-4 pt-4 md:px-5 md:pb-5 md:pt-5">
             <span className="min-w-0">
               <span className="label-eyebrow block">A receber</span>
               <span className="figure-lg mt-1 block tabular text-success">
@@ -2486,7 +2488,7 @@ function MonthlyStatementContent() {
               </span>
             </span>
           </span>
-          <span className="mt-4 block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
+          <span className="mt-auto block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
             {pendingIncomeTransactions.length > 0 ? "Abrir e dar baixa" : "Nada pendente por aqui"}
           </span>
         </button>
@@ -2495,12 +2497,12 @@ function MonthlyStatementContent() {
           type="button"
           onClick={() => setShowPendingExpenseDialog(true)}
           className={cn(
-            "group rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+            "group relative isolate flex flex-col overflow-hidden rounded-xl border bg-card text-left transition-[border-color,box-shadow] duration-300 ease-swift hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
             overdueExpenseTransactions.length > 0 ? "border-destructive/45" : "border-border hover:border-ring/40",
           )}
         >
-          <span aria-hidden className="block h-px w-full rounded-t-xl bg-destructive" />
-          <span className="flex items-start justify-between gap-4 px-4 pt-4 md:px-5 md:pt-5">
+          <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-destructive" />
+          <span className="flex items-start justify-between gap-4 px-4 pb-4 pt-4 md:px-5 md:pb-5 md:pt-5">
             <span className="min-w-0">
               <span className="label-eyebrow block">A pagar</span>
               <span className="figure-lg mt-1 flex items-baseline gap-2 tabular text-destructive">
@@ -2523,7 +2525,7 @@ function MonthlyStatementContent() {
               </span>
             </span>
           </span>
-          <span className="mt-4 block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
+          <span className="mt-auto block border-t border-border-subtle px-4 py-2.5 text-xs text-muted-foreground md:px-5">
             {pendingExpenseTransactions.length > 0 ? "Abrir e dar baixa" : "Nada pendente por aqui"}
           </span>
         </button>
