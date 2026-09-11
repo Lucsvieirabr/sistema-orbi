@@ -352,6 +352,14 @@ async function handlePaymentRevoked(supabase: any, payload: WebhookPayload) {
     return
   }
 
+  // DELETE da assinatura no Asaas apaga as cobranças futuras dela: isso é o
+  // cancelamento agendado seguindo seu curso, não perda do período já pago.
+  if (payload.event === 'PAYMENT_DELETED' && isScheduledCancellation(sub)) return
+
+  // Assinatura já encerrada não volta a existir como `expired`: isso a tiraria
+  // do filtro `status <> 'canceled'` da RPC e mandaria o usuário para /billing.
+  if (sub.status === 'canceled') return
+
   // Só revoga acesso se o pagamento revogado for o que sustenta o período atual.
   const { data: stillPaid } = await supabase
     .from('payment_history')
@@ -381,6 +389,10 @@ async function handleSubscriptionSynced(supabase: any, payload: WebhookPayload) 
   const sub = await resolveSubscription(supabase, payload)
   if (!sub) return
 
+  // Evento tardio da assinatura removida no cancelamento agendado: não reescreve
+  // a próxima cobrança que deixou de existir.
+  if (isScheduledCancellation(sub) && sub.asaas_subscription_id === subscription.id) return
+
   await supabase
     .from('user_subscriptions')
     .update({
@@ -391,9 +403,39 @@ async function handleSubscriptionSynced(supabase: any, payload: WebhookPayload) 
     .eq('id', sub.id)
 }
 
+/**
+ * Cancelamento agendado pelo próprio usuário (asaas-manage-subscription grava
+ * cancel_at_period_end ANTES do DELETE no Asaas): o período já pago é
+ * preservado. A RPC get_my_subscription_status encerra o acesso na data.
+ */
+function isScheduledCancellation(sub: any): boolean {
+  return (
+    sub?.cancel_at_period_end === true &&
+    ['active', 'trial'].includes(sub?.status) &&
+    !!sub?.current_period_end &&
+    new Date(sub.current_period_end).getTime() > Date.now()
+  )
+}
+
 async function handleSubscriptionCanceled(supabase: any, payload: WebhookPayload) {
   const subscription = payload.subscription
   if (!subscription?.id) return
+
+  const { data: sub } = await supabase
+    .from('user_subscriptions')
+    .select('*')
+    .eq('asaas_subscription_id', subscription.id)
+    .maybeSingle()
+
+  if (!sub) return
+
+  if (isScheduledCancellation(sub)) {
+    await supabase
+      .from('user_subscriptions')
+      .update({ next_due_date: null, updated_at: new Date().toISOString() })
+      .eq('id', sub.id)
+    return
+  }
 
   await supabase
     .from('user_subscriptions')
@@ -403,5 +445,5 @@ async function handleSubscriptionCanceled(supabase: any, payload: WebhookPayload
       blocked_reason: 'Assinatura cancelada',
       updated_at: new Date().toISOString(),
     })
-    .eq('asaas_subscription_id', subscription.id)
+    .eq('id', sub.id)
 }

@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from './use-toast';
 import { SUBSCRIPTION_QUERY_KEY } from './use-subscription';
+import { QUOTA_QUERY_KEY } from './use-quota';
 
 export interface PaymentData {
   id: string;
@@ -26,6 +27,14 @@ export interface PaymentResponse {
   free_plan?: boolean;
   upgraded?: boolean;
   error?: string;
+}
+
+export interface ManageSubscriptionResponse {
+  success: boolean;
+  subscription?: any;
+  /** true = encerrada na hora (cobrança pendente/em atraso); false = vale até o fim do período. */
+  immediate?: boolean;
+  access_until?: string | null;
 }
 
 async function invoke<T>(fn: string, body?: unknown): Promise<T> {
@@ -104,15 +113,47 @@ export function usePayment() {
     }
   };
 
-  const cancelSubscription = async (): Promise<boolean> => {
+  const invalidateAfterPlanChange = () =>
+    Promise.all([invalidate(), queryClient.invalidateQueries({ queryKey: QUOTA_QUERY_KEY })]);
+
+  /**
+   * Cancela a renovação automática. Com período pago em curso, o acesso segue
+   * até `current_period_end` (cancel_at_period_end); cobrança pendente ou em
+   * atraso encerra na hora. A decisão é do backend (asaas-manage-subscription).
+   */
+  const cancelSubscription = async (): Promise<ManageSubscriptionResponse | null> => {
     setIsLoading(true);
     try {
-      await invoke('asaas-manage-subscription', { action: 'cancel' });
-      invalidate();
-      toast({ title: 'Assinatura cancelada', description: 'A renovação automática foi desativada.' });
+      const data = await invoke<ManageSubscriptionResponse>('asaas-manage-subscription', { action: 'cancel' });
+      await invalidateAfterPlanChange();
+      toast({
+        title: 'Assinatura cancelada',
+        description: data.immediate
+          ? 'A cobrança recorrente foi encerrada.'
+          : 'A renovação automática foi desligada. Seu plano continua valendo até o fim do período pago.',
+      });
+      return data;
+    } catch (error: any) {
+      toast({ title: 'Assinatura não cancelada', description: error.message, variant: 'destructive' });
+      return null;
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  /** Desfaz um cancelamento agendado: a próxima cobrança volta para o fim do período. */
+  const reactivateSubscription = async (): Promise<boolean> => {
+    setIsLoading(true);
+    try {
+      await invoke<ManageSubscriptionResponse>('asaas-manage-subscription', { action: 'reactivate' });
+      await invalidateAfterPlanChange();
+      toast({
+        title: 'Assinatura retomada',
+        description: 'A renovação automática voltou a valer. Nada é cobrado antes do fim do período atual.',
+      });
       return true;
     } catch (error: any) {
-      toast({ title: 'Erro ao cancelar', description: error.message, variant: 'destructive' });
+      toast({ title: 'Assinatura não retomada', description: error.message, variant: 'destructive' });
       return false;
     } finally {
       setIsLoading(false);
@@ -121,7 +162,15 @@ export function usePayment() {
 
   const clearPaymentData = () => setPaymentData(null);
 
-  return { createPayment, fetchOpenInvoice, cancelSubscription, clearPaymentData, isLoading, paymentData };
+  return {
+    createPayment,
+    fetchOpenInvoice,
+    cancelSubscription,
+    reactivateSubscription,
+    clearPaymentData,
+    isLoading,
+    paymentData,
+  };
 }
 
 /** Reconciliação com o Asaas — backend é a autoridade sobre o status. */

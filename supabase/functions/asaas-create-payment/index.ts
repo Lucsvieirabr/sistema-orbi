@@ -121,14 +121,29 @@ serve(async (req) => {
 
     const current = currentSubs?.[0] ?? null
     const isSamePlan = current?.plan_id === plan.id && current?.billing_cycle === billingCycle
-    const isPaidActive = !!current?.asaas_subscription_id
 
-    if (isSamePlan && current?.status === 'active') {
+    // Cancelamento agendado: a assinatura do Asaas já foi removida (PUT nela
+    // falharia), mas o período pago segue valendo. Assinar de novo dentro dele
+    // cria uma assinatura nova com a 1ª cobrança no fim do período — o usuário
+    // não paga duas vezes pelo mesmo intervalo e não perde acesso no meio.
+    const scheduledCancel = !!current?.cancel_at_period_end
+    const resumeWithinPeriod =
+      scheduledCancel &&
+      ['active', 'trial'].includes(current!.status) &&
+      !!current!.current_period_end &&
+      new Date(current!.current_period_end).getTime() > Date.now()
+
+    const isPaidActive = !!current?.asaas_subscription_id && !scheduledCancel
+    const reuseCurrentRow = isPaidActive || resumeWithinPeriod
+
+    if (isSamePlan && current?.status === 'active' && !scheduledCancel) {
       throw new Error('Você já possui este plano ativo')
     }
 
     const cycle = toAsaasCycle(billingCycle)
-    const nextDueDate = toIsoDate(new Date())
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const periodEnd = resumeWithinPeriod ? new Date(current!.current_period_end) : null
+    const nextDueDate = toIsoDate(periodEnd ? (periodEnd > tomorrow ? periodEnd : tomorrow) : new Date())
     const externalReference = `orbi:${user.id}:${plan.id}:${billingCycle}`
 
     let asaasSubscription: AsaasSubscription
@@ -166,6 +181,7 @@ serve(async (req) => {
 
     // Assinaturas anteriores que não são a reaproveitada saem de cena
     const staleIds = (currentSubs ?? [])
+      .filter((s) => !(reuseCurrentRow && s.id === current!.id))
       .filter((s) => s.asaas_subscription_id !== asaasSubscription.id)
       .map((s) => s.id)
 
@@ -189,13 +205,15 @@ serve(async (req) => {
 
     let subscriptionRow
 
-    if (isPaidActive) {
-      // Upgrade sobre plano já pago: mantém acesso, ajusta o plano imediatamente
+    if (reuseCurrentRow) {
+      // Upgrade sobre plano já pago (ou retomada dentro do período): mantém
+      // acesso, ajusta o plano imediatamente e desfaz o cancelamento agendado.
       const { data, error } = await supabase
         .from('user_subscriptions')
         .update({
           ...basePayload,
           status: current!.status === 'past_due' ? 'past_due' : current!.status,
+          cancel_at_period_end: false,
           blocked_reason: null,
         })
         .eq('id', current!.id)
@@ -260,7 +278,7 @@ serve(async (req) => {
           }
         : null,
       asaas_subscription_id: asaasSubscription.id,
-      upgraded: isPaidActive,
+      upgraded: reuseCurrentRow,
     })
   } catch (error) {
     return gateFailure(req, error, 'asaas-create-payment', true)

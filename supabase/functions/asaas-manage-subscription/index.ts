@@ -1,11 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { preflight, jsonFor } from '../_shared/cors.ts'
-import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
-import { gateUser, gateFailure } from '../_shared/gate.ts'
-import { AsaasPayment, asaasFetch } from '../_shared/asaas.ts'
+import { jsonFor, preflight } from '../_shared/cors.ts'
+import { adminClient } from '../_shared/auth.ts'
+import { gateFailure, gateUser } from '../_shared/gate.ts'
+import {
+  AsaasPayment,
+  AsaasSubscription,
+  asaasFetch,
+  isAsaasNotFound,
+  normalizeBillingCycle,
+  toAsaasCycle,
+  toIsoDate,
+} from '../_shared/asaas.ts'
 
 interface Body {
   action: 'cancel' | 'reactivate' | 'invoice'
+}
+
+const badRequest = (message: string) => Object.assign(new Error(message), { status: 400 })
+
+/** Período pago ainda em curso? Sem data = não há o que preservar. */
+function periodIsOpen(sub: { current_period_end?: string | null }): boolean {
+  return !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now()
 }
 
 serve(async (req) => {
@@ -34,17 +49,163 @@ serve(async (req) => {
       .maybeSingle()
 
     if (error) throw error
-    if (!sub) throw new Error('Nenhuma assinatura encontrada')
+    if (!sub) throw badRequest('Nenhuma assinatura encontrada')
 
+    // ------------------------------------------------------------------------
+    // CANCELAR
+    // ------------------------------------------------------------------------
+    // Duas saídas, decididas aqui e nunca pelo cliente:
+    //   * período pago em curso (active/trial) → cancel_at_period_end. O acesso
+    //     segue até current_period_end e a RPC get_my_subscription_status
+    //     devolve no_plan depois dessa data;
+    //   * nada pago a preservar (pending, past_due, período vencido) → encerra
+    //     na hora (status = canceled).
+    //
+    // Ordem: banco ANTES do Asaas. O DELETE dispara SUBSCRIPTION_DELETED no
+    // webhook; se ele chegasse antes da marca cancel_at_period_end, o handler
+    // cortaria um período já pago. Falha no Asaas desfaz a marca.
     if (body.action === 'cancel') {
-      if (sub.asaas_subscription_id) {
-        await asaasFetch(`/subscriptions/${sub.asaas_subscription_id}`, { method: 'DELETE' })
+      if (sub.cancel_at_period_end) {
+        return jsonFor(req, {
+          success: true,
+          immediate: false,
+          access_until: sub.current_period_end,
+          subscription: sub,
+        })
       }
 
-      const { data, error: updateError } = await supabase
+      if (!sub.asaas_subscription_id) {
+        throw badRequest('Este plano não tem cobrança recorrente para cancelar')
+      }
+
+      const immediate =
+        sub.status === 'pending' || sub.status === 'past_due' || !periodIsOpen(sub)
+      const now = new Date().toISOString()
+
+      const previous = {
+        status: sub.status,
+        cancel_at_period_end: sub.cancel_at_period_end ?? false,
+        next_due_date: sub.next_due_date,
+        grace_period_end: sub.grace_period_end,
+        blocked_reason: sub.blocked_reason,
+      }
+
+      const patch = immediate
+        ? {
+            status: 'canceled',
+            cancel_at_period_end: false,
+            next_due_date: null,
+            grace_period_end: null,
+            blocked_reason: 'Cancelada pelo usuário',
+            updated_at: now,
+          }
+        : {
+            cancel_at_period_end: true,
+            next_due_date: null,
+            blocked_reason: null,
+            updated_at: now,
+          }
+
+      const { data: updated, error: updateError } = await supabase
+        .from('user_subscriptions')
+        .update(patch)
+        .eq('id', sub.id)
+        .select()
+        .single()
+
+      if (updateError) throw updateError
+
+      try {
+        await asaasFetch(`/subscriptions/${sub.asaas_subscription_id}`, { method: 'DELETE' })
+      } catch (asaasError) {
+        if (!isAsaasNotFound(asaasError)) {
+          await supabase
+            .from('user_subscriptions')
+            .update({ ...previous, updated_at: new Date().toISOString() })
+            .eq('id', sub.id)
+          throw asaasError
+        }
+      }
+
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: immediate ? 'subscription_canceled' : 'subscription_cancel_scheduled',
+        entity_type: 'user_subscriptions',
+        entity_id: sub.id,
+        metadata: { asaas_subscription_id: sub.asaas_subscription_id, access_until: sub.current_period_end },
+      }).then(() => undefined, () => undefined)
+
+      return jsonFor(req, {
+        success: true,
+        immediate,
+        access_until: immediate ? null : sub.current_period_end,
+        subscription: updated,
+      })
+    }
+
+    // ------------------------------------------------------------------------
+    // RETOMAR (desfaz cancelamento agendado)
+    // ------------------------------------------------------------------------
+    // A assinatura antiga foi removida no Asaas; cria-se uma nova para o mesmo
+    // plano com a primeira cobrança no fim do período já pago. Nada é cobrado
+    // antes disso. Falha ao gravar no banco remove a assinatura recém-criada.
+    if (body.action === 'reactivate') {
+      if (!sub.cancel_at_period_end || !['active', 'trial'].includes(sub.status) || !periodIsOpen(sub)) {
+        throw badRequest('Não há cancelamento agendado para retomar')
+      }
+
+      const { data: plan, error: planError } = await supabase
+        .from('subscription_plans')
+        .select('*')
+        .eq('id', sub.plan_id)
+        .maybeSingle()
+
+      if (planError) throw planError
+      if (!plan || !plan.is_active) {
+        throw badRequest('Este plano não está mais disponível. Escolha um plano na página de planos.')
+      }
+
+      const billingCycle = normalizeBillingCycle(sub.billing_cycle)
+      const amount = Number(billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly)
+      if (!(amount > 0)) throw badRequest('Plano gratuito não tem renovação para retomar')
+
+      let customerId: string | null = sub.asaas_customer_id ?? null
+      if (!customerId) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('asaas_customer_id')
+          .eq('user_id', user.id)
+          .maybeSingle()
+        customerId = profile?.asaas_customer_id ?? null
+      }
+      if (!customerId) {
+        throw badRequest('Cliente não encontrado no gateway. Escolha o plano novamente na página de planos.')
+      }
+
+      const firstDue = new Date(sub.current_period_end)
+      const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+      const nextDueDate = toIsoDate(firstDue > tomorrow ? firstDue : tomorrow)
+
+      const created = await asaasFetch<AsaasSubscription>('/subscriptions', {
+        method: 'POST',
+        body: {
+          customer: customerId,
+          billingType: 'UNDEFINED',
+          value: amount,
+          nextDueDate,
+          cycle: toAsaasCycle(billingCycle),
+          description: `Orbi - ${plan.name}`,
+          externalReference: `orbi:${user.id}:${plan.id}:${billingCycle}`,
+        },
+      })
+
+      const { data: resumed, error: resumeError } = await supabase
         .from('user_subscriptions')
         .update({
-          cancel_at_period_end: true,
+          asaas_subscription_id: created.id,
+          asaas_customer_id: customerId,
+          cancel_at_period_end: false,
+          next_due_date: created.nextDueDate ?? nextDueDate,
           blocked_reason: null,
           updated_at: new Date().toISOString(),
         })
@@ -52,12 +213,27 @@ serve(async (req) => {
         .select()
         .single()
 
-      if (updateError) throw updateError
-      return jsonFor(req, { success: true, subscription: data })
+      if (resumeError) {
+        await asaasFetch(`/subscriptions/${created.id}`, { method: 'DELETE' }).catch(() => undefined)
+        throw resumeError
+      }
+
+      await supabase.from('audit_logs').insert({
+        user_id: user.id,
+        action: 'subscription_reactivated',
+        entity_type: 'user_subscriptions',
+        entity_id: sub.id,
+        metadata: { asaas_subscription_id: created.id, next_due_date: nextDueDate },
+      }).then(() => undefined, () => undefined)
+
+      return jsonFor(req, { success: true, subscription: resumed })
     }
 
+    // ------------------------------------------------------------------------
+    // SEGUNDA VIA
+    // ------------------------------------------------------------------------
     if (body.action === 'invoice') {
-      if (!sub.asaas_subscription_id) throw new Error('Assinatura sem cobrança no gateway')
+      if (!sub.asaas_subscription_id) throw badRequest('Assinatura sem cobrança no gateway')
 
       const payments = await asaasFetch<{ data: AsaasPayment[] }>(
         `/subscriptions/${sub.asaas_subscription_id}/payments?status=PENDING&limit=1`,
@@ -71,7 +247,7 @@ serve(async (req) => {
         payment = overdue?.data?.[0] ?? null
       }
 
-      if (!payment) throw new Error('Nenhuma cobrança em aberto')
+      if (!payment) throw badRequest('Nenhuma cobrança em aberto')
 
       await supabase.from('payment_history').upsert(
         {
@@ -102,7 +278,7 @@ serve(async (req) => {
       })
     }
 
-    throw new Error('Ação inválida')
+    throw badRequest('Ação inválida')
   } catch (error) {
     return gateFailure(req, error, 'asaas-manage-subscription', true)
   }

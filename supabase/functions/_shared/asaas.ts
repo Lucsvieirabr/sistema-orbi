@@ -20,6 +20,8 @@ export interface AsaasSubscription {
   nextDueDate: string
   billingType: string
   externalReference?: string
+  /** true depois de DELETE /subscriptions/:id — o Asaas mantém o registro. */
+  deleted?: boolean
 }
 
 export interface AsaasPayment {
@@ -70,6 +72,11 @@ export async function asaasFetch<T>(
   }
 
   return parsed as T
+}
+
+/** Recurso já removido no Asaas: em cancelamento, é o estado desejado, não erro. */
+export function isAsaasNotFound(error: unknown): boolean {
+  return /falhou \(404\)/.test((error as Error)?.message ?? '')
 }
 
 export function toAsaasCycle(billingCycle: string): AsaasCycle {

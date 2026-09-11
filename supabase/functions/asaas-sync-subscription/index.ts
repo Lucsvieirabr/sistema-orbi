@@ -35,7 +35,10 @@ serve(async (req) => {
 
     if (error) throw error
 
-    if (!sub?.asaas_subscription_id) {
+    // Cancelamento agendado: a assinatura já foi removida no Asaas de propósito.
+    // Reconciliar agora leria INACTIVE/404 e cortaria o período já pago — o fim
+    // do acesso é decidido pela RPC em current_period_end.
+    if (!sub?.asaas_subscription_id || sub.cancel_at_period_end) {
       const { data: status } = await asUser.rpc('get_my_subscription_status')
       return jsonFor(req, { success: true, synced: false, status })
     }
@@ -56,7 +59,7 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }
 
-    if (remote.status === 'INACTIVE' || remote.status === 'EXPIRED') {
+    if (remote.deleted || remote.status === 'INACTIVE' || remote.status === 'EXPIRED') {
       patch.status = 'canceled'
       patch.blocked_reason = 'Assinatura inativa no gateway'
     } else if (settled) {

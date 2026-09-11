@@ -108,6 +108,14 @@ Qualquer feature nova com limite deve ganhar trigger simétrico — validação 
 ### 9. Precisão monetária
 Toda operação de valor passa por `roundCurrency()` (2 casas, `Math.round`) antes de persistir — evitar erro de float acumulado em parcelamento/rateio. `numeric(12,2)` em colunas monetárias no SQL (`series.total_value`, `compensation_value`).
 
+### 10. Cancelamento de assinatura (Configurações → Assinatura)
+UI: `src/components/settings/SubscriptionSettings.tsx` + `CancelSubscriptionDialog.tsx` (2 etapas: impacto → aceite explícito; nunca 1 clique). Backend: `asaas-manage-subscription` `{action:'cancel'|'reactivate'|'invoice'}` via `usePayment()`.
+- Período pago em curso (`active`/`trial`, `current_period_end > now`) → `cancel_at_period_end=true`, status segue `active`, `DELETE /subscriptions/:id` no Asaas. `pending`/`past_due`/período vencido → `status='canceled'` na hora.
+- **Ordem obrigatória: UPDATE no banco ANTES do DELETE no Asaas** (o webhook `SUBSCRIPTION_DELETED` chega em ms; sem a marca ele cortaria o período pago). Falha no Asaas desfaz o UPDATE; 404 no Asaas = já removida = sucesso.
+- Webhook (`isScheduledCancellation`) e `asaas-sync-subscription` preservam linha com cancelamento agendado; `PAYMENT_DELETED` não expira nem ressuscita linha `canceled`.
+- Fim do acesso: RPC `get_my_subscription_status` ignora cancelamento agendado com período vencido → `no_plan` (/pricing, não /billing). `orbi_active_plan_limits/features` idem (migration `20260911120000`).
+- `reactivate` = nova assinatura no Asaas com 1ª cobrança em `current_period_end`; `asaas-create-payment` faz o mesmo se o usuário assinar de novo dentro do período (não dá PUT na assinatura removida).
+
 ---
 
 ## [PROJECT STRUCTURE & STATE]
