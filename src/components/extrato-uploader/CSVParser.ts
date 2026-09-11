@@ -42,6 +42,13 @@ export interface ParsedTransaction {
   account_id?: string;
   credit_card_id?: string;
   payment_method?: 'debit' | 'credit';
+  /**
+   * Últimos 4 dígitos lidos da máscara da fatura ("•••• 0040").
+   * Só preenchido no caminho de fatura de cartão. Serve para a tela de
+   * confirmação dizer de QUAL cartão a linha veio — a máscara era descartada
+   * junto com a limpeza da descrição e essa informação se perdia.
+   */
+  card_last4?: string;
 }
 
 export interface CategoryMap {

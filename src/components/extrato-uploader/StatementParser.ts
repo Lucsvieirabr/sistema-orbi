@@ -422,7 +422,10 @@ export class StatementParser {
         continue;
       }
 
-      // Máscara do cartão ("•••• 0040") não é descrição.
+      // Máscara do cartão ("•••• 0040") não é descrição — mas os 4 dígitos
+      // dizem de qual cartão/portador é a linha. Guardamos antes de remover.
+      const maskMatch = description.match(/[•·∙●*.]{3,}\s*(\d{3,4})/);
+      const cardLast4 = maskMatch ? maskMatch[1] : undefined;
       description = description.replace(CARD_MASK, ' ');
       // Prefixo de CNPJ do estabelecimento ("39.489.726 MARCOS ROBERTO...").
       description = description.replace(/^\d{2}\.\d{3}\.\d{3}(?:\/\d{4}-\d{2})?\s+/, '');
@@ -473,6 +476,7 @@ export class StatementParser {
         payment_method: 'credit',
         installments,
         installment_number: installmentNumber,
+        card_last4: cardLast4,
       });
     }
 
