@@ -19,7 +19,7 @@ export interface PdfExtractionResult {
   rawText: string;
   /** OK = texto nativo; SCANNED_PDF = imagem (precisa de OCR); EXTRACTION_FAILED = pdf.js falhou. */
   code: 'OK' | 'SCANNED_PDF' | 'EXTRACTION_FAILED';
-  source: 'edge-function' | 'ocr';
+  source: 'local-pdfjs' | 'edge-function' | 'ocr';
   pages: number;
   characters: number;
   lines: number;
@@ -28,6 +28,183 @@ export interface PdfExtractionResult {
 
 /** Abaixo disso não há conteúdo suficiente para interpretar um extrato. */
 const MIN_MEANINGFUL_CHARS = 80;
+
+/* ===========================================================================
+ * EXTRAÇÃO NATIVA LOCAL (pdf.js no navegador)
+ *
+ * Por que existe: a extração nativa dependia INTEIRAMENTE da Edge Function
+ * `extract-pdf-text`. Se ela não estivesse publicada, estivesse com rate limit
+ * (20 PDFs/h), fora do ar, ou o PDF passasse de 4MB, o fluxo caía no OCR — e o
+ * OCR devolve datas quebradas ("29,JUN", "O1JUL", "29UN") que nenhum parser de
+ * fatura reconhece. O sintoma era uma fatura de 72 lançamentos importar 3.
+ *
+ * O `pdfjs-dist` já é dependência do projeto e já está carregado aqui (era
+ * usado só para rasterizar as páginas para o OCR). `getTextContent()` entrega
+ * a MESMA camada de texto que a Edge Function lê — sem rede, sem JWT, sem
+ * limite de payload e sem divergência de versão do pdf.js entre cliente e
+ * servidor. A Edge Function passa a ser plano B, e o OCR plano C.
+ * ======================================================================== */
+
+/** Tolerância vertical (pt) para considerar dois itens na MESMA linha. */
+const LINE_Y_TOLERANCE = 2.5;
+/** Fração da altura da fonte que caracteriza um espaço entre dois itens. */
+const SPACE_GAP_RATIO = 0.28;
+/** Controle/formatação (categoria Unicode C), preservando \n. */
+const CONTROL_OR_FORMAT = /[^\P{C}\n]/gu;
+/** Whitespace horizontal (espaço, tab, NBSP, espaços tipográficos), sem \n. */
+const HORIZONTAL_WS = /[^\S\n]+/g;
+
+/**
+ * Agrupa os `items` de uma página em linhas de texto ordenadas.
+ *
+ * pdf.js entrega `items` sem nenhuma noção de linha — cada item traz sua
+ * matriz `transform` ([a,b,c,d,e,f], com e=x e f=y). Agrupar por Y reconstitui
+ * a linha visual; o vão horizontal entre `x + width` do item anterior e o `x`
+ * do próximo reconstitui o espaço entre as colunas (data | máscara |
+ * descrição | valor). Sem isso, `items.map(i => i.str).join(' ')` produziria
+ * uma única linha gigante e todo parser — que é orientado a linha — acharia
+ * zero transações.
+ */
+function itemsToLines(items: any[]): string[] {
+  type Positioned = { str: string; x: number; y: number; w: number; h: number };
+
+  const positioned: Positioned[] = [];
+
+  for (const item of items) {
+    const str: string = typeof item?.str === 'string' ? item.str : '';
+    if (!str || !str.trim()) continue;
+
+    const tr: number[] = Array.isArray(item.transform) ? item.transform : [1, 0, 0, 1, 0, 0];
+    positioned.push({
+      str,
+      x: tr[4] ?? 0,
+      y: tr[5] ?? 0,
+      w: typeof item.width === 'number' ? item.width : 0,
+      h: Math.abs(tr[3] ?? 0) || (typeof item.height === 'number' ? item.height : 10) || 10,
+    });
+  }
+
+  if (positioned.length === 0) return [];
+
+  // Y decrescente: no PDF a origem fica no canto inferior esquerdo.
+  positioned.sort((a, b) => (b.y - a.y) || (a.x - b.x));
+
+  const rows: { y: number; items: Positioned[] }[] = [];
+  let current: { y: number; items: Positioned[] } | null = null;
+
+  for (const it of positioned) {
+    if (!current || Math.abs(current.y - it.y) > LINE_Y_TOLERANCE) {
+      current = { y: it.y, items: [it] };
+      rows.push(current);
+    } else {
+      current.items.push(it);
+      // Média corrente do Y: evita "escorregar" a linha em sub/sobrescrito.
+      current.y = (current.y * (current.items.length - 1) + it.y) / current.items.length;
+    }
+  }
+
+  const lines: string[] = [];
+
+  for (const row of rows) {
+    row.items.sort((a, b) => a.x - b.x);
+
+    let text = '';
+    let prevEnd: number | null = null;
+    let prevHeight = 10;
+
+    for (const it of row.items) {
+      if (prevEnd !== null) {
+        const gap = it.x - prevEnd;
+        const threshold = Math.max(1, prevHeight * SPACE_GAP_RATIO);
+        if (gap > threshold) text += ' ';
+      }
+      text += it.str;
+      prevEnd = it.x + (it.w || 0);
+      prevHeight = it.h || prevHeight;
+    }
+
+    const normalized = text.replace(HORIZONTAL_WS, ' ').trim();
+    if (normalized) lines.push(normalized);
+  }
+
+  return lines;
+}
+
+/** Limpeza conservadora: nunca `\s+`, que colapsaria as quebras de linha. */
+function cleanExtractedText(text: string): string {
+  if (!text) return '';
+
+  return text
+    .replace(/\r\n?/g, '\n')
+    .replace(CONTROL_OR_FORMAT, '')
+    .replace(HORIZONTAL_WS, ' ')
+    .split('\n')
+    .map(line => line.trim())
+    .filter((line, i, arr) => line !== '' || (i > 0 && arr[i - 1].trim() !== ''))
+    .join('\n')
+    .trim();
+}
+
+/** Teto de páginas: PDF pequeno com milhares de páginas trava a aba. */
+const MAX_LOCAL_PAGES = 100;
+
+/**
+ * Extrai a camada de texto do PDF no próprio navegador, preservando linhas.
+ * Devolve `null` quando o PDF não tem camada de texto (digitalizado) ou quando
+ * o pdf.js não consegue abrir o arquivo — nos dois casos o chamador segue
+ * para os planos B e C.
+ */
+async function extractTextLocally(file: File): Promise<PdfExtractionResult | null> {
+  try {
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({
+      data: arrayBuffer,
+      useSystemFonts: true,
+      // Nunca resolver referências externas a partir de um arquivo do usuário.
+      isEvalSupported: false,
+      disableAutoFetch: true,
+    }).promise;
+
+    const numPages = Math.min(pdf.numPages, MAX_LOCAL_PAGES);
+    const pageTexts: string[] = [];
+
+    for (let pageNum = 1; pageNum <= numPages; pageNum++) {
+      const page = await pdf.getPage(pageNum);
+      const textContent = await page.getTextContent();
+      pageTexts.push(itemsToLines(textContent.items as any[]).join('\n'));
+    }
+
+    // \n simples entre páginas: uma transação nunca cruza a quebra de página,
+    // e um separador decorado viraria uma linha inválida para o parser.
+    const rawText = cleanExtractedText(pageTexts.join('\n'));
+    const characters = rawText.length;
+
+    if (characters < MIN_MEANINGFUL_CHARS) {
+      return {
+        rawText,
+        code: 'SCANNED_PDF',
+        source: 'local-pdfjs',
+        pages: numPages,
+        characters,
+        lines: rawText ? rawText.split('\n').length : 0,
+        isScanned: true,
+      };
+    }
+
+    return {
+      rawText,
+      code: 'OK',
+      source: 'local-pdfjs',
+      pages: numPages,
+      characters,
+      lines: rawText.split('\n').length,
+      isScanned: false,
+    };
+  } catch (error) {
+    console.warn('[parser_api] extração nativa local falhou:', error);
+    return null;
+  }
+}
 
 /**
  * Sentinelas da versão ANTIGA da Edge Function. Mantidas apenas para o período
@@ -183,7 +360,12 @@ async function extractTextFromImage(imageDataUrl: string): Promise<string> {
       'por', // Português
       {
         // Logger removido para evitar poluição do console
-      }
+        // O comentário do topo desta função dizia que
+        // `preserve_interword_spaces` estava ligado, mas o objeto de opções
+        // estava vazio — as colunas voltavam coladas. Agora está de fato
+        // ligado (`'1'`, string, é o formato que o Tesseract espera).
+        preserve_interword_spaces: '1',
+      } as any
     );
 
     return result.data.text ?? '';
@@ -204,13 +386,19 @@ async function isPdfSignatureValid(file: File): Promise<boolean> {
 /**
  * Processa um arquivo PDF completo (extração nativa + fallback OCR).
  *
- * Ordem:
- *  1. Edge Function `extract-pdf-text` (pdf.js server-side, preserva linhas).
- *  2. Se o PDF for digitalizado (`SCANNED_PDF`), grande demais para a função,
- *     ou a extração falhar: OCR local com Tesseract.
- *  3. Se nem o OCR produzir texto útil, erro EXPLÍCITO dizendo o motivo — em
- *     vez do genérico "Nenhuma transação foi detectada no arquivo", que fazia
- *     o usuário achar que o extrato estava vazio.
+ * Ordem (mudou — ver o bloco EXTRAÇÃO NATIVA LOCAL no topo do arquivo):
+ *  1. pdf.js NO NAVEGADOR (`extractTextLocally`). Determinístico, sem rede.
+ *  2. Edge Function `extract-pdf-text`, só se o passo 1 não achar camada de
+ *     texto — cobre o caso de um pdf.js server-side de versão diferente
+ *     conseguir abrir um arquivo que o do cliente não abriu.
+ *  3. OCR local com Tesseract (PDF realmente digitalizado).
+ *  4. Se nem o OCR produzir texto útil, erro EXPLÍCITO dizendo o motivo.
+ *
+ * O OCR era alcançado cedo demais: bastava a Edge Function não estar
+ * publicada, estar em rate limit ou o PDF passar de 4MB. E o texto de OCR
+ * quebra as datas da fatura ("29,JUN", "O1JUL"), o que reduzia uma fatura de
+ * 72 lançamentos a um punhado. Agora o OCR só entra quando é de fato a única
+ * opção — PDF sem camada de texto.
  */
 export async function processPdfFile(
   file: File,
@@ -240,7 +428,32 @@ export async function processPdfFileDetailed(
   let edgeResult: PdfExtractionResult | null = null;
   let edgeError: unknown = null;
 
-  // Passo 1: extração nativa via Edge Function (só quando o payload cabe no
+  // Passo 1: pdf.js no navegador. É o caminho normal — o mesmo `pdfjs-dist`
+  // que já rasteriza as páginas para o OCR também lê a camada de texto.
+  const localResult = await extractTextLocally(file);
+
+  if (localResult) {
+    console.info('[parser_api] extração nativa local:', {
+      code: localResult.code,
+      paginas: localResult.pages,
+      caracteres: localResult.characters,
+      linhas: localResult.lines,
+    });
+
+    if (localResult.code === 'OK' && localResult.characters >= MIN_MEANINGFUL_CHARS) {
+      onProgress?.(100);
+      return localResult;
+    }
+
+    console.warn(
+      '[parser_api] PDF sem camada de texto utilizável localmente (chars=%d). Tentando Edge Function.',
+      localResult.characters,
+    );
+  }
+
+  onProgress?.(15);
+
+  // Passo 2: extração nativa via Edge Function (só quando o payload cabe no
   // limite do gateway).
   if (file.size <= EDGE_FUNCTION_SAFE_LIMIT) {
     try {
@@ -274,7 +487,8 @@ export async function processPdfFileDetailed(
     }
   }
 
-  // Passo 2: OCR local (PDF digitalizado ou grande demais para a Edge Function)
+  // Passo 3: OCR local. Último recurso — o texto de OCR degrada as datas da
+  // fatura e derruba boa parte dos lançamentos.
   onProgress?.(20);
 
   let images: string[] = [];

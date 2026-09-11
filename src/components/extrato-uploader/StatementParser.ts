@@ -299,13 +299,64 @@ export class StatementParser {
     return 'generic';
   }
 
-  /** Regex de uma linha de lançamento em fatura: "DD MMM [máscara] desc R$ 0,00". */
+  /**
+   * Regex de uma linha de lançamento em fatura: "DD MMM [máscara] desc R$ 0,00".
+   *
+   * O separador entre dia e mês é `[\s.,]*` — TOLERANTE, não `\s+`.
+   * Motivo verificado em texto real de OCR da mesma fatura: o Tesseract devolve
+   * "29,JUN", "29JUN", "27 JUL." e "O1JUL" no lugar de "29 JUN". Exigir espaço
+   * derrubava essas linhas silenciosamente; numa fatura de 72 lançamentos
+   * sobravam pouquíssimos — justamente os de descrição longa, que o OCR
+   * alinhava melhor. O dia continua preso a 1-2 dígitos e o valor continua
+   * ancorado no fim da linha, então afrouxar o separador não abre espaço para
+   * falso positivo.
+   */
   private cardInvoiceLineRegex(): RegExp {
     const months = Object.keys(MONTH_ABBR).join('|');
     return new RegExp(
-      `^(\\d{1,2})\\s+(${months})\\.?\\s+(.+?)\\s+(${MINUS_CLASS})?\\s*R\\$\\s*(\\d{1,3}(?:\\.\\d{3})*,\\d{2})$`,
+      `^(\\d{1,2})[\\s.,]*(${months})\\.?\\s+(.+?)\\s+(${MINUS_CLASS})?\\s*R\\$\\s*(\\d{1,3}(?:\\.\\d{3})*,\\d{2})$`,
       'i',
     );
+  }
+
+  /**
+   * Descobre quais "últimos 4 dígitos" pertencem à máscara do cartão neste
+   * documento — e não à descrição de um estabelecimento.
+   *
+   * Duas fontes, porque o OCR destrói a máscara:
+   *  1. máscara íntegra em qualquer lugar do texto ("•••• 0040");
+   *  2. um mesmo grupo de 4 dígitos aparecendo logo após a data em 3+ linhas
+   *     — repetição assim só acontece com a máscara, nunca com o nome de um
+   *     estabelecimento.
+   *
+   * A exigência de fazer parte deste conjunto é o que impede que "226 Liv
+   * Ctba" ou "1234 Loja" percam o começo da descrição.
+   */
+  private collectCardLast4(text: string): Set<string> {
+    const found = new Set<string>();
+
+    const intact = /[•·∙●*]{2,}\s*(\d{4})\b/g;
+    let match: RegExpExecArray | null;
+    while ((match = intact.exec(text)) !== null) {
+      found.add(match[1]);
+    }
+
+    const months = Object.keys(MONTH_ABBR).join('|');
+    const afterDate = new RegExp(
+      `^\\d{1,2}[\\s.,]*(?:${months})\\.?\\s+[^\\p{L}\\p{N}]*(\\d{4})\\s+\\S`,
+      'iu',
+    );
+
+    const counts = new Map<string, number>();
+    for (const line of text.split('\n')) {
+      const hit = line.trim().match(afterDate);
+      if (hit) counts.set(hit[1], (counts.get(hit[1]) ?? 0) + 1);
+    }
+    for (const [digits, occurrences] of counts) {
+      if (occurrences >= 3) found.add(digits);
+    }
+
+    return found;
   }
 
   private countCardInvoiceLines(text: string): number {
@@ -390,6 +441,7 @@ export class StatementParser {
   private extractCardInvoiceFormat(rawText: string): ParsedTransaction[] {
     const lineRegex = this.cardInvoiceLineRegex();
     const yearOf = this.buildYearResolver(rawText);
+    const knownLast4 = this.collectCardLast4(rawText);
     const parcelaRegex = new RegExp(
       `\\s*${MINUS_CLASS}?\\s*parcela\\s+(\\d{1,2})\\s*/\\s*(\\d{1,2})\\s*$`,
       'i',
@@ -424,9 +476,29 @@ export class StatementParser {
 
       // Máscara do cartão ("•••• 0040") não é descrição — mas os 4 dígitos
       // dizem de qual cartão/portador é a linha. Guardamos antes de remover.
-      const maskMatch = description.match(/[•·∙●*.]{3,}\s*(\d{3,4})/);
-      const cardLast4 = maskMatch ? maskMatch[1] : undefined;
-      description = description.replace(CARD_MASK, ' ');
+      let cardLast4: string | undefined;
+
+      const maskMatch = description.match(/[•·∙●*.]{2,}\s*(\d{3,4})\b/);
+      if (maskMatch) {
+        cardLast4 = maskMatch[1];
+        description = description.replace(CARD_MASK, ' ');
+      }
+
+      // Máscara degradada pelo OCR. Os bullets viram um caractere só, ou
+      // nenhum: "+0040 Ocafe", "* 0040 CA Modas", "“0040 Art Levain",
+      // "- 0040 Gc Executive Barber", "0040 Cursor". Sem isso os 4 dígitos
+      // ficavam grudados na descrição e iam parar no classificador de IA.
+      if (!cardLast4) {
+        const degraded = description.match(/^[^\p{L}\p{N}]*(\d{4})\s+(?=\S)/u);
+        if (degraded && knownLast4.has(degraded[1])) {
+          cardLast4 = degraded[1];
+          description = description.slice(degraded[0].length);
+        }
+      }
+
+      // Restos de máscara ("®", "__", "+", "*") no início da descrição.
+      // A aspa fica de fora: 'IOF de "Cursor, Ai Powered Ide"' é legítima.
+      description = description.replace(/^[^\p{L}\p{N}"]+/u, '');
       // Prefixo de CNPJ do estabelecimento ("39.489.726 MARCOS ROBERTO...").
       description = description.replace(/^\d{2}\.\d{3}\.\d{3}(?:\/\d{4}-\d{2})?\s+/, '');
       description = description.replace(/\s+/g, ' ').trim();
