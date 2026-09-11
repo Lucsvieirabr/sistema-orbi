@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -23,7 +24,10 @@ const segmentTrigger =
 export function AuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
-  const [activeTab, setActiveTab] = useState<"login" | "register">("login");
+  const [searchParams] = useSearchParams();
+  const [activeTab, setActiveTab] = useState<"login" | "register">(() =>
+    searchParams.get("modo") === "cadastro" ? "register" : "login",
+  );
   const { login, register } = useAuth();
 
   /**

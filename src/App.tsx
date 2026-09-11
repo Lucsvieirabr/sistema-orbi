@@ -9,6 +9,7 @@ import { AdminAuthForm } from "@/admin/components/AdminAuthForm";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { SubscriptionGuard } from "@/components/guards/SubscriptionGuard";
 import NotFound from "./pages/NotFound";
+import Landing from "./pages/Landing";
 import Pricing from "./pages/Pricing";
 import Billing from "./pages/Billing";
 import { ThemeProvider } from "@/hooks/use-theme";
@@ -96,10 +97,9 @@ const App = () => {
           <Sonner />
           <BrowserRouter>
             <Routes>
-              {/* Root: redireciona para /pricing ou /sistema */}
-              <Route 
-                path="/" 
-                element={<Navigate to={isAuthenticated ? "/sistema" : "/pricing"} replace />} 
+              <Route
+                path="/"
+                element={isAuthenticated ? <Navigate to="/sistema" replace /> : <Landing />}
               />
 
               {/* Rotas públicas */}
