@@ -48,6 +48,9 @@ const FEATURE_ROWS = [
   { key: "transacoes_importar_csv", label: "Importar CSV" },
   { key: "ia_classificacao_automatica", label: "Classificação automática" },
   { key: "dashboard_assinaturas", label: "Painel de assinaturas" },
+  { key: "orcamentos", label: "Orçamentos Inteligentes" },
+  { key: "metas", label: "Metas Financeiras" },
+  { key: "dre_pessoal", label: "DRE Pessoal Avançado" },
   { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
 ] as const;
 
@@ -459,7 +462,8 @@ export default function Pricing() {
               <h1 className="mt-3 text-balance">Escolha como o Orbi vai trabalhar para você.</h1>
               <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
                 Todos os planos incluem extrato, contas e categorias. O que muda é o quanto
-                a inteligência do Orbi classifica por você — e quantos registros cabem.
+                a inteligência do Orbi classifica por você, quantos registros cabem e se você
+                planeja o mês com orçamentos, metas e DRE.
               </p>
             </div>
 

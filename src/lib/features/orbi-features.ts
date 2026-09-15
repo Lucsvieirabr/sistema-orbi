@@ -247,6 +247,37 @@ featureRegistry.registerFeatures([
   ),
 ]);
 
+// ============================================================================
+// 🧭 PLANEJAMENTO — MÓDULOS PREMIUM (exclusivos Pro e Casal)
+// ============================================================================
+// Autoridade: migration 20260915150000 (RLS + triggers + RPCs exigem a mesma
+// feature). Aqui só declaramos que o módulo EXISTE; quem pode usar vem do plano.
+// Catálogo de UX (rota, pitch, prévia) em `premium-modules.ts`.
+
+featureRegistry.registerFeatures([
+  defineFeature(
+    'orcamentos',
+    'Orçamentos Inteligentes',
+    'Um teto de gasto por categoria, com consumo do mês em tempo real e sugestões pela média dos últimos 3 meses',
+    'financial',
+    { route: '/sistema/budgets', metadata: { module: 'planejamento', icon: '🎯', moduleLabel: 'Planejamento' } }
+  ),
+  defineFeature(
+    'metas',
+    'Metas Financeiras',
+    'Objetivos com valor e prazo, aportes e resgates, e quanto guardar por mês para chegar lá',
+    'financial',
+    { route: '/sistema/goals', metadata: { module: 'planejamento', icon: '🏁', moduleLabel: 'Planejamento' } }
+  ),
+  defineFeature(
+    'dre_pessoal',
+    'DRE Pessoal Avançado',
+    'Fechamento do mês: resultado, taxa de poupança, variação contra o mês anterior e maior despesa',
+    'financial',
+    { route: '/sistema/analytics', metadata: { module: 'planejamento', icon: '📑', moduleLabel: 'Planejamento' } }
+  ),
+]);
+
 
 
 

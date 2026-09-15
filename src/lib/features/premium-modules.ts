@@ -1,0 +1,92 @@
+/**
+ * ============================================================================
+ * MÓDULOS PREMIUM — catálogo de UX
+ * ============================================================================
+ * Orçamentos, Metas e Fechamento do Mês (DRE) são exclusivos dos planos Pro e
+ * Casal. Este arquivo descreve COMO cada módulo aparece (rota, nome, pitch,
+ * benefícios). QUEM pode usar vem do plano (`subscription_plans.features`) e
+ * é imposto no banco: RLS + triggers + RPCs da migration 20260915150000.
+ *
+ * A mesma chave de feature é usada em:
+ *   - orbi-features.ts          (registry — admin liga/desliga por plano)
+ *   - PremiumRoute              (gate de rota com tela de upgrade)
+ *   - AppSidebar                (cadeado discreto no item)
+ *   - Pricing / plan-highlights (benefício no card do plano)
+ *   - plan-impact.ts            (o que se perde ao cancelar)
+ */
+
+import { Gauge, ScrollText, Target, type LucideIcon } from "lucide-react";
+
+export type PremiumModuleKey = "budgets" | "goals" | "analytics";
+
+export interface PremiumModule {
+  key: PremiumModuleKey;
+  /** Chave em `subscription_plans.features`. */
+  feature: "orcamentos" | "metas" | "dre_pessoal";
+  path: string;
+  /** Nome comercial (cards de plano, tela de upgrade). */
+  productName: string;
+  /** Nome curto da navegação. */
+  navLabel: string;
+  icon: LucideIcon;
+  /** Uma frase: o que o módulo faz pela pessoa. */
+  pitch: string;
+  benefits: string[];
+}
+
+export const PREMIUM_MODULES: Record<PremiumModuleKey, PremiumModule> = {
+  budgets: {
+    key: "budgets",
+    feature: "orcamentos",
+    path: "/sistema/budgets",
+    productName: "Orçamentos Inteligentes",
+    navLabel: "Orçamentos",
+    icon: Gauge,
+    pitch: "Defina quanto pode sair por categoria e veja, a cada lançamento, quanto ainda cabe no mês.",
+    benefits: [
+      "Teto mensal por categoria de gasto",
+      "Consumo em tempo real, somando o que já está agendado",
+      "Valor sugerido pela sua média dos últimos 3 meses",
+      "Tetos do mês anterior copiados com um clique",
+    ],
+  },
+  goals: {
+    key: "goals",
+    feature: "metas",
+    path: "/sistema/goals",
+    productName: "Metas Financeiras",
+    navLabel: "Metas",
+    icon: Target,
+    pitch: "Dê valor e prazo a cada objetivo. O Orbi calcula quanto guardar por mês para chegar lá.",
+    benefits: [
+      "Metas com valor-alvo, prazo, ícone e cor",
+      "Aportes e resgates com histórico",
+      "Quanto guardar por mês até o prazo",
+      "No Plano Casal, as metas ficam visíveis para os dois",
+    ],
+  },
+  analytics: {
+    key: "analytics",
+    feature: "dre_pessoal",
+    path: "/sistema/analytics",
+    productName: "DRE Pessoal Avançado",
+    navLabel: "Fechamento do mês",
+    icon: ScrollText,
+    pitch: "O demonstrativo do seu mês: o que entrou, para onde foi e quanto sobrou, comparado ao mês anterior.",
+    benefits: [
+      "Receitas, despesas fixas, parcelas e variáveis em linhas de DRE",
+      "Taxa de poupança e variação contra o mês anterior",
+      "Maior despesa do mês e ranking de categorias",
+      "Tendência dos últimos 6 meses",
+    ],
+  },
+};
+
+export const PREMIUM_MODULE_LIST: PremiumModule[] = [
+  PREMIUM_MODULES.budgets,
+  PREMIUM_MODULES.goals,
+  PREMIUM_MODULES.analytics,
+];
+
+/** Destino do upgrade. `change=1` impede o /pricing de devolver quem já tem plano para /sistema. */
+export const UPGRADE_PATH = "/pricing?change=1";

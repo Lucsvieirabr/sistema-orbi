@@ -46,6 +46,10 @@ auth.users (Supabase Auth)
  │                                category_id -> categories, created_by_txn_id
  │                                ⚠ NÃO tem account_id/credit_card_id/person_id (ver GOTCHAS)
  ├─ transactions (N)             ★ ENTIDADE CENTRAL — ver detalhe abaixo
+ ├─ budgets (N)                  PREMIUM (Pro/Casal) — category_id -> categories (só expense, própria ou is_system),
+ │                                amount_limit numeric(12,2) > 0, period_month (dia 1), UNIQUE(user_id, period_month, category_id)
+ ├─ goals (N)                    PREMIUM — name, target_value, deadline?, icon (kebab lucide), color (#hex)
+ │   └─ goal_allocations (N)     amount ≠ 0 (>0 aporte, <0 resgate), allocated_on, note? — saldo da meta nunca < 0
  ├─ merchants_dictionary / learned_patterns / keyword patterns  cache de ML de categorização
  ├─ bug_reports, notes           utilitários
  └─ audit_logs                   somente leitura p/ admin_users
@@ -60,6 +64,7 @@ Cardinalidades-chave: `account 1─N transactions`, `credit_card 1─N transacti
 - `vw_account_current_balance(account_id, user_id, current_balance)` — "saldo real".
 - `vw_account_projected_balance(account_id, user_id, projected_balance)` — saldo real + compromissos futuros não cancelados.
 - `series_summary` — agregados de série (parcelas pagas/pendentes, valores).
+- `vw_goal_progress` — saldo, % , `months_left` e `monthly_needed` por meta (security_invoker).
 
 ---
 
@@ -117,6 +122,16 @@ UI: `src/components/settings/SubscriptionSettings.tsx` + `CancelSubscriptionDial
 - Fim do acesso: RPC `get_my_subscription_status` ignora cancelamento agendado com período vencido → `no_plan` (/pricing, não /billing). `orbi_active_plan_limits/features` idem (migration `20260911120000`).
 - `reactivate` = nova assinatura no Asaas com 1ª cobrança em `current_period_end`; `asaas-create-payment` faz o mesmo se o usuário assinar de novo dentro do período (não dá PUT na assinatura removida).
 
+### 11. Módulos premium de planejamento — Orçamentos, Metas, Fechamento do mês (migration `20260915150000`)
+Exclusivos Pro/Casal. Features no jsonb do plano: `orcamentos`, `metas`, `dre_pessoal` (true só em `pro`/`casal`).
+- **Banco é a autoridade (4 camadas)**: (1) policies RLS das 3 tabelas exigem `(SELECT orbi_has_feature('<key>'))` — Free não LÊ nem escreve; (2) triggers `orbi_budgets_guard` / `orbi_goals_guard` / `orbi_goal_allocations_guard` repetem o gate com `P0005`/`P0004` e validam tenant (categoria de outro usuário, meta de outro usuário, dono imutável); (3) RPCs `orbi_budget_overview`, `orbi_monthly_closing` chamam `orbi_require_feature` antes de calcular; (4) front: `PremiumRoute` (rota) + cadeado no `AppSidebar`.
+- **Plano Casal**: SELECT das 3 tabelas usa `orbi_family_user_ids()` (parceiro lê); escrita só no dono. RPCs aceitam `p_scope 'personal'|'couple'` e derivam o escopo de `auth.uid()` — nunca de parâmetro do cliente.
+- **Consumo de orçamento** = Σ expense do mês (data de competência) em PAID+PENDING, sem CANCELED, valor líquido `value − compensation_value` (mesma regra do Dashboard). Sugestão = média dos 3 meses fechados anteriores.
+- **DRE** (`orbi_monthly_closing`, 1 varredura por `idx_transactions_user_date`): Receitas → (−) fixas (`is_fixed` na transação ou série) → (−) parcelamentos (série >1 parcela, sem rateio) → (−) variáveis → (=) resultado → (−) aportes em metas → (=) sobra livre. Receita de rateio (linha B: income + `is_shared` + `linked_txn_id`) fica FORA — a despesa A já entra líquida; contar as duas duplica o rateio. Retorna variação vs mês anterior, taxa de poupança, maior despesa, top 8 categorias com teto, tendência de 6 meses.
+- **Aportes**: trigger soma o saldo sob `orbi_quota_lock(user, 'goal:<id>')` — resgate acima do guardado e exclusão de aporte que deixaria saldo negativo são bloqueados (23514). Cascata de exclusão da meta passa direto.
+- **Front**: catálogo de UX em `src/lib/features/premium-modules.ts` (rota, nome comercial, pitch, benefícios). Rotas `/sistema/budgets|goals|analytics` (+ atalhos `/budgets` etc.). Mês na URL (`?mes=AAAA-MM`). Upgrade sempre para `/pricing?change=1` (sem `change` o /pricing devolve quem tem plano para /sistema).
+- Feature nova de plano: registrar em `orbi-features.ts`, ligar no jsonb dos planos via migration, gate no RLS/trigger/RPC e em `FEATURE_ROWS` (Pricing), `plan-highlights.ts` e `plan-impact.ts`.
+
 ---
 
 ## [PROJECT STRUCTURE & STATE]
@@ -129,7 +144,8 @@ src/
  ├─ pages/                  1 arquivo por rota (roteável em App.tsx) — MonthlyStatement.tsx é o maior/mais crítico (170KB, orquestra parcelamento/recorrência/rateio client-side)
  ├─ components/
  │   ├─ ui/                 shadcn primitives — genérico, sem lógica de domínio
- │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard — controle de acesso declarativo
+ │   ├─ planning/            LedgerStrip + UsageBar (faixa de leitura e barra de consumo), MonthSwitcher (+ useMonthParam), planning-utils (datas/moeda/erros), notify
+ │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard, PremiumRoute (+ PremiumPreview) — controle de acesso declarativo
  │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OFX/imagem + classificação
  │   ├─ dashboard/, people/, payment/, auth/, navigation/, bugs/
  ├─ hooks/                  1 hook por domínio, prefixo `use-` kebab-case; React Query p/ leitura, funções `async` diretas p/ mutação (padrão inconsistente entre hooks — alguns usam `useMutation`, outros try/catch manual)

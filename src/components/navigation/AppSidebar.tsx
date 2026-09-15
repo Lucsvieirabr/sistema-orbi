@@ -11,6 +11,7 @@ import {
   Brain,
   StickyNote,
   Settings,
+  Lock,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -21,11 +22,15 @@ import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
 import { useIsCompact } from "@/hooks/use-mobile";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import orbiLogo from "@/assets/orbi-logo_white.png";
+import { useSubscription } from "@/hooks/use-subscription";
+import { PREMIUM_MODULE_LIST } from "@/lib/features/premium-modules";
 
 interface SidebarItem {
   title: string;
   icon: typeof LayoutDashboard;
   path: string;
+  /** Feature de plano exigida (módulos premium). Sem ela, o item mostra um cadeado. */
+  feature?: string;
 }
 
 /** Agrupado por intenção: o que acontece, onde o dinheiro mora, como classificar. */
@@ -43,6 +48,15 @@ const menuGroups: { label: string; items: SidebarItem[] }[] = [
       { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
       { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
     ],
+  },
+  {
+    label: "Planejamento",
+    items: PREMIUM_MODULE_LIST.map((module) => ({
+      title: module.navLabel,
+      icon: module.icon,
+      path: module.path,
+      feature: module.feature,
+    })),
   },
   {
     label: "Organização",
@@ -73,6 +87,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   const navigate = useNavigate();
   const currentPath = location.pathname;
   const isCompact = useIsCompact();
+  const { hasFeature, isLoading: planLoading } = useSubscription();
 
   const groups = useMemo(() => menuGroups, []);
 
@@ -130,6 +145,8 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
               {group.items.map((item) => {
                 const Icon = item.icon;
                 const isActive = currentPath === item.path;
+                // Enquanto o plano carrega, nada de cadeado piscando.
+                const locked = Boolean(item.feature) && !planLoading && !hasFeature(item.feature!);
                 return (
                   <li key={item.path}>
                     <button
@@ -153,6 +170,12 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
                       )}
                       <Icon className={cn("h-4 w-4 shrink-0", !isActive && "opacity-70")} aria-hidden />
                       <span className="truncate">{item.title}</span>
+                      {locked && (
+                        <>
+                          <Lock className="ml-auto h-3 w-3 shrink-0 text-sidebar-muted" aria-hidden />
+                          <span className="sr-only"> (disponível no Pro e no Casal)</span>
+                        </>
+                      )}
                     </button>
                   </li>
                 );

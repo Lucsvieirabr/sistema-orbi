@@ -25,6 +25,10 @@ import PersonDetail from "@/components/people/PersonDetail";
 import Settings from "@/pages/Settings";
 import MyAI from "@/pages/MyAI";
 import Notes from "@/pages/Notes";
+import Budgets from "@/pages/Budgets";
+import Goals from "@/pages/Goals";
+import MonthlyClosing from "@/pages/MonthlyClosing";
+import { PremiumRoute } from "@/components/guards/PremiumRoute";
 import TermsOfUsePage, { TermsOfUseAppPage } from "@/pages/legal/TermsOfUse";
 import PrivacyPolicyPage, { PrivacyPolicyAppPage } from "@/pages/legal/PrivacyPolicy";
 import AdminDashboard from "@/admin/pages/AdminDashboard";
@@ -128,6 +132,11 @@ const App = () => {
                 element={isAuthenticated ? <Navigate to="/sistema" replace /> : <AuthForm />} 
               />
 
+              {/* Atalhos curtos dos módulos de planejamento. */}
+              <Route path="/budgets" element={<Navigate to="/sistema/budgets" replace />} />
+              <Route path="/goals" element={<Navigate to="/sistema/goals" replace />} />
+              <Route path="/analytics" element={<Navigate to="/sistema/analytics" replace />} />
+
               {/* Rota de login admin */}
               <Route 
                 path="/admin" 
@@ -158,6 +167,13 @@ const App = () => {
                 <Route path="my-ai" element={<MyAI />} />
                 <Route path="notes" element={<Notes />} />
                 <Route path="settings" element={<Settings />} />
+
+                {/* Planejamento — exclusivo Pro e Casal. PremiumRoute troca a
+                    tela pelo upgrade quando o plano não inclui a feature; RLS,
+                    triggers e RPCs (migration 20260915150000) são a autoridade. */}
+                <Route path="budgets" element={<PremiumRoute module="budgets"><Budgets /></PremiumRoute>} />
+                <Route path="goals" element={<PremiumRoute module="goals"><Goals /></PremiumRoute>} />
+                <Route path="analytics" element={<PremiumRoute module="analytics"><MonthlyClosing /></PremiumRoute>} />
 
                 {/* Mesmos documentos, lidos dentro do sistema. */}
                 <Route path="legal/termos-de-uso" element={<TermsOfUseAppPage />} />

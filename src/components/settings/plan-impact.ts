@@ -33,6 +33,9 @@ const FEATURES: Array<{ key: string; label: string; phrase: string }> = [
   { key: "ia_classificacao_automatica", label: "Aprendizado com suas correções", phrase: "o aprendizado automático" },
   { key: "dashboard", label: "Dashboard", phrase: "o dashboard" },
   { key: "dashboard_assinaturas", label: "Painel de assinaturas", phrase: "o painel de assinaturas" },
+  { key: "orcamentos", label: "Orçamentos Inteligentes", phrase: "os orçamentos por categoria" },
+  { key: "metas", label: "Metas Financeiras", phrase: "as metas e seus aportes" },
+  { key: "dre_pessoal", label: "DRE Pessoal Avançado", phrase: "o fechamento do mês" },
   { key: "familia_compartilhada", label: "Acesso do parceiro", phrase: "o acesso do seu parceiro" },
   { key: "cartoes_faturas", label: "Faturas de cartão", phrase: "as faturas de cartão" },
 ];
