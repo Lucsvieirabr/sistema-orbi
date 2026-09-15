@@ -34,6 +34,7 @@ import SubscriptionManagement from "@/admin/pages/SubscriptionManagement";
 import AdminManagement from "@/admin/pages/AdminManagement";
 import BugReportsManagement from "@/admin/pages/BugReportsManagement";
 import { supabase } from "@/integrations/supabase/client";
+import { RouteSeo } from "@/components/seo";
 
 const queryClient = new QueryClient();
 
@@ -96,6 +97,8 @@ const App = () => {
           <Toaster />
           <Sonner />
           <BrowserRouter>
+            {/* <head> por rota: title, description, canonical, robots, OG, JSON-LD. */}
+            <RouteSeo />
             <Routes>
               <Route
                 path="/"

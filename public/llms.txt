@@ -1,0 +1,44 @@
+# Orbi
+
+> Orbi é um sistema brasileiro de gestão financeira pessoal e para casais (SaaS). O usuário importa o extrato ou a fatura do banco (PDF, OFX, CSV ou imagem) e uma IA classifica cada lançamento por categoria. O painel mostra saldo real, saldo projetado, faturas de cartão, parcelas e despesas divididas entre pessoas.
+
+Idioma: português (Brasil). Moeda: BRL. Público: pessoas físicas e casais no Brasil.
+
+## Produto
+
+- [Página inicial](https://orbi.com.br/): visão geral, recursos, como funciona e planos.
+- [Planos e preços](https://orbi.com.br/pricing): comparação dos planos (Free, Pro e Casal), ciclo mensal ou anual.
+- [Entrar ou criar conta](https://orbi.com.br/login): cadastro com e-mail e senha; o plano Free não pede cartão.
+
+## Recursos principais
+
+- Importação de extrato e fatura: PDF com texto, PDF escaneado (OCR), OFX, CSV e imagem.
+- IA classificadora: sugere a categoria de cada lançamento e aprende com as correções do usuário (planos Pro e Casal).
+- Saldo real e saldo projetado por conta, considerando lançamentos futuros e recorrentes.
+- Cartões de crédito: fatura por período de fechamento, limite usado e vencimento.
+- Parcelamentos e transações fixas/recorrentes (diária, semanal, mensal, anual).
+- Pessoas e rateio: despesas compartilhadas, valores a receber e a pagar.
+- Plano Casal: dois acessos com uma assinatura e alternância entre visão Pessoal e Casal.
+- Notas financeiras e assistente "Minha IA".
+
+## Planos
+
+- Free: gratuito para sempre, com limites de contas, cartões e lançamentos por mês.
+- Pro e Casal: assinatura paga (mensal ou anual) processada pelo Asaas via Pix, boleto ou cartão de crédito. Cancelamento a qualquer momento, com acesso até o fim do período pago.
+- Valores atualizados sempre em https://orbi.com.br/pricing.
+
+## Segurança e privacidade
+
+- Dados isolados por usuário no banco (Row Level Security).
+- Tráfego cifrado com TLS e criptografia em repouso.
+- Tratamento de dados conforme a LGPD, com registro de consentimento.
+
+## Documentos legais
+
+- [Termos de Uso](https://orbi.com.br/legal/termos-de-uso)
+- [Política de Privacidade](https://orbi.com.br/legal/politica-de-privacidade)
+
+## Optional
+
+- [Sitemap](https://orbi.com.br/sitemap.xml)
+- A área autenticada (/sistema) e o painel administrativo (/admin) são privados e não devem ser indexados nem citados como conteúdo público.

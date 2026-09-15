@@ -77,7 +77,7 @@ export default function Billing() {
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex h-header max-w-[64rem] items-center justify-between px-4 md:px-6 lg:h-header-lg">
           <div className="flex items-center gap-2.5">
-            <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+            <img src={orbiLogo} alt="Logotipo do Orbi" width={28} height={28} decoding="async" className="h-7 w-7" />
             <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
           </div>
           <div className="flex items-center gap-2">

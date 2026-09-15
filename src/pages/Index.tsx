@@ -4,7 +4,7 @@ import orbiLogo from "@/assets/orbi-logo_white.png";
 const Index = () => {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-background px-6 text-center">
-      <img src={orbiLogo} alt="" aria-hidden className="h-14 w-14" />
+      <img src={orbiLogo} alt="Logotipo do Orbi" width={56} height={56} decoding="async" className="h-14 w-14" />
       <div>
         <h1 className="font-display text-2xl font-semibold tracking-[-0.02em] md:text-3xl">Sistema Orbi</h1>
         <p className="mt-2 text-base text-muted-foreground">Sua visão financeira completa</p>

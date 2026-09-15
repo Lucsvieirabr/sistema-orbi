@@ -65,7 +65,7 @@ export function LegalPage({ document: doc, variant = "public" }: LegalPageProps)
             onClick={() => navigate("/")}
             className="flex items-center gap-2.5 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <img src={theme === "dark" ? orbiLogoDark : orbiLogoLight} alt="" aria-hidden className="h-7 w-7" />
+            <img src={theme === "dark" ? orbiLogoDark : orbiLogoLight} alt="Logotipo do Orbi" width={28} height={28} decoding="async" className="h-7 w-7" />
             <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
           </button>
           <div className="flex items-center gap-2">

@@ -57,7 +57,7 @@ export function AdminSidebar({ open, onOpenChange }: AdminSidebarProps = {}) {
     <div className="flex h-full flex-col bg-sidebar">
       <div className="flex h-header shrink-0 items-center justify-between border-b border-sidebar-border px-4 lg:h-header-lg lg:px-6">
         <div className="flex min-w-0 items-center gap-2">
-          <img src={orbiLogo} alt="Orbi" className="h-6 w-6 shrink-0" />
+          <img src={orbiLogo} alt="Logotipo do Orbi" width={24} height={24} decoding="async" className="h-6 w-6 shrink-0" />
           <div className="flex min-w-0 flex-col">
             <span className="truncate text-sm font-semibold text-destructive">Orbi Admin</span>
             <span className="truncate text-2xs text-muted-foreground">Painel Administrativo</span>

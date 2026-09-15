@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Check, Lock, ShieldCheck, UserCheck } from "lucide-react";
 
@@ -113,7 +112,7 @@ function Hero() {
                 <li key={item.title} className="lp-trust__item">
                   <span className="lp-glyph" aria-hidden>
                     {item.pix ? (
-                      <img className="lp-trust__pix" src={pixLogo} alt="" width={16} height={16} />
+                      <img className="lp-trust__pix" src={pixLogo} alt="Pix" width={16} height={16} loading="lazy" decoding="async" />
                     ) : (
                       <Icon strokeWidth={1.5} />
                     )}
@@ -259,14 +258,7 @@ function FinalCall() {
 }
 
 export default function Landing() {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "Orbi · Importe o extrato, a IA organiza suas finanças";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
-
+  // Title/description/canonical/JSON-LD desta rota: src/lib/seo.ts (RouteSeo).
   return (
     <div className="lp">
       <a className="lp-skip" href="#conteudo">

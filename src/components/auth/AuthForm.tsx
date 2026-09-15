@@ -78,10 +78,13 @@ export function AuthForm() {
       </div>
       <Card variant="elevated" className="w-full max-w-md animate-rise">
         <CardHeader className="items-center gap-1 pb-5 text-center">
+          <h1 className="sr-only">Entrar ou criar conta no Orbi</h1>
           <img
             src={theme === 'dark' ? orbiLogoDark : orbiLogoLight}
-            alt=""
-            aria-hidden
+            alt="Logotipo do Orbi"
+            width={64}
+            height={64}
+            decoding="async"
             className="h-16 w-16 object-contain"
           />
           <CardTitle className="text-2xl font-semibold tracking-[-0.02em] text-foreground">

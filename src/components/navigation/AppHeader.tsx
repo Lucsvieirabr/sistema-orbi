@@ -52,9 +52,10 @@ export function AppHeader({
           </Button>
         )}
         <div className="min-w-0">
-          <h1 className="truncate font-display text-base font-semibold tracking-tight text-foreground md:text-lg lg:text-xl">
+          {/* <p>, não <h1>: o único h1 da tela é o PageHeader da página. */}
+          <p className="truncate font-display text-base font-semibold tracking-tight text-foreground md:text-lg lg:text-xl">
             {title}
-          </h1>
+          </p>
           {subtitle && <p className="hidden truncate text-xs text-muted-foreground lg:block">{subtitle}</p>}
         </div>
       </div>

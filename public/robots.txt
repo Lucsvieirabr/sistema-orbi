@@ -1,14 +1,47 @@
-User-agent: Googlebot
-Allow: /
-
-User-agent: Bingbot
-Allow: /
-
-User-agent: Twitterbot
-Allow: /
-
-User-agent: facebookexternalhit
-Allow: /
+# Orbi — https://orbi.com.br
+# A URL base é reescrita no build a partir de VITE_SITE_URL (vite.config.ts → seoPlugin).
 
 User-agent: *
 Allow: /
+Allow: /pricing
+Allow: /legal/
+Allow: /llms.txt
+# Área autenticada e administrativa: sem valor de busca, dados privados.
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+Disallow: /*?payment=
+Disallow: /*?modo=
+
+# Crawlers de IA: podem ler as páginas públicas e o llms.txt.
+User-agent: GPTBot
+Allow: /
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+
+User-agent: OAI-SearchBot
+Allow: /
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+
+User-agent: ClaudeBot
+Allow: /
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+
+User-agent: PerplexityBot
+Allow: /
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+
+User-agent: Google-Extended
+Allow: /
+Disallow: /sistema
+Disallow: /admin
+Disallow: /billing
+
+Sitemap: https://orbi.com.br/sitemap.xml

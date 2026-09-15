@@ -86,7 +86,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
       {/* Marca */}
       <div className="flex h-header shrink-0 items-center justify-between px-4 lg:h-header-lg lg:px-5">
         <div className="flex items-center gap-2.5">
-          <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+          <img src={orbiLogo} alt="Logotipo do Orbi" width={28} height={28} decoding="async" className="h-7 w-7" />
           <span className="font-display text-base font-semibold tracking-tight text-sidebar-accent-foreground">Orbi</span>
         </div>
         <div className="flex items-center gap-1">

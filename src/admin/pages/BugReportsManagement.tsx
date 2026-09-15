@@ -271,7 +271,9 @@ export default function BugReportsManagement() {
                   <label className="text-sm font-medium">Imagem</label>
                   <img
                     src={selectedReport.imagem_url}
-                    alt="Bug report"
+                    alt={`Captura de tela anexada ao relatório: ${selectedReport.titulo ?? "bug"}`}
+                    loading="lazy"
+                    decoding="async"
                     className="mt-2 max-w-full max-h-64 rounded-lg border"
                   />
                 </div>
