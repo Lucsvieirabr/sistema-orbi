@@ -5,21 +5,45 @@ import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
 import { ConfirmationDialog } from './ConfirmationDialog';
-import { CSVParser } from './CSVParser';
+import { CSVParser, type ParsedTransaction } from './CSVParser';
 import { StatementParser, type StatementParseDiagnostics } from './StatementParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { processPdfFileDetailed, type PdfExtractionResult } from '@/integrations/parser_api';
+import { MAX_DOCUMENT_BYTES } from '@/integrations/parser_api';
 
-const MAX_PDF_SIZE = 20 * 1024 * 1024; // 20MB
-const MAX_CSV_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_CSV_SIZE = 10 * 1024 * 1024;
+const SNIFF_BYTES = 4096;
+const ACCEPTED_EXTENSIONS = '.csv,.ofx,.pdf,.png,.jpg,.jpeg,.webp,.tif,.tiff';
 
-async function detectRealFileType(file: File): Promise<'csv' | 'pdf' | null> {
-  const header = new Uint8Array(await file.slice(0, 5).arrayBuffer());
-  const isPDF = header[0] === 0x25 && header[1] === 0x50 && header[2] === 0x44 && header[3] === 0x46; // %PDF
-  if (isPDF) return 'pdf';
-  const ext = file.name.toLowerCase().split('.').pop();
-  if (ext === 'csv') return 'csv';
+type ImportFileType = 'csv' | 'document';
+type ProcessingStage = 'reading' | 'extracting' | 'classifying';
+
+const STAGE_LABELS: Record<ProcessingStage, string> = {
+  reading: 'Lendo o arquivo...',
+  extracting: 'Extraindo transações do documento...',
+  classifying: 'Classificando com IA...',
+};
+
+const IMAGE_SIGNATURES: number[][] = [
+  [0x89, 0x50, 0x4e, 0x47],
+  [0xff, 0xd8, 0xff],
+  [0x49, 0x49, 0x2a, 0x00],
+  [0x4d, 0x4d, 0x00, 0x2a],
+];
+
+function startsWith(bytes: Uint8Array, signature: number[], offset = 0): boolean {
+  return signature.every((byte, index) => bytes[offset + index] === byte);
+}
+
+async function detectImportFileType(file: File): Promise<ImportFileType | null> {
+  const head = new Uint8Array(await file.slice(0, SNIFF_BYTES).arrayBuffer());
+  const text = new TextDecoder('windows-1252').decode(head);
+
+  if (text.slice(0, 1024).includes('%PDF-')) return 'document';
+  if (IMAGE_SIGNATURES.some(signature => startsWith(head, signature))) return 'document';
+  if (startsWith(head, [0x52, 0x49, 0x46, 0x46]) && startsWith(head, [0x57, 0x45, 0x42, 0x50], 8)) return 'document';
+  if (/OFXHEADER|<OFX>|<\?OFX/i.test(text)) return 'document';
+  if (file.name.toLowerCase().endsWith('.csv')) return 'csv';
   return null;
 }
 
@@ -32,45 +56,34 @@ async function decodeCsvFile(file: File): Promise<string> {
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    // Fallback: exportações bancárias BR costumam vir em ISO-8859-1/Windows-1252
     return new TextDecoder('windows-1252').decode(bytes);
   }
 }
 
-/**
- * Mensagem de erro acionável para "0 transações".
- *
- * O texto antigo ("Nenhuma transação foi detectada no arquivo") era o mesmo
- * para PDF sem camada de texto, layout não suportado e arquivo realmente
- * vazio — o usuário não tinha como saber o que fazer. Agora a mensagem usa o
- * diagnóstico da extração e da interpretação.
- */
 function buildNoTransactionsMessage(
-  fileType: 'csv' | 'pdf',
-  extraction: PdfExtractionResult | null,
+  fileType: ImportFileType,
   diagnostics: StatementParseDiagnostics | null,
 ): string {
   if (fileType === 'csv') {
     return 'Nenhuma transação foi detectada no CSV. Verifique se o arquivo tem as colunas de data, descrição e valor.';
   }
 
-  if (!extraction || extraction.characters === 0) {
-    return 'Não foi possível ler o conteúdo do PDF. Baixe o arquivo original pelo aplicativo do banco e tente novamente.';
+  if (!diagnostics) {
+    return 'Não foi possível ler o documento. Baixe o arquivo original pelo aplicativo do banco e tente novamente.';
   }
 
-  if (extraction.source === 'ocr') {
-    return `O PDF foi lido por OCR (${extraction.pages} página(s), ${extraction.characters} caracteres), ` +
-      'mas nenhuma linha de transação foi reconhecida. PDFs digitalizados ou fotografados perdem o alinhamento ' +
-      'das colunas. Baixe a fatura/extrato em PDF nativo pelo aplicativo do banco, ou importe o CSV/OFX.';
+  if (diagnostics.source === 'ofx') {
+    return 'O arquivo OFX foi lido, mas não contém lançamentos válidos no período exportado.';
   }
 
-  const detalhe = diagnostics
-    ? ` (formato detectado: ${diagnostics.format}; ${diagnostics.candidateLines} linha(s) com data em ${diagnostics.totalLines})`
-    : '';
+  if (diagnostics.source === 'pdf_ocr' || diagnostics.source === 'image_ocr') {
+    return `O documento foi lido por OCR (${diagnostics.pages} página(s)), mas nenhuma linha de transação foi reconhecida. ` +
+      'Envie uma imagem mais nítida, o PDF original do banco ou o OFX do mesmo período.';
+  }
 
-  return `O texto do PDF foi extraído com sucesso (${extraction.pages} página(s), ${extraction.lines} linhas), ` +
-    `mas nenhuma linha foi reconhecida como transação${detalhe}. ` +
-    'Esse layout de extrato ainda não é suportado — se possível, importe o CSV/OFX do mesmo período.';
+  return `O texto do PDF foi extraído (${diagnostics.pages} página(s), ${diagnostics.lines} linhas), ` +
+    `mas nenhuma linha foi reconhecida como transação (${diagnostics.candidateLines} linha(s) com data). ` +
+    'Se possível, importe o OFX ou CSV do mesmo período.';
 }
 
 interface ExtratoUploaderProps {
@@ -94,6 +107,7 @@ interface ProcessingStats {
 export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: ExtratoUploaderProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [stage, setStage] = useState<ProcessingStage>('reading');
   const [progress, setProgress] = useState(0);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [processingStats, setProcessingStats] = useState<ProcessingStats | null>(null);
@@ -167,18 +181,19 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     }
 
     setIsProcessing(true);
+    setStage('reading');
     setProgress(0);
     setErrors([]);
     setProcessingStats(null);
 
     try {
-      const fileType = await detectRealFileType(file);
+      const fileType = await detectImportFileType(file);
 
       if (!fileType) {
-        throw new Error('Arquivo inválido: selecione um CSV ou PDF real (o conteúdo não corresponde à extensão).');
+        throw new Error('Arquivo inválido: selecione um CSV, OFX, PDF ou imagem (JPG, PNG) — o conteúdo não corresponde a nenhum desses formatos.');
       }
-      if (fileType === 'pdf' && file.size > MAX_PDF_SIZE) {
-        throw new Error(`PDF excede o limite de ${MAX_PDF_SIZE / 1024 / 1024}MB.`);
+      if (fileType === 'document' && file.size > MAX_DOCUMENT_BYTES) {
+        throw new Error(`O arquivo excede o limite de ${MAX_DOCUMENT_BYTES / 1024 / 1024}MB.`);
       }
       if (fileType === 'csv' && file.size > MAX_CSV_SIZE) {
         throw new Error(`CSV excede o limite de ${MAX_CSV_SIZE / 1024 / 1024}MB.`);
@@ -186,60 +201,41 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
       setProgress(10);
 
-      let rawTransactions: any[] = [];
-      let parseDiagnostics: StatementParseDiagnostics | null = null;
-      let extraction: PdfExtractionResult | null = null;
+      let rawTransactions: ParsedTransaction[] = [];
+      let diagnostics: StatementParseDiagnostics | null = null;
 
       if (fileType === 'csv') {
-        // Para arquivos CSV, usar processamento existente
         const csvData = await parseCSVFile(file);
         setProgress(30);
+        rawTransactions = new CSVParser().parseCSVData(csvData).transactions;
+      } else {
+        setStage('extracting');
+        setProgress(25);
 
-        const csvParser = new CSVParser();
-        const parseResult = csvParser.parseCSVData(csvData);
-        rawTransactions = parseResult.transactions;
+        const result = await new StatementParser().parseDocument(file);
+        rawTransactions = result.transactions;
+        diagnostics = result.diagnostics;
 
-      } else if (fileType === 'pdf') {
-        setProgress(20);
-
-        // Extração nativa (Edge Function) com fallback automático para OCR.
-        // `processPdfFileDetailed` já lança erro explícito quando o PDF é uma
-        // imagem digitalizada ilegível — não chega aqui com texto vazio.
-        extraction = await processPdfFileDetailed(file, (extractProgress) => {
-          // Mapear progresso da extração (20-60) para a barra geral
-          setProgress(20 + (extractProgress * 0.4));
-        });
-
-        console.info('[ExtratoUploader] texto extraído:', {
-          origem: extraction.source,
-          paginas: extraction.pages,
-          linhas: extraction.lines,
-          caracteres: extraction.characters,
-        });
-
-        setProgress(65);
-
-        // Usar StatementParser para interpretar texto bruto
-        const statementParser = new StatementParser();
-        rawTransactions = await statementParser.parseRawTextStatement(extraction.rawText);
-        parseDiagnostics = statementParser.getDiagnostics();
-
-        console.info('[ExtratoUploader] interpretação:', parseDiagnostics);
-
-        setProgress(75);
+        console.info('[ExtratoUploader] documento interpretado:', diagnostics);
+        setProgress(70);
       }
 
-      // Verificar se há transações para processar
       if (rawTransactions.length === 0) {
-        throw new Error(buildNoTransactionsMessage(fileType, extraction, parseDiagnostics));
+        throw new Error(buildNoTransactionsMessage(fileType, diagnostics));
       }
 
-      // Processar transações com IA (fluxo comum para ambos os tipos)
+      if (diagnostics && (diagnostics.source === 'pdf_ocr' || diagnostics.source === 'image_ocr')) {
+        toast({
+          title: "Documento lido por OCR",
+          description: "Revise datas, valores e descrições antes de salvar: digitalizações podem conter erros de leitura.",
+        });
+      }
+
+      setStage('classifying');
       const results = await processTransactionsWithAI(rawTransactions, classifier);
 
       setProgress(90);
 
-      // Preparar para confirmação
       setProcessedTransactions(results.transactions);
       setProcessingStats(results.stats);
       setShowConfirmation(true);
@@ -289,7 +285,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     });
   };
 
-  const processTransactionsWithAI = async (parsedTransactions: any[], _classifier: IntelligentTransactionClassifier) => {
+  const processTransactionsWithAI = async (parsedTransactions: ParsedTransaction[], _classifier: IntelligentTransactionClassifier) => {
     const stats: ProcessingStats = {
       total: 0,
       processed: 0,
@@ -458,6 +454,8 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           confidence: classification.confidence,
           method: classification.method,
           learned_from_user: classification.learned_from_user,
+          payment_method: parsedTransaction.payment_method,
+          card_last4: parsedTransaction.card_last4,
           installments: parsedTransaction.installments,
           installment_number: parsedTransaction.installment_number
         };
@@ -550,7 +548,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
             Importar Extrato Bancário com IA
           </DialogTitle>
           <p className="text-xs lg:text-sm text-muted-foreground">
-            Selecione um arquivo CSV ou PDF do seu banco. Nossa IA analisará e categorizará automaticamente as transações.
+            Selecione o extrato ou a fatura do seu banco em CSV, OFX, PDF ou imagem. Nossa IA analisará e categorizará automaticamente as transações.
           </p>
         </DialogHeader>
 
@@ -573,7 +571,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           >
             <input
               type="file"
-              accept=".csv,.pdf"
+              accept={ACCEPTED_EXTENSIONS}
               onChange={handleFileInput}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
               disabled={isProcessing || isInitializingClassifier}
@@ -594,14 +592,14 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                     ? 'Inicializando sistema de classificação inteligente...'
                     : uploadedFile
                     ? `Arquivo carregado: ${uploadedFile.name}`
-                    : 'Arraste e solte seu arquivo CSV ou PDF aqui ou clique para selecionar'
+                    : 'Arraste e solte seu extrato ou fatura aqui ou clique para selecionar'
                   }
                 </p>
 
                 <p className="text-sm text-muted-foreground">
                   {isInitializingClassifier
                     ? 'Carregando padrões de classificação e modelos de IA...'
-                    : 'Formatos suportados: CSV, PDF'
+                    : 'Formatos suportados: CSV, OFX, PDF e imagem (JPG, PNG)'
                   }
                 </p>
               </div>
@@ -620,12 +618,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                     <Brain className="h-4 w-4 animate-pulse" />
-                    {progress < 65 && uploadedFile?.name.toLowerCase().includes('.pdf')
-                      ? 'Extraindo texto do PDF (OCR)...'
-                      : progress < 80
-                      ? 'Interpretando transações...'
-                      : 'Classificando com IA...'
-                    }
+                    {STAGE_LABELS[stage]}
                   </p>
                   <Progress value={progress} className="w-full" />
                   <p className="text-xs text-muted-foreground text-center">

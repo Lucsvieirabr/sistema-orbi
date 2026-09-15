@@ -14,9 +14,10 @@
 **Cliente DB**: `@supabase/supabase-js` v2, instância única em `src/integrations/supabase/client.ts`. Tipos gerados em `src/integrations/supabase/types.ts` (`Tables<'x'>`, `TablesInsert<'x'>`, `TablesUpdate<'x'>`, `Database`) — fonte de verdade do schema real (mais confiável que migrations individuais para saber colunas atuais).
 **Migrations**: SQL puro em `supabase/migrations/*.sql`, aplicadas em ordem lexicográfica de timestamp (Postgres `CREATE OR REPLACE` sobrescreve silenciosamente — ver GOTCHAS).
 **Pagamentos**: Asaas (gateway BR) via Edge Functions (`asaas-create-customer`, `asaas-create-payment`, `asaas-webhook-handler`) — só para cobrança de **assinatura SaaS**, não para faturas de cartão de crédito do usuário (não há gateway de pagamento de fatura).
-**Parsing/ML client-side**: `papaparse`, `pdfjs-dist`, `tesseract.js` (OCR) — pipeline de importação de extrato em `src/components/extrato-uploader/*` com classificador heurístico próprio (`IntelligentTransactionClassifier.ts`, `TransactionMLClassifier.ts`, dicionário `BankDictionary.ts`) + Edge Function `classify-transactions` (server-side, usa tabela `learned_patterns` e `merchants_dictionary`).
+**Importação de extrato/fatura**: CSV é lido no cliente (`papaparse` + `CSVParser.ts`). PDF, OFX e imagem vão para o serviço Python `services/document-extractor` (Starlette + `pdfplumber` + Tesseract via `pytesseract`) através da Edge Function `extract-pdf-text`, que só faz gate + proxy (secrets `DOCUMENT_EXTRACTOR_URL`/`DOCUMENT_EXTRACTOR_TOKEN`). O serviço escolhe o extrator (`OfxExtractor` para .ofx SGML/XML, `NativePdfExtractor` para PDF com camada de texto, `ScannedPdfExtractor` para scan/imagem via OCR; PDF misto = OCR só nas páginas sem texto) e devolve TRANSAÇÕES PRONTAS — o parsing geométrico (linhas por coordenada Y, colunas Data/Histórico/Documento/Débito/Crédito/Valor/Saldo por X, data herdada, descrição quebrada em 2 linhas, sufixo D/C, fatura × extrato, parcelas, máscara `•••• 0040`) vive em `services/document-extractor/app/parsing/*`. Nada de `pdfjs-dist`/`tesseract.js` no bundle.
+**ML client-side**: classificador heurístico próprio (`IntelligentTransactionClassifier.ts`, `TransactionMLClassifier.ts`, dicionário `BankDictionary.ts`) + Edge Function `classify-transactions` (server-side, usa tabela `learned_patterns` e `merchants_dictionary`).
 **Borda / anti-abuso**: `supabase/functions/_shared/gate.ts` é a porta única das Edge Functions — método → origem (`cors.ts`, allowlist `ALLOWED_ORIGINS`) → rate limit por IP → JWT → rate limit por usuário → handler. Contador em `public.rate_limit_counters` via RPC `consume_rate_limit_key` (janela fixa, UPSERT atômico, exclusiva de `service_role`). 429 sempre com `Retry-After`. Rotas de dinheiro (`asaas-create-payment`, `asaas-create-customer`, `asaas-manage-subscription`) são `strict: true` = contador indisponível BLOQUEIA; rotas de leitura/CPU são fail-open. `/auth/v1/*` não passa por Edge Function — o teto é `[auth.rate_limit]` em `supabase/config.toml`.
-**Deploy**: Netlify (`netlify.toml`) e/ou Vercel (`vercel.json`) + `nginx.conf` (self-host alternativo). SPA estática — Supabase é o único backend.
+**Deploy**: Netlify (`netlify.toml`) e/ou Vercel (`vercel.json`) + `nginx.conf` (self-host alternativo). SPA estática; Supabase é o backend + 1 contêiner privado (`services/document-extractor`, Dockerfile próprio, autenticado só pelo `EXTRACTOR_SERVICE_TOKEN` — nunca exposto ao browser).
 **Lint**: ESLint 9 flat-config, `@typescript-eslint/no-unused-vars: off`, sem regra de formatação estrita (Prettier ausente).
 
 ---
@@ -129,16 +130,17 @@ src/
  ├─ components/
  │   ├─ ui/                 shadcn primitives — genérico, sem lógica de domínio
  │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard — controle de acesso declarativo
- │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OCR + classificação
+ │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OFX/imagem + classificação
  │   ├─ dashboard/, people/, payment/, auth/, navigation/, bugs/
  ├─ hooks/                  1 hook por domínio, prefixo `use-` kebab-case; React Query p/ leitura, funções `async` diretas p/ mutação (padrão inconsistente entre hooks — alguns usam `useMutation`, outros try/catch manual)
  ├─ integrations/supabase/  client.ts (singleton) + types.ts (schema gerado, NÃO editar à mão)
- ├─ integrations/parser_api.ts  chamada a serviço externo de parsing (fora do Supabase)
+ ├─ integrations/parser_api.ts  cliente HTTP da extração (invoke de `extract-pdf-text`, tradução de `code` -> mensagem pt-BR); `extrato-uploader/StatementParser.ts` valida a resposta e converte em `ParsedTransaction`
  ├─ lib/utils.ts            funções financeiras puras (roundCurrency, getCardStatementPeriod, cn, THEME) — cole aqui, não duplique em componente
  └─ lib/features/           feature-registry.ts (singleton `FeatureRegistry`) + orbi-features.ts (catálogo declarado de features/limits) — fonte de verdade do client sobre o que EXISTE (o que o user PODE usar vem do plano no backend)
 supabase/
  ├─ migrations/             histórico cronológico, aplicado em ordem — schema real = types.ts, não a soma mental das migrations (ver GOTCHAS)
  └─ functions/               Edge Functions Deno, 1 pasta por função + `_shared/cors.ts`
+services/document-extractor/  serviço Python privado (Starlette): `app/extractors/` (ofx, native_pdf, scanned_pdf, ocr), `app/parsing/` (tokens, descriptions, profile, statement_parser), `app/pipeline.py`, `tests/` (`python -m unittest discover -s tests -t .`)
 docs/                        documentação humana pré-existente (DOCUMENTACAO_SISTEMA_ORBI.md é a mais completa) — consultar antes de assumir que algo não está documentado
 ```
 
