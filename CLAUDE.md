@@ -129,7 +129,7 @@ Exclusivos Pro/Casal. Features no jsonb do plano: `orcamentos`, `metas`, `dre_pe
 - **Consumo de orçamento** = Σ expense do mês (data de competência) em PAID+PENDING, sem CANCELED, valor líquido `value − compensation_value` (mesma regra do Dashboard). Sugestão = média dos 3 meses fechados anteriores.
 - **DRE** (`orbi_monthly_closing`, 1 varredura por `idx_transactions_user_date`): Receitas → (−) fixas (`is_fixed` na transação ou série) → (−) parcelamentos (série >1 parcela, sem rateio) → (−) variáveis → (=) resultado → (−) aportes em metas → (=) sobra livre. Receita de rateio (linha B: income + `is_shared` + `linked_txn_id`) fica FORA — a despesa A já entra líquida; contar as duas duplica o rateio. Retorna variação vs mês anterior, taxa de poupança, maior despesa, top 8 categorias com teto, tendência de 6 meses.
 - **Aportes**: trigger soma o saldo sob `orbi_quota_lock(user, 'goal:<id>')` — resgate acima do guardado e exclusão de aporte que deixaria saldo negativo são bloqueados (23514). Cascata de exclusão da meta passa direto.
-- **Front**: catálogo de UX em `src/lib/features/premium-modules.ts` (rota, nome comercial, pitch, benefícios). Rotas `/sistema/budgets|goals|analytics` (+ atalhos `/budgets` etc.). Mês na URL (`?mes=AAAA-MM`). Upgrade sempre para `/pricing?change=1` (sem `change` o /pricing devolve quem tem plano para /sistema).
+- **Front**: catálogo de UX em `src/lib/features/premium-modules.ts` (rota, nome comercial, pitch, benefícios). Rotas `/sistema/budgets|goals|analytics` (+ atalhos `/budgets` etc.). Mês na URL (`?mes=AAAA-MM`). Upgrade sempre para `/pricing?change=1`. Páginas públicas (`/`, `/pricing`, `/legal/*`) renderizam para qualquer estado de sessão — logado vê CTA "Acessar Sistema" em vez de "Entrar"/"Comece Agora"; redirect forçado de logado só em `/login` e `/admin` (formulários de auth).
 - Feature nova de plano: registrar em `orbi-features.ts`, ligar no jsonb dos planos via migration, gate no RLS/trigger/RPC e em `FEATURE_ROWS` (Pricing), `plan-highlights.ts` e `plan-impact.ts`.
 
 ---
@@ -178,6 +178,65 @@ docs/                        documentação humana pré-existente (DOCUMENTACAO_
 - **RLS é a autoridade final**: toda tabela nova de domínio precisa `ENABLE ROW LEVEL SECURITY` + policy `auth.uid() = user_id` (ou variante system/global como `categories`) — sem isso, dado vaza entre usuários mesmo com filtro client-side correto.
 - **Novo limite de plano**: exige trigger SQL simétrico ao guard de frontend (ver regra de negócio #7) — nunca confiar só em `useFeature`/`useLimit`.
 - **Migrations**: nunca editar migration já aplicada/commitada — criar nova com timestamp maior; `CREATE OR REPLACE FUNCTION/VIEW` é a forma padrão de "corrigir" lógica anterior no repo (visto nos vários arquivos `fix_*.sql`).
+
+---
+
+## AppSec & Security Guidelines
+
+> OBRIGATÓRIO para todo código novo ou alterado. Zero Trust: todo input do cliente é malicioso até ser validado; toda saída ao cliente contém só o que a UI usa. Violação = bug de segurança, não estilo.
+
+### 1. Edge Functions — ordem fixa de defesa (`supabase/functions/_shared/*`)
+```
+OPTIONS → preflight(req)
+gateUser/gateAnonymous(req, { bucket, ipLimit, userLimit, windowSeconds, strict, maxBodyBytes })
+  método → origem (ALLOWED_ORIGINS) → Content-Length ≤ maxBodyBytes → rate limit IP → JWT → rate limit usuário
+parseJson(req, schemaZod, { maxBytes })      ← ÚNICA forma de ler body JSON
+handler (service_role só aqui, sempre filtrando por user.id do JWT)
+jsonFor(req, projeção)                        ← nunca a linha crua do banco / do gateway
+catch → gateFailure(req, error, 'nome-da-funcao', envelope)
+```
+- **Proibido**: `await req.json()`, `body as Tipo`, ler body antes do gate, handler sem `gateUser`/`gateAnonymous` (exceção única: webhook, que tem gate próprio equivalente), `Access-Control-Allow-Origin: *`, `Object.assign(new Error(msg), { status })`.
+- Toda função nova: bloco `[functions.<nome>] verify_jwt = true` em `supabase/config.toml` (só webhook com `false` + segredo próprio).
+
+### 2. Validação de input (Zod, server E client)
+- **Server**: `_shared/validation.ts` → `parseJson` (415 se Content-Type não-JSON, 413 por tamanho real do stream, 400 JSON malformado/não-objeto) + `validate`. Schemas com `.strict()` em rotas que mudam estado (campo extra = 400). Primitivos prontos: `uuidSchema`, `isoDateSchema`, `singleLine(max)`/`requiredLine`/`multiLine` (removem controle/zero-width), `cpfCnpjSchema`, `mobilePhoneSchema`, `gatewayIdSchema`. Erro 400 devolve `{ code:'INVALID_PAYLOAD', issues:[{path,message}] }` sem ecoar o valor recebido (errorMap sanitizado).
+- **Client**: `src/lib/validation/schemas.ts` + `parseOrThrow(schema, values)` antes de TODO insert/update/rpc com dado de formulário. Limites do schema = espelho EXATO das CHECK constraints SQL (mudou um, muda o outro). Entidades cobertas: account, creditCard, person, category, transaction, series, note, bugReport, budget, goal, goalAllocation, adminUser.
+- **Enums/ids**: sempre `z.enum` / `uuidSchema`; nunca aceitar texto livre em coluna de domínio fechado.
+- **Tamanho**: todo array tem `.max()`, toda string tem `.max()`, todo body tem `maxBytes`. Sem teto = amplificador de DoS.
+
+### 3. Injeção (SQL / PostgREST / path / HTML)
+- **SQL**: nunca concatenar input em SQL. Em plpgsql dinâmico só `format('%I', ident)` / `%L` ou `EXECUTE ... USING`. RPC SECURITY DEFINER: `SET search_path = public, pg_temp` (+ `extensions` se usar pgcrypto), dono derivado de `auth.uid()` via `require_self()` — nunca de `p_user_id` do cliente. `REVOKE ALL ... FROM PUBLIC, anon` + `GRANT EXECUTE` só para a role necessária.
+- **PostgREST**: preferir `.eq()/.in()` (parametrizados). `.or()`/`.filter()` com string interpolada SÓ com valor validado por `assertUuid()`/enum. LIKE: `sanitizeSearchTerm()` (neutraliza `% _ \`).
+- **Path de API externa**: id em URL do Asaas sempre via `asaasId()` (regex `[A-Za-z0-9_-]{1,64}`); query string com `encodeURIComponent`.
+- **XSS**: proibido `dangerouslySetInnerHTML` (exceção existente: `ui/chart.tsx`, com escape), `eval`, `new Function`, `innerHTML`. URL vinda de banco/gateway/usuário: `safePaymentUrl`/`safeHttpsUrl`/`safeImageSrc` (`src/lib/safe-url.ts`) antes de `href`/`src`; abrir externo só com `openExternalUrl()` (`noopener,noreferrer`, allowlist de host). CSP (`netlify.toml`/`vercel.json`/`nginx.conf`, idênticas): `script-src 'self'` sem inline/CDN/`wasm-unsafe-eval`, `connect-src` só `*.supabase.co`. Dependência que exija afrouxar CSP = recusar ou isolar no `document-extractor`.
+
+### 4. Rate limit & brute force
+- Toda Edge Function: `ipLimit` + `userLimit` (janela padrão 3600s). Rota de dinheiro/estado de assinatura: `strict: true` (contador fora = bloqueia). Leitura/CPU: fail-open.
+- 429 SEMPRE com `Retry-After` (vem de `RateLimitError`). Front deve respeitar e não fazer retry em loop.
+- IP: `clientIp()` normaliza (`cf-connecting-ip` → `x-real-ip` → 1º `x-forwarded-for`), IPv6 agregado em /64 (troca de endereço dentro do bloco não fura o limite).
+- Segredo comparado no servidor (webhook/token): `assertNotLockedOut()` (RPC `peek_rate_limit_key`, sem incremento) ANTES da comparação; `consumeRateLimit()` no bucket de falha só quando falhar; comparação em tempo constante. Allowlist opcional `ASAAS_WEBHOOK_ALLOWED_IPS`.
+- `/auth/v1/*` (login/signup/recover) não passa por Edge Function: teto em `[auth.rate_limit]` do `config.toml` + captcha (`[auth.captcha]`) obrigatório em produção. Senha: min 8 usuário (`password-strength.ts`), min 12 + letras e números para admin (`admin_create_admin_user`).
+
+### 5. Secrets
+- Frontend só conhece `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL` e verificações de SEO. Qualquer `VITE_*` vai para o bundle público — **proibido** `VITE_` com service role, chave Asaas, token de webhook/extrator ou qualquer credencial.
+- `SUPABASE_SERVICE_ROLE_KEY`, `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN` (≥32 chars), `DOCUMENT_EXTRACTOR_TOKEN`/`EXTRACTOR_SERVICE_TOKEN` (≥32 chars): só `supabase secrets set` / env do contêiner. Nunca em código, migration, seed, log, resposta ou mensagem de erro. `.env*` fora do git (exceto `.env.example` sem valores).
+- `adminClient()` (service_role) só dentro de Edge Function, depois do gate, e toda query com `.eq('user_id', user.id)`. Leitura que pode respeitar RLS usa `userClient(req)`.
+- Env ausente → `HttpError(503)` com `internal` (log), nunca string vazia silenciosa.
+
+### 6. Vazamento de dados em respostas
+- **Projeção obrigatória**: resposta de Edge Function monta objeto explícito. `user_subscriptions` → `toPublicSubscription()`; cobrança → `toPublicPayment()` (URL validada). Nunca devolver: `asaas_customer_id`, `asaas_subscription_id`, `metadata`, `payload` de webhook, `process_error`, `encrypted_password`, `raw_app_meta_data`, tokens, `user_id` de terceiros, stack/SQL/mensagem de gateway 5xx.
+- **Erros**: lançar `HttpError(status, mensagemPublica, { code, internal })` (`_shared/errors.ts`). `gateFailure` expõe mensagem só se status < 500; 5xx → mensagem genérica + log com `internal`. Erro não-`HttpError` (PostgrestError, Error cru, erro de lib) = 500 genérico SEMPRE. `AsaasError`: 400/422 do gateway → 422 com descrição sanitizada; demais → 502 genérico.
+- **Select**: `select('*')` proibido em dado exposto a `anon` e em linha que vai para resposta; listar colunas. `subscription_plans` para `anon` tem GRANT por coluna (sem `asaas_plan_id`/`metadata`) — select de vitrine usa a lista de `use-subscription.ts`.
+- **RPC**: retorno `jsonb`/`TABLE` com só os campos da tela; RPC admin começa com `IF NOT public.is_admin()/is_super_admin() THEN RAISE ... ERRCODE '42501'`.
+- Logs (`console.*`): sem token, senha, CPF/CNPJ, e-mail completo ou body cru.
+
+### 7. Banco (RLS é a autoridade final)
+- Tabela nova: `ENABLE` + `FORCE ROW LEVEL SECURITY`, policies `TO authenticated` com `auth.uid() = user_id` (USING + WITH CHECK), `REVOKE ALL FROM anon`, adicionar em `orbi_tenant_tables()`, CHECK constraints de tamanho/formato espelhando o Zod, trigger de guarda para dono imutável e cota (`orbi_quota_lock`).
+- View: `security_invoker = true`. Função: `SECURITY INVOKER` por padrão; `DEFINER` só com search_path fixo e checagem de identidade.
+- Tabela de infraestrutura (contadores, ledger de webhook): sem policy para `anon`/`authenticated`, escrita só por `service_role`.
+
+### 8. Checklist de PR (bloqueante)
+`[ ]` gate + rate limit IP/usuário `[ ]` `parseJson` + schema `.strict()` com `.max()` em tudo `[ ]` `parseOrThrow` no client `[ ]` projeção explícita na resposta `[ ]` erros via `HttpError` `[ ]` RLS + FORCE + CHECK na tabela nova `[ ]` nenhum secret em `VITE_*`/código/log `[ ]` URL externa por `safe-url.ts` `[ ]` CSP inalterada ou mais restrita.
 
 ---
 

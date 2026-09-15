@@ -104,10 +104,7 @@ const App = () => {
             {/* <head> por rota: title, description, canonical, robots, OG, JSON-LD. */}
             <RouteSeo />
             <Routes>
-              <Route
-                path="/"
-                element={isAuthenticated ? <Navigate to="/sistema" replace /> : <Landing />}
-              />
+              <Route path="/" element={<Landing isAuthenticated={isAuthenticated} />} />
 
               {/* Rotas públicas */}
               <Route path="/pricing" element={<Pricing />} />

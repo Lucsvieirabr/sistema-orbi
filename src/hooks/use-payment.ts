@@ -7,7 +7,7 @@ import { QUOTA_QUERY_KEY } from './use-quota';
 
 export interface PaymentData {
   id: string;
-  url: string;
+  url: string | null;
   value: number;
   dueDate?: string;
   billingType?: string;

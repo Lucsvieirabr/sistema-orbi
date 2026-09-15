@@ -5,10 +5,6 @@
 # Como o JWT do Supabase fica em localStorage (exigencia do supabase-js: nao
 # ha modo HttpOnly no fluxo SPA), um XSS equivale a roubo de sessao. A CSP
 # abaixo e a principal defesa: bloqueia script inline e origem nao declarada.
-#
-# TODO (endurecer apos o go-live): trocar `connect-src https: wss:` pela URL
-# exata do projeto Supabase, ex.:
-#   connect-src 'self' https://<projeto>.supabase.co wss://<projeto>.supabase.co
 # ============================================================================
 
 [[redirects]]
@@ -38,12 +34,9 @@
 
     # CSP:
     #  - script-src sem 'unsafe-inline': mata a classe principal de XSS.
-    #  - 'wasm-unsafe-eval' + blob: sao exigidos por tesseract.js (OCR) e pdf.js.
-    #  - cdnjs/jsdelivr/unpkg: workers e core do pdf.js e do tesseract.js.
-    #  - tessdata.projectnaptha.com: modelos de linguagem do OCR.
     #  - style-src 'unsafe-inline': Radix/shadcn injetam estilo inline.
     #  - frame-ancestors 'none' reforca o X-Frame-Options.
-    Content-Security-Policy = "default-src 'self'; script-src 'self' 'wasm-unsafe-eval' blob: https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://unpkg.com; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https: wss: blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; upgrade-insecure-requests"
+    Content-Security-Policy = "default-src 'self'; script-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"
 
 # SEO: area autenticada/admin fora do indice mesmo que um link externo aponte.
 [[headers]]

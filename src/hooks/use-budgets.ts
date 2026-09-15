@@ -13,6 +13,7 @@ import type { TablesInsert } from "@/integrations/supabase/types";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { assertUuid, roundCurrency } from "@/lib/utils";
 import { toNumber } from "@/components/planning/planning-utils";
+import { budgetLimitSchema, budgetSchema, monthStartSchema, parseOrThrow } from "@/lib/validation/schemas";
 
 export interface BudgetRow {
   id: string;
@@ -125,11 +126,16 @@ export function useBudgets(month: string) {
 
   const createBudget = async (values: { categoryId: string; amountLimit: number }) => {
     const userId = await requireUserId();
-    const payload: TablesInsert<"budgets"> = {
-      user_id: userId,
-      category_id: assertUuid(values.categoryId, "category_id"),
+    const safe = parseOrThrow(budgetSchema, {
+      category_id: values.categoryId,
       amount_limit: roundCurrency(values.amountLimit),
       period_month: month,
+    });
+    const payload: TablesInsert<"budgets"> = {
+      user_id: userId,
+      category_id: safe.category_id,
+      amount_limit: safe.amount_limit,
+      period_month: safe.period_month,
     };
     const { error } = await supabase.from("budgets").insert(payload);
     if (error) throw error;
@@ -140,7 +146,7 @@ export function useBudgets(month: string) {
     const userId = await requireUserId();
     const { error } = await supabase
       .from("budgets")
-      .update({ amount_limit: roundCurrency(amountLimit) })
+      .update({ amount_limit: parseOrThrow(budgetLimitSchema, roundCurrency(amountLimit)) })
       .eq("id", assertUuid(id, "budget_id"))
       .eq("user_id", userId);
     if (error) throw error;
@@ -160,7 +166,9 @@ export function useBudgets(month: string) {
 
   /** Copia os tetos do mês anterior. Retorna quantos foram criados. */
   const copyPreviousMonth = async (): Promise<number> => {
-    const { data, error } = await supabase.rpc("orbi_budget_copy_previous", { p_month: month });
+    const { data, error } = await supabase.rpc("orbi_budget_copy_previous", {
+      p_month: parseOrThrow(monthStartSchema, month),
+    });
     if (error) throw error;
     await invalidate();
     return toNumber(data);

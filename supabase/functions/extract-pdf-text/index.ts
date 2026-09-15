@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { preflight, jsonFor } from "../_shared/cors.ts";
 import { gateUser, gateFailure } from "../_shared/gate.ts";
+import { stripControl } from "../_shared/validation.ts";
 
 const MAX_DOCUMENT_BYTES = 15 * 1024 * 1024;
 const UPSTREAM_TIMEOUT_MS = 140_000;
@@ -93,7 +94,10 @@ async function callExtractor(config: ExtractorConfig, document: ArrayBuffer): Pr
   if (FORWARDED_STATUSES.has(response.status) && typeof payload?.code === 'string') {
     return {
       status: response.status,
-      body: { error: typeof payload.error === 'string' ? payload.error : UNAVAILABLE_MESSAGE, code: payload.code },
+      body: {
+        error: typeof payload.error === 'string' ? stripControl(payload.error).slice(0, 300) : UNAVAILABLE_MESSAGE,
+        code: /^[A-Z_]{1,40}$/.test(payload.code) ? payload.code : 'EXTRACTOR_UNAVAILABLE',
+      },
     };
   }
 
@@ -105,6 +109,9 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req);
 
   try {
+    const declared = Number(req.headers.get('content-length') ?? '');
+    if (Number.isFinite(declared) && declared > MAX_DOCUMENT_BYTES) throw tooLarge();
+
     await gateUser(req, {
       bucket: 'extract-pdf-text',
       ipLimit: 40,

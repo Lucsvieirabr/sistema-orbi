@@ -1,24 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { cleanTransactionDescription, hasHighPriorityBankingContext, extractBankingContext, isCleanedDescriptionValid } from './description-cleaner.ts';
-import { corsFor, preflight, jsonFor } from '../_shared/cors.ts';
+import { preflight, jsonFor } from '../_shared/cors.ts';
+import { userClient } from '../_shared/auth.ts';
 import { gateUser, gateFailure } from '../_shared/gate.ts';
-
-// ============================================================================
-// CORRECOES DE SEGURANCA
-// ============================================================================
-//  1. [CORS] era Access-Control-Allow-Origin: '*' — agora allowlist.
-//  2. [DoS] o array `transactions` nao tinha teto: um unico POST disparava N
-//     classificacoes em paralelo e um `.in()` sem limite no Postgres. Alem
-//     disso `t.description.toLowerCase()` quebrava se description nao fosse
-//     string. Agora ha teto de itens e saneamento por item.
-//  3. [RATE LIMIT] 60 lotes por hora por usuario.
-//  4. [ERRO] deixou de ecoar error.message em 5xx.
-// ============================================================================
+import { parseJson, stripControl, z } from '../_shared/validation.ts';
 
 const MAX_TRANSACTIONS = 500;
 const MAX_DESCRIPTION_LENGTH = 300;
-const CONTROL_CHARS = /[\u0000-\u001F\u007F]/g;
+const MAX_BODY_BYTES = 2 * 1024 * 1024;
+
+const transactionInputSchema = z.object({
+  description: z
+    .string()
+    .max(MAX_DESCRIPTION_LENGTH * 8)
+    .transform((v) => stripControl(v).slice(0, MAX_DESCRIPTION_LENGTH)),
+  type: z.unknown().transform((v): 'income' | 'expense' => (v === 'income' ? 'income' : 'expense')),
+  amount: z.unknown().transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)),
+  date: z.unknown().transform((v) =>
+    typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : undefined,
+  ),
+});
+
+const batchSchema = z.object({
+  transactions: z
+    .array(transactionInputSchema)
+    .min(1, 'Envie ao menos uma transação.')
+    .max(MAX_TRANSACTIONS, `Máximo de ${MAX_TRANSACTIONS} transações por requisição.`),
+  user_location: z
+    .unknown()
+    .transform((v) => (typeof v === 'string' ? stripControl(v).replace(/[^A-Za-z -]/g, '').slice(0, 10) : '') || 'SP'),
+});
 
 // =============================================================================
 // UTILITÁRIOS DE NORMALIZAÇÃO DE DESCRIÇÕES
@@ -126,71 +137,18 @@ serve(async (req) => {
   try {
     const startTime = Date.now();
 
-    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
-    // Antes de instanciar client, ler body ou tocar no dicionario de ML.
-    // 60 lotes/h por usuario (lote = ate 500 transacoes); 120/h por IP.
-    await gateUser(req, {
+    const user = await gateUser(req, {
       bucket: 'classify-transactions',
       ipLimit: 120,
       userLimit: 60,
       windowSeconds: 3600,
+      maxBodyBytes: MAX_BODY_BYTES,
     });
 
-    // Cliente Supabase com auth do usuário (RLS preservada nas leituras)
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
-      }
-    );
-
-    // Verifica autenticação
-    const {
-      data: { user },
-    } = await supabaseClient.auth.getUser();
-
-    if (!user) {
-      throw new Error('Unauthorized');
-    }
-
-    const body: BatchClassificationRequest = await req.json();
-    const rawTransactions = body?.transactions;
-    const user_location = typeof body?.user_location === 'string'
-      ? body.user_location.replace(CONTROL_CHARS, '').trim().slice(0, 10) || 'SP'
-      : 'SP';
-
-    if (!rawTransactions || !Array.isArray(rawTransactions) || rawTransactions.length === 0) {
-      return jsonFor(req, { error: 'Invalid request: transactions array is required' }, 400);
-    }
-
-    // [2] Teto de volume: sem isto um POST unico vira amplificador de carga.
-    if (rawTransactions.length > MAX_TRANSACTIONS) {
-      return jsonFor(
-        req,
-        { error: `Maximo de ${MAX_TRANSACTIONS} transacoes por requisicao` },
-        413,
-      );
-    }
-
-    // [2] Saneamento por item: description precisa ser string e tem tamanho
-    // limitado (ia direto para .toLowerCase() e para um .in() no Postgres).
-    const transactions: Transaction[] = rawTransactions.map((t) => {
-      if (!t || typeof t.description !== 'string') {
-        throw Object.assign(
-          new Error('Cada transacao precisa de description (string)'),
-          { status: 400 },
-        );
-      }
-      return {
-        description: t.description.replace(CONTROL_CHARS, '').trim().slice(0, MAX_DESCRIPTION_LENGTH),
-        type: t.type === 'income' ? 'income' : 'expense',
-        amount: typeof t.amount === 'number' && Number.isFinite(t.amount) ? t.amount : undefined,
-        date: typeof t.date === 'string' ? t.date.slice(0, 32) : undefined,
-      };
-    });
+    const body = await parseJson(req, batchSchema, { maxBytes: MAX_BODY_BYTES });
+    const transactions: Transaction[] = body.transactions;
+    const user_location = body.user_location;
+    const supabaseClient = userClient(req);
 
     // Pré-carrega padrões aprendidos do usuário (lista deduplicada)
     const normalizedDescriptions = [...new Set(
@@ -199,6 +157,7 @@ serve(async (req) => {
     const { data: learnedPatterns } = await supabaseClient
       .from('user_learned_patterns')
       .select('description, normalized_description, category, subcategory, confidence, usage_count')
+      .eq('user_id', user.id)
       .in('normalized_description', normalizedDescriptions)
       .gte('confidence', 70);
 

@@ -2,23 +2,24 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { jsonFor, preflight } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/auth.ts'
 import { gateFailure, gateUser } from '../_shared/gate.ts'
+import { badRequest } from '../_shared/errors.ts'
+import { toPublicPayment, toPublicSubscription } from '../_shared/projections.ts'
+import { parseJson, z } from '../_shared/validation.ts'
 import {
   AsaasPayment,
   AsaasSubscription,
   asaasFetch,
+  asaasId,
   isAsaasNotFound,
   normalizeBillingCycle,
   toAsaasCycle,
   toIsoDate,
 } from '../_shared/asaas.ts'
 
-interface Body {
-  action: 'cancel' | 'reactivate' | 'invoice'
-}
+const MAX_BODY_BYTES = 1024
 
-const badRequest = (message: string) => Object.assign(new Error(message), { status: 400 })
+const bodySchema = z.object({ action: z.enum(['cancel', 'reactivate', 'invoice']) }).strict()
 
-/** Período pago ainda em curso? Sem data = não há o que preservar. */
 function periodIsOpen(sub: { current_period_end?: string | null }): boolean {
   return !!sub.current_period_end && new Date(sub.current_period_end).getTime() > Date.now()
 }
@@ -27,17 +28,16 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
-    // cancelar/reativar/2a via: 20/h. strict, porque muda estado de assinatura.
     const user = await gateUser(req, {
       bucket: 'asaas-manage-subscription',
       ipLimit: 40,
       userLimit: 20,
       windowSeconds: 3600,
       strict: true,
+      maxBodyBytes: MAX_BODY_BYTES,
     })
+    const body = await parseJson(req, bodySchema, { maxBytes: MAX_BODY_BYTES })
     const supabase = adminClient()
-    const body: Body = await req.json()
 
     const { data: sub, error } = await supabase
       .from('user_subscriptions')
@@ -70,7 +70,7 @@ serve(async (req) => {
           success: true,
           immediate: false,
           access_until: sub.current_period_end,
-          subscription: sub,
+          subscription: toPublicSubscription(sub),
         })
       }
 
@@ -116,7 +116,7 @@ serve(async (req) => {
       if (updateError) throw updateError
 
       try {
-        await asaasFetch(`/subscriptions/${sub.asaas_subscription_id}`, { method: 'DELETE' })
+        await asaasFetch(`/subscriptions/${asaasId(sub.asaas_subscription_id, 'subscription')}`, { method: 'DELETE' })
       } catch (asaasError) {
         if (!isAsaasNotFound(asaasError)) {
           await supabase
@@ -139,7 +139,7 @@ serve(async (req) => {
         success: true,
         immediate,
         access_until: immediate ? null : sub.current_period_end,
-        subscription: updated,
+        subscription: toPublicSubscription(updated),
       })
     }
 
@@ -189,7 +189,7 @@ serve(async (req) => {
       const created = await asaasFetch<AsaasSubscription>('/subscriptions', {
         method: 'POST',
         body: {
-          customer: customerId,
+          customer: asaasId(customerId, 'customer'),
           billingType: 'UNDEFINED',
           value: amount,
           nextDueDate,
@@ -214,7 +214,7 @@ serve(async (req) => {
         .single()
 
       if (resumeError) {
-        await asaasFetch(`/subscriptions/${created.id}`, { method: 'DELETE' }).catch(() => undefined)
+        await asaasFetch(`/subscriptions/${asaasId(created.id, 'subscription')}`, { method: 'DELETE' }).catch(() => undefined)
         throw resumeError
       }
 
@@ -226,7 +226,7 @@ serve(async (req) => {
         metadata: { asaas_subscription_id: created.id, next_due_date: nextDueDate },
       }).then(() => undefined, () => undefined)
 
-      return jsonFor(req, { success: true, subscription: resumed })
+      return jsonFor(req, { success: true, subscription: toPublicSubscription(resumed) })
     }
 
     // ------------------------------------------------------------------------
@@ -235,14 +235,15 @@ serve(async (req) => {
     if (body.action === 'invoice') {
       if (!sub.asaas_subscription_id) throw badRequest('Assinatura sem cobrança no gateway')
 
+      const subscriptionId = asaasId(sub.asaas_subscription_id, 'subscription')
       const payments = await asaasFetch<{ data: AsaasPayment[] }>(
-        `/subscriptions/${sub.asaas_subscription_id}/payments?status=PENDING&limit=1`,
+        `/subscriptions/${subscriptionId}/payments?status=PENDING&limit=1`,
       )
       let payment = payments?.data?.[0] ?? null
 
       if (!payment) {
         const overdue = await asaasFetch<{ data: AsaasPayment[] }>(
-          `/subscriptions/${sub.asaas_subscription_id}/payments?status=OVERDUE&limit=1`,
+          `/subscriptions/${subscriptionId}/payments?status=OVERDUE&limit=1`,
         )
         payment = overdue?.data?.[0] ?? null
       }
@@ -266,16 +267,7 @@ serve(async (req) => {
         { onConflict: 'asaas_payment_id' },
       )
 
-      return jsonFor(req, {
-        success: true,
-        payment: {
-          id: payment.id,
-          url: payment.invoiceUrl,
-          value: payment.value,
-          dueDate: payment.dueDate,
-          billingType: payment.billingType,
-        },
-      })
+      return jsonFor(req, { success: true, payment: toPublicPayment(payment) })
     }
 
     throw badRequest('Ação inválida')

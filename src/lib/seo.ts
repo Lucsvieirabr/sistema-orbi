@@ -24,7 +24,8 @@ export const DEFAULT_DESCRIPTION =
   "Importe o extrato do banco e a IA do Orbi categoriza cada lançamento. Saldo real, saldo projetado, faturas, parcelas e Plano Casal em um só lugar. Comece grátis.";
 
 export const OG_IMAGE = {
-  path: "/og-image.png",
+  /** `?v=N`: trocar a imagem => incrementar aqui E no index.html (WhatsApp/Facebook cacheiam o preview por URL). */
+  path: "/og-image.png?v=2",
   width: 1200,
   height: 630,
   alt: "Orbi: importe o extrato e o Orbi organiza suas finanças",

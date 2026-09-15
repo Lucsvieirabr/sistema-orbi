@@ -14,6 +14,7 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 import { assertUuid, roundCurrency } from "@/lib/utils";
 import { toNullableNumber, toNumber } from "@/components/planning/planning-utils";
+import { goalAllocationSchema, goalSchema, parseOrThrow } from "@/lib/validation/schemas";
 
 export interface GoalProgress {
   id: string;
@@ -52,6 +53,16 @@ export interface GoalInput {
 }
 
 export const GOALS_QUERY_KEY = ["goals"] as const;
+
+function toGoalPayload(input: GoalInput) {
+  return parseOrThrow(goalSchema, {
+    name: input.name,
+    target_value: roundCurrency(input.targetValue),
+    deadline: input.deadline || null,
+    icon: input.icon,
+    color: input.color,
+  });
+}
 
 async function requireUserId(): Promise<string> {
   const { data: { user } } = await supabase.auth.getUser();
@@ -104,14 +115,7 @@ export function useGoals() {
 
   const createGoal = async (input: GoalInput) => {
     const userId = await requireUserId();
-    const payload: TablesInsert<"goals"> = {
-      user_id: userId,
-      name: input.name.trim(),
-      target_value: roundCurrency(input.targetValue),
-      deadline: input.deadline || null,
-      icon: input.icon,
-      color: input.color,
-    };
+    const payload: TablesInsert<"goals"> = { user_id: userId, ...toGoalPayload(input) };
     const { error } = await supabase.from("goals").insert(payload);
     if (error) throw error;
     await invalidate();
@@ -119,13 +123,7 @@ export function useGoals() {
 
   const updateGoal = async (id: string, input: GoalInput) => {
     const userId = await requireUserId();
-    const payload: TablesUpdate<"goals"> = {
-      name: input.name.trim(),
-      target_value: roundCurrency(input.targetValue),
-      deadline: input.deadline || null,
-      icon: input.icon,
-      color: input.color,
-    };
+    const payload: TablesUpdate<"goals"> = toGoalPayload(input);
     const { error } = await supabase
       .from("goals")
       .update(payload)
@@ -149,12 +147,18 @@ export function useGoals() {
   /** amount > 0 = aporte; amount < 0 = resgate. */
   const addAllocation = async (values: { goalId: string; amount: number; allocatedOn: string; note?: string }) => {
     const userId = await requireUserId();
-    const payload: TablesInsert<"goal_allocations"> = {
-      user_id: userId,
-      goal_id: assertUuid(values.goalId, "goal_id"),
+    const safe = parseOrThrow(goalAllocationSchema, {
+      goal_id: values.goalId,
       amount: roundCurrency(values.amount),
       allocated_on: values.allocatedOn,
-      note: values.note?.trim() ? values.note.trim() : null,
+      note: values.note ?? null,
+    });
+    const payload: TablesInsert<"goal_allocations"> = {
+      user_id: userId,
+      goal_id: safe.goal_id,
+      amount: safe.amount,
+      allocated_on: safe.allocated_on,
+      note: safe.note,
     };
     const { error } = await supabase.from("goal_allocations").insert(payload);
     if (error) throw error;

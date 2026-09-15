@@ -6,8 +6,10 @@ import { componentTagger } from "lovable-tagger";
 
 /**
  * SEO no build:
- *  - troca a URL base placeholder (https://orbi.com.br) por VITE_SITE_URL em
- *    index.html, robots.txt, sitemap.xml e llms.txt;
+ *  - troca a URL base placeholder (https://orbi.com.br) pela URL pública real
+ *    (ver `resolveSiteUrl`) em index.html, robots.txt, sitemap.xml e llms.txt;
+ *  - injeta a mesma URL em `import.meta.env.VITE_SITE_URL` (src/lib/seo.ts) para
+ *    o <head> de runtime não divergir do HTML estático;
  *  - atualiza <lastmod> do sitemap para a data do build;
  *  - injeta as metas de verificação do Google Search Console / Bing se as
  *    variáveis existirem (VITE_GOOGLE_SITE_VERIFICATION / VITE_BING_SITE_VERIFICATION).
@@ -15,8 +17,32 @@ import { componentTagger } from "lovable-tagger";
 const PLACEHOLDER_SITE_URL = "https://orbi.com.br";
 const SEO_TEXT_FILES = ["robots.txt", "sitemap.xml", "llms.txt"];
 
-function seoPlugin(env: Record<string, string>): Plugin {
-  const siteUrl = (env.VITE_SITE_URL || PLACEHOLDER_SITE_URL).replace(/\/+$/, "");
+/**
+ * URL pública usada em og:image, og:url, canonical, sitemap etc.
+ *
+ * Crawlers de preview (WhatsApp, Facebook, LinkedIn, X, Slack, Telegram) NÃO
+ * executam JS: leem só o HTML estático e baixam a imagem pela URL ABSOLUTA do
+ * og:image. Se o domínio não resolver, o link é compartilhado sem imagem — e o
+ * Facebook ainda segue og:url para raspar a página "canônica".
+ *
+ * Ordem: domínio de produção informado pela plataforma no build (é o domínio
+ * que de fato está no ar, e muda sozinho quando um domínio próprio é ligado)
+ * → VITE_SITE_URL → placeholder (só dev local).
+ *  - Vercel: VERCEL_PROJECT_PRODUCTION_URL (host sem protocolo).
+ *  - Netlify: URL (URL principal do site, com protocolo).
+ */
+function resolveSiteUrl(env: Record<string, string>): string {
+  const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL;
+  const netlifyUrl = process.env.NETLIFY === "true" ? process.env.URL : undefined;
+  const raw =
+    (vercelHost && `https://${vercelHost.replace(/^https?:\/\//, "")}`) ||
+    netlifyUrl ||
+    env.VITE_SITE_URL ||
+    PLACEHOLDER_SITE_URL;
+  return raw.trim().replace(/^http:\/\//, "https://").replace(/\/+$/, "");
+}
+
+function seoPlugin(siteUrl: string, env: Record<string, string>): Plugin {
   const buildDate = new Date().toISOString().slice(0, 10);
   let outDir = "dist";
 
@@ -60,13 +86,17 @@ function seoPlugin(env: Record<string, string>): Plugin {
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  const siteUrl = resolveSiteUrl(env);
 
   return {
+    define: {
+      "import.meta.env.VITE_SITE_URL": JSON.stringify(siteUrl),
+    },
     server: {
       host: "::",
       port: 8080,
     },
-    plugins: [react(), seoPlugin(env), mode === "development" && componentTagger()].filter(Boolean),
+    plugins: [react(), seoPlugin(siteUrl, env), mode === "development" && componentTagger()].filter(Boolean),
     resolve: {
       alias: {
         "@": path.resolve(__dirname, "./src"),

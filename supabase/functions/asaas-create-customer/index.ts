@@ -1,30 +1,35 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
-import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { adminClient } from '../_shared/auth.ts'
 import { gateUser, gateFailure } from '../_shared/gate.ts'
-import { findOrCreateCustomer, onlyDigits } from '../_shared/asaas.ts'
+import { unprocessable } from '../_shared/errors.ts'
+import { findOrCreateCustomer } from '../_shared/asaas.ts'
+import { cpfCnpjSchema, mobilePhoneSchema, parseJson, singleLine, z } from '../_shared/validation.ts'
 
-interface Body {
-  cpfCnpj?: string
-  mobilePhone?: string
-  fullName?: string
-}
+const MAX_BODY_BYTES = 4 * 1024
+
+const bodySchema = z
+  .object({
+    cpfCnpj: cpfCnpjSchema.optional(),
+    mobilePhone: mobilePhoneSchema.optional(),
+    fullName: singleLine(120).optional(),
+  })
+  .strict()
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
-    // cria cliente no gateway: 10/h por usuario cobre retentativa de checkout e barra a criacao em massa de customers.
     const user = await gateUser(req, {
       bucket: 'asaas-create-customer',
       ipLimit: 30,
       userLimit: 10,
       windowSeconds: 3600,
       strict: true,
+      maxBodyBytes: MAX_BODY_BYTES,
     })
+    const body = await parseJson(req, bodySchema, { maxBytes: MAX_BODY_BYTES, allowEmpty: true })
     const supabase = adminClient()
-    const body: Body = await req.json().catch(() => ({}))
 
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
@@ -35,14 +40,14 @@ serve(async (req) => {
     if (profileError) throw profileError
 
     const email = profile?.email || user.email
-    if (!email) throw new Error('E-mail do usuário não encontrado')
+    if (!email) throw unprocessable('E-mail do usuário não encontrado.')
 
     const customer = await findOrCreateCustomer({
       asaasCustomerId: profile?.asaas_customer_id,
       name: body.fullName || profile?.full_name || email,
       email,
-      cpfCnpj: onlyDigits(body.cpfCnpj),
-      mobilePhone: onlyDigits(body.mobilePhone),
+      cpfCnpj: body.cpfCnpj,
+      mobilePhone: body.mobilePhone,
       externalReference: user.id,
     })
 
@@ -55,7 +60,7 @@ serve(async (req) => {
       if (updateError) throw updateError
     }
 
-    return jsonFor(req, { success: true, customer_id: customer.id })
+    return jsonFor(req, { success: true })
   } catch (error) {
     return gateFailure(req, error, 'asaas-create-customer', true)
   }

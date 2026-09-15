@@ -1,92 +1,154 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { adminClient } from '../_shared/auth.ts'
 import { addCycle } from '../_shared/asaas.ts'
-import { RateLimitError, enforceIpRateLimit, rateLimitHeaders } from '../_shared/ratelimit.ts'
+import { SECURITY_HEADERS } from '../_shared/cors.ts'
+import { HttpError } from '../_shared/errors.ts'
+import {
+  RateLimitError,
+  assertNotLockedOut,
+  clientIp,
+  consumeRateLimit,
+  enforceIpRateLimit,
+  normalizeIp,
+  rateLimitHeaders,
+} from '../_shared/ratelimit.ts'
+import { gatewayIdSchema, parseJson, z } from '../_shared/validation.ts'
 
-const GRACE_DAYS = Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3')
+const GRACE_DAYS = Math.min(Math.max(Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3') || 3, 0), 30)
+const MAX_BODY_BYTES = 256 * 1024
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+const AUTH_FAILURE_RULE = { bucket: 'asaas-webhook-auth-fail', limit: 10, windowSeconds: 900, failOpen: true }
 
-interface WebhookPayload {
-  id?: string
-  event: string
-  dateCreated?: string
-  payment?: Record<string, any>
-  subscription?: Record<string, any>
-}
+const looseString = (max: number) => z.string().max(max).nullish()
+const looseNumber = z.number().finite().nullish()
+
+const paymentSchema = z
+  .object({
+    id: gatewayIdSchema,
+    customer: gatewayIdSchema.nullish(),
+    subscription: gatewayIdSchema.nullish(),
+    status: looseString(40),
+    billingType: looseString(40),
+    value: looseNumber,
+    netValue: looseNumber,
+    dueDate: looseString(40),
+    paymentDate: looseString(40),
+    confirmedDate: looseString(40),
+    clientPaymentDate: looseString(40),
+    invoiceUrl: looseString(2048),
+    bankSlipUrl: looseString(2048),
+    transactionReceiptUrl: looseString(2048),
+    externalReference: looseString(200),
+  })
+  .passthrough()
+
+const subscriptionSchema = z
+  .object({
+    id: gatewayIdSchema,
+    customer: gatewayIdSchema.nullish(),
+    status: looseString(40),
+    nextDueDate: looseString(40),
+    externalReference: looseString(200),
+  })
+  .passthrough()
+
+const webhookSchema = z
+  .object({
+    id: z.string().max(128).nullish(),
+    event: z.string().min(1).max(64).regex(/^[A-Z0-9_]+$/),
+    dateCreated: looseString(40),
+    payment: paymentSchema.nullish(),
+    subscription: subscriptionSchema.nullish(),
+  })
+  .passthrough()
+
+type WebhookPayload = z.infer<typeof webhookSchema>
 
 function timingSafeEqual(a: string, b: string): boolean {
   const ab = new TextEncoder().encode(a)
   const bb = new TextEncoder().encode(b)
-  if (ab.length !== bb.length) return false
-  let diff = 0
-  for (let i = 0; i < ab.length; i++) diff |= ab[i] ^ bb[i]
+  let diff = ab.length ^ bb.length
+  const len = Math.max(ab.length, bb.length)
+  for (let i = 0; i < len; i++) diff |= (ab[i] ?? 0) ^ (bb[i] ?? 0)
   return diff === 0
 }
 
-function jsonOk(body: Record<string, unknown>, status = 200) {
+function jsonOk(body: Record<string, unknown>, status = 200, extra: Record<string, string> = {}) {
   return new Response(JSON.stringify(body), {
     status,
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Content-Type-Options': 'nosniff',
-      'Cache-Control': 'no-store',
-      'Referrer-Policy': 'no-referrer',
-    },
+    headers: { 'Content-Type': 'application/json', ...SECURITY_HEADERS, ...extra },
   })
 }
 
-serve(async (req) => {
-  if (req.method !== 'POST') return jsonOk({ error: 'Method not allowed' }, 405)
+function ipAllowlist(): string[] {
+  return (Deno.env.get('ASAAS_WEBHOOK_ALLOWED_IPS') ?? '')
+    .split(',')
+    .map((ip) => normalizeIp(ip))
+    .filter((ip): ip is string => !!ip)
+}
 
-  // ---- Rate limit por IP: este endpoint é público por definição. -----------
-  // verify_jwt = false, então antes disto qualquer um na internet pagava zero
-  // para forçar, a cada requisição, uma comparação de token e um INSERT no
-  // ledger de idempotência. 600 eventos / 5 min por IP acomoda um lote real do
-  // Asaas e fecha a porta ao flood e ao brute-force do webhook token.
-  // Fail-OPEN de propósito: contador indisponível não pode travar a baixa de
-  // pagamento (o Asaas reentrega, mas atrasar cobrança é pior que o flood).
+function tooMany(err: RateLimitError) {
+  return jsonOk({ error: 'Too Many Requests' }, 429, rateLimitHeaders(err.retryAfter))
+}
+
+serve(async (req) => {
+  if (req.method !== 'POST') return jsonOk({ error: 'Method not allowed' }, 405, { Allow: 'POST' })
+
+  const declared = Number(req.headers.get('content-length') ?? '')
+  if (Number.isFinite(declared) && declared > MAX_BODY_BYTES) {
+    return jsonOk({ error: 'Payload too large' }, 413)
+  }
+
+  const ip = clientIp(req)
+  const allowlist = ipAllowlist()
+  if (allowlist.length && !allowlist.includes(ip)) {
+    console.warn('webhook de IP fora da allowlist:', ip)
+    return jsonOk({ error: 'Forbidden' }, 403)
+  }
+
   try {
     await enforceIpRateLimit(req, 'asaas-webhook', 600, 300, true)
+    await assertNotLockedOut(`ip:${ip}`, AUTH_FAILURE_RULE)
   } catch (err) {
-    if (err instanceof RateLimitError) {
-      return new Response(JSON.stringify({ error: 'Too Many Requests' }), {
-        status: 429,
-        headers: { 'Content-Type': 'application/json', ...rateLimitHeaders(err.retryAfter) },
-      })
-    }
-    throw err
+    if (err instanceof RateLimitError) return tooMany(err)
+    console.error('Falha no pré-gate do webhook:', (err as Error)?.message)
+    return jsonOk({ error: 'Service unavailable' }, 503)
   }
 
-  // ---- Autenticação: fail-closed. Sem token configurado, nada é aceito. ----
-  const expectedToken = Deno.env.get('ASAAS_WEBHOOK_TOKEN')
+  const expectedToken = Deno.env.get('ASAAS_WEBHOOK_TOKEN') ?? ''
   if (!expectedToken) {
-    console.error('ASAAS_WEBHOOK_TOKEN não configurada — webhook rejeitado')
-    return jsonOk({ error: 'Webhook not configured' }, 401)
+    console.error('ASAAS_WEBHOOK_TOKEN ausente — webhook rejeitado')
+    return jsonOk({ error: 'Unauthorized' }, 401)
+  }
+  if (expectedToken.length < 32) {
+    console.warn('ASAAS_WEBHOOK_TOKEN com menos de 32 caracteres: rotacionar.')
   }
 
-  const receivedToken =
-    req.headers.get('asaas-access-token') ?? req.headers.get('Asaas-Access-Token') ?? ''
+  const receivedToken = req.headers.get('asaas-access-token') ?? ''
 
   if (!timingSafeEqual(receivedToken, expectedToken)) {
-    console.error('Token de webhook inválido')
+    console.warn('Token de webhook inválido. IP:', ip)
+    await consumeRateLimit(`ip:${ip}`, AUTH_FAILURE_RULE).catch(() => undefined)
     return jsonOk({ error: 'Unauthorized' }, 401)
   }
 
   let payload: WebhookPayload
   try {
-    payload = await req.json()
-  } catch {
-    return jsonOk({ error: 'Invalid payload' }, 400)
+    payload = await parseJson(req, webhookSchema, { maxBytes: MAX_BODY_BYTES })
+  } catch (err) {
+    const status = err instanceof HttpError ? err.status : 400
+    console.warn('Payload de webhook rejeitado:', status, (err as HttpError)?.details ?? '')
+    return jsonOk({ error: status === 413 ? 'Payload too large' : 'Invalid payload' }, status === 413 || status === 415 ? status : 400)
   }
-
-  if (!payload?.event) return jsonOk({ error: 'Missing event' }, 400)
 
   const supabase = adminClient()
   const payment = payload.payment ?? null
   const subscription = payload.subscription ?? null
 
-  const eventId =
+  const eventId = (
     payload.id ??
     `${payload.event}:${payment?.id ?? subscription?.id ?? 'unknown'}:${payment?.status ?? subscription?.status ?? ''}`
+  ).slice(0, 200)
 
   // ---- Idempotência: PK colide em reentrega, evento é ignorado. ----
   const { error: ledgerError } = await supabase.from('asaas_webhook_events').insert({
@@ -152,7 +214,7 @@ serve(async (req) => {
     console.error('Erro ao processar webhook:', payload.event, error)
     await supabase
       .from('asaas_webhook_events')
-      .update({ process_error: (error as Error).message })
+      .update({ process_error: String((error as Error)?.message ?? error).slice(0, 1000) })
       .eq('id', eventId)
     // 200: o evento está persistido no ledger e pode ser reprocessado
     // manualmente; devolver erro faria o Asaas entrar em retry infinito.
@@ -196,11 +258,11 @@ async function resolveSubscription(supabase: any, payload: WebhookPayload) {
     }
   }
 
-  const externalReference: string | undefined =
-    payment?.externalReference ?? subscription?.externalReference
-  const userId = externalReference?.startsWith('orbi:')
+  const externalReference = payment?.externalReference ?? subscription?.externalReference ?? undefined
+  const referencedUser = externalReference?.startsWith('orbi:')
     ? externalReference.split(':')[1]
     : undefined
+  const userId = referencedUser && UUID_RE.test(referencedUser) ? referencedUser : undefined
 
   if (userId) {
     const { data } = await supabase

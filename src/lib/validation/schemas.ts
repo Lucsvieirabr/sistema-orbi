@@ -207,6 +207,42 @@ export const noteSchema = z.object({
   due_date: isoDateSchema.nullable().optional(),
 });
 
+export const monthStartSchema = z
+  .string()
+  .regex(/^\d{4}-(0[1-9]|1[0-2])-01$/, "Mes deve estar no formato AAAA-MM-01");
+
+export const budgetSchema = z.object({
+  category_id: uuidSchema,
+  amount_limit: positiveMoneySchema.refine((v) => v > 0, "O teto precisa ser maior que zero"),
+  period_month: monthStartSchema,
+});
+
+export const budgetLimitSchema = budgetSchema.shape.amount_limit;
+
+export const lucideIconSchema = z
+  .string()
+  .regex(/^[a-z0-9-]{1,32}$/, "Icone invalido");
+
+const planningDateSchema = isoDateSchema.refine(
+  (v) => v >= "2000-01-01" && v <= "2100-12-31",
+  "Data fora da faixa permitida",
+);
+
+export const goalSchema = z.object({
+  name: requiredText(80, "Nome da meta"),
+  target_value: positiveMoneySchema.refine((v) => v > 0, "O objetivo precisa ser maior que zero"),
+  deadline: planningDateSchema.nullable(),
+  icon: lucideIconSchema,
+  color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor deve ser um hexadecimal (ex.: #1D4ED8)"),
+});
+
+export const goalAllocationSchema = z.object({
+  goal_id: uuidSchema,
+  amount: moneySchema.refine((v) => v !== 0, "O valor nao pode ser zero"),
+  allocated_on: planningDateSchema,
+  note: optionalText(140),
+});
+
 export const bugReportStatusSchema = z.enum([
   "novo",
   "em-analise",

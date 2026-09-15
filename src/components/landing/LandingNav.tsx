@@ -14,7 +14,7 @@ const LINKS = [
   { href: "#planos", label: "Planos" },
 ];
 
-export function LandingNav() {
+export function LandingNav({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const { theme, toggleTheme } = useTheme();
   const [overSpace, setOverSpace] = useState(true);
   const isDark = theme === "dark";
@@ -68,15 +68,26 @@ export function LandingNav() {
             <Sun strokeWidth={1.5} data-off={!isDark} aria-hidden />
             <Moon strokeWidth={1.5} data-off={isDark} aria-hidden />
           </button>
-          <Link to="/login" className="lp-nav__link lp-nav__login">
-            Entrar
-          </Link>
-          <Link to="/login?modo=cadastro" className="lp-btn lp-btn--primary lp-btn--sm">
-            Comece Agora
-            <span className="lp-btn__icon" aria-hidden>
-              <ArrowUpRight strokeWidth={1.75} />
-            </span>
-          </Link>
+          {isAuthenticated ? (
+            <Link to="/sistema" className="lp-btn lp-btn--primary lp-btn--sm">
+              Acessar Sistema
+              <span className="lp-btn__icon" aria-hidden>
+                <ArrowUpRight strokeWidth={1.75} />
+              </span>
+            </Link>
+          ) : (
+            <>
+              <Link to="/login" className="lp-nav__link lp-nav__login">
+                Entrar
+              </Link>
+              <Link to="/login?modo=cadastro" className="lp-btn lp-btn--primary lp-btn--sm">
+                Comece Agora
+                <span className="lp-btn__icon" aria-hidden>
+                  <ArrowUpRight strokeWidth={1.75} />
+                </span>
+              </Link>
+            </>
+          )}
         </div>
       </nav>
     </header>

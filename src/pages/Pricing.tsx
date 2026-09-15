@@ -324,21 +324,11 @@ export default function Pricing() {
       const status = data as any;
       if (status?.access === 'allowed' && status?.plan_id) {
         setUserActivePlan(status.plan_id);
-
-        // Conta com plano vigente (Free/Pro/Premium) nunca fica presa na tela
-        // de ativacao: so permanece aqui se pediu explicitamente trocar de plano.
-        const wantsPlanChange =
-          new URLSearchParams(window.location.search).has('change')
-          || localStorage.getItem('orbi_selected_plan') !== null;
-
-        if (!wantsPlanChange) {
-          navigate('/sistema', { replace: true });
-        }
       }
     };
 
     checkUserState();
-  }, [navigate]);
+  }, []);
 
   /** Processar plano salvo apos login */
   useEffect(() => {
@@ -437,7 +427,7 @@ export default function Pricing() {
               {isAuthenticated ? (
                 userActivePlan ? (
                   <Button size="sm" onClick={() => navigate('/sistema')}>
-                    Ir para o sistema
+                    Acessar Sistema
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" onClick={() => navigate('/sistema')}>

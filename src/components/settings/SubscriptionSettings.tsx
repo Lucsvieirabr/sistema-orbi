@@ -12,6 +12,7 @@ import { usePayment } from "@/hooks/use-payment";
 import { useQuota } from "@/hooks/use-quota";
 import { useSubscription, useSubscriptionPlans } from "@/hooks/use-subscription";
 import { formatCurrencyBRL } from "@/lib/utils";
+import { openExternalUrl } from "@/lib/safe-url";
 
 import { CancelSubscriptionDialog } from "./CancelSubscriptionDialog";
 import { formatLongDate, formatShortDate, parseBackendDate } from "./plan-impact";
@@ -120,7 +121,7 @@ export function SubscriptionSettings() {
     setPendingAction("invoice");
     const invoice = await fetchOpenInvoice();
     setPendingAction(null);
-    if (invoice?.url) window.open(invoice.url, "_blank", "noopener,noreferrer");
+    if (invoice?.url) openExternalUrl(invoice.url);
   };
 
   return (

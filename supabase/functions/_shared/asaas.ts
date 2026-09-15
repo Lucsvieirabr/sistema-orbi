@@ -1,3 +1,5 @@
+import { HttpError } from './errors.ts'
+
 export const ASAAS_BASE_URL = Deno.env.get('ASAAS_SANDBOX') === 'true'
   ? 'https://api-sandbox.asaas.com/v3'
   : 'https://api.asaas.com/v3'
@@ -20,8 +22,7 @@ export interface AsaasSubscription {
   nextDueDate: string
   billingType: string
   externalReference?: string
-  /** true depois de DELETE /subscriptions/:id — o Asaas mantém o registro. */
-  deleted?: boolean
+    deleted?: boolean
 }
 
 export interface AsaasPayment {
@@ -42,41 +43,85 @@ export interface AsaasPayment {
   externalReference?: string
 }
 
+const ASAAS_ID = /^[A-Za-z0-9_-]{1,64}$/
+const ASAAS_TIMEOUT_MS = 20_000
+
+export class AsaasError extends HttpError {
+  readonly upstreamStatus: number
+
+  constructor(upstreamStatus: number, publicMessage: string, internal: string) {
+    const status = upstreamStatus === 400 || upstreamStatus === 422 ? 422 : 502
+    super(status, publicMessage, { code: status === 422 ? 'GATEWAY_REJECTED' : 'GATEWAY_UNAVAILABLE', internal })
+    this.upstreamStatus = upstreamStatus
+  }
+}
+
 function apiKey(): string {
   const key = Deno.env.get('ASAAS_API_KEY')
-  if (!key) throw new Error('ASAAS_API_KEY não configurada')
+  if (!key) {
+    throw new HttpError(503, 'Pagamentos indisponíveis no momento.', { internal: 'ASAAS_API_KEY ausente' })
+  }
   return key
+}
+
+export function asaasId(value: unknown, label = 'id'): string {
+  if (typeof value !== 'string' || !ASAAS_ID.test(value)) {
+    throw new HttpError(500, 'Erro interno do servidor.', { internal: `identificador Asaas inválido (${label})` })
+  }
+  return value
+}
+
+function publicGatewayMessage(parsed: any): string {
+  const descriptions: string[] = Array.isArray(parsed?.errors)
+    ? parsed.errors
+        .map((e: any) => (typeof e?.description === 'string' ? e.description : ''))
+        .filter(Boolean)
+    : []
+  const text = descriptions.join(' ').replace(/[\u0000-\u001F\u007F<>]/g, ' ').replace(/\s+/g, ' ').trim()
+  return text ? text.slice(0, 300) : 'Os dados enviados foram recusados pelo gateway de pagamento.'
 }
 
 export async function asaasFetch<T>(
   path: string,
   init: { method?: string; body?: unknown } = {},
 ): Promise<T> {
-  const res = await fetch(`${ASAAS_BASE_URL}${path}`, {
-    method: init.method ?? 'GET',
-    headers: {
-      'Content-Type': 'application/json',
-      'access_token': apiKey(),
-      'User-Agent': 'sistema-orbi',
-    },
-    body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
-  })
+  const method = init.method ?? 'GET'
+  let res: Response
+
+  try {
+    res = await fetch(`${ASAAS_BASE_URL}${path}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'access_token': apiKey(),
+        'User-Agent': 'sistema-orbi',
+      },
+      body: init.body !== undefined ? JSON.stringify(init.body) : undefined,
+      signal: AbortSignal.timeout(ASAAS_TIMEOUT_MS),
+    })
+  } catch (error) {
+    if (error instanceof HttpError) throw error
+    throw new AsaasError(0, 'Gateway de pagamento indisponível.', `Asaas ${method} ${path}: ${(error as Error)?.name}`)
+  }
 
   const text = await res.text()
   let parsed: any = null
-  try { parsed = text ? JSON.parse(text) : null } catch { parsed = { raw: text } }
+  try { parsed = text ? JSON.parse(text) : null } catch { parsed = null }
 
   if (!res.ok) {
-    const detail = parsed?.errors?.map((e: any) => e.description).join('; ') || text
-    throw new Error(`Asaas ${init.method ?? 'GET'} ${path} falhou (${res.status}): ${detail}`)
+    const detail = parsed?.errors?.map((e: any) => e?.description).join('; ') || text.slice(0, 500)
+    throw new AsaasError(
+      res.status,
+      res.status === 400 || res.status === 422 ? publicGatewayMessage(parsed) : 'Gateway de pagamento indisponível.',
+      `Asaas ${method} ${path} falhou (${res.status}): ${detail}`,
+    )
   }
 
   return parsed as T
 }
 
-/** Recurso já removido no Asaas: em cancelamento, é o estado desejado, não erro. */
 export function isAsaasNotFound(error: unknown): boolean {
-  return /falhou \(404\)/.test((error as Error)?.message ?? '')
+  return error instanceof AsaasError && error.upstreamStatus === 404
 }
 
 export function toAsaasCycle(billingCycle: string): AsaasCycle {
@@ -114,9 +159,9 @@ export async function findOrCreateCustomer(params: {
 }): Promise<AsaasCustomer> {
   if (params.asaasCustomerId) {
     try {
-      return await asaasFetch<AsaasCustomer>(`/customers/${params.asaasCustomerId}`)
-    } catch (_) {
-      // customer removido no Asaas: recria abaixo
+      return await asaasFetch<AsaasCustomer>(`/customers/${asaasId(params.asaasCustomerId, 'customer')}`)
+    } catch (error) {
+      if (!isAsaasNotFound(error)) throw error
     }
   }
 
