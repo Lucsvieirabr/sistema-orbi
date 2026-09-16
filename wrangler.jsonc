@@ -1,0 +1,15 @@
+// Cloudflare Workers (static assets) — SPA estática, sem código de Worker.
+// Sem este arquivo o `wrangler deploy` tenta autoconfigurar o projeto e exige Vite >= 6.
+// Cabeçalhos de segurança (CSP etc.) em public/_headers — espelho de netlify.toml/vercel.json/nginx.conf.
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "sistema-orbi",
+  "compatibility_date": "2026-09-01",
+  "assets": {
+    "directory": "./dist",
+    // Rota do React Router sem arquivo físico -> index.html (substitui o antigo public/_redirects,
+    // que o Workers rejeita como loop infinito).
+    "not_found_handling": "single-page-application",
+    "html_handling": "auto-trailing-slash"
+  }
+}
