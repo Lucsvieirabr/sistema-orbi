@@ -89,9 +89,10 @@ export function AdminHeader({ onMenuClick, menuOpen = false }: AdminHeaderProps 
           </Button>
         )}
         <div className="min-w-0">
-          <h1 className="truncate font-display text-base font-semibold tracking-tight text-foreground md:text-xl lg:text-2xl">
+          {/* <p>, não <h1>: o único h1 da tela é o PageHeader da página. */}
+          <p className="truncate font-display text-base font-semibold tracking-tight text-foreground md:text-xl lg:text-2xl">
             {pageInfo.title}
-          </h1>
+          </p>
           <p className="hidden truncate text-xs text-muted-foreground md:block md:text-sm">{pageInfo.description}</p>
         </div>
       </div>

@@ -91,7 +91,7 @@ export function OrbitField({ className }: OrbitFieldProps) {
 export function OrbiMark({ src, className }: { src: string; className?: string }) {
   return (
     <span className={cn("lp-mark", className)} aria-hidden>
-      <img src={src} alt="" width={500} height={500} decoding="async" />
+      <img src={src} alt="Logotipo do Orbi" width={500} height={500} decoding="async" />
     </span>
   );
 }

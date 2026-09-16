@@ -811,7 +811,7 @@
   min-width: 0;
 }
 
-.lp-ledger__file strong {
+.lp-ledger__file > div > strong {
   display: block;
   overflow: hidden;
   font-size: 0.875rem;
@@ -820,27 +820,39 @@
   white-space: nowrap;
 }
 
-.lp-ledger__file span {
+.lp-ledger__file > div > span {
   display: block;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));
 }
 
 .lp-glyph {
-  display: grid;
-  place-items: center;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
   width: 2.25rem;
   height: 2.25rem;
+  margin: 0;
+  padding: 0;
   flex-shrink: 0;
+  overflow: hidden;
+  line-height: 0;
+  vertical-align: middle;
   border-radius: 0.625rem;
   background: hsl(var(--surface-sunken));
   box-shadow: inset 0 0 0 1px hsl(var(--border-subtle));
   color: hsl(var(--foreground));
 }
 
-.lp-glyph svg {
+.lp-glyph > svg,
+.lp-glyph > img {
+  display: block;
+  flex-shrink: 0;
   width: 1rem;
   height: 1rem;
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .lp-status {
@@ -906,6 +918,8 @@
 
 .lp-row .lp-glyph svg {
   position: absolute;
+  inset: 0;
+  margin: auto;
   transition:
     opacity 400ms var(--lp-ease-out),
     transform 500ms var(--lp-ease-out);
@@ -1183,14 +1197,14 @@
   }
 }
 
-.lp-trust__item strong {
+.lp-trust__item > div > strong {
   display: block;
   font-size: 0.875rem;
   font-weight: 500;
   line-height: 1.35;
 }
 
-.lp-trust__item span {
+.lp-trust__item > div > span {
   display: block;
   margin-top: 0.125rem;
   font-size: 0.8125rem;
@@ -1201,6 +1215,7 @@
 .lp-trust__pix {
   width: 1rem;
   height: 1rem;
+  object-fit: contain;
 }
 
 /* ---------- Seções ---------- */
@@ -1853,13 +1868,13 @@
   box-shadow: inset 0 0 0 1px hsl(var(--border));
 }
 
-.lp-drop strong {
+.lp-drop > div > strong {
   display: block;
   font-size: 0.8125rem;
   font-weight: 500;
 }
 
-.lp-drop span {
+.lp-drop > div > span {
   display: block;
   font-size: 0.75rem;
   color: hsl(var(--muted-foreground));

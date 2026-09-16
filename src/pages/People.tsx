@@ -177,7 +177,7 @@ function PeopleContent() {
           aria-label={`Copiar PIX de ${member.name}`}
           title="Copiar chave PIX"
         >
-          <img src={PixIcon} alt="" aria-hidden className="h-4 w-4" />
+          <img src={PixIcon} alt="Ícone Pix" aria-hidden width={16} height={16} className="h-4 w-4" />
         </Button>
       )}
       <Button

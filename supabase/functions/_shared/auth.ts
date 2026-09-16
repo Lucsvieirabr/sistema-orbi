@@ -1,43 +1,50 @@
 import { createClient, SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { HttpError, unauthenticated } from './errors.ts'
+
+const JWT_SHAPE = /^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/
+const MAX_JWT_LENGTH = 4096
+
+function requiredEnv(name: string): string {
+  const value = Deno.env.get(name)
+  if (!value) {
+    throw new HttpError(503, 'Serviço temporariamente indisponível.', { internal: `${name} ausente` })
+  }
+  return value
+}
 
 export function adminClient(): SupabaseClient {
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-    { auth: { persistSession: false, autoRefreshToken: false } },
-  )
+  return createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_SERVICE_ROLE_KEY'), {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
+export function bearerToken(req: Request): string {
+  const header = req.headers.get('Authorization') ?? ''
+  const match = /^Bearer\s+(.+)$/i.exec(header.trim())
+  const token = match?.[1]?.trim() ?? ''
+  if (!token || token.length > MAX_JWT_LENGTH || !JWT_SHAPE.test(token)) throw unauthenticated()
+  return token
 }
 
 export async function requireUser(req: Request) {
-  const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization')
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw Object.assign(new Error('Não autenticado'), { status: 401 })
-  }
-
-  const token = authHeader.slice(7)
+  const token = bearerToken(req)
   const { data, error } = await adminClient().auth.getUser(token)
 
-  if (error || !data?.user) {
-    throw Object.assign(new Error('Não autenticado'), { status: 401 })
-  }
+  if (error || !data?.user) throw unauthenticated()
 
   return data.user
 }
 
-/** Cliente com o JWT do usuário: preserva auth.uid() em RPCs SECURITY DEFINER. */
 export function userClient(req: Request): SupabaseClient {
-  const authHeader = req.headers.get('Authorization') ?? req.headers.get('authorization') ?? ''
-  return createClient(
-    Deno.env.get('SUPABASE_URL') ?? '',
-    Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-    {
-      global: { headers: { Authorization: authHeader } },
-      auth: { persistSession: false, autoRefreshToken: false },
-    },
-  )
+  const token = bearerToken(req)
+  return createClient(requiredEnv('SUPABASE_URL'), requiredEnv('SUPABASE_ANON_KEY'), {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
 }
 
 export function errorStatus(error: unknown): number {
-  const status = (error as { status?: number })?.status
-  return typeof status === 'number' ? status : 400
+  if (error instanceof HttpError) return error.status
+  const status = (error as { status?: unknown })?.status
+  return typeof status === 'number' && status >= 400 && status < 600 ? status : 500
 }

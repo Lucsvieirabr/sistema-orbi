@@ -1,26 +1,26 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
-import { adminClient, userClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { adminClient, userClient } from '../_shared/auth.ts'
 import { gateUser, gateFailure } from '../_shared/gate.ts'
-import { AsaasPayment, AsaasSubscription, addCycle, asaasFetch } from '../_shared/asaas.ts'
+import { AsaasPayment, AsaasSubscription, addCycle, asaasFetch, asaasId } from '../_shared/asaas.ts'
+import { parseJson, z } from '../_shared/validation.ts'
 
-const GRACE_DAYS = Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3')
+const GRACE_DAYS = Math.min(Math.max(Number(Deno.env.get('ASAAS_GRACE_DAYS') ?? '3') || 3, 0), 30)
+const MAX_BODY_BYTES = 256
 
-// Reconciliação sob demanda: usada no login para não depender exclusivamente
-// da entrega do webhook. O Asaas continua sendo a fonte da verdade.
 serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
-    // chamada no login: teto alto e fail-open — contencao aqui nao pode bloquear entrada no produto.
     const user = await gateUser(req, {
       bucket: 'asaas-sync-subscription',
       ipLimit: 120,
       userLimit: 60,
       windowSeconds: 3600,
       strict: false,
+      maxBodyBytes: MAX_BODY_BYTES,
     })
+    await parseJson(req, z.object({}).strict(), { maxBytes: MAX_BODY_BYTES, allowEmpty: true })
     const supabase = adminClient()
     const asUser = userClient(req)
 
@@ -35,14 +35,18 @@ serve(async (req) => {
 
     if (error) throw error
 
-    if (!sub?.asaas_subscription_id) {
+    // Cancelamento agendado: a assinatura já foi removida no Asaas de propósito.
+    // Reconciliar agora leria INACTIVE/404 e cortaria o período já pago — o fim
+    // do acesso é decidido pela RPC em current_period_end.
+    if (!sub?.asaas_subscription_id || sub.cancel_at_period_end) {
       const { data: status } = await asUser.rpc('get_my_subscription_status')
       return jsonFor(req, { success: true, synced: false, status })
     }
 
-    const remote = await asaasFetch<AsaasSubscription>(`/subscriptions/${sub.asaas_subscription_id}`)
+    const subscriptionId = asaasId(sub.asaas_subscription_id, 'subscription')
+    const remote = await asaasFetch<AsaasSubscription>(`/subscriptions/${subscriptionId}`)
     const payments = await asaasFetch<{ data: AsaasPayment[] }>(
-      `/subscriptions/${sub.asaas_subscription_id}/payments?limit=10`,
+      `/subscriptions/${subscriptionId}/payments?limit=10`,
     )
 
     const settled = (payments?.data ?? [])
@@ -56,7 +60,7 @@ serve(async (req) => {
       updated_at: new Date().toISOString(),
     }
 
-    if (remote.status === 'INACTIVE' || remote.status === 'EXPIRED') {
+    if (remote.deleted || remote.status === 'INACTIVE' || remote.status === 'EXPIRED') {
       patch.status = 'canceled'
       patch.blocked_reason = 'Assinatura inativa no gateway'
     } else if (settled) {

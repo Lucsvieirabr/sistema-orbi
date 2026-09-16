@@ -928,6 +928,125 @@ export type Database = {
         }
         Relationships: []
       }
+      budgets: {
+        Row: {
+          amount_limit: number
+          category_id: string
+          created_at: string
+          id: string
+          period_month: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_limit: number
+          category_id: string
+          created_at?: string
+          id?: string
+          period_month: string
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          amount_limit?: number
+          category_id?: string
+          created_at?: string
+          id?: string
+          period_month?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "budgets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goal_allocations: {
+        Row: {
+          allocated_on: string
+          amount: number
+          created_at: string
+          goal_id: string
+          id: string
+          note: string | null
+          user_id: string
+        }
+        Insert: {
+          allocated_on?: string
+          amount: number
+          created_at?: string
+          goal_id: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Update: {
+          allocated_on?: string
+          amount?: number
+          created_at?: string
+          goal_id?: string
+          id?: string
+          note?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "goal_allocations_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "goals"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "goal_allocations_goal_id_fkey"
+            columns: ["goal_id"]
+            isOneToOne: false
+            referencedRelation: "vw_goal_progress"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      goals: {
+        Row: {
+          color: string
+          created_at: string
+          deadline: string | null
+          icon: string
+          id: string
+          name: string
+          target_value: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          deadline?: string | null
+          icon?: string
+          id?: string
+          name: string
+          target_value: number
+          updated_at?: string
+          user_id?: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          deadline?: string | null
+          icon?: string
+          id?: string
+          name?: string
+          target_value?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       mv_frequent_merchants: {
@@ -1019,6 +1138,27 @@ export type Database = {
         Row: {
           account_id: string | null
           projected_balance: number | null
+          user_id: string | null
+        }
+        Relationships: []
+      }
+      vw_goal_progress: {
+        Row: {
+          allocations_count: number | null
+          color: string | null
+          created_at: string | null
+          deadline: string | null
+          icon: string | null
+          id: string | null
+          last_allocation_on: string | null
+          monthly_needed: number | null
+          months_left: number | null
+          name: string | null
+          progress_pct: number | null
+          remaining_value: number | null
+          saved_value: number | null
+          target_value: number | null
+          updated_at: string | null
           user_id: string | null
         }
         Relationships: []
@@ -1300,6 +1440,22 @@ export type Database = {
       user_has_feature: {
         Args: { feature_name: string }
         Returns: boolean
+      }
+      orbi_budget_copy_previous: {
+        Args: { p_month: string }
+        Returns: number
+      }
+      orbi_budget_overview: {
+        Args: { p_month?: string; p_scope?: string }
+        Returns: Json
+      }
+      orbi_has_feature: {
+        Args: { p_key: string }
+        Returns: boolean
+      }
+      orbi_monthly_closing: {
+        Args: { p_month?: string; p_scope?: string }
+        Returns: Json
       }
     }
     Enums: {

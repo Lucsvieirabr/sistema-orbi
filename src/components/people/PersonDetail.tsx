@@ -127,7 +127,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
         <Card className="shadow-md">
           <CardContent className="p-8 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Erro ao carregar dados</h3>
+            <h1 className="text-lg font-semibold mb-2">Erro ao carregar dados</h1>
             <p className="text-muted-foreground mb-4">{error.message}</p>
             <Button onClick={() => window.location.reload()}>Tentar novamente</Button>
           </CardContent>
@@ -142,7 +142,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
         <Card className="shadow-md">
           <CardContent className="p-8 text-center">
             <AlertCircle className="h-12 w-12 mx-auto text-warning mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Pessoa não encontrada</h3>
+            <h1 className="text-lg font-semibold mb-2">Pessoa não encontrada</h1>
             <Button onClick={() => navigate('/sistema/people')} className="mt-4">
               Voltar para Pessoas
             </Button>
@@ -154,6 +154,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
 
   return (
     <div className="container mx-auto p-4 space-y-6">
+      <h1 className="sr-only">{person.name}: lançamentos e saldo com esta pessoa</h1>
       {/* Header */}
       <Card className="shadow-md">
         <CardHeader>

@@ -14,6 +14,7 @@ import { Button } from '@/components/ui/button';
 import { AlertTriangle, Check, Lock, TrendingUp, Sparkles } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
+import { UPGRADE_PATH } from '@/lib/features/premium-modules';
 
 interface FeatureGuardProps {
   feature: string;
@@ -60,7 +61,7 @@ export function FeatureGuard({
             </p>
             <Button 
               size="sm" 
-              onClick={() => navigate('/pricing')}
+              onClick={() => navigate(UPGRADE_PATH)}
               className="mt-2"
             >
               <TrendingUp className="mr-2 h-4 w-4" />
@@ -142,7 +143,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
           <Button 
             size="sm" 
             variant="default"
-            onClick={() => navigate('/pricing')}
+            onClick={() => navigate(UPGRADE_PATH)}
             className="w-full lg:w-auto flex-shrink-0"
           >
             <Sparkles className="mr-2 h-4 w-4" />
@@ -168,7 +169,7 @@ export function LimitWarningBanner({ limit, currentValue, resourceName }: LimitW
           <Button 
             size="sm" 
             variant="outline"
-            onClick={() => navigate('/pricing')}
+            onClick={() => navigate(UPGRADE_PATH)}
             className="w-full lg:w-auto flex-shrink-0"
           >
             Fazer Upgrade
@@ -246,7 +247,7 @@ export function FeaturePageGuard({ feature, children }: FeaturePageGuardProps) {
             </div>
 
             <div className="flex flex-col gap-2 sm:flex-row-reverse">
-              <Button onClick={() => navigate('/pricing')} className="sm:flex-1">
+              <Button onClick={() => navigate(UPGRADE_PATH)} className="sm:flex-1">
                 <TrendingUp className="h-4 w-4" />
                 Ver planos
               </Button>

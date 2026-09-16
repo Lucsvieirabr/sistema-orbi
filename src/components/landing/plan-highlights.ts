@@ -27,13 +27,31 @@ function extendsPlan(plan: SubscriptionPlan, base: SubscriptionPlan) {
   return baseFeatures.length > 0 && baseFeatures.every(([key]) => plan.features?.[key] === true);
 }
 
+/** Módulos de planejamento — exclusivos Pro e Casal (migration 20260915150000). */
+const PLANNING_LINES: Array<{ key: string; text: string }> = [
+  { key: "orcamentos", text: "Orçamentos Inteligentes por categoria" },
+  { key: "metas", text: "Metas Financeiras com aportes e prazo" },
+  { key: "dre_pessoal", text: "DRE Pessoal Avançado no fechamento do mês" },
+];
+
+function planningLines(plan: SubscriptionPlan): PlanLine[] {
+  return PLANNING_LINES.map((line) => ({ text: line.text, included: plan.features?.[line.key] === true }));
+}
+
 function familyLines(plan: SubscriptionPlan): PlanLine[] {
   const members = Number(plan.limits?.max_membros_familia ?? 0);
   if (plan.features?.familia_compartilhada !== true) return [];
+
+  // No Casal, os módulos de planejamento também valem na visão a dois.
+  const planning = PLANNING_LINES.every((line) => plan.features?.[line.key] === true)
+    ? [{ text: "Orçamentos Inteligentes, Metas Financeiras e DRE Pessoal Avançado na visão Casal", included: true }]
+    : [];
+
   return [
     { text: `${members + 1} acessos com uma única assinatura`, included: true },
     { text: "Alternância entre visão Pessoal e Casal", included: true },
     { text: "Contas, cartões e lançamentos compartilhados", included: true },
+    ...planning,
   ];
 }
 
@@ -104,6 +122,8 @@ export function buildPlanHighlights(plan: SubscriptionPlan, all: SubscriptionPla
     });
   }
 
+  lines.push(...planningLines(plan));
+
   const retention = Number(limits.retencao_dados_meses);
   if (retention === -1) {
     lines.push({ text: "Histórico sem prazo de expiração", included: true });
@@ -137,6 +157,9 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       ia_classificacao_automatica: false,
       dashboard: false,
       dashboard_assinaturas: false,
+      orcamentos: false,
+      metas: false,
+      dre_pessoal: false,
       familia_compartilhada: false,
     },
     limits: {
@@ -153,7 +176,7 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
     id: "",
     name: "Pro",
     slug: "pro",
-    description: "Automatização completa: importação de extrato, IA classificadora e uso ilimitado.",
+    description: "Automatização completa: importação de extrato, IA classificadora, orçamentos, metas e DRE do mês.",
     price_monthly: 10.99,
     price_yearly: 109.99,
     is_active: true,
@@ -167,6 +190,9 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       ia_classificacao_automatica: true,
       dashboard: true,
       dashboard_assinaturas: true,
+      orcamentos: true,
+      metas: true,
+      dre_pessoal: true,
       familia_compartilhada: false,
     },
     limits: {
@@ -198,6 +224,9 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       ia_classificacao_automatica: true,
       dashboard: true,
       dashboard_assinaturas: true,
+      orcamentos: true,
+      metas: true,
+      dre_pessoal: true,
       familia_compartilhada: true,
     },
     limits: {

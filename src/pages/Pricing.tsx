@@ -48,6 +48,9 @@ const FEATURE_ROWS = [
   { key: "transacoes_importar_csv", label: "Importar CSV" },
   { key: "ia_classificacao_automatica", label: "Classificação automática" },
   { key: "dashboard_assinaturas", label: "Painel de assinaturas" },
+  { key: "orcamentos", label: "Orçamentos Inteligentes" },
+  { key: "metas", label: "Metas Financeiras" },
+  { key: "dre_pessoal", label: "DRE Pessoal Avançado" },
   { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
 ] as const;
 
@@ -326,21 +329,11 @@ export default function Pricing() {
       const status = data as any;
       if (status?.access === 'allowed' && status?.plan_id) {
         setUserActivePlan(status.plan_id);
-
-        // Conta com plano vigente (Free/Pro/Premium) nunca fica presa na tela
-        // de ativacao: so permanece aqui se pediu explicitamente trocar de plano.
-        const wantsPlanChange =
-          new URLSearchParams(window.location.search).has('change')
-          || localStorage.getItem('orbi_selected_plan') !== null;
-
-        if (!wantsPlanChange) {
-          navigate('/sistema', { replace: true });
-        }
       }
     };
 
     checkUserState();
-  }, [navigate]);
+  }, []);
 
   /** Processar plano salvo apos login */
   useEffect(() => {
@@ -431,7 +424,7 @@ export default function Pricing() {
         <header className="sticky top-0 z-30 border-b border-border-subtle bg-background/85 backdrop-blur-md">
           <div className="mx-auto flex h-header max-w-[76rem] items-center justify-between px-4 md:px-6 lg:h-header-lg lg:px-8">
             <div className="flex items-center gap-2.5">
-              <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+              <img src={orbiLogo} alt="Logotipo do Orbi" width={28} height={28} decoding="async" className="h-7 w-7" />
               <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
             </div>
             <div className="flex items-center gap-2">
@@ -439,7 +432,7 @@ export default function Pricing() {
               {isAuthenticated ? (
                 userActivePlan ? (
                   <Button size="sm" onClick={() => navigate('/sistema')}>
-                    Ir para o sistema
+                    Acessar Sistema
                   </Button>
                 ) : (
                   <Button variant="outline" size="sm" onClick={() => navigate('/sistema')}>
@@ -464,7 +457,8 @@ export default function Pricing() {
               <h1 className="mt-3 text-balance">Escolha como o Orbi vai trabalhar para você.</h1>
               <p className="mt-4 max-w-md text-base leading-relaxed text-muted-foreground">
                 Todos os planos incluem extrato, contas e categorias. O que muda é o quanto
-                a inteligência do Orbi classifica por você — e quantos registros cabem.
+                a inteligência do Orbi classifica por você, quantos registros cabem e se você
+                planeja o mês com orçamentos, metas e DRE.
               </p>
             </div>
 

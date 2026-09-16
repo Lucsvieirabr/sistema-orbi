@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { ArrowUpRight, Check, Lock, ShieldCheck, UserCheck } from "lucide-react";
 
@@ -36,11 +35,11 @@ const STEPS = [
   },
 ];
 
-function PrimaryCta({ label = "Comece Agora" }: { label?: string }) {
+function PrimaryCta({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   return (
     <Magnetic>
-      <Link to="/login?modo=cadastro" className="lp-btn lp-btn--primary">
-        {label}
+      <Link to={isAuthenticated ? "/sistema" : "/login?modo=cadastro"} className="lp-btn lp-btn--primary">
+        {isAuthenticated ? "Acessar Sistema" : "Comece Agora"}
         <span className="lp-btn__icon" aria-hidden>
           <ArrowUpRight strokeWidth={1.75} data-magnet-icon />
         </span>
@@ -49,7 +48,7 @@ function PrimaryCta({ label = "Comece Agora" }: { label?: string }) {
   );
 }
 
-function Hero() {
+function Hero({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <section className="lp-hero lp-space" data-space-band aria-labelledby="hero-title">
       <StarField count={56} seed={11} />
@@ -72,7 +71,7 @@ function Hero() {
             </Reveal>
 
             <Reveal className="lp-hero__cta" immediate delay={380}>
-              <PrimaryCta />
+              <PrimaryCta isAuthenticated={isAuthenticated} />
               <a href="#planos" className="lp-btn lp-btn--ghost">
                 Ver planos
               </a>
@@ -113,7 +112,7 @@ function Hero() {
                 <li key={item.title} className="lp-trust__item">
                   <span className="lp-glyph" aria-hidden>
                     {item.pix ? (
-                      <img className="lp-trust__pix" src={pixLogo} alt="" width={16} height={16} />
+                      <img className="lp-trust__pix" src={pixLogo} alt="Pix" width={16} height={16} loading="lazy" decoding="async" />
                     ) : (
                       <Icon strokeWidth={1.5} />
                     )}
@@ -166,7 +165,7 @@ function HowItWorks() {
   );
 }
 
-function FinalCall() {
+function FinalCall({ isAuthenticated }: { isAuthenticated: boolean }) {
   return (
     <div className="lp-space" data-space-band>
       <section className="lp-final" aria-labelledby="final-title">
@@ -188,10 +187,12 @@ function FinalCall() {
               </Reveal>
             </div>
             <Reveal className="lp-final__actions" delay={240}>
-              <PrimaryCta />
-              <Link to="/login" className="lp-btn lp-btn--ghost">
-                Já tenho conta
-              </Link>
+              <PrimaryCta isAuthenticated={isAuthenticated} />
+              {!isAuthenticated && (
+                <Link to="/login" className="lp-btn lp-btn--ghost">
+                  Já tenho conta
+                </Link>
+              )}
             </Reveal>
           </div>
         </div>
@@ -226,12 +227,20 @@ function FinalCall() {
             <nav className="lp-footer__col" aria-labelledby="footer-conta">
               <h2 id="footer-conta">Conta</h2>
               <ul>
-                <li>
-                  <Link to="/login">Entrar</Link>
-                </li>
-                <li>
-                  <Link to="/login?modo=cadastro">Criar conta</Link>
-                </li>
+                {isAuthenticated ? (
+                  <li>
+                    <Link to="/sistema">Acessar Sistema</Link>
+                  </li>
+                ) : (
+                  <>
+                    <li>
+                      <Link to="/login">Entrar</Link>
+                    </li>
+                    <li>
+                      <Link to="/login?modo=cadastro">Criar conta</Link>
+                    </li>
+                  </>
+                )}
               </ul>
             </nav>
 
@@ -258,28 +267,21 @@ function FinalCall() {
   );
 }
 
-export default function Landing() {
-  useEffect(() => {
-    const previous = document.title;
-    document.title = "Orbi · Importe o extrato, a IA organiza suas finanças";
-    return () => {
-      document.title = previous;
-    };
-  }, []);
-
+export default function Landing({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
+  // Title/description/canonical/JSON-LD desta rota: src/lib/seo.ts (RouteSeo).
   return (
     <div className="lp">
       <a className="lp-skip" href="#conteudo">
         Pular para o conteúdo
       </a>
-      <LandingNav />
+      <LandingNav isAuthenticated={isAuthenticated} />
       <main id="conteudo">
-        <Hero />
+        <Hero isAuthenticated={isAuthenticated} />
         <FeatureShowcase />
         <HowItWorks />
-        <PricingSection />
+        <PricingSection isAuthenticated={isAuthenticated} />
       </main>
-      <FinalCall />
+      <FinalCall isAuthenticated={isAuthenticated} />
     </div>
   );
 }

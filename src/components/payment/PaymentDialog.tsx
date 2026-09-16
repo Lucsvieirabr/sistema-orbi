@@ -5,6 +5,7 @@ import { ExternalLink, CreditCard, CheckCircle2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { PaymentData } from '@/hooks/use-payment';
 import { useEffect } from 'react';
+import { openExternalUrl, safePaymentUrl } from '@/lib/safe-url';
 
 interface PaymentDialogProps {
   open: boolean;
@@ -15,17 +16,17 @@ interface PaymentDialogProps {
 export function PaymentDialog({ open, onOpenChange, paymentData }: PaymentDialogProps) {
   const { toast } = useToast();
 
-  // Redirecionar automaticamente para o link de pagamento quando abrir
+  const paymentUrl = safePaymentUrl(paymentData?.url);
+
   useEffect(() => {
-    if (open && paymentData?.url) {
-      // Esperar um pouco antes de redirecionar para dar tempo de ver o dialog
+    if (open && paymentUrl) {
       const timer = setTimeout(() => {
-        window.open(paymentData.url, '_blank');
+        openExternalUrl(paymentUrl);
       }, 1500);
 
       return () => clearTimeout(timer);
     }
-  }, [open, paymentData]);
+  }, [open, paymentUrl]);
 
   if (!paymentData) return null;
 
@@ -37,8 +38,12 @@ export function PaymentDialog({ open, onOpenChange, paymentData }: PaymentDialog
   };
 
   const handleOpenPaymentLink = () => {
-    if (paymentData.url) {
-      window.open(paymentData.url, '_blank');
+    if (!openExternalUrl(paymentUrl)) {
+      toast({
+        title: 'Link de pagamento indisponível',
+        description: 'Gere a cobrança novamente em Configurações → Assinatura.',
+        variant: 'destructive',
+      });
     }
   };
 

@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/ui/theme-toggle";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { openExternalUrl, safePaymentUrl } from "@/lib/safe-url";
 
 const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString("pt-BR") : null;
@@ -77,7 +78,7 @@ export default function Billing() {
       <header className="border-b border-border-subtle">
         <div className="mx-auto flex h-header max-w-[64rem] items-center justify-between px-4 md:px-6 lg:h-header-lg">
           <div className="flex items-center gap-2.5">
-            <img src={orbiLogo} alt="" aria-hidden className="h-7 w-7" />
+            <img src={orbiLogo} alt="Logotipo do Orbi" width={28} height={28} decoding="async" className="h-7 w-7" />
             <span className="font-display text-base font-semibold tracking-tight">Orbi</span>
           </div>
           <div className="flex items-center gap-2">
@@ -140,12 +141,12 @@ export default function Billing() {
         </dl>
 
         <div className="mt-8 space-y-4">
-          {paymentData?.url ? (
+          {safePaymentUrl(paymentData?.url) ? (
             <>
               <Button
                 className="w-full"
                 size="lg"
-                onClick={() => window.open(paymentData.url, "_blank", "noopener,noreferrer")}
+                onClick={() => openExternalUrl(paymentData.url)}
               >
                 <ExternalLink className="h-4 w-4" />
                 Pagar {formatCurrency(paymentData.value)}

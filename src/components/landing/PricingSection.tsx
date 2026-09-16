@@ -29,7 +29,7 @@ function yearlySavings(plan: SubscriptionPlan) {
   return { saved, percent: Math.round((saved / full) * 100) };
 }
 
-export function PricingSection() {
+export function PricingSection({ isAuthenticated = false }: { isAuthenticated?: boolean }) {
   const navigate = useNavigate();
   const { data } = useSubscriptionPlans();
   const [cycle, setCycle] = useState<Cycle>("yearly");
@@ -63,7 +63,7 @@ export function PricingSection() {
       return;
     }
 
-    navigate("/login?modo=cadastro");
+    navigate(isAuthenticated ? "/pricing?change=1" : "/login?modo=cadastro");
   };
 
   return (

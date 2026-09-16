@@ -7,6 +7,24 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { parseOrThrow, sanitizeSingleLine } from "@/lib/validation/schemas";
+import { z } from "zod";
+
+const ADMIN_PASSWORD_MIN = 12;
+
+const adminUserSchema = z.object({
+  fullName: z.preprocess(sanitizeSingleLine, z.string().min(1, "Nome é obrigatório").max(120, "Máximo de 120 caracteres")),
+  email: z.preprocess(
+    (v) => sanitizeSingleLine(v).toLowerCase(),
+    z.string().email("Email inválido").max(254, "Email inválido"),
+  ),
+  password: z
+    .string()
+    .min(ADMIN_PASSWORD_MIN, `Senha deve ter no mínimo ${ADMIN_PASSWORD_MIN} caracteres`)
+    .max(72, "Senha deve ter no máximo 72 caracteres")
+    .regex(/[A-Za-z]/, "Senha deve conter letras")
+    .regex(/[0-9]/, "Senha deve conter números"),
+});
 
 interface AddAdminDialogProps {
   open: boolean;
@@ -23,22 +41,13 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
   // Mutation para criar admin
   const createAdminMutation = useMutation({
     mutationFn: async () => {
-      // Validações
-      if (!fullName.trim()) {
-        throw new Error('Nome é obrigatório');
-      }
-      if (!email.trim()) {
-        throw new Error('Email é obrigatório');
-      }
-      if (!password.trim() || password.length < 6) {
-        throw new Error('Senha deve ter no mínimo 6 caracteres');
-      }
+      const safe = parseOrThrow(adminUserSchema, { fullName, email, password });
 
       const { data, error } = await supabase
         .rpc('admin_create_admin_user', {
-          p_email: email.trim(),
-          p_password: password,
-          p_full_name: fullName.trim()
+          p_email: safe.email,
+          p_password: safe.password,
+          p_full_name: safe.fullName
         });
 
       if (error) throw error;
@@ -113,15 +122,16 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
             <Input
               id="password"
               type="password"
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 12 caracteres, com letras e números"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               disabled={createAdminMutation.isPending}
               required
-              minLength={6}
+              minLength={ADMIN_PASSWORD_MIN}
+              maxLength={72}
             />
             <p className="text-xs text-muted-foreground">
-              A senha deve ter no mínimo 6 caracteres
+              A senha deve ter de 12 a 72 caracteres, com letras e números
             </p>
           </div>
 

@@ -14,9 +14,10 @@
 **Cliente DB**: `@supabase/supabase-js` v2, instância única em `src/integrations/supabase/client.ts`. Tipos gerados em `src/integrations/supabase/types.ts` (`Tables<'x'>`, `TablesInsert<'x'>`, `TablesUpdate<'x'>`, `Database`) — fonte de verdade do schema real (mais confiável que migrations individuais para saber colunas atuais).
 **Migrations**: SQL puro em `supabase/migrations/*.sql`, aplicadas em ordem lexicográfica de timestamp (Postgres `CREATE OR REPLACE` sobrescreve silenciosamente — ver GOTCHAS).
 **Pagamentos**: Asaas (gateway BR) via Edge Functions (`asaas-create-customer`, `asaas-create-payment`, `asaas-webhook-handler`) — só para cobrança de **assinatura SaaS**, não para faturas de cartão de crédito do usuário (não há gateway de pagamento de fatura).
-**Parsing/ML client-side**: `papaparse`, `pdfjs-dist`, `tesseract.js` (OCR) — pipeline de importação de extrato em `src/components/extrato-uploader/*` com classificador heurístico próprio (`IntelligentTransactionClassifier.ts`, `TransactionMLClassifier.ts`, dicionário `BankDictionary.ts`) + Edge Function `classify-transactions` (server-side, usa tabela `learned_patterns` e `merchants_dictionary`).
+**Importação de extrato/fatura**: CSV é lido no cliente (`papaparse` + `CSVParser.ts`). PDF, OFX e imagem vão para o serviço Python `services/document-extractor` (Starlette + `pdfplumber` + Tesseract via `pytesseract`) através da Edge Function `extract-pdf-text`, que só faz gate + proxy (secrets `DOCUMENT_EXTRACTOR_URL`/`DOCUMENT_EXTRACTOR_TOKEN`). O serviço escolhe o extrator (`OfxExtractor` para .ofx SGML/XML, `NativePdfExtractor` para PDF com camada de texto, `ScannedPdfExtractor` para scan/imagem via OCR; PDF misto = OCR só nas páginas sem texto) e devolve TRANSAÇÕES PRONTAS — o parsing geométrico (linhas por coordenada Y, colunas Data/Histórico/Documento/Débito/Crédito/Valor/Saldo por X, data herdada, descrição quebrada em 2 linhas, sufixo D/C, fatura × extrato, parcelas, máscara `•••• 0040`) vive em `services/document-extractor/app/parsing/*`. Nada de `pdfjs-dist`/`tesseract.js` no bundle.
+**ML client-side**: classificador heurístico próprio (`IntelligentTransactionClassifier.ts`, `TransactionMLClassifier.ts`, dicionário `BankDictionary.ts`) + Edge Function `classify-transactions` (server-side, usa tabela `learned_patterns` e `merchants_dictionary`).
 **Borda / anti-abuso**: `supabase/functions/_shared/gate.ts` é a porta única das Edge Functions — método → origem (`cors.ts`, allowlist `ALLOWED_ORIGINS`) → rate limit por IP → JWT → rate limit por usuário → handler. Contador em `public.rate_limit_counters` via RPC `consume_rate_limit_key` (janela fixa, UPSERT atômico, exclusiva de `service_role`). 429 sempre com `Retry-After`. Rotas de dinheiro (`asaas-create-payment`, `asaas-create-customer`, `asaas-manage-subscription`) são `strict: true` = contador indisponível BLOQUEIA; rotas de leitura/CPU são fail-open. `/auth/v1/*` não passa por Edge Function — o teto é `[auth.rate_limit]` em `supabase/config.toml`.
-**Deploy**: Netlify (`netlify.toml`) e/ou Vercel (`vercel.json`) + `nginx.conf` (self-host alternativo). SPA estática — Supabase é o único backend.
+**Deploy**: Netlify (`netlify.toml`) e/ou Vercel (`vercel.json`) + `nginx.conf` (self-host alternativo). SPA estática; Supabase é o backend + 1 contêiner privado (`services/document-extractor`, Dockerfile próprio, autenticado só pelo `EXTRACTOR_SERVICE_TOKEN` — nunca exposto ao browser).
 **Lint**: ESLint 9 flat-config, `@typescript-eslint/no-unused-vars: off`, sem regra de formatação estrita (Prettier ausente).
 
 ---
@@ -45,6 +46,10 @@ auth.users (Supabase Auth)
  │                                category_id -> categories, created_by_txn_id
  │                                ⚠ NÃO tem account_id/credit_card_id/person_id (ver GOTCHAS)
  ├─ transactions (N)             ★ ENTIDADE CENTRAL — ver detalhe abaixo
+ ├─ budgets (N)                  PREMIUM (Pro/Casal) — category_id -> categories (só expense, própria ou is_system),
+ │                                amount_limit numeric(12,2) > 0, period_month (dia 1), UNIQUE(user_id, period_month, category_id)
+ ├─ goals (N)                    PREMIUM — name, target_value, deadline?, icon (kebab lucide), color (#hex)
+ │   └─ goal_allocations (N)     amount ≠ 0 (>0 aporte, <0 resgate), allocated_on, note? — saldo da meta nunca < 0
  ├─ merchants_dictionary / learned_patterns / keyword patterns  cache de ML de categorização
  ├─ bug_reports, notes           utilitários
  └─ audit_logs                   somente leitura p/ admin_users
@@ -59,6 +64,7 @@ Cardinalidades-chave: `account 1─N transactions`, `credit_card 1─N transacti
 - `vw_account_current_balance(account_id, user_id, current_balance)` — "saldo real".
 - `vw_account_projected_balance(account_id, user_id, projected_balance)` — saldo real + compromissos futuros não cancelados.
 - `series_summary` — agregados de série (parcelas pagas/pendentes, valores).
+- `vw_goal_progress` — saldo, % , `months_left` e `monthly_needed` por meta (security_invoker).
 
 ---
 
@@ -108,6 +114,24 @@ Qualquer feature nova com limite deve ganhar trigger simétrico — validação 
 ### 9. Precisão monetária
 Toda operação de valor passa por `roundCurrency()` (2 casas, `Math.round`) antes de persistir — evitar erro de float acumulado em parcelamento/rateio. `numeric(12,2)` em colunas monetárias no SQL (`series.total_value`, `compensation_value`).
 
+### 10. Cancelamento de assinatura (Configurações → Assinatura)
+UI: `src/components/settings/SubscriptionSettings.tsx` + `CancelSubscriptionDialog.tsx` (2 etapas: impacto → aceite explícito; nunca 1 clique). Backend: `asaas-manage-subscription` `{action:'cancel'|'reactivate'|'invoice'}` via `usePayment()`.
+- Período pago em curso (`active`/`trial`, `current_period_end > now`) → `cancel_at_period_end=true`, status segue `active`, `DELETE /subscriptions/:id` no Asaas. `pending`/`past_due`/período vencido → `status='canceled'` na hora.
+- **Ordem obrigatória: UPDATE no banco ANTES do DELETE no Asaas** (o webhook `SUBSCRIPTION_DELETED` chega em ms; sem a marca ele cortaria o período pago). Falha no Asaas desfaz o UPDATE; 404 no Asaas = já removida = sucesso.
+- Webhook (`isScheduledCancellation`) e `asaas-sync-subscription` preservam linha com cancelamento agendado; `PAYMENT_DELETED` não expira nem ressuscita linha `canceled`.
+- Fim do acesso: RPC `get_my_subscription_status` ignora cancelamento agendado com período vencido → `no_plan` (/pricing, não /billing). `orbi_active_plan_limits/features` idem (migration `20260911120000`).
+- `reactivate` = nova assinatura no Asaas com 1ª cobrança em `current_period_end`; `asaas-create-payment` faz o mesmo se o usuário assinar de novo dentro do período (não dá PUT na assinatura removida).
+
+### 11. Módulos premium de planejamento — Orçamentos, Metas, Fechamento do mês (migration `20260915150000`)
+Exclusivos Pro/Casal. Features no jsonb do plano: `orcamentos`, `metas`, `dre_pessoal` (true só em `pro`/`casal`).
+- **Banco é a autoridade (4 camadas)**: (1) policies RLS das 3 tabelas exigem `(SELECT orbi_has_feature('<key>'))` — Free não LÊ nem escreve; (2) triggers `orbi_budgets_guard` / `orbi_goals_guard` / `orbi_goal_allocations_guard` repetem o gate com `P0005`/`P0004` e validam tenant (categoria de outro usuário, meta de outro usuário, dono imutável); (3) RPCs `orbi_budget_overview`, `orbi_monthly_closing` chamam `orbi_require_feature` antes de calcular; (4) front: `PremiumRoute` (rota) + cadeado no `AppSidebar`.
+- **Plano Casal**: SELECT das 3 tabelas usa `orbi_family_user_ids()` (parceiro lê); escrita só no dono. RPCs aceitam `p_scope 'personal'|'couple'` e derivam o escopo de `auth.uid()` — nunca de parâmetro do cliente.
+- **Consumo de orçamento** = Σ expense do mês (data de competência) em PAID+PENDING, sem CANCELED, valor líquido `value − compensation_value` (mesma regra do Dashboard). Sugestão = média dos 3 meses fechados anteriores.
+- **DRE** (`orbi_monthly_closing`, 1 varredura por `idx_transactions_user_date`): Receitas → (−) fixas (`is_fixed` na transação ou série) → (−) parcelamentos (série >1 parcela, sem rateio) → (−) variáveis → (=) resultado → (−) aportes em metas → (=) sobra livre. Receita de rateio (linha B: income + `is_shared` + `linked_txn_id`) fica FORA — a despesa A já entra líquida; contar as duas duplica o rateio. Retorna variação vs mês anterior, taxa de poupança, maior despesa, top 8 categorias com teto, tendência de 6 meses.
+- **Aportes**: trigger soma o saldo sob `orbi_quota_lock(user, 'goal:<id>')` — resgate acima do guardado e exclusão de aporte que deixaria saldo negativo são bloqueados (23514). Cascata de exclusão da meta passa direto.
+- **Front**: catálogo de UX em `src/lib/features/premium-modules.ts` (rota, nome comercial, pitch, benefícios). Rotas `/sistema/budgets|goals|analytics` (+ atalhos `/budgets` etc.). Mês na URL (`?mes=AAAA-MM`). Upgrade sempre para `/pricing?change=1`. Páginas públicas (`/`, `/pricing`, `/legal/*`) renderizam para qualquer estado de sessão — logado vê CTA "Acessar Sistema" em vez de "Entrar"/"Comece Agora"; redirect forçado de logado só em `/login` e `/admin` (formulários de auth).
+- Feature nova de plano: registrar em `orbi-features.ts`, ligar no jsonb dos planos via migration, gate no RLS/trigger/RPC e em `FEATURE_ROWS` (Pricing), `plan-highlights.ts` e `plan-impact.ts`.
+
 ---
 
 ## [PROJECT STRUCTURE & STATE]
@@ -120,17 +144,19 @@ src/
  ├─ pages/                  1 arquivo por rota (roteável em App.tsx) — MonthlyStatement.tsx é o maior/mais crítico (170KB, orquestra parcelamento/recorrência/rateio client-side)
  ├─ components/
  │   ├─ ui/                 shadcn primitives — genérico, sem lógica de domínio
- │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard — controle de acesso declarativo
- │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OCR + classificação
+ │   ├─ planning/            LedgerStrip + UsageBar (faixa de leitura e barra de consumo), MonthSwitcher (+ useMonthParam), planning-utils (datas/moeda/erros), notify
+ │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard, PremiumRoute (+ PremiumPreview) — controle de acesso declarativo
+ │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OFX/imagem + classificação
  │   ├─ dashboard/, people/, payment/, auth/, navigation/, bugs/
  ├─ hooks/                  1 hook por domínio, prefixo `use-` kebab-case; React Query p/ leitura, funções `async` diretas p/ mutação (padrão inconsistente entre hooks — alguns usam `useMutation`, outros try/catch manual)
  ├─ integrations/supabase/  client.ts (singleton) + types.ts (schema gerado, NÃO editar à mão)
- ├─ integrations/parser_api.ts  chamada a serviço externo de parsing (fora do Supabase)
+ ├─ integrations/parser_api.ts  cliente HTTP da extração (invoke de `extract-pdf-text`, tradução de `code` -> mensagem pt-BR); `extrato-uploader/StatementParser.ts` valida a resposta e converte em `ParsedTransaction`
  ├─ lib/utils.ts            funções financeiras puras (roundCurrency, getCardStatementPeriod, cn, THEME) — cole aqui, não duplique em componente
  └─ lib/features/           feature-registry.ts (singleton `FeatureRegistry`) + orbi-features.ts (catálogo declarado de features/limits) — fonte de verdade do client sobre o que EXISTE (o que o user PODE usar vem do plano no backend)
 supabase/
  ├─ migrations/             histórico cronológico, aplicado em ordem — schema real = types.ts, não a soma mental das migrations (ver GOTCHAS)
  └─ functions/               Edge Functions Deno, 1 pasta por função + `_shared/cors.ts`
+services/document-extractor/  serviço Python privado (Starlette): `app/extractors/` (ofx, native_pdf, scanned_pdf, ocr), `app/parsing/` (tokens, descriptions, profile, statement_parser), `app/pipeline.py`, `tests/` (`python -m unittest discover -s tests -t .`)
 docs/                        documentação humana pré-existente (DOCUMENTACAO_SISTEMA_ORBI.md é a mais completa) — consultar antes de assumir que algo não está documentado
 ```
 
@@ -152,6 +178,65 @@ docs/                        documentação humana pré-existente (DOCUMENTACAO_
 - **RLS é a autoridade final**: toda tabela nova de domínio precisa `ENABLE ROW LEVEL SECURITY` + policy `auth.uid() = user_id` (ou variante system/global como `categories`) — sem isso, dado vaza entre usuários mesmo com filtro client-side correto.
 - **Novo limite de plano**: exige trigger SQL simétrico ao guard de frontend (ver regra de negócio #7) — nunca confiar só em `useFeature`/`useLimit`.
 - **Migrations**: nunca editar migration já aplicada/commitada — criar nova com timestamp maior; `CREATE OR REPLACE FUNCTION/VIEW` é a forma padrão de "corrigir" lógica anterior no repo (visto nos vários arquivos `fix_*.sql`).
+
+---
+
+## AppSec & Security Guidelines
+
+> OBRIGATÓRIO para todo código novo ou alterado. Zero Trust: todo input do cliente é malicioso até ser validado; toda saída ao cliente contém só o que a UI usa. Violação = bug de segurança, não estilo.
+
+### 1. Edge Functions — ordem fixa de defesa (`supabase/functions/_shared/*`)
+```
+OPTIONS → preflight(req)
+gateUser/gateAnonymous(req, { bucket, ipLimit, userLimit, windowSeconds, strict, maxBodyBytes })
+  método → origem (ALLOWED_ORIGINS) → Content-Length ≤ maxBodyBytes → rate limit IP → JWT → rate limit usuário
+parseJson(req, schemaZod, { maxBytes })      ← ÚNICA forma de ler body JSON
+handler (service_role só aqui, sempre filtrando por user.id do JWT)
+jsonFor(req, projeção)                        ← nunca a linha crua do banco / do gateway
+catch → gateFailure(req, error, 'nome-da-funcao', envelope)
+```
+- **Proibido**: `await req.json()`, `body as Tipo`, ler body antes do gate, handler sem `gateUser`/`gateAnonymous` (exceção única: webhook, que tem gate próprio equivalente), `Access-Control-Allow-Origin: *`, `Object.assign(new Error(msg), { status })`.
+- Toda função nova: bloco `[functions.<nome>] verify_jwt = true` em `supabase/config.toml` (só webhook com `false` + segredo próprio).
+
+### 2. Validação de input (Zod, server E client)
+- **Server**: `_shared/validation.ts` → `parseJson` (415 se Content-Type não-JSON, 413 por tamanho real do stream, 400 JSON malformado/não-objeto) + `validate`. Schemas com `.strict()` em rotas que mudam estado (campo extra = 400). Primitivos prontos: `uuidSchema`, `isoDateSchema`, `singleLine(max)`/`requiredLine`/`multiLine` (removem controle/zero-width), `cpfCnpjSchema`, `mobilePhoneSchema`, `gatewayIdSchema`. Erro 400 devolve `{ code:'INVALID_PAYLOAD', issues:[{path,message}] }` sem ecoar o valor recebido (errorMap sanitizado).
+- **Client**: `src/lib/validation/schemas.ts` + `parseOrThrow(schema, values)` antes de TODO insert/update/rpc com dado de formulário. Limites do schema = espelho EXATO das CHECK constraints SQL (mudou um, muda o outro). Entidades cobertas: account, creditCard, person, category, transaction, series, note, bugReport, budget, goal, goalAllocation, adminUser.
+- **Enums/ids**: sempre `z.enum` / `uuidSchema`; nunca aceitar texto livre em coluna de domínio fechado.
+- **Tamanho**: todo array tem `.max()`, toda string tem `.max()`, todo body tem `maxBytes`. Sem teto = amplificador de DoS.
+
+### 3. Injeção (SQL / PostgREST / path / HTML)
+- **SQL**: nunca concatenar input em SQL. Em plpgsql dinâmico só `format('%I', ident)` / `%L` ou `EXECUTE ... USING`. RPC SECURITY DEFINER: `SET search_path = public, pg_temp` (+ `extensions` se usar pgcrypto), dono derivado de `auth.uid()` via `require_self()` — nunca de `p_user_id` do cliente. `REVOKE ALL ... FROM PUBLIC, anon` + `GRANT EXECUTE` só para a role necessária.
+- **PostgREST**: preferir `.eq()/.in()` (parametrizados). `.or()`/`.filter()` com string interpolada SÓ com valor validado por `assertUuid()`/enum. LIKE: `sanitizeSearchTerm()` (neutraliza `% _ \`).
+- **Path de API externa**: id em URL do Asaas sempre via `asaasId()` (regex `[A-Za-z0-9_-]{1,64}`); query string com `encodeURIComponent`.
+- **XSS**: proibido `dangerouslySetInnerHTML` (exceção existente: `ui/chart.tsx`, com escape), `eval`, `new Function`, `innerHTML`. URL vinda de banco/gateway/usuário: `safePaymentUrl`/`safeHttpsUrl`/`safeImageSrc` (`src/lib/safe-url.ts`) antes de `href`/`src`; abrir externo só com `openExternalUrl()` (`noopener,noreferrer`, allowlist de host). CSP (`netlify.toml`/`vercel.json`/`nginx.conf`, idênticas): `script-src 'self'` sem inline/CDN/`wasm-unsafe-eval`, `connect-src` só `*.supabase.co`. Dependência que exija afrouxar CSP = recusar ou isolar no `document-extractor`.
+
+### 4. Rate limit & brute force
+- Toda Edge Function: `ipLimit` + `userLimit` (janela padrão 3600s). Rota de dinheiro/estado de assinatura: `strict: true` (contador fora = bloqueia). Leitura/CPU: fail-open.
+- 429 SEMPRE com `Retry-After` (vem de `RateLimitError`). Front deve respeitar e não fazer retry em loop.
+- IP: `clientIp()` normaliza (`cf-connecting-ip` → `x-real-ip` → 1º `x-forwarded-for`), IPv6 agregado em /64 (troca de endereço dentro do bloco não fura o limite).
+- Segredo comparado no servidor (webhook/token): `assertNotLockedOut()` (RPC `peek_rate_limit_key`, sem incremento) ANTES da comparação; `consumeRateLimit()` no bucket de falha só quando falhar; comparação em tempo constante. Allowlist opcional `ASAAS_WEBHOOK_ALLOWED_IPS`.
+- `/auth/v1/*` (login/signup/recover) não passa por Edge Function: teto em `[auth.rate_limit]` do `config.toml` + captcha (`[auth.captcha]`) obrigatório em produção. Senha: min 8 usuário (`password-strength.ts`), min 12 + letras e números para admin (`admin_create_admin_user`).
+
+### 5. Secrets
+- Frontend só conhece `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_SITE_URL` e verificações de SEO. Qualquer `VITE_*` vai para o bundle público — **proibido** `VITE_` com service role, chave Asaas, token de webhook/extrator ou qualquer credencial.
+- `SUPABASE_SERVICE_ROLE_KEY`, `ASAAS_API_KEY`, `ASAAS_WEBHOOK_TOKEN` (≥32 chars), `DOCUMENT_EXTRACTOR_TOKEN`/`EXTRACTOR_SERVICE_TOKEN` (≥32 chars): só `supabase secrets set` / env do contêiner. Nunca em código, migration, seed, log, resposta ou mensagem de erro. `.env*` fora do git (exceto `.env.example` sem valores).
+- `adminClient()` (service_role) só dentro de Edge Function, depois do gate, e toda query com `.eq('user_id', user.id)`. Leitura que pode respeitar RLS usa `userClient(req)`.
+- Env ausente → `HttpError(503)` com `internal` (log), nunca string vazia silenciosa.
+
+### 6. Vazamento de dados em respostas
+- **Projeção obrigatória**: resposta de Edge Function monta objeto explícito. `user_subscriptions` → `toPublicSubscription()`; cobrança → `toPublicPayment()` (URL validada). Nunca devolver: `asaas_customer_id`, `asaas_subscription_id`, `metadata`, `payload` de webhook, `process_error`, `encrypted_password`, `raw_app_meta_data`, tokens, `user_id` de terceiros, stack/SQL/mensagem de gateway 5xx.
+- **Erros**: lançar `HttpError(status, mensagemPublica, { code, internal })` (`_shared/errors.ts`). `gateFailure` expõe mensagem só se status < 500; 5xx → mensagem genérica + log com `internal`. Erro não-`HttpError` (PostgrestError, Error cru, erro de lib) = 500 genérico SEMPRE. `AsaasError`: 400/422 do gateway → 422 com descrição sanitizada; demais → 502 genérico.
+- **Select**: `select('*')` proibido em dado exposto a `anon` e em linha que vai para resposta; listar colunas. `subscription_plans` para `anon` tem GRANT por coluna (sem `asaas_plan_id`/`metadata`) — select de vitrine usa a lista de `use-subscription.ts`.
+- **RPC**: retorno `jsonb`/`TABLE` com só os campos da tela; RPC admin começa com `IF NOT public.is_admin()/is_super_admin() THEN RAISE ... ERRCODE '42501'`.
+- Logs (`console.*`): sem token, senha, CPF/CNPJ, e-mail completo ou body cru.
+
+### 7. Banco (RLS é a autoridade final)
+- Tabela nova: `ENABLE` + `FORCE ROW LEVEL SECURITY`, policies `TO authenticated` com `auth.uid() = user_id` (USING + WITH CHECK), `REVOKE ALL FROM anon`, adicionar em `orbi_tenant_tables()`, CHECK constraints de tamanho/formato espelhando o Zod, trigger de guarda para dono imutável e cota (`orbi_quota_lock`).
+- View: `security_invoker = true`. Função: `SECURITY INVOKER` por padrão; `DEFINER` só com search_path fixo e checagem de identidade.
+- Tabela de infraestrutura (contadores, ledger de webhook): sem policy para `anon`/`authenticated`, escrita só por `service_role`.
+
+### 8. Checklist de PR (bloqueante)
+`[ ]` gate + rate limit IP/usuário `[ ]` `parseJson` + schema `.strict()` com `.max()` em tudo `[ ]` `parseOrThrow` no client `[ ]` projeção explícita na resposta `[ ]` erros via `HttpError` `[ ]` RLS + FORCE + CHECK na tabela nova `[ ]` nenhum secret em `VITE_*`/código/log `[ ]` URL externa por `safe-url.ts` `[ ]` CSP inalterada ou mais restrita.
 
 ---
 

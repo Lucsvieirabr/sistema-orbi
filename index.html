@@ -1,13 +1,114 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="pt-BR" dir="ltr">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=1" />
-    <link rel="shortcut icon" href="/favicon.ico?v=1" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="light dark" />
     <meta name="theme-color" content="#0B1F3B" media="(prefers-color-scheme: light)" />
     <meta name="theme-color" content="#0A0F1E" media="(prefers-color-scheme: dark)" />
+
+    <!--
+      SEO base (fallback para crawlers e para o primeiro paint).
+      Cada rota sobrescreve title/description/canonical/robots/og/JSON-LD em
+      runtime via <RouteSeo /> (src/components/seo/RouteSeo.tsx + src/lib/seo.ts).
+      "https://orbi.com.br" é reescrito no build a partir de VITE_SITE_URL.
+    -->
+    <title>Orbi · Gestão financeira com IA: importe o extrato e organize suas finanças</title>
+    <meta
+      name="description"
+      content="Importe o extrato do banco e a IA do Orbi categoriza cada lançamento. Saldo real, saldo projetado, faturas, parcelas e Plano Casal em um só lugar. Comece grátis."
+    />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="googlebot" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1" />
+    <meta name="author" content="Orbi" />
+    <meta name="application-name" content="Orbi" />
+    <meta name="apple-mobile-web-app-title" content="Orbi" />
+    <meta name="format-detection" content="telephone=no" />
+    <link rel="canonical" href="https://orbi.com.br/" />
+    <link rel="alternate" hreflang="pt-BR" href="https://orbi.com.br/" />
+    <link rel="alternate" hreflang="x-default" href="https://orbi.com.br/" />
+
+    <link rel="icon" type="image/x-icon" href="/favicon.ico?v=1" />
+    <link rel="shortcut icon" href="/favicon.ico?v=1" />
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="/sitemap.xml" />
+    <link rel="help" type="text/plain" title="llms.txt" href="/llms.txt" />
+
+    <!-- Open Graph -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Orbi" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content="https://orbi.com.br/" />
+    <meta property="og:title" content="Orbi · Importe o extrato. O Orbi organiza." />
+    <meta
+      property="og:description"
+      content="IA que categoriza seu extrato, saldo projetado, faturas e finanças a dois. Plano Free para sempre, sem cartão para começar."
+    />
+    <meta property="og:image" content="https://orbi.com.br/og-image.png?v=2" />
+    <meta property="og:image:secure_url" content="https://orbi.com.br/og-image.png?v=2" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Orbi: importe o extrato e o Orbi organiza suas finanças" />
+
+    <!-- Twitter / X -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@orbi_finance" />
+    <meta name="twitter:title" content="Orbi · Importe o extrato. O Orbi organiza." />
+    <meta
+      name="twitter:description"
+      content="IA que categoriza seu extrato, saldo projetado, faturas e finanças a dois. Comece grátis."
+    />
+    <meta name="twitter:image" content="https://orbi.com.br/og-image.png?v=2" />
+    <meta name="twitter:image:alt" content="Orbi: importe o extrato e o Orbi organiza suas finanças" />
+
+    <!-- Schema.org base (data block: não executa, não conflita com a CSP script-src). -->
+    <script type="application/ld+json" id="seo-jsonld-base">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://orbi.com.br/#organization",
+            "name": "Orbi",
+            "url": "https://orbi.com.br/",
+            "logo": {
+              "@type": "ImageObject",
+              "url": "https://orbi.com.br/apple-touch-icon.png",
+              "width": 180,
+              "height": 180
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://orbi.com.br/#website",
+            "url": "https://orbi.com.br/",
+            "name": "Orbi",
+            "inLanguage": "pt-BR",
+            "publisher": { "@id": "https://orbi.com.br/#organization" }
+          },
+          {
+            "@type": "SoftwareApplication",
+            "@id": "https://orbi.com.br/#software",
+            "name": "Orbi",
+            "url": "https://orbi.com.br/",
+            "applicationCategory": "FinanceApplication",
+            "operatingSystem": "Web",
+            "inLanguage": "pt-BR",
+            "description": "Gestão financeira pessoal e para casais com IA que categoriza extratos e faturas, saldo real, saldo projetado, faturas de cartão e parcelas.",
+            "image": "https://orbi.com.br/og-image.png?v=2",
+            "publisher": { "@id": "https://orbi.com.br/#organization" },
+            "offers": {
+              "@type": "Offer",
+              "name": "Plano Free",
+              "price": "0",
+              "priceCurrency": "BRL",
+              "url": "https://orbi.com.br/pricing"
+            }
+          }
+        ]
+      }
+    </script>
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -15,20 +116,22 @@
       rel="stylesheet"
       href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Inter+Tight:wght@500;600;700&display=swap"
     />
-    <title>Orbi - Gestão Financeira Inteligente</title>
-    <meta name="description" content="Importe o extrato do banco e a IA do Orbi categoriza cada lançamento. Saldo real, saldo projetado, faturas e Plano Casal em um só lugar. Comece grátis." />
-    <meta name="author" content="Orbi Financial" />
-
-    <meta property="og:title" content="Orbi - Gestão Financeira Inteligente" />
-    <meta property="og:description" content="Importe o extrato. O Orbi organiza: IA classificadora, saldo projetado e finanças a dois." />
-    <meta property="og:type" content="website" />
-
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:site" content="@orbi_finance" />
   </head>
 
   <body>
     <div id="root"></div>
+    <noscript>
+      <h1>Orbi · Gestão financeira com IA</h1>
+      <p>
+        Importe o extrato do banco e a IA do Orbi categoriza cada lançamento. Saldo real, saldo projetado, faturas,
+        parcelas e Plano Casal em um só lugar. Ative o JavaScript para usar o sistema.
+      </p>
+      <p>
+        <a href="/pricing">Planos e preços</a> · <a href="/login">Entrar</a> ·
+        <a href="/legal/termos-de-uso">Termos de Uso</a> ·
+        <a href="/legal/politica-de-privacidade">Política de Privacidade</a>
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

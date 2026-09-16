@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { safeImageSrc } from "@/lib/safe-url";
 
 const STATUS_OPTIONS = [
   { value: "novo", label: "Novo", color: "bg-primary" },
@@ -266,12 +267,15 @@ export default function BugReportsManagement() {
                 </p>
               </div>
 
-              {selectedReport.imagem_url && (
+              {safeImageSrc(selectedReport.imagem_url) && (
                 <div>
                   <label className="text-sm font-medium">Imagem</label>
                   <img
-                    src={selectedReport.imagem_url}
-                    alt="Bug report"
+                    src={safeImageSrc(selectedReport.imagem_url)}
+                    referrerPolicy="no-referrer"
+                    alt={`Captura de tela anexada ao relatório: ${selectedReport.titulo ?? "bug"}`}
+                    loading="lazy"
+                    decoding="async"
                     className="mt-2 max-w-full max-h-64 rounded-lg border"
                   />
                 </div>

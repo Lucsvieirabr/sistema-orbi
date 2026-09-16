@@ -1,26 +1,33 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
-import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
+import { adminClient } from '../_shared/auth.ts'
 import { gateUser, gateFailure } from '../_shared/gate.ts'
+import { badRequest, conflict, notFound, unprocessable } from '../_shared/errors.ts'
+import { toPublicPayment, toPublicSubscription } from '../_shared/projections.ts'
+import { cpfCnpjSchema, mobilePhoneSchema, parseJson, uuidSchema, z } from '../_shared/validation.ts'
 import {
   AsaasPayment,
   AsaasSubscription,
   addCycle,
   asaasFetch,
+  asaasId,
   findOrCreateCustomer,
   normalizeBillingCycle,
-  onlyDigits,
   parseCpfCnpj,
   toAsaasCycle,
   toIsoDate,
 } from '../_shared/asaas.ts'
 
-interface Body {
-  planId: string
-  billingCycle: 'monthly' | 'yearly' | 'annual'
-  cpfCnpj?: string
-  mobilePhone?: string
-}
+const MAX_BODY_BYTES = 4 * 1024
+
+const bodySchema = z
+  .object({
+    planId: uuidSchema,
+    billingCycle: z.enum(['monthly', 'yearly', 'annual']),
+    cpfCnpj: cpfCnpjSchema.optional(),
+    mobilePhone: mobilePhoneSchema.optional(),
+  })
+  .strict()
 
 const ACTIVE_STATUSES = ['pending', 'trial', 'active', 'past_due']
 
@@ -28,33 +35,28 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
 
   try {
-    // [GATE] metodo -> origem -> rate limit por IP -> JWT -> cota do usuario.
-    // rota de dinheiro: 10 cobrancas/h por usuario. strict = sem contador, nao abre.
     const user = await gateUser(req, {
       bucket: 'asaas-create-payment',
       ipLimit: 20,
       userLimit: 10,
       windowSeconds: 3600,
       strict: true,
+      maxBodyBytes: MAX_BODY_BYTES,
     })
+    const body = await parseJson(req, bodySchema, { maxBytes: MAX_BODY_BYTES })
     const supabase = adminClient()
-    const body: Body = await req.json()
-
-    if (!body?.planId || !body?.billingCycle) {
-      throw new Error('Campos obrigatórios: planId, billingCycle')
-    }
 
     const billingCycle = normalizeBillingCycle(body.billingCycle)
 
     const { data: plan, error: planError } = await supabase
       .from('subscription_plans')
-      .select('*')
+      .select('id, name, price_monthly, price_yearly, is_active')
       .eq('id', body.planId)
       .eq('is_active', true)
       .maybeSingle()
 
     if (planError) throw planError
-    if (!plan) throw new Error('Plano não encontrado ou inativo')
+    if (!plan) throw notFound('Plano não encontrado ou inativo.')
 
     const amount = Number(billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly)
 
@@ -81,7 +83,7 @@ serve(async (req) => {
         .single()
 
       if (error) throw error
-      return jsonFor(req, { success: true, free_plan: true, subscription: data })
+      return jsonFor(req, { success: true, free_plan: true, subscription: toPublicSubscription(data) })
     }
 
     // Valida antes de qualquer escrita no gateway: documento malformado = 400.
@@ -96,19 +98,19 @@ serve(async (req) => {
     if (profileError) throw profileError
 
     const email = profile?.email || user.email
-    if (!email) throw new Error('E-mail do usuário não encontrado')
+    if (!email) throw unprocessable('E-mail do usuário não encontrado.')
 
     const customer = await findOrCreateCustomer({
       asaasCustomerId: profile?.asaas_customer_id,
       name: profile?.full_name || email,
       email,
       cpfCnpj,
-      mobilePhone: onlyDigits(body.mobilePhone),
+      mobilePhone: body.mobilePhone,
       externalReference: user.id,
     })
 
     if (!customer.cpfCnpj) {
-      throw Object.assign(new Error('Informe o CPF ou CNPJ para concluir a assinatura'), { status: 400 })
+      throw badRequest('Informe o CPF ou CNPJ para concluir a assinatura.')
     }
 
     if (customer.id !== profile?.asaas_customer_id) {
@@ -129,14 +131,29 @@ serve(async (req) => {
 
     const current = currentSubs?.[0] ?? null
     const isSamePlan = current?.plan_id === plan.id && current?.billing_cycle === billingCycle
-    const isPaidActive = !!current?.asaas_subscription_id
 
-    if (isSamePlan && current?.status === 'active') {
-      throw new Error('Você já possui este plano ativo')
+    // Cancelamento agendado: a assinatura do Asaas já foi removida (PUT nela
+    // falharia), mas o período pago segue valendo. Assinar de novo dentro dele
+    // cria uma assinatura nova com a 1ª cobrança no fim do período — o usuário
+    // não paga duas vezes pelo mesmo intervalo e não perde acesso no meio.
+    const scheduledCancel = !!current?.cancel_at_period_end
+    const resumeWithinPeriod =
+      scheduledCancel &&
+      ['active', 'trial'].includes(current!.status) &&
+      !!current!.current_period_end &&
+      new Date(current!.current_period_end).getTime() > Date.now()
+
+    const isPaidActive = !!current?.asaas_subscription_id && !scheduledCancel
+    const reuseCurrentRow = isPaidActive || resumeWithinPeriod
+
+    if (isSamePlan && current?.status === 'active' && !scheduledCancel) {
+      throw conflict('Você já possui este plano ativo.')
     }
 
     const cycle = toAsaasCycle(billingCycle)
-    const nextDueDate = toIsoDate(new Date())
+    const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000)
+    const periodEnd = resumeWithinPeriod ? new Date(current!.current_period_end) : null
+    const nextDueDate = toIsoDate(periodEnd ? (periodEnd > tomorrow ? periodEnd : tomorrow) : new Date())
     const externalReference = `orbi:${user.id}:${plan.id}:${billingCycle}`
 
     let asaasSubscription: AsaasSubscription
@@ -144,7 +161,7 @@ serve(async (req) => {
     if (isPaidActive) {
       // Upgrade/downgrade: reaproveita a assinatura do Asaas, sincroniza valor e ciclo
       asaasSubscription = await asaasFetch<AsaasSubscription>(
-        `/subscriptions/${current!.asaas_subscription_id}`,
+        `/subscriptions/${asaasId(current!.asaas_subscription_id, 'subscription')}`,
         {
           method: 'PUT',
           body: {
@@ -174,6 +191,7 @@ serve(async (req) => {
 
     // Assinaturas anteriores que não são a reaproveitada saem de cena
     const staleIds = (currentSubs ?? [])
+      .filter((s) => !(reuseCurrentRow && s.id === current!.id))
       .filter((s) => s.asaas_subscription_id !== asaasSubscription.id)
       .map((s) => s.id)
 
@@ -197,13 +215,15 @@ serve(async (req) => {
 
     let subscriptionRow
 
-    if (isPaidActive) {
-      // Upgrade sobre plano já pago: mantém acesso, ajusta o plano imediatamente
+    if (reuseCurrentRow) {
+      // Upgrade sobre plano já pago (ou retomada dentro do período): mantém
+      // acesso, ajusta o plano imediatamente e desfaz o cancelamento agendado.
       const { data, error } = await supabase
         .from('user_subscriptions')
         .update({
           ...basePayload,
           status: current!.status === 'past_due' ? 'past_due' : current!.status,
+          cancel_at_period_end: false,
           blocked_reason: null,
         })
         .eq('id', current!.id)
@@ -229,7 +249,7 @@ serve(async (req) => {
     }
 
     const payments = await asaasFetch<{ data: AsaasPayment[] }>(
-      `/subscriptions/${asaasSubscription.id}/payments?limit=1`,
+      `/subscriptions/${asaasId(asaasSubscription.id, 'subscription')}/payments?limit=1`,
     )
     const payment = payments?.data?.[0] ?? null
 
@@ -257,18 +277,9 @@ serve(async (req) => {
 
     return jsonFor(req, {
       success: true,
-      subscription: subscriptionRow,
-      payment: payment
-        ? {
-            id: payment.id,
-            url: payment.invoiceUrl,
-            value: payment.value,
-            dueDate: payment.dueDate,
-            billingType: payment.billingType,
-          }
-        : null,
-      asaas_subscription_id: asaasSubscription.id,
-      upgraded: isPaidActive,
+      subscription: toPublicSubscription(subscriptionRow),
+      payment: toPublicPayment(payment),
+      upgraded: reuseCurrentRow,
     })
   } catch (error) {
     return gateFailure(req, error, 'asaas-create-payment', true)

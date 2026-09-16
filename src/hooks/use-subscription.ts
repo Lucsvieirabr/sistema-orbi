@@ -147,13 +147,16 @@ export function useSubscription() {
   };
 }
 
+const PUBLIC_PLAN_COLUMNS =
+  "id, name, slug, description, price_monthly, price_yearly, features, limits, is_active, is_featured, display_order, trial_days";
+
 export function useSubscriptionPlans() {
   return useQuery<SubscriptionPlan[]>({
     queryKey: ["subscription-plans"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("subscription_plans")
-        .select("*")
+        .select(PUBLIC_PLAN_COLUMNS)
         .eq("is_active", true)
         .order("display_order");
 

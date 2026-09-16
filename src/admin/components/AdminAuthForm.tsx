@@ -79,11 +79,15 @@ export function AdminAuthForm() {
 
       <Card className="w-full max-w-md">
         <CardHeader className="text-center pb-4">
+          <h1 className="sr-only">Acesso administrativo do Orbi</h1>
           <div className="flex justify-center mb-4">
             <div className="relative">
-              <img 
-                src={theme === 'dark' ? orbiLogoDark : orbiLogoLight} 
-                alt="Orbi" 
+              <img
+                src={theme === 'dark' ? orbiLogoDark : orbiLogoLight}
+                alt="Logotipo do Orbi"
+                width={80}
+                height={80}
+                decoding="async"
                 className="h-20 w-20 object-contain"
               />
               <div className="absolute -bottom-1 -right-1 h-8 w-8 rounded-full bg-destructive flex items-center justify-center ring-2 ring-background">
