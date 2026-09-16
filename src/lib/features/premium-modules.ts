@@ -16,14 +16,14 @@
  *   - plan-impact.ts            (o que se perde ao cancelar)
  */
 
-import { Gauge, ScrollText, Split, Target, Telescope, type LucideIcon } from "lucide-react";
+import { FolderKanban, Gauge, ScrollText, ShoppingBasket, Split, Target, Telescope, type LucideIcon } from "lucide-react";
 
-export type PremiumModuleKey = "budgets" | "goals" | "analytics" | "forecast" | "ledgers";
+export type PremiumModuleKey = "budgets" | "goals" | "analytics" | "forecast" | "ledgers" | "projects" | "inflation";
 
 export interface PremiumModule {
   key: PremiumModuleKey;
   /** Chave em `subscription_plans.features`. */
-  feature: "orcamentos" | "metas" | "dre_pessoal" | "motor_preditivo" | "contratos_rateio";
+  feature: "orcamentos" | "metas" | "dre_pessoal" | "motor_preditivo" | "contratos_rateio" | "projetos_vida" | "inflacao_pessoal";
   path: string;
   /** Nome comercial (cards de plano, tela de upgrade). */
   productName: string;
@@ -111,14 +111,47 @@ export const PREMIUM_MODULES: Record<PremiumModuleKey, PremiumModule> = {
       "PIX Copia e Cola e liquidação do lote em um clique",
     ],
   },
+  projects: {
+    key: "projects",
+    feature: "projetos_vida",
+    path: "/sistema/projects",
+    productName: "Projetos de Vida",
+    navLabel: "Projetos de vida",
+    icon: FolderKanban,
+    pitch: "Um centro de custo para cada grande evento: casamento, reforma, enxoval. Orçamento próprio, fora da média do mês.",
+    benefits: [
+      "Orçamento global contra custo realizado, com mini-DRE do evento",
+      "Meta que vira projeto: o valor guardado passa a ser o orçamento",
+      "Gastos do projeto fora do DRE e dos orçamentos do mês",
+      "Viagens herdam os acertos entre pessoas e o PIX de cobrança",
+      "Relatório final ao arquivar: quanto custou e quanto sobrou",
+    ],
+  },
+  inflation: {
+    key: "inflation",
+    feature: "inflacao_pessoal",
+    path: "/sistema/inflation",
+    productName: "Inflação Pessoal",
+    navLabel: "Inflação pessoal",
+    icon: ShoppingBasket,
+    pitch: "Quanto o custo do seu estilo de vida subiu, medido nas suas próprias compras de mercado, farmácia, combustível e assinaturas.",
+    benefits: [
+      "Índice mensal das despesas essenciais contra 3, 6 e 12 meses antes",
+      "Mesmo estabelecimento comparado com ele mesmo: preço, não volume",
+      "Drill-down por categoria e pelos lugares onde o preço mais subiu",
+      "Aviso para reajustar o teto do orçamento antes de ele estourar",
+    ],
+  },
 };
 
 export const PREMIUM_MODULE_LIST: PremiumModule[] = [
   PREMIUM_MODULES.forecast,
   PREMIUM_MODULES.budgets,
   PREMIUM_MODULES.goals,
+  PREMIUM_MODULES.projects,
   PREMIUM_MODULES.ledgers,
   PREMIUM_MODULES.analytics,
+  PREMIUM_MODULES.inflation,
 ];
 
 /** Destino do upgrade. `change=1` impede o /pricing de devolver quem já tem plano para /sistema. */

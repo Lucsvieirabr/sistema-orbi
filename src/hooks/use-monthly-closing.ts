@@ -70,6 +70,13 @@ export interface MonthlyClosing {
   incomeCategories: Array<{ categoryId: string | null; name: string; icon: string | null; amount: number }>;
   trend: Array<{ month: string; income: number; expenses: number; result: number }>;
   budgets: { count: number; over: number; limit: number; spent: number };
+  projects: {
+    excluded: boolean;
+    expenses: number;
+    income: number;
+    transactionsCount: number;
+    items: Array<{ id: string; name: string; color: string; status: string; expenses: number; income: number; transactionsCount: number }>;
+  };
 }
 
 function totals(raw: any): ClosingTotals {
@@ -149,17 +156,36 @@ function normalize(raw: any, month: string): MonthlyClosing {
       limit: toNumber(raw?.budgets?.limit),
       spent: toNumber(raw?.budgets?.spent),
     },
+    projects: {
+      excluded: raw?.projects?.excluded !== false,
+      expenses: toNumber(raw?.projects?.expenses),
+      income: toNumber(raw?.projects?.income),
+      transactionsCount: toNumber(raw?.projects?.transactions_count),
+      items: (raw?.projects?.items ?? []).map((row: any) => ({
+        id: String(row.id),
+        name: String(row.name ?? ""),
+        color: String(row.color ?? "#3B82F6"),
+        status: String(row.status ?? "active"),
+        expenses: toNumber(row.expenses),
+        income: toNumber(row.income),
+        transactionsCount: toNumber(row.transactions_count),
+      })),
+    },
   };
 }
 
-export function useMonthlyClosing(month: string) {
+export function useMonthlyClosing(month: string, excludeProjects = true) {
   const viewMode = useViewMode();
   const scope = viewMode === "couple" ? "couple" : "personal";
 
   return useQuery({
-    queryKey: ["monthly-closing", month, scope],
+    queryKey: ["monthly-closing", month, scope, excludeProjects],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("orbi_monthly_closing", { p_month: month, p_scope: scope });
+      const { data, error } = await supabase.rpc("orbi_monthly_closing", {
+        p_month: month,
+        p_scope: scope,
+        p_exclude_projects: excludeProjects,
+      });
       if (error) throw error;
       return normalize(data, month);
     },

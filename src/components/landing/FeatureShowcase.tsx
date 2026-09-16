@@ -19,8 +19,9 @@ import {
   User,
   Users,
   Split,
-  Plane,
-  Telescope,
+  FolderKanban,
+  ShoppingBasket,
+  Flag,
 } from "lucide-react";
 
 import { Reveal } from "./Reveal";
@@ -49,33 +50,33 @@ const CAPABILITIES: Array<{ icon: typeof CreditCard; title: string; text: string
     text: "Veja quanto streaming, apps e serviços recorrentes pesam no seu mês.",
   },
   {
-    icon: Telescope,
-    title: "Motor Preditivo",
-    text: "Saldo projetado para 30, 90 ou 365 dias, com o ralo dos gastos do dia a dia e alerta do dia em que o caixa rompe.",
-    premium: true,
-  },
-  {
     icon: FlaskConical,
-    title: "Cenários Hipotéticos",
-    text: "E se a aliança for em 10x? Simule compras grandes, ligue e desligue cenários e veja a curva mudar sem lançar nada.",
+    title: "Motor Preditivo",
+    text: "Saldo de 30, 90 ou 365 dias, alerta do dia em que o caixa rompe e cenários para testar a compra em 10x antes de fazer.",
     premium: true,
   },
   {
     icon: Split,
-    title: "Contratos de Rateio",
-    text: "Pets 50/50, mercado 60/40. Combine uma vez e o valor a compensar já vem preenchido em cada lançamento.",
-    premium: true,
-  },
-  {
-    icon: Plane,
-    title: "Acertos de Viagem",
-    text: "Quinze almoços e pedágios viram uma frase: “João deve R$ 350,00 para você”. Com PIX Copia e Cola e liquidação em lote.",
+    title: "Rateios e acertos",
+    text: "Pets 50/50, mercado 60/40 e viagens que viram uma frase: “João deve R$ 350,00 para você”, com PIX Copia e Cola.",
     premium: true,
   },
   {
     icon: PiggyBank,
     title: "Orçamentos e metas",
     text: "Teto por categoria, metas com prazo e o fechamento do mês em linhas de DRE.",
+    premium: true,
+  },
+  {
+    icon: FolderKanban,
+    title: "Projetos de Vida",
+    text: "Casamento, reforma, enxoval: cada evento com orçamento próprio, fora da média do mês, e um relatório final ao arquivar.",
+    premium: true,
+  },
+  {
+    icon: ShoppingBasket,
+    title: "Inflação Pessoal",
+    text: "O quanto o seu mercado, a farmácia, o combustível e as assinaturas subiram, medido nas suas próprias compras.",
     premium: true,
   },
 ];
@@ -263,6 +264,136 @@ function ForecastTile() {
   );
 }
 
+const PROJECT_ROWS = [
+  { label: "Anel de ouro 18k", value: "R$ 5.000,00", tag: "Pago" },
+  { label: "Sinal do buffet", value: "R$ 2.000,00", tag: "Agendado" },
+];
+
+function ProjectsTile() {
+  return (
+    <article className="lp-tile" aria-labelledby="tile-projects">
+      <div className="lp-tile__copy">
+        <h3 className="lp-h3" id="tile-projects">
+          Casamento, reforma, enxoval. Cada um com o seu caixa.
+        </h3>
+        <p className="lp-body">
+          A meta juntou o dinheiro, o evento começou: execute a meta e o valor guardado vira o orçamento do projeto. A compra
+          atípica fica lá dentro e não bagunça a média nem os orçamentos do mês.
+        </p>
+      </div>
+
+      <div className="lp-well">
+        <div className="lp-project">
+          <div className="lp-project__head">
+            <span className="lp-glyph" aria-hidden>
+              <FolderKanban strokeWidth={1.5} />
+            </span>
+            <div>
+              <strong>Casamento 2027</strong>
+              <span>Veio da meta · R$ 12.000,00 guardados</span>
+            </div>
+          </div>
+
+          <div className="lp-project__figures">
+            <div>
+              <span>Custo realizado</span>
+              <strong className="lp-figure">R$ 7.000,00</strong>
+            </div>
+            <div>
+              <span>Orçamento</span>
+              <strong className="lp-figure lp-figure--muted">R$ 15.000,00</strong>
+            </div>
+          </div>
+
+          <Reveal className="lp-pace" variant="fade" aria-label="47% do orçamento usado com 38% do prazo percorrido">
+            <span className="lp-pace__track" aria-hidden>
+              <span className="lp-pace__fill lp-pace__fill--wash" />
+              <span className="lp-pace__fill" />
+              <span className="lp-pace__tick" />
+            </span>
+            <span className="lp-pace__legend" aria-hidden>
+              <span>47% do orçamento</span>
+              <span>38% do prazo</span>
+            </span>
+          </Reveal>
+
+          <ul className="lp-project__rows">
+            {PROJECT_ROWS.map((row, index) => (
+              <Reveal as="li" key={row.label} delay={160 + index * 110}>
+                <span>{row.label}</span>
+                <span className="lp-project__tag">{row.tag}</span>
+                <strong className="lp-tabular">{row.value}</strong>
+              </Reveal>
+            ))}
+          </ul>
+
+          <p className="lp-learned">
+            <Flag strokeWidth={1.5} aria-hidden />
+            <span>
+              <strong>Fora do DRE do mês.</strong> No fim, o relatório diz quanto custou e quanto sobrou do orçamento.
+            </span>
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
+const INFLATION_ROWS = [
+  { label: "Assinaturas e streaming", pct: "+15,2%", width: 0.95, note: "Netflix: R$ 44,90 → R$ 55,90", hot: true },
+  { label: "Mercado", pct: "+10,4%", width: 0.66, note: "Supermercado Bom Preço: compra típica +R$ 32,45", hot: true },
+  { label: "Farmácia", pct: "+6,8%", width: 0.43, note: "Drogaria São Bento" },
+  { label: "Refeição fora de casa", pct: "+5,1%", width: 0.32, note: "Padaria Central" },
+];
+
+function InflationTile() {
+  return (
+    <article className="lp-tile lp-space" aria-labelledby="tile-inflation">
+      <span className="lp-tile__rule" aria-hidden />
+      <div className="lp-tile__copy">
+        <h3 className="lp-h3" id="tile-inflation">
+          A sua inflação, não a do jornal.
+        </h3>
+        <p className="lp-body">
+          O Orbi compara o mesmo supermercado, a mesma farmácia e a mesma assinatura com eles mesmos, mês a mês. Você vê o
+          preço que subiu, não o volume que você comprou, e recebe o aviso para reajustar o teto antes de estourar.
+        </p>
+      </div>
+
+      <div className="lp-well">
+        <div className="lp-inflation">
+          <div className="lp-inflation__head">
+            <strong className="lp-inflation__figure lp-tabular">+8,5%</strong>
+            <span>Sua inflação pessoal nos últimos 6 meses. O custo de manutenção do seu estilo de vida subiu.</span>
+          </div>
+
+          <Reveal as="ul" className="lp-inflation__bars" variant="fade">
+            {INFLATION_ROWS.map((row, index) => (
+              <li key={row.label} style={{ ["--i" as string]: index, ["--w" as string]: row.width }}>
+                <div className="lp-inflation__line">
+                  <span>{row.label}</span>
+                  <strong className={row.hot ? "lp-tabular lp-inflation__hot" : "lp-tabular"}>{row.pct}</strong>
+                </div>
+                <span className="lp-inflation__track" aria-hidden>
+                  <span className="lp-inflation__fill" data-hot={row.hot ? "true" : undefined} />
+                </span>
+                <span className="lp-inflation__note">{row.note}</span>
+              </li>
+            ))}
+          </Reveal>
+
+          <p className="lp-inflation__alert">
+            <ShoppingBasket strokeWidth={1.5} aria-hidden />
+            <span>
+              Mercado subiu mais de 10%: <strong>reajuste o teto para R$ 1.545,60</strong> antes da segunda semana.
+            </span>
+          </p>
+        </div>
+      </div>
+    </article>
+  );
+}
+
 const TYPING_ROWS = [62, 48, 70, 40, 56];
 
 const SUGGESTED = [
@@ -349,8 +480,8 @@ export function FeatureShowcase() {
             Cada real na órbita certa, sem esforço.
           </Reveal>
           <Reveal as="p" className="lp-lede" delay={120}>
-            Automação onde você perdia tempo, previsão onde havia dúvida e um espaço seguro para dividir a vida
-            financeira com quem mora com você.
+            Automação onde você perdia tempo, previsão onde havia dúvida, um caixa próprio para cada grande evento e o índice
+            de preços que só as suas compras podem dar.
           </Reveal>
         </div>
 
@@ -366,6 +497,12 @@ export function FeatureShowcase() {
           </Reveal>
           <Reveal className="lp-bento__cell lp-tile--time" delay={120}>
             <TimeTile />
+          </Reveal>
+          <Reveal className="lp-bento__cell lp-tile--inflation">
+            <InflationTile />
+          </Reveal>
+          <Reveal className="lp-bento__cell lp-tile--projects" delay={120}>
+            <ProjectsTile />
           </Reveal>
         </div>
 

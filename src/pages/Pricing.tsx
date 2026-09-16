@@ -53,6 +53,8 @@ const FEATURE_ROWS = [
   { key: "dre_pessoal", label: "DRE Pessoal Avançado" },
   { key: "motor_preditivo", label: "Motor Preditivo e Cenários Hipotéticos" },
   { key: "contratos_rateio", label: "Contratos de Rateio e Acertos de Viagem" },
+  { key: "projetos_vida", label: "Projetos de Vida com mini-DRE" },
+  { key: "inflacao_pessoal", label: "Inflação Pessoal por categoria" },
   { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
 ] as const;
 

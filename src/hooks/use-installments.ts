@@ -19,6 +19,7 @@ interface CreateInstallmentSeriesParams {
   credit_card_id?: string;
   person_id?: string;
   is_fixed?: boolean;
+  project_id?: string | null;
   installments: Installment[];
 }
 
@@ -57,6 +58,16 @@ export function useInstallments() {
       });
 
       if (error) throw error;
+
+      if (params.project_id && typeof data === "string") {
+        const { error: projectError } = await supabase
+          .from("transactions")
+          .update({ project_id: params.project_id })
+          .eq("series_id", data)
+          .eq("user_id", user.id);
+        if (projectError) throw projectError;
+      }
+
       return data;
     },
     onSuccess: (seriesId) => {

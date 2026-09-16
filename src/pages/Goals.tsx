@@ -1,7 +1,9 @@
 import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, CircleCheck, Pencil, Plus, RotateCw, Target, Trash2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowDownLeft, ArrowUpRight, CircleCheck, FolderKanban, Pencil, Plus, Rocket, RotateCw, Target, Trash2 } from "lucide-react";
 
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { ExecuteGoalDialog } from "@/components/projects/ExecuteGoalDialog";
 import { UsageBar } from "@/components/planning/LedgerStrip";
 import { notifyPlanningError, notifyPlanningSuccess } from "@/components/planning/notify";
 import {
@@ -35,6 +37,7 @@ import { EmptyState, PageBody, PageHeader, PageToolbar, SectionHeader, ToolbarSp
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { useFeature } from "@/hooks/use-feature";
 import { useGoalAllocations, useGoals, type GoalInput, type GoalProgress } from "@/hooks/use-goals";
 import { cn, getCurrentDateString } from "@/lib/utils";
 
@@ -67,6 +70,9 @@ export default function Goals() {
   const { isMine, isLinked } = useFamilyGroup();
   const [editor, setEditor] = useState<GoalEditorState | null>(null);
   const [movingGoalId, setMovingGoalId] = useState<string | null>(null);
+  const [executingGoalId, setExecutingGoalId] = useState<string | null>(null);
+  const { hasFeature: canExecute } = useFeature("projetos_vida");
+  const executingGoal = goals.find((goal) => goal.id === executingGoalId) ?? null;
 
   const movingGoal = goals.find((goal) => goal.id === movingGoalId) ?? null;
 
@@ -74,6 +80,9 @@ export default function Goals() {
   const ordered = useMemo(
     () =>
       [...goals].sort((a, b) => {
+        const executedA = a.executed_at ? 1 : 0;
+        const executedB = b.executed_at ? 1 : 0;
+        if (executedA !== executedB) return executedA - executedB;
         const doneA = a.saved_value >= a.target_value ? 1 : 0;
         const doneB = b.saved_value >= b.target_value ? 1 : 0;
         if (doneA !== doneB) return doneA - doneB;
@@ -175,6 +184,8 @@ export default function Goals() {
               onEdit={() => setEditor({ mode: "edit", goal })}
               onDelete={() => handleDelete(goal)}
               onMove={() => setMovingGoalId(goal.id)}
+              canExecute={canExecute}
+              onExecute={() => setExecutingGoalId(goal.id)}
             />
           ))}
         </ul>
@@ -189,11 +200,13 @@ export default function Goals() {
 
       <AllocationDialog
         goal={movingGoal}
-        readOnly={movingGoal ? !isMine(movingGoal.user_id) : true}
+        readOnly={movingGoal ? !isMine(movingGoal.user_id) || Boolean(movingGoal.executed_at) : true}
         onClose={() => setMovingGoalId(null)}
         onAdd={addAllocation}
         onDelete={deleteAllocation}
       />
+
+      <ExecuteGoalDialog goal={executingGoal} onClose={() => setExecutingGoalId(null)} />
     </PageBody>
   );
 }
@@ -205,6 +218,8 @@ function GoalCard({
   onEdit,
   onDelete,
   onMove,
+  canExecute,
+  onExecute,
 }: {
   goal: GoalProgress;
   index: number;
@@ -212,13 +227,23 @@ function GoalCard({
   onEdit: () => void;
   onDelete: () => void;
   onMove: () => void;
+  canExecute: boolean;
+  onExecute: () => void;
 }) {
+  const executed = Boolean(goal.executed_at);
   const done = goal.saved_value >= goal.target_value;
   const today = getCurrentDateString();
   const overdue = !done && goal.deadline !== null && goal.deadline < today;
 
   let pace: ReactNode;
-  if (done) {
+  if (executed) {
+    pace = (
+      <Badge variant="outline">
+        <FolderKanban className="h-3 w-3" aria-hidden />
+        Virou projeto · {formatMoney(goal.saved_value)} de orçamento
+      </Badge>
+    );
+  } else if (done) {
     pace = (
       <Badge variant="success">
         <CircleCheck className="h-3 w-3" aria-hidden />
@@ -304,10 +329,33 @@ function GoalCard({
           <div className="mt-3 min-h-6">{pace}</div>
         </CardContent>
 
-        <CardFooter>
-          <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onMove}>
-            {readOnly ? "Ver histórico" : "Aporte ou resgate"}
-          </Button>
+        <CardFooter className="flex-wrap gap-2">
+          {executed ? (
+            goal.project_id ? (
+              <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
+                <Link to={`/sistema/projects?projeto=${goal.project_id}`}>
+                  <FolderKanban aria-hidden />
+                  Abrir projeto
+                </Link>
+              </Button>
+            ) : (
+              <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onMove}>
+                Ver histórico
+              </Button>
+            )
+          ) : (
+            <>
+              <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onMove}>
+                {readOnly ? "Ver histórico" : "Aporte ou resgate"}
+              </Button>
+              {canExecute && !readOnly && goal.saved_value > 0 && (
+                <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={onExecute}>
+                  <Rocket aria-hidden />
+                  Executar meta
+                </Button>
+              )}
+            </>
+          )}
           {goal.last_allocation_on && (
             <p className="text-xs tabular text-muted-foreground sm:ml-auto">
               Último movimento em {formatDayMonth(goal.last_allocation_on)}

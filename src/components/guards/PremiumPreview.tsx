@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight, TriangleAlert } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, Flag, Store, TriangleAlert } from "lucide-react";
 
 import { UsageBar, usageTone, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { formatMoney, formatPct } from "@/components/planning/planning-utils";
@@ -15,6 +15,8 @@ export function PremiumPreview({ module }: { module: PremiumModuleKey }) {
   if (module === "goals") return <GoalsPreview />;
   if (module === "forecast") return <ForecastPreview />;
   if (module === "ledgers") return <LedgersPreview />;
+  if (module === "projects") return <ProjectsPreview />;
+  if (module === "inflation") return <InflationPreview />;
   return <ClosingPreview />;
 }
 
@@ -234,6 +236,95 @@ function ClosingPreview() {
       <p className="mt-4 border-t border-border-subtle pt-3 text-xs text-muted-foreground">
         Taxa de poupança <span className="font-medium tabular text-foreground">27,4%</span> · Maior despesa{" "}
         <span className="font-medium text-foreground">Aluguel, {formatMoney(2200)}</span>
+      </p>
+    </div>
+  );
+}
+
+const SAMPLE_PROJECTS = [
+  { name: "Casamento 2027", note: "Veio da meta · R$ 12.000,00 guardados", cost: 7000, budget: 15000, time: 38, color: "#b45309" },
+  { name: "Enxoval do filhote", note: "Arquivado", cost: 2450, budget: 2784, time: 100, color: "#0f766e", archived: true },
+];
+
+function ProjectsPreview() {
+  return (
+    <div className="space-y-4">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {SAMPLE_PROJECTS.map((project) => {
+          const pct = (project.cost / project.budget) * 100;
+          return (
+            <li key={project.name} className="relative isolate overflow-hidden rounded-xl border border-border bg-card p-4">
+              <span aria-hidden className="absolute inset-x-0 top-0 h-0.5" style={{ backgroundColor: project.color }} />
+              <p className="truncate text-sm font-medium text-foreground">{project.name}</p>
+              <p className="text-xs text-muted-foreground">{project.note}</p>
+              {project.archived ? (
+                <p className="mt-3 flex items-start gap-2 text-sm leading-relaxed text-foreground">
+                  <Flag className="mt-1 h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+                  <span>
+                    O Enxoval do filhote custou <span className="font-semibold tabular">{formatMoney(project.cost)}</span>, 12% abaixo do
+                    orçamento previsto.
+                  </span>
+                </p>
+              ) : (
+                <>
+                  <p className="figure-md mt-3 tabular text-foreground">{formatMoney(project.cost)}</p>
+                  <p className="text-xs tabular text-muted-foreground">de {formatMoney(project.budget)} orçados</p>
+                  <div aria-hidden className="relative mt-3 h-1.5 w-full rounded-full bg-surface-sunken">
+                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, backgroundColor: project.color }} />
+                    <span className="absolute -inset-y-1 w-0.5 -translate-x-1/2 rounded-full bg-foreground" style={{ left: `${project.time}%` }} />
+                  </div>
+                  <p className="mt-2 text-xs tabular text-muted-foreground">
+                    {formatPct(pct, { digits: 0 })} do orçamento com {project.time}% do prazo
+                  </p>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="border-t border-border-subtle pt-3 text-xs text-muted-foreground">
+        O anel de ouro 18k de <span className="font-medium tabular text-foreground">{formatMoney(5000)}</span> fica no projeto: o
+        fechamento do mês e os orçamentos seguem mostrando a sua rotina.
+      </p>
+    </div>
+  );
+}
+
+const SAMPLE_INFLATION = [
+  { name: "Assinaturas e streaming", pct: 15.2, mover: "Netflix", from: 44.9, to: 55.9 },
+  { name: "Mercado", pct: 10.4, mover: "Supermercado Bom Preço", from: 312, to: 344.45 },
+  { name: "Refeição fora de casa", pct: 5.1, mover: "Padaria Central", from: 38, to: 40 },
+];
+
+function InflationPreview() {
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <p className="font-display text-4xl font-semibold leading-none tracking-[-0.03em] tabular text-warning">+8,5%</p>
+        <p className="max-w-xs text-sm text-foreground text-pretty">
+          Sua inflação pessoal nos últimos 6 meses é de 8,5%. O custo de manutenção do seu estilo de vida subiu.
+        </p>
+      </div>
+      <ul className="divide-y divide-border-subtle border-t border-border-subtle">
+        {SAMPLE_INFLATION.map((row) => (
+          <li key={row.name} className="flex items-center gap-3 py-2.5">
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-sm font-medium text-foreground">{row.name}</span>
+              <span className="flex items-center gap-1.5 text-xs tabular text-muted-foreground">
+                <Store className="h-3 w-3 shrink-0" aria-hidden />
+                <span className="truncate">
+                  {row.mover}: {formatMoney(row.from)} → {formatMoney(row.to)}
+                </span>
+              </span>
+            </span>
+            <span className={cn("shrink-0 text-sm font-semibold tabular", row.pct >= 10 ? "text-destructive" : "text-warning")}>
+              {formatPct(row.pct, { signed: true })}
+            </span>
+          </li>
+        ))}
+      </ul>
+      <p className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-foreground">
+        Mercado subiu mais de 10%: reajuste o teto de R$ 1.400,00 para R$ 1.545,60 antes de ele estourar na segunda semana.
       </p>
     </div>
   );

@@ -29,6 +29,7 @@ import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip }
 import { formatDateForDisplay, cn } from "@/lib/utils";
 import { useChartPalette } from "@/lib/chart-colors";
 import { SubscriptionChart } from "./SubscriptionChart";
+import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useViewMode } from "@/hooks/use-view-mode";
@@ -318,6 +319,8 @@ export function Dashboard({ onLogout }: DashboardProps) {
           <SubscriptionChart className="h-full" />
         </div>
       </section>
+
+      <InflationAlertCard />
 
       {/* Análise */}
       <section className="grid grid-cols-1 gap-4 lg:grid-cols-2 lg:gap-6">

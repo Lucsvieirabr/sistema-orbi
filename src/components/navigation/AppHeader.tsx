@@ -1,6 +1,7 @@
 import { LogOut, Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { NotificationsBell } from "./NotificationsBell";
 import { SearchPopover } from "./SearchPopover";
 
 interface HeaderProps {
@@ -62,6 +63,7 @@ export function AppHeader({
 
       <div className="flex shrink-0 items-center gap-0.5 md:gap-1 lg:gap-2">
         <SearchPopover />
+        <NotificationsBell />
         {rightSlot}
         <Button variant="ghost" size="icon" onClick={onLogout} aria-label="Sair" className="lg:hidden">
           <LogOut className="h-4 w-4" />

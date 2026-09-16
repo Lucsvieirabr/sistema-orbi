@@ -110,7 +110,11 @@ export function useBudgets(month: string) {
   const query = useQuery({
     queryKey: [...BUDGETS_QUERY_KEY, month, scope],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("orbi_budget_overview", { p_month: month, p_scope: scope });
+      const { data, error } = await supabase.rpc("orbi_budget_overview", {
+        p_month: month,
+        p_scope: scope,
+        p_exclude_projects: true,
+      });
       if (error) throw error;
       return normalize(data, month);
     },

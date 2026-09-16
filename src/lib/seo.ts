@@ -180,6 +180,8 @@ const PRIVATE_TITLES: Array<[RegExp, string]> = [
   [/^\/sistema\/analytics/, "Fechamento do mês"],
   [/^\/sistema\/forecast/, "Projeção de caixa"],
   [/^\/sistema\/ledgers/, "Rateios e acertos"],
+  [/^\/sistema\/projects/, "Projetos de vida"],
+  [/^\/sistema\/inflation/, "Inflação pessoal"],
   [/^\/sistema\/legal\/termos-de-uso/, "Termos de Uso"],
   [/^\/sistema\/legal\/politica-de-privacidade/, "Política de Privacidade"],
   [/^\/sistema\/?$/, "Painel"],

@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import { FormEvent, useMemo, useRef, useState } from "react";
 import {
   Area,
@@ -79,6 +80,7 @@ const KIND_LABEL: Record<ForecastEvent["kind"], string> = {
   scheduled: "Agendado",
   invoice: "Fatura",
   recurring: "Recorrente",
+  project: "Projeto",
   ghost: "Simulado",
 };
 
@@ -232,6 +234,7 @@ export default function CashForecast() {
               )}
               <UpcomingCard forecast={forecast} ghosts={activeGhosts} horizon={horizon} />
               <DrainCard forecast={forecast} />
+              {forecast.projects.length > 0 && <ProjectsDrainCard forecast={forecast} />}
             </div>
           </div>
         </>
@@ -834,6 +837,39 @@ function DrainCard({ forecast }: { forecast: CashForecastData }) {
             ))}
           </ol>
         )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function ProjectsDrainCard({ forecast }: { forecast: CashForecastData }) {
+  return (
+    <Card>
+      <CardHeader>
+        <SectionHeader
+          title="Projetos em andamento"
+          description="O saldo que falta gastar em cada projeto entra na curva, dividido por semana até a data final."
+        />
+      </CardHeader>
+      <CardContent>
+        <ul className="divide-y divide-border-subtle">
+          {forecast.projects.map((project) => (
+            <li key={project.id} className="py-3 first:pt-0 last:pb-0">
+              <div className="flex items-baseline justify-between gap-3">
+                <Link
+                  to={`/sistema/projects?projeto=${project.id}`}
+                  className="min-w-0 truncate text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {project.name}
+                </Link>
+                <span className="shrink-0 text-sm tabular text-foreground">{formatMoney(project.remaining)}</span>
+              </div>
+              <p className="mt-0.5 text-xs tabular text-muted-foreground">
+                Até {formatDayMonth(project.endDate)} · {formatMoney(project.consumed)} de {formatMoney(project.budget)} já lançados
+              </p>
+            </li>
+          ))}
+        </ul>
       </CardContent>
     </Card>
   );

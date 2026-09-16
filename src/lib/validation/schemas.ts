@@ -295,6 +295,39 @@ export const ledgerEntrySchema = z.object({
   entry_date: planningDateSchema,
 });
 
+export const projectKindSchema = z.enum(["event", "trip", "purchase", "home", "family", "other"]);
+
+export const projectSchema = z
+  .object({
+    name: requiredText(80, "Nome do projeto"),
+    description: optionalText(280),
+    kind: projectKindSchema,
+    icon: lucideIconSchema,
+    color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Cor deve ser um hexadecimal (ex.: #1D4ED8)"),
+    budget: positiveMoneySchema.max(1000000000, "Orcamento acima do permitido"),
+    start_date: planningDateSchema,
+    end_date: planningDateSchema,
+  })
+  .refine((v) => v.end_date >= v.start_date, {
+    message: "O fim precisa ser igual ou depois do inicio",
+    path: ["end_date"],
+  });
+
+export const goalExecuteSchema = z
+  .object({
+    p_goal_id: uuidSchema,
+    p_name: requiredText(80, "Nome do projeto"),
+    p_start_date: planningDateSchema,
+    p_end_date: planningDateSchema,
+    p_kind: projectKindSchema,
+    p_extra_budget: positiveMoneySchema.max(1000000000, "Valor acima do permitido"),
+    p_with_ledger: z.boolean(),
+  })
+  .refine((v) => v.p_end_date >= v.p_start_date, {
+    message: "O fim precisa ser igual ou depois do inicio",
+    path: ["p_end_date"],
+  });
+
 export const bugReportStatusSchema = z.enum([
   "novo",
   "em-analise",

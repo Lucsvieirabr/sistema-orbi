@@ -11,7 +11,7 @@
  */
 import { roundCurrency } from "@/lib/utils";
 
-export type ForecastEventKind = "scheduled" | "invoice" | "recurring" | "ghost";
+export type ForecastEventKind = "scheduled" | "invoice" | "recurring" | "project" | "ghost";
 
 export interface ForecastEvent {
   date: string;

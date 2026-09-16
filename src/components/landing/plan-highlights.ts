@@ -31,6 +31,8 @@ function extendsPlan(plan: SubscriptionPlan, base: SubscriptionPlan) {
 const PLANNING_LINES: Array<{ key: string; text: string }> = [
   { key: "motor_preditivo", text: "Motor Preditivo: alerta do dia em que o caixa aperta" },
   { key: "motor_preditivo", text: "Cenários Hipotéticos para simular compras parceladas" },
+  { key: "projetos_vida", text: "Projetos de Vida: casamento, reforma e viagem com orçamento próprio" },
+  { key: "inflacao_pessoal", text: "Inflação Pessoal: quanto o seu custo de vida subiu" },
   { key: "contratos_rateio", text: "Contratos de Rateio com compensação automática" },
   { key: "contratos_rateio", text: "Acertos de Viagem com PIX Copia e Cola" },
   { key: "orcamentos", text: "Orçamentos Inteligentes por categoria" },
@@ -50,6 +52,7 @@ function familyLines(plan: SubscriptionPlan): PlanLine[] {
   const planning = PLANNING_LINES.every((line) => plan.features?.[line.key] === true)
     ? [
         { text: "Motor Preditivo e Cenários Hipotéticos com o saldo do casal", included: true },
+        { text: "Projetos de Vida a dois, do casamento ao enxoval", included: true },
         { text: "Contratos de Rateio e Acertos de Viagem entre vocês", included: true },
         { text: "Orçamentos Inteligentes, Metas Financeiras e DRE Pessoal Avançado na visão Casal", included: true },
       ]
@@ -170,6 +173,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       dre_pessoal: false,
       motor_preditivo: false,
       contratos_rateio: false,
+      projetos_vida: false,
+      inflacao_pessoal: false,
       familia_compartilhada: false,
     },
     limits: {
@@ -187,7 +192,7 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
     name: "Pro",
     slug: "pro",
     description:
-      "Automatização e previsão: IA classificadora, Motor Preditivo, cenários hipotéticos, contratos de rateio, acertos de viagem, orçamentos e metas.",
+      "Automatização e planejamento: IA classificadora, importação de extrato, Motor Preditivo, Projetos de Vida, Inflação Pessoal, orçamentos, metas e rateios.",
     price_monthly: 10.99,
     price_yearly: 109.99,
     is_active: true,
@@ -206,6 +211,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       dre_pessoal: true,
       motor_preditivo: true,
       contratos_rateio: true,
+      projetos_vida: true,
+      inflacao_pessoal: true,
       familia_compartilhada: false,
     },
     limits: {
@@ -223,7 +230,7 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
     name: "Casal",
     slug: "casal",
     description:
-      "Tudo do Pro e mais um acesso: você e seu parceiro enxergam as mesmas finanças, com uma única assinatura.",
+      "Tudo do Pro e mais um acesso: Projetos de Vida, Inflação Pessoal e todo o planejamento a dois, com uma única assinatura.",
     price_monthly: 16.99,
     price_yearly: 169.99,
     is_active: true,
@@ -242,6 +249,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       dre_pessoal: true,
       motor_preditivo: true,
       contratos_rateio: true,
+      projetos_vida: true,
+      inflacao_pessoal: true,
       familia_compartilhada: true,
     },
     limits: {

@@ -32,6 +32,8 @@ export interface GoalProgress {
   last_allocation_on: string | null;
   months_left: number | null;
   monthly_needed: number | null;
+  executed_at: string | null;
+  project_id: string | null;
 }
 
 export interface GoalAllocation {
@@ -101,6 +103,8 @@ export function useGoals() {
         last_allocation_on: row.last_allocation_on,
         months_left: toNullableNumber(row.months_left),
         monthly_needed: toNullableNumber(row.monthly_needed),
+        executed_at: (row as any).executed_at ?? null,
+        project_id: (row as any).project_id ?? null,
       }));
     },
     staleTime: 30 * 1000,

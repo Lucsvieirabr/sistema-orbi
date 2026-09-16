@@ -290,6 +290,20 @@ featureRegistry.registerFeatures([
     'financial',
     { route: '/sistema/ledgers', metadata: { module: 'planejamento', icon: '🧾', moduleLabel: 'Planejamento' } }
   ),
+  defineFeature(
+    'projetos_vida',
+    'Projetos de Vida',
+    'Centros de custo temporários para grandes eventos, com orçamento próprio, meta executada, mini-DRE e relatório final',
+    'financial',
+    { route: '/sistema/projects', metadata: { module: 'planejamento', icon: '🗂️', moduleLabel: 'Planejamento' } }
+  ),
+  defineFeature(
+    'inflacao_pessoal',
+    'Inflação Pessoal',
+    'Índice de poder de compra das despesas essenciais, por categoria e estabelecimento, com aviso de reajuste de orçamento',
+    'financial',
+    { route: '/sistema/inflation', metadata: { module: 'planejamento', icon: '🧺', moduleLabel: 'Planejamento' } }
+  ),
 ]);
 
 

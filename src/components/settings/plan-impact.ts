@@ -38,6 +38,8 @@ const FEATURES: Array<{ key: string; label: string; phrase: string }> = [
   { key: "dre_pessoal", label: "DRE Pessoal Avançado", phrase: "o fechamento do mês" },
   { key: "motor_preditivo", label: "Motor Preditivo e Cenários Hipotéticos", phrase: "a projeção de caixa" },
   { key: "contratos_rateio", label: "Contratos de Rateio e Acertos de Viagem", phrase: "os rateios e acertos de viagem" },
+  { key: "projetos_vida", label: "Projetos de Vida", phrase: "os projetos de vida e seus relatórios" },
+  { key: "inflacao_pessoal", label: "Inflação Pessoal", phrase: "o índice de inflação pessoal" },
   { key: "familia_compartilhada", label: "Acesso do parceiro", phrase: "o acesso do seu parceiro" },
   { key: "cartoes_faturas", label: "Faturas de cartão", phrase: "as faturas de cartão" },
 ];

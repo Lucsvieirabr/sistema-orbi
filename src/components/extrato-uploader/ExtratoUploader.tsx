@@ -10,6 +10,7 @@ import { StatementParser, type StatementParseDiagnostics } from './StatementPars
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MAX_DOCUMENT_BYTES } from '@/integrations/parser_api';
+import type { ClassificationResult } from './BatchClassifier';
 
 const MAX_CSV_SIZE = 10 * 1024 * 1024;
 const SNIFF_BYTES = 4096;
@@ -379,102 +380,107 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       });
     }
 
-    // 🚀 OTIMIZAÇÃO: Classificar TODAS as transações em UMA única request via Edge Function
+    // Classificação no servidor (classify-transactions v2). Uma request por
+    // até 500 linhas: cada chamada consome a cota horária de rate limit.
+    //
+    // FALLBACK SEGURO: se a Edge Function falhar (rede, 429, 5xx) ou devolver
+    // menos resultados, NENHUMA linha é perdida e a importação não aborta — a
+    // linha segue como "Outros"/"Outras Receitas" com confiança 0 para revisão.
+    let classifications: ClassificationResult[] = [];
+    let classifierUnavailable = false;
     try {
-      // Importar BatchClassifier dinamicamente
       const { BatchTransactionClassifier } = await import('./BatchClassifier');
-      const batchClassifier = new BatchTransactionClassifier('SP', 100);
-
-      // Preparar transações para classificação em batch
-      const transactionsToClassify = parsedTransactions.map(t => ({
-        description: t.description,
-        type: t.type,
-        amount: t.value,
-        date: t.date
-      }));
-
-      console.log('🤖 Enviando para IA:', transactionsToClassify.length, 'transações');
-      console.log('Primeira transação:', transactionsToClassify[0]);
-
-      // ⚡ UMA ÚNICA REQUEST classifica TODAS as transações
-      const batchResponse = await batchClassifier.classifyBatch(transactionsToClassify);
-
-      console.log('📥 Resposta da IA:', batchResponse.results.length, 'classificações');
-      console.log('Primeira classificação:', batchResponse.results[0]);
-
-      // Processar resultados
-      for (let i = 0; i < parsedTransactions.length; i++) {
-        const parsedTransaction = parsedTransactions[i];
-        const classification = batchResponse.results[i];
-
-        stats.total++;
-        stats.processed++;
-
-        // Normalizar categoria usando aliases
-        let normalizedCategory = classification.category.toLowerCase();
-
-        // Aplicar mapeamentos de aliases
-        if (categoryAliases[normalizedCategory]) {
-          normalizedCategory = categoryAliases[normalizedCategory].toLowerCase();
-        }
-
-        // Mapear categoria para ID
-        const mappedCategory = categoryMap[normalizedCategory];
-        let category_id = mappedCategory && mappedCategory.type === parsedTransaction.type ? mappedCategory.id : undefined;
-
-        // Log de mapeamento
-        if (i === 0) {
-          console.log('🗺️ Mapeamento de categoria:', {
-            categoria_ia: classification.category,
-            normalizada: normalizedCategory,
-            mapeada: mappedCategory,
-            category_id,
-            tipo_transacao: parsedTransaction.type
-          });
-        }
-
-        // Se não encontrou categoria específica, usar categoria padrão baseada no tipo
-        if (!category_id) {
-          const defaultCategoryName = parsedTransaction.type === 'income'
-            ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)'
-            : 'Outros';
-          const defaultCategory = categoryMap[defaultCategoryName.toLowerCase()];
-          category_id = defaultCategory?.id;
-        }
-
-        const transaction = {
-          id: parsedTransaction.id,
-          date: parsedTransaction.date,
-          description: parsedTransaction.description,
-          value: parsedTransaction.value,
-          type: parsedTransaction.type,
-          category_id,
-          category_name: classification.category,
-          subcategory: classification.subcategory,
-          confidence: classification.confidence,
-          method: classification.method,
-          learned_from_user: classification.learned_from_user,
-          payment_method: parsedTransaction.payment_method,
-          card_last4: parsedTransaction.card_last4,
-          installments: parsedTransaction.installments,
-          installment_number: parsedTransaction.installment_number
-        };
-
-        transactions.push(transaction);
-
-        // Atualizar estatísticas
-        if (classification.confidence >= 90) stats.withHighConfidence++;
-        else if (classification.confidence >= 70) stats.withMediumConfidence++;
-        else stats.withLowConfidence++;
-
-        if (classification.learned_from_user) stats.learned++;
-        if (classification.method === 'ml_prediction') stats.mlPredictions++;
-        if (classification.method === 'merchant_specific' || classification.method === 'banking_pattern') stats.dictionaryMatches++;
-        if (classification.method === 'hybrid') stats.hybridDecisions++;
-      }
+      const batchClassifier = new BatchTransactionClassifier('SP', 500);
+      const batchResponse = await batchClassifier.classifyBatch(
+        parsedTransactions.map(t => ({
+          description: t.description,
+          type: t.type,
+          amount: t.value,
+          date: t.date,
+        })),
+      );
+      classifications = Array.isArray(batchResponse?.results) ? batchResponse.results : [];
     } catch (error) {
-      console.error('❌ Erro na classificação em batch:', error);
-      throw error;
+      classifierUnavailable = true;
+      console.error('Classificação automática indisponível:', error instanceof Error ? error.message : error);
+    }
+
+    const fallbackCategoryName = (type: 'income' | 'expense') =>
+      type === 'income' ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)' : 'Outros';
+
+    let fallbackCount = 0;
+
+    for (let i = 0; i < parsedTransactions.length; i++) {
+      const parsedTransaction = parsedTransactions[i];
+      const received = classifications[i];
+      const classification: ClassificationResult = received && typeof received.category === 'string'
+        ? received
+        : {
+            description: parsedTransaction.description,
+            category: fallbackCategoryName(parsedTransaction.type),
+            subcategory: 'A Classificar',
+            confidence: 0,
+            method: 'default_fallback',
+            features_used: ['client_fallback'],
+            learned_from_user: false,
+          };
+
+      stats.total++;
+      stats.processed++;
+
+      // Normalizar categoria usando aliases
+      let normalizedCategory = classification.category.toLowerCase();
+      if (categoryAliases[normalizedCategory]) {
+        normalizedCategory = categoryAliases[normalizedCategory].toLowerCase();
+      }
+
+      // Mapear categoria para ID (só vale se o tipo bate com o lançamento)
+      const mappedCategory = categoryMap[normalizedCategory];
+      let category_id = mappedCategory && mappedCategory.type === parsedTransaction.type ? mappedCategory.id : undefined;
+
+      // Sem categoria específica: categoria genérica do tipo, nunca descartar a linha
+      if (!category_id) {
+        category_id = categoryMap[fallbackCategoryName(parsedTransaction.type).toLowerCase()]?.id;
+      }
+
+      if (classification.method === 'default_fallback') fallbackCount++;
+
+      transactions.push({
+        id: parsedTransaction.id,
+        date: parsedTransaction.date,
+        description: parsedTransaction.description,
+        value: parsedTransaction.value,
+        type: parsedTransaction.type,
+        category_id,
+        category_name: classification.category,
+        subcategory: classification.subcategory,
+        confidence: classification.confidence,
+        method: classification.method,
+        learned_from_user: classification.learned_from_user,
+        payment_method: parsedTransaction.payment_method,
+        card_last4: parsedTransaction.card_last4,
+        installments: parsedTransaction.installments,
+        installment_number: parsedTransaction.installment_number
+      });
+
+      // Atualizar estatísticas
+      if (classification.confidence >= 90) stats.withHighConfidence++;
+      else if (classification.confidence >= 70) stats.withMediumConfidence++;
+      else stats.withLowConfidence++;
+
+      if (classification.learned_from_user) stats.learned++;
+      if (classification.method === 'merchant_fuzzy') stats.mlPredictions++;
+      if (['merchant_entity', 'merchant_specific', 'banking_pattern', 'keyword_analysis'].includes(classification.method)) stats.dictionaryMatches++;
+      if (classification.method === 'hybrid') stats.hybridDecisions++;
+    }
+
+    if (classifierUnavailable) {
+      toast({
+        title: 'Classificação automática indisponível',
+        description: 'As transações foram mantidas como "Outros"/"Outras Receitas". Revise as categorias antes de salvar.',
+      });
+    } else if (fallbackCount > 0) {
+      console.info(`[ExtratoUploader] ${fallbackCount} transação(ões) sem categoria confiável — marcadas para revisão.`);
     }
 
     return { transactions, stats };

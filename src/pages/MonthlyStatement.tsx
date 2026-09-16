@@ -78,6 +78,7 @@ import {
   SplitCompensationField,
   type SplitCompensation,
 } from "@/components/ledgers/TransactionSplitFields";
+import { ProjectPicker } from "@/components/projects/ProjectPicker";
 
 interface Installment {
   id: string;
@@ -209,6 +210,7 @@ function MonthlyStatementContent() {
   const [splitCompensation, setSplitCompensation] = useState<SplitCompensation | null>(null);
   // Acertos de viagem (Pro/Casal): evento ao qual o gasto pertence.
   const [ledgerId, setLedgerId] = useState<string | null>(null);
+  const [projectId, setProjectId] = useState<string | null>(null);
 
   // Estados para rateio composto personalizado
   const [compositionDialogOpen, setCompositionDialogOpen] = useState(false);
@@ -383,7 +385,7 @@ function MonthlyStatementContent() {
         .select(
           `
           id, user_id, description, value, date, type, payment_method,
-          account_id, credit_card_id, category_id, person_id, series_id, status, created_at, ledger_id,
+          account_id, credit_card_id, category_id, person_id, series_id, status, created_at, ledger_id, project_id,
           accounts(name),
           categories(name),
           credit_cards(name),
@@ -463,6 +465,7 @@ function MonthlyStatementContent() {
         );
         setPersonId((data as any).person_id);
         setLedgerId((data as any).ledger_id ?? null);
+        setProjectId((data as any).project_id ?? null);
         setStatus((data as any).status as "PAID" | "PENDING");
 
         // Verificar se é transação fixa (is_fixed = true)
@@ -563,6 +566,7 @@ function MonthlyStatementContent() {
     setCompositionItems([]);
     setSplitCompensation(null);
     setLedgerId(null);
+    setProjectId(null);
     // Reset installment data
     setInstallmentData({ installments: [], totalValue: 0 });
   };
@@ -789,6 +793,7 @@ function MonthlyStatementContent() {
             compensation_value: 0,
             status: payload.status,
             ledger_id: payload.ledger_id ?? null,
+            project_id: payload.project_id ?? null,
           });
           if (soloError) throw soloError;
           toast({
@@ -827,6 +832,7 @@ function MonthlyStatementContent() {
             status: payload.status,
             composition_details: compositionDetailsJson, // Detalhes da composição
             ledger_id: payload.ledger_id ?? null,
+            project_id: payload.project_id ?? null,
           })
           .select()
           .single();
@@ -1131,6 +1137,7 @@ function MonthlyStatementContent() {
         compositionItems: compositionItems, // Para rateio composto personalizado
         splitCompensation: isRateio ? splitCompensation : null, // Contrato de rateio (Pro/Casal)
         ledger_id: type === "expense" ? ledgerId : null, // Acerto de viagem (Pro/Casal)
+        project_id: type === "transfer" ? null : projectId,
         status: status, // Status da transação
       };
 
@@ -1259,6 +1266,7 @@ function MonthlyStatementContent() {
               payment_method: paymentMethod,
               credit_card_id: creditCardId,
               person_id: personId,
+              project_id: projectId,
               // is_fixed field moved to series table
               installments: installmentData.installments,
             });
@@ -1274,6 +1282,7 @@ function MonthlyStatementContent() {
               payment_method: paymentMethod,
               credit_card_id: creditCardId,
               person_id: personId,
+              project_id: projectId,
               installments: generatedInstallments,
             });
           }
@@ -1311,6 +1320,7 @@ function MonthlyStatementContent() {
               compensation_value: payload.compensation_value || 0,
               status: payload.status,
               ledger_id: payload.ledger_id ?? null,
+              project_id: payload.project_id ?? null,
             });
 
             if (error) throw error;
@@ -1475,6 +1485,10 @@ function MonthlyStatementContent() {
           ...(newData.ledger_id !== undefined &&
           (newData.ledger_id ?? null) !== ((currentTransaction as any).ledger_id ?? null)
             ? { ledger_id: newData.ledger_id ?? null }
+            : {}),
+          ...(newData.project_id !== undefined &&
+          (newData.project_id ?? null) !== ((currentTransaction as any).project_id ?? null)
+            ? { project_id: newData.project_id ?? null }
             : {}),
         })
         .eq("id", transactionId);
@@ -3769,6 +3783,8 @@ function MonthlyStatementContent() {
                 {type === "expense" && !isLoan && (
                   <LedgerPicker value={ledgerId} onChange={setLedgerId} />
                 )}
+
+                {!isLoan && <ProjectPicker value={projectId} onChange={setProjectId} />}
 
                 {/* Configurações */}
                 <div className="space-y-3">

@@ -38,11 +38,12 @@ export interface CashForecastData {
     topCategories: BurnCategory[];
   };
   events: ForecastEvent[];
+  projects: Array<{ id: string; name: string; endDate: string; budget: number; consumed: number; remaining: number }>;
 }
 
 export const CASH_FORECAST_QUERY_KEY = ["cash-forecast"] as const;
 
-const KINDS = new Set(["scheduled", "invoice", "recurring"]);
+const KINDS = new Set(["scheduled", "invoice", "recurring", "project"]);
 
 function normalize(raw: any, horizon: number): CashForecastData {
   const burn = raw?.burn ?? {};
@@ -74,6 +75,14 @@ function normalize(raw: any, horizon: number): CashForecastData {
         description: String(event.description ?? ""),
         kind: event.kind,
       })),
+    projects: (raw?.projects ?? []).map((row: any) => ({
+      id: String(row.id),
+      name: String(row.name ?? ""),
+      endDate: String(row.end_date ?? "").slice(0, 10),
+      budget: toNumber(row.budget),
+      consumed: toNumber(row.consumed),
+      remaining: toNumber(row.remaining),
+    })),
   };
 }
 

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { Copy, Gauge, Pencil, Plus, RotateCw, Sparkles, Trash2 } from "lucide-react";
 
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { BudgetInflationAlerts } from "@/components/inflation/BudgetInflationAlerts";
 import { LedgerStrip, UsageBar, usageTone, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { MonthSwitcher, useMonthParam } from "@/components/planning/MonthSwitcher";
 import { notifyPlanningError, notifyPlanningSuccess } from "@/components/planning/notify";
@@ -35,6 +36,8 @@ import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { useBudgets, type BudgetOverview, type BudgetRow, type BudgetSuggestion } from "@/hooks/use-budgets";
 import { useCategories } from "@/hooks/use-categories";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { useNotifications } from "@/hooks/use-notifications";
+import { toAlert } from "@/hooks/use-personal-inflation";
 import { cn } from "@/lib/utils";
 
 /**
@@ -60,6 +63,7 @@ export default function Budgets() {
   const [month, setMonth] = useMonthParam();
   const { overview, isLoading, error, refetch, isFetching, createBudget, updateBudget, deleteBudget, copyPreviousMonth } =
     useBudgets(month);
+  const { notifications } = useNotifications();
   const { isMine } = useFamilyGroup();
   const [editor, setEditor] = useState<EditorState | null>(null);
   const [copying, setCopying] = useState(false);
@@ -124,6 +128,12 @@ export default function Budgets() {
           <ViewModeToggle />
         </div>
       </PageToolbar>
+
+      <BudgetInflationAlerts
+        alerts={notifications
+          .filter((item) => item.kind === "budget_inflation" && !item.readAt && item.payload?.period_month === month)
+          .map((item) => toAlert({ id: item.id, title: item.title, body: item.body, payload: item.payload, created_at: item.createdAt }))}
+      />
 
       {isLoading ? (
         <BudgetsSkeleton />

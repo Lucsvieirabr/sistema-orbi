@@ -1,6 +1,6 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
-import { ArrowDownRight, ArrowUpRight, CalendarClock, Minus, RotateCw, ScrollText } from "lucide-react";
+import { Link, useSearchParams } from "react-router-dom";
+import { ArrowDownRight, ArrowUpRight, CalendarClock, FolderKanban, Minus, RotateCw, ScrollText } from "lucide-react";
 import {
   Bar,
   BarChart,
@@ -13,6 +13,7 @@ import {
 } from "recharts";
 
 import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
 import { LedgerStrip, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { MonthSwitcher, useMonthParam } from "@/components/planning/MonthSwitcher";
 import {
@@ -30,6 +31,9 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { useFeature } from "@/hooks/use-feature";
 import { IconRenderer } from "@/components/ui/icon-renderer";
 import { EmptyState, PageBody, PageHeader, PageToolbar, SectionHeader, ToolbarSpacer } from "@/components/ui/page";
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
@@ -64,7 +68,17 @@ const pctChange = (current: number, previous: number | null): number | null => {
 
 export default function MonthlyClosing() {
   const [month, setMonth] = useMonthParam();
-  const { data, isLoading, isFetching, error, refetch } = useMonthlyClosing(month);
+  const [params, setParams] = useSearchParams();
+  const { hasFeature: hasProjects } = useFeature("projetos_vida");
+  const includeProjects = hasProjects && params.get("projetos") === "incluir";
+  const { data, isLoading, isFetching, error, refetch } = useMonthlyClosing(month, !includeProjects);
+
+  const toggleProjects = (checked: boolean) => {
+    const next = new URLSearchParams(params);
+    if (checked) next.set("projetos", "incluir");
+    else next.delete("projetos");
+    setParams(next, { replace: true });
+  };
 
   const monthName = formatMonthName(month);
 
@@ -80,8 +94,16 @@ export default function MonthlyClosing() {
       <PageToolbar>
         <MonthSwitcher month={month} onChange={setMonth} />
         <ToolbarSpacer />
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           {isFetching && !isLoading && <Spinner className="h-4 w-4" />}
+          {hasProjects && (
+            <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-sunken px-3 py-2">
+              <Switch id="closing-include-projects" checked={includeProjects} onCheckedChange={toggleProjects} />
+              <Label htmlFor="closing-include-projects" className="cursor-pointer text-xs font-medium">
+                Incluir projetos de vida
+              </Label>
+            </div>
+          )}
           <ViewModeToggle />
         </div>
       </PageToolbar>
@@ -192,6 +214,10 @@ function ClosingReport({ closing }: { closing: Closing }) {
           },
         ]}
       />
+
+      <InflationAlertCard teaser={false} />
+
+      <ProjectsIsolationNote closing={closing} />
 
       {current.pendingCount > 0 && (
         <div className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
@@ -710,5 +736,41 @@ function TrendTooltip({ active, payload }: TooltipProps<number, string>) {
         </div>
       </dl>
     </div>
+  );
+}
+
+function ProjectsIsolationNote({ closing }: { closing: Closing }) {
+  const { projects } = closing;
+  if (projects.items.length === 0) return null;
+  const monthName = formatMonthName(closing.month);
+
+  return (
+    <section
+      aria-label="Projetos de vida no mês"
+      className="flex flex-col gap-3 rounded-xl border border-border-subtle bg-surface-sunken px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+    >
+      <p className="flex min-w-0 items-start gap-2.5 text-sm text-muted-foreground">
+        <FolderKanban className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <span className="text-pretty">
+          {projects.excluded ? (
+            <>
+              <span className="font-medium tabular text-foreground">{formatMoney(projects.expenses)}</span> de gastos em{" "}
+              {projects.items.map((item) => item.name).join(", ")} ficaram fora deste fechamento de {monthName}: compras atípicas
+              não entram na média nem nos orçamentos.
+            </>
+          ) : (
+            <>
+              Este fechamento inclui <span className="font-medium tabular text-foreground">{formatMoney(projects.expenses)}</span> de
+              projetos de vida ({projects.items.map((item) => item.name).join(", ")}).
+            </>
+          )}
+        </span>
+      </p>
+      <Button asChild variant="ghost" size="sm" className="shrink-0 self-start sm:self-auto">
+        <Link to={projects.items.length === 1 ? `/sistema/projects?projeto=${projects.items[0].id}` : "/sistema/projects"}>
+          {projects.items.length === 1 ? "Abrir projeto" : "Ver projetos"}
+        </Link>
+      </Button>
+    </section>
   );
 }
