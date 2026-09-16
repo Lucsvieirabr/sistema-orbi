@@ -1,5 +1,6 @@
 import { z, type ZodErrorMap, type ZodTypeAny } from 'https://deno.land/x/zod@v3.23.8/mod.ts'
 import { HttpError } from './errors.ts'
+import { isValidCpfCnpj, normalizeCpfCnpj } from './asaas.ts'
 
 export { z }
 
@@ -35,12 +36,13 @@ export const isoDateSchema = z
 
 const digits = (v: string) => v.replace(/\D/g, '')
 
+// Mantém as letras do CNPJ alfanumérico e valida dígito verificador.
+// Mesma regra de `isValidCpfCnpj` (asaas.ts) e de `src/lib/validation/schemas.ts`.
 export const cpfCnpjSchema = z
   .string()
   .max(32, 'CPF/CNPJ inválido.')
-  .transform(digits)
-  .refine((v) => v.length === 11 || v.length === 14, 'CPF/CNPJ inválido.')
-  .refine((v) => !/^(\d)\1+$/.test(v), 'CPF/CNPJ inválido.')
+  .transform((v) => normalizeCpfCnpj(v) ?? '')
+  .refine((v) => isValidCpfCnpj(v), 'CPF/CNPJ inválido.')
 
 export const mobilePhoneSchema = z
   .string()
