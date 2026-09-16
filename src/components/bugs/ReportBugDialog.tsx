@@ -14,7 +14,12 @@ import { Textarea } from "@/components/ui/textarea";
 import { useBugReports } from "@/hooks/use-bug-reports";
 import { useToast } from "@/hooks/use-toast";
 
-export function ReportBugDialog() {
+interface ReportBugDialogProps {
+  /** `icon` = botão quadrado só com ícone (rodapé compacto da sidebar). */
+  variant?: "full" | "icon";
+}
+
+export function ReportBugDialog({ variant = "full" }: ReportBugDialogProps = {}) {
   const [open, setOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [titulo, setTitulo] = useState("");
@@ -73,14 +78,25 @@ export function ReportBugDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="w-full justify-start gap-2 border-transparent bg-transparent text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-        >
-          <Bug className="h-4 w-4" />
-          Defeitos e Sugestões
-        </Button>
+        {variant === "icon" ? (
+          <button
+            type="button"
+            aria-label="Reportar defeito ou sugestão"
+            title="Defeitos e sugestões"
+            className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-sidebar-muted transition-colors duration-200 ease-swift hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sidebar-ring lg:h-8 lg:w-8"
+          >
+            <Bug className="h-4 w-4" aria-hidden />
+          </button>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full justify-start gap-2 border-transparent bg-transparent text-sidebar-muted hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+          >
+            <Bug className="h-4 w-4" />
+            Defeitos e Sugestões
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
