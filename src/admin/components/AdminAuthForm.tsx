@@ -11,6 +11,9 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { describeAuthError } from "@/lib/auth/auth-errors";
+import { assuranceFromSession } from "@/lib/auth/assurance";
+import { mfaChallengePath } from "@/lib/auth/redirect";
 
 /**
  * Formulário de login para administradores
@@ -30,11 +33,19 @@ export function AdminAuthForm() {
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
     
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({ email, password });
     
     if (error) {
-      toast({ title: "Falha no login", description: error.message, variant: "destructive" });
+      toast({ title: "Falha no login", description: describeAuthError(error, "login"), variant: "destructive" });
       setIsLoading(false);
+      return;
+    }
+
+    // Conta com TOTP: a checagem de admin acontece depois do código (aal2),
+    // na própria tela de verificação.
+    if (assuranceFromSession(signInData.session).needsChallenge) {
+      setIsLoading(false);
+      navigate(mfaChallengePath("admin"), { replace: true });
       return;
     }
 

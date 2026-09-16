@@ -268,6 +268,13 @@ catch → gateFailure(req, error, 'nome-da-funcao', envelope)
 - View: `security_invoker = true`. Função: `SECURITY INVOKER` por padrão; `DEFINER` só com search_path fixo e checagem de identidade.
 - Tabela de infraestrutura (contadores, ledger de webhook): sem policy para `anon`/`authenticated`, escrita só por `service_role`.
 
+### 7.1 Autenticação — recuperação de senha e MFA (TOTP)
+- **Camadas**: chamadas `supabase.auth.*` de fluxo ficam em `src/services/auth/` (`password-recovery.ts`, `mfa.ts`) e lançam `AuthFlowError` já traduzido; mensagens por `error.code` em `src/lib/auth/auth-errors.ts` (nunca `error.message` do GoTrue na UI). Rotas em `AUTH_ROUTES` (`src/lib/auth/redirect.ts`).
+- **Recuperação**: `/esqueci-senha` → `resetPasswordForEmail(email, { redirectTo: origem atual + /redefinir-senha })`, resposta idêntica com ou sem conta (anti-enumeração). `/redefinir-senha` aceita `?token_hash=&type=recovery` (template `supabase/templates/recovery.html`, consumido só no envio da nova senha via `verifyOtp`) e `?code=` (PKCE, trocado pelo `detectSessionInUrl`; só no mesmo navegador). URL limpa com `history.replaceState` logo após ler. Conta com MFA: GoTrue exige aal2 para `updateUser({ password })` → a tela pede o TOTP antes. Sucesso encerra as outras sessões (`signOut({ scope: 'others' })`).
+- **Estágio da sessão** (`src/lib/auth/assurance.ts`, síncrono — nunca chamar API do supabase-js dentro de `onAuthStateChange`, trava o lock): `anonymous` | `mfa_required` (aal1 + fator verificado) | `authenticated`. `App.tsx` trata `mfa_required` como não autenticado em `/sistema`, `/billing`, `/admin/*` e manda para `/login/verificacao` (`?destino=admin` no painel). `/esqueci-senha` e `/redefinir-senha` são sempre acessíveis.
+- **MFA**: Configurações → Segurança (`MfaSettings`): 1 TOTP verificado por conta; `unverified` abandonados são removidos antes de novo `enroll`; QR só como SVG em data URI (`<img>`, nunca innerHTML); desativar exige código novo mesmo em aal2 e faz `refreshSession`.
+- **Banco é a autoridade**: rota não protege dado. Dado sensível exige `auth.jwt()->>'aal' = 'aal2'` na policy, ou a camada RESTRICTIVE `public.orbi_mfa_satisfied()` / `PERFORM orbi_require_mfa_session()` em RPC (migration `20260916165204`). Modelo completo: `docs/sql/2026-09-16_mfa_aal2_rls_exemplo.sql`.
+
 ### 8. Checklist de PR (bloqueante)
 `[ ]` gate + rate limit IP/usuário `[ ]` `parseJson` + schema `.strict()` com `.max()` em tudo `[ ]` `parseOrThrow` no client `[ ]` projeção explícita na resposta `[ ]` erros via `HttpError` `[ ]` RLS + FORCE + CHECK na tabela nova `[ ]` nenhum secret em `VITE_*`/código/log `[ ]` URL externa por `safe-url.ts` `[ ]` CSP inalterada ou mais restrita.
 

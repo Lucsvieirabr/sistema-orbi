@@ -187,9 +187,13 @@ const PRIVATE_TITLES: Array<[RegExp, string]> = [
   [/^\/sistema\/?$/, "Painel"],
   [/^\/admin/, "Admin"],
   [/^\/billing/, "Assinatura pendente"],
+  [/^\/esqueci-senha/, "Recuperar senha"],
+  [/^\/redefinir-senha/, "Nova senha"],
+  [/^\/login\/verificacao/, "Verificação em duas etapas"],
 ];
 
-const PRIVATE_PREFIXES = ["/sistema", "/admin", "/billing"];
+/** Fluxos de conta (recuperação, código TOTP) também ficam fora do índice. */
+const PRIVATE_PREFIXES = ["/sistema", "/admin", "/billing", "/esqueci-senha", "/redefinir-senha", "/login/verificacao"];
 
 export function resolveRouteSeo(pathname: string): SeoConfig {
   const path = normalizePath(pathname);

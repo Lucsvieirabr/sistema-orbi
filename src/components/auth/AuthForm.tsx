@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -12,6 +12,7 @@ import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
 import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/components/legal";
 import { cn } from "@/lib/utils";
+import { AUTH_ROUTES } from "@/lib/auth/redirect";
 
 /** Item do segmented control: o fundo ativo é do thumb, não do item. */
 const segmentTrigger =
@@ -29,6 +30,15 @@ export function AuthForm() {
     searchParams.get("modo") === "cadastro" ? "register" : "login",
   );
   const { login, register } = useAuth();
+  const navigate = useNavigate();
+
+  /** Leva o e-mail já digitado para a tela de recuperação (via state, nunca na URL). */
+  const goToForgotPassword = (event: React.MouseEvent<HTMLAnchorElement>) => {
+    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+    event.preventDefault();
+    const email = (document.getElementById("email") as HTMLInputElement | null)?.value?.trim() ?? "";
+    navigate(AUTH_ROUTES.forgotPassword, { state: email ? { email } : undefined });
+  };
 
   /**
    * Aceite legal do cadastro (LGPD art. 8º): estado próprio, SEMPRE iniciado
@@ -133,10 +143,20 @@ export function AuthForm() {
                 </div>
                 
                 <div className="space-y-2">
-                  <Label htmlFor="password">Senha</Label>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <Label htmlFor="password">Senha</Label>
+                    <Link
+                      to={AUTH_ROUTES.forgotPassword}
+                      onClick={goToForgotPassword}
+                      className="-my-2 rounded-sm py-2 text-xs font-medium text-muted-foreground underline-offset-4 transition-colors duration-150 ease-swift hover:text-foreground hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    >
+                      Esqueci minha senha
+                    </Link>
+                  </div>
                   <Input
                     id="password"
                     type="password"
+                    autoComplete="current-password"
                     placeholder="••••••••"
                     required
                   />
@@ -185,9 +205,11 @@ export function AuthForm() {
                     type="password"
                     placeholder="••••••••"
                     required
-                    minLength={6}
+                    minLength={8}
+                    maxLength={72}
+                    autoComplete="new-password"
                   />
-                  <p className="text-xs text-muted-foreground">Mínimo de 6 caracteres</p>
+                  <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres, com letras e números</p>
                 </div>
 
                 <LegalConsentCheckbox

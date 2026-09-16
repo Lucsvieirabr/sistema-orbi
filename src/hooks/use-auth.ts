@@ -7,6 +7,9 @@ import { User } from "@supabase/supabase-js";
 import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from "@/hooks/use-subscription";
 import { syncSubscriptionStatus } from "@/hooks/use-payment";
 import { buildSignupConsentMetadata } from "@/lib/legal";
+import { describeAuthError } from "@/lib/auth/auth-errors";
+import { assuranceFromSession } from "@/lib/auth/assurance";
+import { mfaChallengePath } from "@/lib/auth/redirect";
 
 interface AuthState {
   user: User | null;
@@ -81,11 +84,19 @@ export function useAuth() {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-      toast({ title: "Falha no login", description: error.message, variant: "destructive" });
+      toast({ title: "Falha no login", description: describeAuthError(error, "login"), variant: "destructive" });
       return false;
     }
 
     if (!data.user) return false;
+
+    // Senha certa não basta se a conta tem TOTP: a sessão nasce aal1 e só vira
+    // aal2 na tela de código. Nada de assinatura/rota antes disso.
+    if (assuranceFromSession(data.session).needsChallenge) {
+      queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+      navigate(mfaChallengePath(), { replace: true });
+      return true;
+    }
 
     queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
 
@@ -117,7 +128,7 @@ export function useAuth() {
     });
 
     if (error) {
-      toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao criar conta", description: describeAuthError(error, "signup"), variant: "destructive" });
       return false;
     }
 

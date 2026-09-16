@@ -211,6 +211,11 @@ export default {
           "0%, 100%": { boxShadow: "var(--shadow-primary), 0 0 0 0 hsl(var(--primary) / 0.42)" },
           "55%": { boxShadow: "var(--shadow-primary), 0 0 0 12px hsl(var(--primary) / 0)" },
         },
+        /* Cursor falso do campo de codigo (input-otp). */
+        "caret-blink": {
+          "0%, 70%, 100%": { opacity: "1" },
+          "20%, 50%": { opacity: "0" },
+        },
         /* Respiro do balao de onboarding: 3px, quase subliminar. */
         "hint-float": {
           "0%, 100%": { transform: "translateY(0)" },
@@ -226,6 +231,7 @@ export default {
         rise: "rise 0.45s cubic-bezier(0.16, 1, 0.3, 1) both",
         "fab-pulse": "fab-pulse 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite",
         "hint-float": "hint-float 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
+        "caret-blink": "caret-blink 1.2s ease-out infinite",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",
