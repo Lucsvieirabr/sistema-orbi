@@ -533,16 +533,26 @@ function SimulationCard({
   return (
     <Card className="relative isolate overflow-hidden animate-rise">
       <span aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-0.5 bg-warning" />
-      <CardHeader>
+      {/*
+        Fechar ancorado no canto superior direito, como o DialogContent. Passar
+        pelo `actions` do SectionHeader fazia o botão quebrar para baixo da
+        descrição (flex-wrap + items-end) em colunas estreitas. O centro do
+        botão fica na linha do eyebrow e o glifo alinha com a margem do card.
+      */}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onClick={onExit}
+        aria-label="Sair da simulação"
+        className="absolute right-1 top-0.5 z-10 md:right-3 md:top-3 lg:right-4 lg:top-4"
+      >
+        <X aria-hidden />
+      </Button>
+      <CardHeader className="pr-11 md:pr-8 lg:pr-9">
         <SectionHeader
           eyebrow="Modo simulação"
           title="Cenários hipotéticos"
           description="Eventos fantasmas mudam só a curva. Nada vai para o extrato."
-          actions={
-            <Button variant="ghost" size="icon-sm" onClick={onExit} aria-label="Sair da simulação">
-              <X aria-hidden />
-            </Button>
-          }
         />
       </CardHeader>
       <CardContent className="space-y-5">
