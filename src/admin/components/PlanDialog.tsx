@@ -196,8 +196,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
     is_active: true,
     is_featured: false,
     display_order: 0,
-    monthly_payment_url: '',
-    annual_payment_url: '',
   });
 
   const [features, setFeatures] = useState<Record<string, boolean>>({});
@@ -215,8 +213,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
         is_active: plan.is_active,
         is_featured: plan.is_featured,
         display_order: plan.display_order,
-        monthly_payment_url: plan.monthly_payment_url || '',
-        annual_payment_url: plan.annual_payment_url || '',
       });
       setFeatures(plan.features || {});
       setLimits(plan.limits || {});
@@ -231,8 +227,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
         is_active: true,
         is_featured: false,
         display_order: 0,
-        monthly_payment_url: '',
-        annual_payment_url: '',
       });
       
       // Inicializar features como false
@@ -254,8 +248,17 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
   // Mutation para criar/atualizar plano
   const savePlanMutation = useMutation({
     mutationFn: async () => {
+      // Whitelist explícita: só envia colunas que existem em subscription_plans.
+      // Evita PGRST204 ("Could not find the '<col>' column ... in the schema cache").
       const planData = {
-        ...formData,
+        name: formData.name,
+        slug: formData.slug,
+        description: formData.description || null,
+        price_monthly: Number(formData.price_monthly) || 0,
+        price_yearly: Number(formData.price_yearly) || 0,
+        is_active: formData.is_active,
+        is_featured: formData.is_featured,
+        display_order: Number(formData.display_order) || 0,
         features,
         limits,
       };
@@ -383,34 +386,6 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                         onChange={(e) => setFormData({ ...formData, price_yearly: parseFloat(e.target.value) || 0 })}
                       />
                     </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="monthly_payment_url">URL Pagamento Mensal (opcional)</Label>
-                    <Input
-                      id="monthly_payment_url"
-                      type="url"
-                      value={formData.monthly_payment_url}
-                      onChange={(e) => setFormData({ ...formData, monthly_payment_url: e.target.value })}
-                      placeholder="https://www.asaas.com/c/..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Link para onde o usuário será redirecionado ao assinar o plano mensal
-                    </p>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="annual_payment_url">URL Pagamento Anual (opcional)</Label>
-                    <Input
-                      id="annual_payment_url"
-                      type="url"
-                      value={formData.annual_payment_url}
-                      onChange={(e) => setFormData({ ...formData, annual_payment_url: e.target.value })}
-                      placeholder="https://www.asaas.com/c/..."
-                    />
-                    <p className="text-xs text-muted-foreground">
-                      Link para onde o usuário será redirecionado ao assinar o plano anual
-                    </p>
                   </div>
 
                   <div className="space-y-2">
@@ -603,5 +578,4 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
     </Dialog>
   );
 }
-
 

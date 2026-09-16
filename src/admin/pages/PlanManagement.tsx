@@ -25,8 +25,6 @@ export interface Plan {
   is_active: boolean;
   is_featured: boolean;
   display_order: number;
-  monthly_payment_url?: string | null;
-  annual_payment_url?: string | null;
   created_at: string;
   updated_at: string;
 }

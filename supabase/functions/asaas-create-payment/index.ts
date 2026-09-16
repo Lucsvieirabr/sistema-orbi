@@ -10,6 +10,7 @@ import {
   findOrCreateCustomer,
   normalizeBillingCycle,
   onlyDigits,
+  parseCpfCnpj,
   toAsaasCycle,
   toIsoDate,
 } from '../_shared/asaas.ts'
@@ -83,6 +84,9 @@ serve(async (req) => {
       return jsonFor(req, { success: true, free_plan: true, subscription: data })
     }
 
+    // Valida antes de qualquer escrita no gateway: documento malformado = 400.
+    const cpfCnpj = parseCpfCnpj(body.cpfCnpj)
+
     const { data: profile, error: profileError } = await supabase
       .from('user_profiles')
       .select('user_id, email, full_name, asaas_customer_id')
@@ -98,10 +102,14 @@ serve(async (req) => {
       asaasCustomerId: profile?.asaas_customer_id,
       name: profile?.full_name || email,
       email,
-      cpfCnpj: onlyDigits(body.cpfCnpj),
+      cpfCnpj,
       mobilePhone: onlyDigits(body.mobilePhone),
       externalReference: user.id,
     })
+
+    if (!customer.cpfCnpj) {
+      throw Object.assign(new Error('Informe o CPF ou CNPJ para concluir a assinatura'), { status: 400 })
+    }
 
     if (customer.id !== profile?.asaas_customer_id) {
       await supabase

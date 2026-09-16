@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { preflight, jsonFor } from '../_shared/cors.ts'
 import { adminClient, requireUser, errorStatus } from '../_shared/auth.ts'
 import { gateUser, gateFailure } from '../_shared/gate.ts'
-import { findOrCreateCustomer, onlyDigits } from '../_shared/asaas.ts'
+import { findOrCreateCustomer, onlyDigits, parseCpfCnpj } from '../_shared/asaas.ts'
 
 interface Body {
   cpfCnpj?: string
@@ -41,7 +41,7 @@ serve(async (req) => {
       asaasCustomerId: profile?.asaas_customer_id,
       name: body.fullName || profile?.full_name || email,
       email,
-      cpfCnpj: onlyDigits(body.cpfCnpj),
+      cpfCnpj: parseCpfCnpj(body.cpfCnpj),
       mobilePhone: onlyDigits(body.mobilePhone),
       externalReference: user.id,
     })

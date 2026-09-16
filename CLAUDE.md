@@ -162,6 +162,7 @@ docs/                        documentação humana pré-existente (DOCUMENTACAO_
 3. **`generate_future_fixed_transactions` (SQL) referencia `series.account_id`, `series.credit_card_id`, `series.person_id`** — colunas que **não existem** na tabela `series` (confirmado em `types.ts`) → essa função quebraria se chamada. Não usar/depender dela sem antes corrigir o schema ou a função.
 4. Antes de alterar qualquer função/view/policy, checar `src/integrations/supabase/types.ts` para o schema real — as migrations têm colunas adicionadas e removidas (ex.: `installments`/`installment_number`/`is_fixed` foram removidas de `transactions` na migration `20250131000008` e depois `is_fixed` foi READICIONADA em `20251001000001`).
 5. Existe documentação humana extensa em `docs/DOCUMENTACAO_SISTEMA_ORBI.md` — consultar antes de assumir lacuna; este arquivo é o guia denso para IA, aquele é a referência detalhada para humanos.
+6. **`service_role` precisa de GRANT de tabela mesmo com `BYPASSRLS`/`orbi_service_bypass`** — RLS e privilégio são camadas distintas. Sem o GRANT as Edge Functions levam `permission denied for table X` (403) — foi o que quebrou o checkout Asaas (migration `20260915223818`, que também seta DEFAULT PRIVILEGES). Tabela nova: `GRANT ... TO authenticated` conforme a policy + herdar o default do `service_role`; nunca `REVOKE ALL ... FROM service_role`.
 
 
 <strict_output_rules>

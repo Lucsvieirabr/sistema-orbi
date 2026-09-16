@@ -251,6 +251,83 @@ export function sanitizeSearchTerm(value: unknown): string {
 }
 
 // ---------------------------------------------------------------------------
+// Documento fiscal (CPF/CNPJ) — o Asaas recusa cobranca sem ele
+// ---------------------------------------------------------------------------
+// Espelho de `supabase/functions/_shared/asaas.ts` (isValidCpfCnpj): o backend
+// revalida; aqui so evita a ida ao gateway com documento malformado.
+// CNPJ aceita o formato alfanumerico da Receita (12 posicoes [0-9A-Z] + 2 DV).
+
+/** Remove pontuacao e normaliza caixa: "123.456.789-09" -> "12345678909". */
+export function normalizeCpfCnpj(value: unknown): string {
+  return typeof value === "string" ? value.toUpperCase().replace(/[^0-9A-Z]/g, "") : "";
+}
+
+export function isValidCpf(value: string): boolean {
+  const d = normalizeCpfCnpj(value);
+  if (!/^\d{11}$/.test(d) || /^(\d)\1{10}$/.test(d)) return false;
+  const dv = (len: number) => {
+    let sum = 0;
+    for (let i = 0; i < len; i++) sum += Number(d[i]) * (len + 1 - i);
+    const rest = (sum * 10) % 11;
+    return rest === 10 ? 0 : rest;
+  };
+  return dv(9) === Number(d[9]) && dv(10) === Number(d[10]);
+}
+
+export function isValidCnpj(value: string): boolean {
+  const d = normalizeCpfCnpj(value);
+  if (!/^[0-9A-Z]{12}\d{2}$/.test(d) || /^(.)\1{13}$/.test(d)) return false;
+  const dv = (len: number) => {
+    const weights = len === 12 ? [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2] : [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2];
+    const sum = weights.reduce((acc, w, i) => acc + (d.charCodeAt(i) - 48) * w, 0);
+    const rest = sum % 11;
+    return rest < 2 ? 0 : 11 - rest;
+  };
+  return dv(12) === Number(d[12]) && dv(13) === Number(d[13]);
+}
+
+export function isValidCpfCnpj(value: string): boolean {
+  const d = normalizeCpfCnpj(value);
+  return d.length === 11 ? isValidCpf(d) : d.length === 14 ? isValidCnpj(d) : false;
+}
+
+const maskChunks = (value: string, cuts: number[], separators: string[]) => {
+  let out = "";
+  let start = 0;
+  cuts.forEach((end, i) => {
+    const chunk = value.slice(start, end);
+    if (!chunk) return;
+    out += (i > 0 ? separators[i - 1] : "") + chunk;
+    start = end;
+  });
+  return out;
+};
+
+/** Mascara progressiva: CPF ate 11 digitos, CNPJ a partir do 12o caractere. */
+export function formatCpfCnpj(value: string): string {
+  const d = normalizeCpfCnpj(value).slice(0, 14);
+  if (d.length <= 11 && /^\d*$/.test(d)) {
+    return maskChunks(d, [3, 6, 9, 11], [".", ".", "-"]);
+  }
+  return maskChunks(d, [2, 5, 8, 12, 14], [".", ".", "/", "-"]);
+}
+
+export const cpfCnpjSchema = z.preprocess(
+  normalizeCpfCnpj,
+  z
+    .string()
+    .min(1, "CPF ou CNPJ e obrigatorio")
+    .refine(isValidCpfCnpj, "CPF ou CNPJ invalido"),
+);
+
+/** Checkout de plano pago (SubscriptionConsentDialog). */
+export const subscriptionCheckoutSchema = z.object({
+  cpfCnpj: cpfCnpjSchema,
+});
+
+export type SubscriptionCheckoutValues = { cpfCnpj: string };
+
+// ---------------------------------------------------------------------------
 // Helper de aplicacao
 // ---------------------------------------------------------------------------
 

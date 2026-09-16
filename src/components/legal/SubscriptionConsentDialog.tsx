@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { ShieldCheck } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,22 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { PRIVACY_POLICY, TERMS_OF_USE } from "@/lib/legal";
+import {
+  formatCpfCnpj,
+  subscriptionCheckoutSchema,
+  type SubscriptionCheckoutValues,
+} from "@/lib/validation/schemas";
 
 import { LegalConsentCheckbox } from "./LegalConsent";
 
@@ -22,7 +39,8 @@ export interface SubscriptionConsentDialogProps {
   price: number;
   billingCycle: "monthly" | "yearly";
   isProcessing?: boolean;
-  onConfirm: () => void;
+  /** Recebe o documento já validado (apenas dígitos/letras, sem máscara). */
+  onConfirm: (values: SubscriptionCheckoutValues) => void;
 }
 
 const formatPrice = (value: number) =>
@@ -48,25 +66,34 @@ export function SubscriptionConsentDialog({
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Reabrir o diálogo sempre recomeça sem aceite marcado.
+  // CPF/CNPJ é exigido pelo Asaas para emitir a cobrança.
+  const form = useForm<SubscriptionCheckoutValues>({
+    resolver: zodResolver(subscriptionCheckoutSchema),
+    defaultValues: { cpfCnpj: "" },
+    mode: "onTouched",
+  });
+
+  // Reabrir o diálogo sempre recomeça sem aceite marcado. O documento é
+  // preservado para não obrigar a redigitar após uma falha no gateway.
   useEffect(() => {
     if (!open) {
       setAccepted(false);
       setError(null);
+      form.clearErrors();
     }
-  }, [open]);
+  }, [open, form]);
 
   const cycleLabel = billingCycle === "yearly" ? "anual" : "mensal";
   const renewalLabel = billingCycle === "yearly" ? "a cada 12 meses" : "todo mês";
 
-  const handleConfirm = () => {
+  const handleConfirm = form.handleSubmit((values) => {
     if (!accepted) {
       setError("Para assinar, é necessário aceitar os Termos de Uso e a Política de Privacidade.");
       return;
     }
     setError(null);
-    onConfirm();
-  };
+    onConfirm(values);
+  });
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -95,6 +122,34 @@ export function SubscriptionConsentDialog({
             <dd className="text-sm font-semibold tabular text-foreground">{formatPrice(price)}</dd>
           </div>
         </dl>
+
+        <Form {...form}>
+          <form id="subscription-checkout-form" onSubmit={handleConfirm} noValidate>
+            <FormField
+              control={form.control}
+              name="cpfCnpj"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>CPF ou CNPJ</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      onChange={(event) => field.onChange(formatCpfCnpj(event.target.value))}
+                      placeholder="000.000.000-00"
+                      autoComplete="off"
+                      maxLength={18}
+                      disabled={isProcessing}
+                    />
+                  </FormControl>
+                  <FormDescription className="text-xs">
+                    Exigido pela Asaas para emitir a cobrança em seu nome.
+                  </FormDescription>
+                  <FormMessage className="text-xs" />
+                </FormItem>
+              )}
+            />
+          </form>
+        </Form>
 
         <ul className="space-y-1.5 text-xs leading-relaxed text-muted-foreground">
           <li>
@@ -146,7 +201,7 @@ export function SubscriptionConsentDialog({
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={isProcessing || !accepted}>
+          <Button type="submit" form="subscription-checkout-form" disabled={isProcessing || !accepted}>
             {isProcessing ? "Processando…" : "Confirmar e pagar"}
           </Button>
         </DialogFooter>

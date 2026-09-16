@@ -165,7 +165,12 @@ export default function Pricing() {
    * 2. Se autenticado e ja tem plano ativo -> avisar
    * 3. Se autenticado sem plano -> ativar plano (gratuito) ou ir para pagamento
    */
-  const handleSelectPlan = useCallback(async (planId: string, planSlug: string, isFree: boolean) => {
+  const handleSelectPlan = useCallback(async (
+    planId: string,
+    planSlug: string,
+    isFree: boolean,
+    cpfCnpj?: string,
+  ) => {
     setIsProcessing(true);
 
     try {
@@ -217,7 +222,7 @@ export default function Pricing() {
       // Plano pago: toda a mudanca (upgrade/downgrade, criacao e sincronizacao
       // da assinatura no Asaas) acontece no backend. O cliente nao escreve
       // em user_subscriptions.
-      const result = await createPayment({ planId, billingCycle });
+      const result = await createPayment({ planId, billingCycle, cpfCnpj });
 
       if (result.success && result.free_plan) {
         await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
@@ -293,7 +298,7 @@ export default function Pricing() {
   }, [billingCycle, handleSelectPlan, navigate, toast, userActivePlan]);
 
   /** Aceite confirmado: registra a prova do consentimento e cobra. */
-  const handleConfirmSubscription = useCallback(async () => {
+  const handleConfirmSubscription = useCallback(async ({ cpfCnpj }: { cpfCnpj: string }) => {
     if (!pendingPlan) return;
 
     await recordLegalConsent({
@@ -303,7 +308,7 @@ export default function Pricing() {
     });
 
     setShowConsentDialog(false);
-    await handleSelectPlan(pendingPlan.id, pendingPlan.slug, false);
+    await handleSelectPlan(pendingPlan.id, pendingPlan.slug, false, cpfCnpj);
     setPendingPlan(null);
   }, [pendingPlan, billingCycle, handleSelectPlan]);
 
