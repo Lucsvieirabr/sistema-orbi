@@ -28,6 +28,8 @@ import Notes from "@/pages/Notes";
 import Budgets from "@/pages/Budgets";
 import Goals from "@/pages/Goals";
 import MonthlyClosing from "@/pages/MonthlyClosing";
+import CashForecast from "@/pages/CashForecast";
+import Ledgers from "@/pages/Ledgers";
 import { PremiumRoute } from "@/components/guards/PremiumRoute";
 import TermsOfUsePage, { TermsOfUseAppPage } from "@/pages/legal/TermsOfUse";
 import PrivacyPolicyPage, { PrivacyPolicyAppPage } from "@/pages/legal/PrivacyPolicy";
@@ -133,6 +135,8 @@ const App = () => {
               <Route path="/budgets" element={<Navigate to="/sistema/budgets" replace />} />
               <Route path="/goals" element={<Navigate to="/sistema/goals" replace />} />
               <Route path="/analytics" element={<Navigate to="/sistema/analytics" replace />} />
+              <Route path="/forecast" element={<Navigate to="/sistema/forecast" replace />} />
+              <Route path="/ledgers" element={<Navigate to="/sistema/ledgers" replace />} />
 
               {/* Rota de login admin */}
               <Route 
@@ -171,6 +175,9 @@ const App = () => {
                 <Route path="budgets" element={<PremiumRoute module="budgets"><Budgets /></PremiumRoute>} />
                 <Route path="goals" element={<PremiumRoute module="goals"><Goals /></PremiumRoute>} />
                 <Route path="analytics" element={<PremiumRoute module="analytics"><MonthlyClosing /></PremiumRoute>} />
+                {/* Motor Preditivo e Rateios/Acertos — migrations 20260916021503/021607. */}
+                <Route path="forecast" element={<PremiumRoute module="forecast"><CashForecast /></PremiumRoute>} />
+                <Route path="ledgers" element={<PremiumRoute module="ledgers"><Ledgers /></PremiumRoute>} />
 
                 {/* Mesmos documentos, lidos dentro do sistema. */}
                 <Route path="legal/termos-de-uso" element={<TermsOfUseAppPage />} />

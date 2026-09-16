@@ -593,6 +593,7 @@ export type Database = {
           installment_number: number | null
           is_fixed: boolean | null
           is_shared: boolean | null
+          ledger_id: string | null
           linked_txn_id: string | null
           liquidation_date: string | null
           payment_method: string | null
@@ -617,6 +618,7 @@ export type Database = {
           installment_number?: number | null
           is_fixed?: boolean | null
           is_shared?: boolean | null
+          ledger_id?: string | null
           linked_txn_id?: string | null
           liquidation_date?: string | null
           payment_method?: string | null
@@ -641,6 +643,7 @@ export type Database = {
           installment_number?: number | null
           is_fixed?: boolean | null
           is_shared?: boolean | null
+          ledger_id?: string | null
           linked_txn_id?: string | null
           liquidation_date?: string | null
           payment_method?: string | null
@@ -686,6 +689,13 @@ export type Database = {
             columns: ["credit_card_id"]
             isOneToOne: false
             referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
             referencedColumns: ["id"]
           },
           {
@@ -1046,6 +1056,195 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      ledger_entries: {
+        Row: {
+          created_at: string
+          description: string
+          entry_date: string
+          id: string
+          ledger_id: string
+          paid_by_person_id: string
+          user_id: string
+          value: number
+        }
+        Insert: {
+          created_at?: string
+          description: string
+          entry_date?: string
+          id?: string
+          ledger_id: string
+          paid_by_person_id: string
+          user_id: string
+          value: number
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          entry_date?: string
+          id?: string
+          ledger_id?: string
+          paid_by_person_id?: string
+          user_id?: string
+          value?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_entries_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_entries_paid_by_person_id_fkey"
+            columns: ["paid_by_person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledger_participants: {
+        Row: {
+          created_at: string
+          id: string
+          ledger_id: string
+          person_id: string
+          user_id: string
+          weight: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ledger_id: string
+          person_id: string
+          user_id: string
+          weight?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ledger_id?: string
+          person_id?: string
+          user_id?: string
+          weight?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ledger_participants_ledger_id_fkey"
+            columns: ["ledger_id"]
+            isOneToOne: false
+            referencedRelation: "ledgers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ledger_participants_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ledgers: {
+        Row: {
+          created_at: string
+          description: string | null
+          end_date: string | null
+          id: string
+          name: string
+          owner_weight: number
+          pix_key: string | null
+          pix_name: string | null
+          settled_at: string | null
+          start_date: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name: string
+          owner_weight?: number
+          pix_key?: string | null
+          pix_name?: string | null
+          settled_at?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          end_date?: string | null
+          id?: string
+          name?: string
+          owner_weight?: number
+          pix_key?: string | null
+          pix_name?: string | null
+          settled_at?: string | null
+          start_date?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      split_contracts: {
+        Row: {
+          category_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          note: string | null
+          person_id: string
+          proportion_percentage: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          category_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          person_id: string
+          proportion_percentage: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          category_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          note?: string | null
+          person_id?: string
+          proportion_percentage?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "split_contracts_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "split_contracts_person_id_fkey"
+            columns: ["person_id"]
+            isOneToOne: false
+            referencedRelation: "people"
+            referencedColumns: ["id"]
+          },
+        ]
       }
     }
     Views: {
@@ -1449,6 +1648,16 @@ export type Database = {
         Args: { p_month?: string; p_scope?: string }
         Returns: Json
       }
+      orbi_cash_forecast: {
+        Args: { p_horizon_days?: number; p_scope?: string }
+        Returns: Json
+      }
+      orbi_daily_burn_rate: {
+        Args: { p_days?: number; p_scope?: string }
+        Returns: Json
+      }
+      orbi_ledger_settle: { Args: { p_ledger_id: string }; Returns: Json }
+      orbi_ledger_summary: { Args: { p_ledger_id: string }; Returns: Json }
       orbi_has_feature: {
         Args: { p_key: string }
         Returns: boolean

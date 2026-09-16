@@ -243,6 +243,58 @@ export const goalAllocationSchema = z.object({
   note: optionalText(140),
 });
 
+// ---------------------------------------------------------------------------
+// Contratos de rateio e acertos de viagem (migration 20260916021503)
+// Espelho de split_contracts / ledgers / ledger_participants / ledger_entries.
+// ---------------------------------------------------------------------------
+
+export const splitContractSchema = z.object({
+  person_id: uuidSchema,
+  category_id: uuidSchema,
+  proportion_percentage: z
+    .number({ invalid_type_error: "Percentual invalido" })
+    .finite("Percentual invalido")
+    .min(0, "O percentual vai de 0 a 100")
+    .max(100, "O percentual vai de 0 a 100"),
+  note: optionalText(140),
+  is_active: z.boolean(),
+});
+
+const ledgerWeightSchema = z
+  .number({ invalid_type_error: "Peso invalido" })
+  .finite("Peso invalido")
+  .min(0, "O peso vai de 0 a 100")
+  .max(100, "O peso vai de 0 a 100");
+
+export const ledgerSchema = z
+  .object({
+    name: requiredText(80, "Nome do evento"),
+    description: optionalText(280),
+    start_date: planningDateSchema.nullable(),
+    end_date: planningDateSchema.nullable(),
+    owner_weight: ledgerWeightSchema,
+    pix_key: optionalText(77),
+    pix_name: optionalText(25),
+  })
+  .refine((v) => !v.start_date || !v.end_date || v.end_date >= v.start_date, {
+    message: "O fim precisa ser igual ou depois do inicio",
+    path: ["end_date"],
+  });
+
+export const ledgerParticipantSchema = z.object({
+  ledger_id: uuidSchema,
+  person_id: uuidSchema,
+  weight: ledgerWeightSchema,
+});
+
+export const ledgerEntrySchema = z.object({
+  ledger_id: uuidSchema,
+  paid_by_person_id: uuidSchema,
+  description: requiredText(140, "Descricao"),
+  value: positiveMoneySchema.refine((v) => v > 0, "O valor precisa ser maior que zero"),
+  entry_date: planningDateSchema,
+});
+
 export const bugReportStatusSchema = z.enum([
   "novo",
   "em-analise",

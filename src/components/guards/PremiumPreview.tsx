@@ -1,4 +1,4 @@
-import { ArrowDownRight, ArrowUpRight } from "lucide-react";
+import { ArrowDownRight, ArrowUpRight, TriangleAlert } from "lucide-react";
 
 import { UsageBar, usageTone, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { formatMoney, formatPct } from "@/components/planning/planning-utils";
@@ -13,7 +13,75 @@ import { cn } from "@/lib/utils";
 export function PremiumPreview({ module }: { module: PremiumModuleKey }) {
   if (module === "budgets") return <BudgetsPreview />;
   if (module === "goals") return <GoalsPreview />;
+  if (module === "forecast") return <ForecastPreview />;
+  if (module === "ledgers") return <LedgersPreview />;
   return <ClosingPreview />;
+}
+
+/** Curva de exemplo: desce com o ralo, sobe no salário e cruza o zero na fatura. */
+const FORECAST_PATH = "M0 34 L40 40 L62 44 L70 22 L120 30 L150 36 L162 70 L210 78 L240 84 L252 60 L300 66";
+
+function ForecastPreview() {
+  return (
+    <div className="space-y-4">
+      <div className="flex items-start gap-2.5 rounded-lg bg-destructive-soft px-3.5 py-3 text-sm text-destructive">
+        <TriangleAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <p className="text-pretty">
+          <span className="font-semibold">Atenção: Projeção indica ruptura de caixa no dia 14/11.</span> Faltarão{" "}
+          <span className="font-semibold tabular">{formatMoney(612.4)}</span> para cobrir os compromissos previstos.
+        </p>
+      </div>
+      <svg viewBox="0 0 300 100" className="h-32 w-full" role="img" aria-label="Exemplo de linha do saldo cruzando o zero">
+        <line x1="0" y1="62" x2="300" y2="62" className="stroke-destructive" strokeDasharray="4 4" strokeWidth="1" />
+        <rect x="0" y="62" width="300" height="38" className="fill-destructive" opacity="0.05" />
+        <path d={FORECAST_PATH} fill="none" className="stroke-primary" strokeWidth="2" strokeLinejoin="round" />
+        <path d="M0 34 L40 40 L62 44 L70 30 L120 38 L150 44 L162 58 L210 62 L240 60 L252 44 L300 48" fill="none" className="stroke-muted-foreground" strokeWidth="1.5" strokeDasharray="5 4" />
+        <circle cx="159" cy="62" r="4.5" className="fill-destructive stroke-card" strokeWidth="2" />
+      </svg>
+      <ul className="flex flex-wrap gap-x-4 gap-y-1 border-t border-border-subtle pt-3 text-xs text-muted-foreground">
+        <li>
+          Ralo diário <span className="font-medium tabular text-foreground">{formatMoney(86.4)}</span>
+        </li>
+        <li>
+          Simulando <span className="font-medium text-foreground">Aliança · 10x de {formatMoney(400)}</span>
+        </li>
+      </ul>
+    </div>
+  );
+}
+
+function LedgersPreview() {
+  return (
+    <div className="space-y-4">
+      <div className="rounded-xl border border-border bg-card p-4">
+        <p className="label-eyebrow">Viagem Argentina · extrato de fechamento</p>
+        <p className="mt-2 text-[0.9375rem] text-foreground">
+          <span className="font-medium">João</span> deve <span className="figure-sm font-semibold tabular">{formatMoney(350)}</span>{" "}
+          para <span className="font-medium">você</span>
+        </p>
+        <p className="mt-1 text-xs text-muted-foreground">15 gastos miúdos viram um único PIX Copia e Cola.</p>
+      </div>
+      <ul className="divide-y divide-border-subtle">
+        {[
+          { category: "Pets", person: "Ana", mine: 50 },
+          { category: "Casa e mercado", person: "Ana", mine: 60 },
+        ].map((row) => (
+          <li key={row.category} className="py-3 first:pt-0 last:pb-0">
+            <div className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="font-medium text-foreground">{row.category}</span>
+              <span className="text-xs tabular text-muted-foreground">
+                Você {row.mine}% · {row.person} {100 - row.mine}%
+              </span>
+            </div>
+            <div aria-hidden className="mt-2 flex h-1.5 gap-0.5 overflow-hidden rounded-full">
+              <span className="h-full rounded-full bg-primary" style={{ flexGrow: row.mine }} />
+              <span className="h-full rounded-full bg-chart-3" style={{ flexGrow: 100 - row.mine }} />
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 const toneText: Record<LedgerTone, string> = {

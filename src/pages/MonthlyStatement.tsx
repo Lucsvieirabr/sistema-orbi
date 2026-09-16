@@ -73,6 +73,11 @@ import { ExtratoUploader } from "@/components/extrato-uploader";
 import { FabAction, FabStack } from "@/components/ui/floating-actions";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
+import {
+  LedgerPicker,
+  SplitCompensationField,
+  type SplitCompensation,
+} from "@/components/ledgers/TransactionSplitFields";
 
 interface Installment {
   id: string;
@@ -200,6 +205,10 @@ function MonthlyStatementContent() {
   const [isLoan, setIsLoan] = useState(false);
   const [isRateio, setIsRateio] = useState(false);
   const [peopleSearchTerm, setPeopleSearchTerm] = useState("");
+  // Contratos de rateio (Pro/Casal): compensação sugerida e editável. null = divisão igual legada.
+  const [splitCompensation, setSplitCompensation] = useState<SplitCompensation | null>(null);
+  // Acertos de viagem (Pro/Casal): evento ao qual o gasto pertence.
+  const [ledgerId, setLedgerId] = useState<string | null>(null);
 
   // Estados para rateio composto personalizado
   const [compositionDialogOpen, setCompositionDialogOpen] = useState(false);
@@ -374,7 +383,7 @@ function MonthlyStatementContent() {
         .select(
           `
           id, user_id, description, value, date, type, payment_method,
-          account_id, credit_card_id, category_id, person_id, series_id, status, created_at,
+          account_id, credit_card_id, category_id, person_id, series_id, status, created_at, ledger_id,
           accounts(name),
           categories(name),
           credit_cards(name),
@@ -453,6 +462,7 @@ function MonthlyStatementContent() {
             : (data as any).series?.is_fixed || false
         );
         setPersonId((data as any).person_id);
+        setLedgerId((data as any).ledger_id ?? null);
         setStatus((data as any).status as "PAID" | "PENDING");
 
         // Verificar se é transação fixa (is_fixed = true)
@@ -551,6 +561,8 @@ function MonthlyStatementContent() {
     setIsRateio(false);
     setPeopleSearchTerm("");
     setCompositionItems([]);
+    setSplitCompensation(null);
+    setLedgerId(null);
     // Reset installment data
     setInstallmentData({ installments: [], totalValue: 0 });
   };
@@ -751,6 +763,42 @@ function MonthlyStatementContent() {
           payload.value / (payload.selectedPeople.length + 1)
         );
 
+        // Contrato de rateio (Pro/Casal): total e parte de cada pessoa vêm do
+        // campo "Valor a ser compensado". Sem ele, divisão igual (legado).
+        const override: SplitCompensation | null = payload.splitCompensation ?? null;
+        const totalCompensation = override
+          ? Math.min(roundCurrency(override.total), roundCurrency(payload.value))
+          : amountPerPerson;
+        const partFor = (id: string) =>
+          override ? roundCurrency(override.perPerson?.[id] ?? 0) : amountPerPerson;
+
+        // Compensação zerada à mão: o gasto é 100% do usuário, sem conta a receber.
+        if (override && totalCompensation <= 0) {
+          const { error: soloError } = await supabase.from("transactions").insert({
+            user_id: userId,
+            type: "expense",
+            value: payload.value,
+            description: payload.description,
+            date: payload.date,
+            account_id: payload.account_id,
+            category_id: payload.category_id,
+            payment_method: "debit",
+            credit_card_id: null,
+            person_id: null,
+            is_shared: false,
+            compensation_value: 0,
+            status: payload.status,
+            ledger_id: payload.ledger_id ?? null,
+          });
+          if (soloError) throw soloError;
+          toast({
+            title: "Sucesso",
+            description: "Gasto salvo sem compensação",
+            duration: 2000,
+          });
+          return;
+        }
+
         // Preparar composition_details se houver itens
         const compositionDetailsJson =
           payload.compositionItems && payload.compositionItems.length > 0
@@ -773,11 +821,12 @@ function MonthlyStatementContent() {
             person_id: null,
             // is_fixed field moved to series table
             is_shared: true,
-            compensation_value: amountPerPerson, // Valor que será compensado
+            compensation_value: totalCompensation, // Valor que será compensado
             series_id: null, // Será definido após criar a segunda transação
             linked_txn_id: null, // Será definido após criar a segunda transação
             status: payload.status,
             composition_details: compositionDetailsJson, // Detalhes da composição
+            ledger_id: payload.ledger_id ?? null,
           })
           .select()
           .single();
@@ -804,6 +853,10 @@ function MonthlyStatementContent() {
         }
 
         for (const personId of payload.selectedPeople) {
+          const personPart = partFor(personId);
+          // Pessoa com parte zerada não gera conta a receber.
+          if (personPart <= 0) continue;
+
           // Buscar o nome da pessoa
           const { data: personData, error: personError } = await supabase
             .from("people")
@@ -818,7 +871,7 @@ function MonthlyStatementContent() {
             .insert({
               user_id: userId,
               type: "income",
-              value: amountPerPerson, // Valor que cada pessoa deve
+              value: personPart, // Valor que cada pessoa deve
               description: `${payload.description} (Parte - ${personData.name})`,
               date: payload.date,
               account_id: payload.account_id,
@@ -1076,6 +1129,8 @@ function MonthlyStatementContent() {
         isLoan: isLoan, // Para empréstimos
         isRateio: isRateio, // Para rateios
         compositionItems: compositionItems, // Para rateio composto personalizado
+        splitCompensation: isRateio ? splitCompensation : null, // Contrato de rateio (Pro/Casal)
+        ledger_id: type === "expense" ? ledgerId : null, // Acerto de viagem (Pro/Casal)
         status: status, // Status da transação
       };
 
@@ -1147,7 +1202,9 @@ function MonthlyStatementContent() {
         // Rateio (gasto compartilhado): conta obrigatória, categoria obrigatória, valor total
         const compensationValue =
           selectedPeople.length > 0
-            ? roundCurrency(value / (selectedPeople.length + 1)) // Parte que será compensada
+            ? splitCompensation
+              ? roundCurrency(splitCompensation.total) // Valor do contrato de rateio (editável)
+              : roundCurrency(value / (selectedPeople.length + 1)) // Parte que será compensada
             : 0;
 
         payload = {
@@ -1253,6 +1310,7 @@ function MonthlyStatementContent() {
               is_shared: payload.is_shared,
               compensation_value: payload.compensation_value || 0,
               status: payload.status,
+              ledger_id: payload.ledger_id ?? null,
             });
 
             if (error) throw error;
@@ -1413,6 +1471,11 @@ function MonthlyStatementContent() {
           series_id: immutableFields.series_id,
           linked_txn_id: immutableFields.linked_txn_id,
           // installments field removed - now managed by series table
+          // Evento só entra no UPDATE quando muda: o trigger valida plano e dono.
+          ...(newData.ledger_id !== undefined &&
+          (newData.ledger_id ?? null) !== ((currentTransaction as any).ledger_id ?? null)
+            ? { ledger_id: newData.ledger_id ?? null }
+            : {}),
         })
         .eq("id", transactionId);
 
@@ -3619,7 +3682,16 @@ function MonthlyStatementContent() {
                     </Button>
                   ))}
                 </div>
-                {selectedPeople.length > 0 && (
+                {/* Pro/Casal: compensação pelo contrato de rateio, sempre editável. */}
+                <SplitCompensationField
+                  value={value}
+                  categoryId={categoryId}
+                  personIds={selectedPeople}
+                  peopleNames={Object.fromEntries(people.map((person) => [person.id, person.name]))}
+                  onChange={setSplitCompensation}
+                />
+
+                {selectedPeople.length > 0 && !splitCompensation && (
                   <div className="bg-secondary border border-border rounded-lg p-3 mt-3">
                     <div className="flex items-center justify-between text-sm">
                       <div className="flex items-center gap-2">
@@ -3691,6 +3763,11 @@ function MonthlyStatementContent() {
                       ))}
                     </SelectWithAddButton>
                   </div>
+                )}
+
+                {/* Acerto de viagem (Pro/Casal): some sem plano ou sem eventos. */}
+                {type === "expense" && !isLoan && (
+                  <LedgerPicker value={ledgerId} onChange={setLedgerId} />
                 )}
 
                 {/* Configurações */}

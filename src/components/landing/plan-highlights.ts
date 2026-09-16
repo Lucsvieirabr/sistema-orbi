@@ -27,8 +27,12 @@ function extendsPlan(plan: SubscriptionPlan, base: SubscriptionPlan) {
   return baseFeatures.length > 0 && baseFeatures.every(([key]) => plan.features?.[key] === true);
 }
 
-/** Módulos de planejamento — exclusivos Pro e Casal (migration 20260915150000). */
+/** Módulos de planejamento — exclusivos Pro e Casal (migrations 20260915161252 e 20260916021503). */
 const PLANNING_LINES: Array<{ key: string; text: string }> = [
+  { key: "motor_preditivo", text: "Motor Preditivo: alerta do dia em que o caixa aperta" },
+  { key: "motor_preditivo", text: "Cenários Hipotéticos para simular compras parceladas" },
+  { key: "contratos_rateio", text: "Contratos de Rateio com compensação automática" },
+  { key: "contratos_rateio", text: "Acertos de Viagem com PIX Copia e Cola" },
   { key: "orcamentos", text: "Orçamentos Inteligentes por categoria" },
   { key: "metas", text: "Metas Financeiras com aportes e prazo" },
   { key: "dre_pessoal", text: "DRE Pessoal Avançado no fechamento do mês" },
@@ -44,7 +48,11 @@ function familyLines(plan: SubscriptionPlan): PlanLine[] {
 
   // No Casal, os módulos de planejamento também valem na visão a dois.
   const planning = PLANNING_LINES.every((line) => plan.features?.[line.key] === true)
-    ? [{ text: "Orçamentos Inteligentes, Metas Financeiras e DRE Pessoal Avançado na visão Casal", included: true }]
+    ? [
+        { text: "Motor Preditivo e Cenários Hipotéticos com o saldo do casal", included: true },
+        { text: "Contratos de Rateio e Acertos de Viagem entre vocês", included: true },
+        { text: "Orçamentos Inteligentes, Metas Financeiras e DRE Pessoal Avançado na visão Casal", included: true },
+      ]
     : [];
 
   return [
@@ -160,6 +168,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       orcamentos: false,
       metas: false,
       dre_pessoal: false,
+      motor_preditivo: false,
+      contratos_rateio: false,
       familia_compartilhada: false,
     },
     limits: {
@@ -176,7 +186,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
     id: "",
     name: "Pro",
     slug: "pro",
-    description: "Automatização completa: importação de extrato, IA classificadora, orçamentos, metas e DRE do mês.",
+    description:
+      "Automatização e previsão: IA classificadora, Motor Preditivo, cenários hipotéticos, contratos de rateio, acertos de viagem, orçamentos e metas.",
     price_monthly: 10.99,
     price_yearly: 109.99,
     is_active: true,
@@ -193,6 +204,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       orcamentos: true,
       metas: true,
       dre_pessoal: true,
+      motor_preditivo: true,
+      contratos_rateio: true,
       familia_compartilhada: false,
     },
     limits: {
@@ -227,6 +240,8 @@ export const FALLBACK_PLANS: SubscriptionPlan[] = [
       orcamentos: true,
       metas: true,
       dre_pessoal: true,
+      motor_preditivo: true,
+      contratos_rateio: true,
       familia_compartilhada: true,
     },
     limits: {

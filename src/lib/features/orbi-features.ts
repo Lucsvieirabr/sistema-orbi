@@ -250,7 +250,7 @@ featureRegistry.registerFeatures([
 // ============================================================================
 // 🧭 PLANEJAMENTO — MÓDULOS PREMIUM (exclusivos Pro e Casal)
 // ============================================================================
-// Autoridade: migration 20260915150000 (RLS + triggers + RPCs exigem a mesma
+// Autoridade: migrations 20260915161252 e 20260916021503/021607 (RLS + triggers + RPCs exigem a mesma
 // feature). Aqui só declaramos que o módulo EXISTE; quem pode usar vem do plano.
 // Catálogo de UX (rota, pitch, prévia) em `premium-modules.ts`.
 
@@ -275,6 +275,20 @@ featureRegistry.registerFeatures([
     'Fechamento do mês: resultado, taxa de poupança, variação contra o mês anterior e maior despesa',
     'financial',
     { route: '/sistema/analytics', metadata: { module: 'planejamento', icon: '📑', moduleLabel: 'Planejamento' } }
+  ),
+  defineFeature(
+    'motor_preditivo',
+    'Motor Preditivo',
+    'Projeção de caixa de 30/90/365 dias com ralo diário, alerta de ruptura e cenários hipotéticos',
+    'financial',
+    { route: '/sistema/forecast', metadata: { module: 'planejamento', icon: '🔭', moduleLabel: 'Planejamento' } }
+  ),
+  defineFeature(
+    'contratos_rateio',
+    'Contratos de Rateio e Acertos de Viagem',
+    'Regras de divisão por pessoa e categoria, eventos com fechamento consolidado, PIX Copia e Cola e liquidação em lote',
+    'financial',
+    { route: '/sistema/ledgers', metadata: { module: 'planejamento', icon: '🧾', moduleLabel: 'Planejamento' } }
   ),
 ]);
 

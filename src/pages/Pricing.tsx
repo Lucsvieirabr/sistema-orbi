@@ -51,6 +51,8 @@ const FEATURE_ROWS = [
   { key: "orcamentos", label: "Orçamentos Inteligentes" },
   { key: "metas", label: "Metas Financeiras" },
   { key: "dre_pessoal", label: "DRE Pessoal Avançado" },
+  { key: "motor_preditivo", label: "Motor Preditivo e Cenários Hipotéticos" },
+  { key: "contratos_rateio", label: "Contratos de Rateio e Acertos de Viagem" },
   { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
 ] as const;
 

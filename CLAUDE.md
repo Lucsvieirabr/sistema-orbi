@@ -50,13 +50,20 @@ auth.users (Supabase Auth)
  │                                amount_limit numeric(12,2) > 0, period_month (dia 1), UNIQUE(user_id, period_month, category_id)
  ├─ goals (N)                    PREMIUM — name, target_value, deadline?, icon (kebab lucide), color (#hex)
  │   └─ goal_allocations (N)     amount ≠ 0 (>0 aporte, <0 resgate), allocated_on, note? — saldo da meta nunca < 0
+ ├─ split_contracts (N)          PREMIUM — person_id -> people, category_id -> categories (só expense), proportion_percentage
+ │                                numeric(5,2) 0–100 = % que a PESSOA compensa, note?, is_active, UNIQUE(user_id, person_id, category_id)
+ ├─ ledgers (N)                  PREMIUM — evento/viagem: name, description?, start/end_date?, owner_weight, pix_key?, pix_name?,
+ │   │                            status open|settled, settled_at
+ │   ├─ ledger_participants (N)  person_id -> people, weight (0–100), UNIQUE(ledger_id, person_id)
+ │   └─ ledger_entries (N)       gasto pago por TERCEIRO: paid_by_person_id -> people, description, value > 0, entry_date
+ │                                (trigger adiciona o pagador como participante)
  ├─ merchants_dictionary / learned_patterns / keyword patterns  cache de ML de categorização
  ├─ bug_reports, notes           utilitários
  └─ audit_logs                   somente leitura p/ admin_users
 ```
 
 **`transactions`** (linha = 1 evento financeiro; parcela e recorrência = várias linhas ligadas por `series_id`):
-`id, user_id, description, value(numeric), date, type(expense|income|transfer), payment_method(debit|credit), status(PENDING|PAID|CANCELED), account_id?, credit_card_id?, category_id?, person_id?, series_id?, is_fixed, is_shared, installment_number?, liquidation_date?, compensation_value(default 0), linked_txn_id?(self-FK), composition_details?(text JSON, só auditoria/UI — NUNCA usado em cálculo de saldo), created_at, updated_at`.
+`id, user_id, description, value(numeric), date, type(expense|income|transfer), payment_method(debit|credit), status(PENDING|PAID|CANCELED), account_id?, credit_card_id?, category_id?, person_id?, series_id?, is_fixed, is_shared, installment_number?, liquidation_date?, compensation_value(default 0), linked_txn_id?(self-FK), composition_details?(text JSON, só auditoria/UI — NUNCA usado em cálculo de saldo), ledger_id?(-> ledgers, ON DELETE SET NULL, PREMIUM), created_at, updated_at`.
 
 Cardinalidades-chave: `account 1─N transactions`, `credit_card 1─N transactions`, `series 1─N transactions` (parcelas/recorrências), `transactions 1─1 transactions` via `linked_txn_id` (par de rateio, self-referencing, `ON DELETE CASCADE`), `credit_card N─1 account` (via `connected_account_id`, quem paga a fatura).
 
@@ -131,6 +138,15 @@ Exclusivos Pro/Casal. Features no jsonb do plano: `orcamentos`, `metas`, `dre_pe
 - **Aportes**: trigger soma o saldo sob `orbi_quota_lock(user, 'goal:<id>')` — resgate acima do guardado e exclusão de aporte que deixaria saldo negativo são bloqueados (23514). Cascata de exclusão da meta passa direto.
 - **Front**: catálogo de UX em `src/lib/features/premium-modules.ts` (rota, nome comercial, pitch, benefícios). Rotas `/sistema/budgets|goals|analytics` (+ atalhos `/budgets` etc.). Mês na URL (`?mes=AAAA-MM`). Upgrade sempre para `/pricing?change=1`. Páginas públicas (`/`, `/pricing`, `/legal/*`) renderizam para qualquer estado de sessão — logado vê CTA "Acessar Sistema" em vez de "Entrar"/"Comece Agora"; redirect forçado de logado só em `/login` e `/admin` (formulários de auth).
 - Feature nova de plano: registrar em `orbi-features.ts`, ligar no jsonb dos planos via migration, gate no RLS/trigger/RPC e em `FEATURE_ROWS` (Pricing), `plan-highlights.ts` e `plan-impact.ts`.
+
+### 12. Motor Preditivo + Contratos de Rateio + Acertos de Viagem (migrations `20260916021503`, `20260916021607`)
+Exclusivos Pro/Casal. Features: `motor_preditivo`, `contratos_rateio` (ligadas onde `orcamentos` já estava). Rotas `/sistema/forecast` e `/sistema/ledgers` (`?aba=contratos`, `?evento=<uuid>`), `PremiumRoute` + cadeado na sidebar (via `PREMIUM_MODULE_LIST`).
+- **Ralo diário** (`orbi_daily_burn_rate(p_days=90, p_scope)`): Σ despesa não cancelada nos últimos N dias, líquida de rateio (`value − compensation_value`), SEM `is_fixed` (transação ou série) e SEM série com > 1 parcela, ÷ N. Top 5 categorias.
+- **Projeção** (`orbi_cash_forecast(p_horizon_days 7–400, p_scope)`): `current_balance` = Σ `vw_account_current_balance` do escopo; eventos = (a) transações sem cartão com `date > hoje`, não canceladas; (b) compras de cartão agrupadas por fatura no dia de vencimento (fechamento: dia < `statement_date` → mês da compra, senão mês seguinte; vencimento no mesmo mês se `due_date > statement_date`, senão no seguinte); (c) próximas ocorrências de séries `is_fixed` a partir da última transação gerada. A curva é montada no CLIENTE (`src/lib/forecast.ts`): saldo[d] = saldo[d−1] + eventos[d] − ralo. Ruptura = 1º dia < 0; "faltarão" = menor saldo do horizonte. Datas pela `as_of` do servidor (UTC).
+- **Eventos Fantasmas** (What-If): só `useState` da tela, nunca no banco. Parcelas mensais (`addMonths` preserva o dia), resíduo de centavos na última.
+- **Contratos de rateio**: sugestão pré-preenchida no formulário de rateio do Extrato (`SplitCompensationField`). Pessoa com contrato ativo na categoria → % do contrato; sem contrato → divisão igual. Editável até R$ 0,00: com 0 o gasto é salvo inteiro (`is_shared=false`, sem linha B). Com valor, `compensation_value` = total editado e cada linha B recebe a parte proporcional. Sem a feature, o fluxo legado (divisão igual) não muda.
+- **Acertos de viagem**: saldo = pago − parte; parte = total × peso ÷ Σ pesos (dono = `owner_weight`). "Pago" do dono = Σ despesas do dono com `ledger_id`; terceiros = `ledger_entries`. `orbi_ledger_summary` devolve participantes + transferências mínimas (gulosa). `orbi_ledger_settle` (dono) passa para PAID todas as PENDING com `ledger_id` do evento **e** as linhas B ligadas (`linked_txn_id`), e marca o evento `settled`. Evento liquidado não aceita novo vínculo (trigger `orbi_transactions_ledger_guard`, só dispara quando `ledger_id` muda — o Extrato só manda `ledger_id` no UPDATE se mudou).
+- **PIX Copia e Cola**: BR Code estático gerado no navegador (`src/lib/pix.ts`, CRC16-CCITT validado com o exemplo do BCB). Chave de recebimento do dono fica em `ledgers.pix_key`; a de terceiros vem de `people.pix`.
 
 ---
 

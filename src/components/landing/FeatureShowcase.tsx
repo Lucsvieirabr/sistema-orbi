@@ -9,6 +9,7 @@ import {
   CreditCard,
   FileSpreadsheet,
   FileText,
+  FlaskConical,
   Fuel,
   House,
   Image as ImageIcon,
@@ -18,6 +19,8 @@ import {
   User,
   Users,
   Split,
+  Plane,
+  Telescope,
 } from "lucide-react";
 
 import { Reveal } from "./Reveal";
@@ -29,7 +32,7 @@ const MAPPINGS = [
   { raw: "APLICACAO CDB 30D", category: "Investimentos", icon: PiggyBank },
 ];
 
-const CAPABILITIES = [
+const CAPABILITIES: Array<{ icon: typeof CreditCard; title: string; text: string; premium?: boolean }> = [
   {
     icon: CreditCard,
     title: "Faturas pelo fechamento",
@@ -41,14 +44,39 @@ const CAPABILITIES = [
     text: "Lance uma vez. Parcelamentos e recorrências se distribuem sozinhos pelos próximos meses.",
   },
   {
-    icon: Split,
-    title: "Rateio entre pessoas",
-    text: "Dividiu a conta? Registre quanto cada um deve e acompanhe o acerto até o último real.",
-  },
-  {
     icon: CalendarClock,
     title: "Painel de assinaturas",
     text: "Veja quanto streaming, apps e serviços recorrentes pesam no seu mês.",
+  },
+  {
+    icon: Telescope,
+    title: "Motor Preditivo",
+    text: "Saldo projetado para 30, 90 ou 365 dias, com o ralo dos gastos do dia a dia e alerta do dia em que o caixa rompe.",
+    premium: true,
+  },
+  {
+    icon: FlaskConical,
+    title: "Cenários Hipotéticos",
+    text: "E se a aliança for em 10x? Simule compras grandes, ligue e desligue cenários e veja a curva mudar sem lançar nada.",
+    premium: true,
+  },
+  {
+    icon: Split,
+    title: "Contratos de Rateio",
+    text: "Pets 50/50, mercado 60/40. Combine uma vez e o valor a compensar já vem preenchido em cada lançamento.",
+    premium: true,
+  },
+  {
+    icon: Plane,
+    title: "Acertos de Viagem",
+    text: "Quinze almoços e pedágios viram uma frase: “João deve R$ 350,00 para você”. Com PIX Copia e Cola e liquidação em lote.",
+    premium: true,
+  },
+  {
+    icon: PiggyBank,
+    title: "Orçamentos e metas",
+    text: "Teto por categoria, metas com prazo e o fechamento do mês em linhas de DRE.",
+    premium: true,
   },
 ];
 
@@ -184,10 +212,12 @@ function ForecastTile() {
     <article className="lp-tile" aria-labelledby="tile-forecast">
       <div className="lp-tile__copy">
         <h3 className="lp-h3" id="tile-forecast">
-          O saldo do fim do mês, hoje.
+          Saiba hoje o dia em que o caixa aperta.
         </h3>
         <p className="lp-body">
-          Parcelas, contas fixas e faturas já entram no saldo projetado. Você sabe quanto vai sobrar antes de gastar.
+          O Motor Preditivo soma faturas, parcelas e salário ao saldo real e desconta o ralo dos gastos do dia a dia. Se
+          a linha cruzar o zero, você recebe a data e quanto vai faltar. Nos Cenários Hipotéticos, teste a compra antes
+          de fazer.
         </p>
       </div>
 
@@ -199,13 +229,13 @@ function ForecastTile() {
               <strong className="lp-figure">R$ 3.240,10</strong>
             </div>
             <div>
-              <span>Projetado para 30/09</span>
-              <strong className="lp-figure lp-figure--up">R$ 4.812,40</strong>
+              <span>Ruptura prevista</span>
+              <strong className="lp-figure lp-figure--down">14/11 · −R$ 612,40</strong>
             </div>
           </div>
 
           <Reveal className="lp-chart" variant="fade">
-            <svg viewBox="0 0 320 120" role="img" aria-label="Linha do saldo real até hoje e projeção pontilhada até o fim do mês">
+            <svg viewBox="0 0 320 120" role="img" aria-label="Linha do saldo real até hoje e projeção pontilhada que cruza o zero em 14 de novembro">
               <line className="lp-chart__grid" x1="0" y1="20" x2="320" y2="20" />
               <line className="lp-chart__grid" x1="0" y1="60" x2="320" y2="60" />
               <line className="lp-chart__grid" x1="0" y1="100" x2="320" y2="100" />
@@ -214,16 +244,17 @@ function ForecastTile() {
                   className="lp-chart__real"
                   d="M4 70 L32 64 L60 80 L88 74 L116 88 L144 82 L172 92 L196 86"
                 />
-                <path className="lp-chart__proj" d="M196 86 L226 64 L256 58 L286 40 L314 26" />
+                <path className="lp-chart__proj" d="M196 86 L220 70 L244 80 L262 104 L290 108 L314 112" />
                 <line className="lp-chart__today" x1="196" y1="8" x2="196" y2="112" />
+                <line className="lp-chart__zero" x1="0" y1="100" x2="320" y2="100" />
                 <circle className="lp-chart__dot" cx="196" cy="86" r="4.5" />
-                <circle className="lp-chart__dot lp-chart__dot--end" cx="314" cy="26" r="5.5" />
+                <circle className="lp-chart__dot lp-chart__dot--alert" cx="259" cy="100" r="5.5" />
               </g>
             </svg>
             <div className="lp-chart__axis" aria-hidden>
               <span>01/09</span>
               <span>hoje</span>
-              <span>30/09</span>
+              <span>+90 dias</span>
             </div>
           </Reveal>
         </div>
@@ -346,7 +377,10 @@ export function FeatureShowcase() {
                 <span className="lp-glyph" aria-hidden>
                   <Icon strokeWidth={1.5} />
                 </span>
-                <h3>{cap.title}</h3>
+                <h3>
+                  {cap.title}
+                  {cap.premium && <span className="lp-cap__plan">Pro e Casal</span>}
+                </h3>
                 <p>{cap.text}</p>
               </Reveal>
             );
