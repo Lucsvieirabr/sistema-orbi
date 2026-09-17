@@ -601,7 +601,6 @@ export class IntelligentTransactionClassifier {
         'Filhos / Dependentes': 'Filhos / Dependentes',
         'Investimentos (pelo menos 20% da receita)': 'Investimentos (pelo menos 20% da receita)',
         'Gastos com PJ / Profissionais Autônomos': 'Gastos com PJ / Profissionais Autônomos',
-        'Assinaturas': 'Assinaturas',
         'Refeição': 'Alimentação',
         'Moradia': 'Casa',
 
@@ -670,7 +669,6 @@ export class IntelligentTransactionClassifier {
         'Filhos / Dependentes': 'Filhos / Dependentes',
         'Investimentos (pelo menos 20% da receita)': 'Investimentos (pelo menos 20% da receita)',
         'Gastos com PJ / Profissionais Autônomos': 'Gastos com PJ / Profissionais Autônomos',
-        'Assinaturas': 'Assinaturas',
         'Refeição': 'Alimentação',
         'Moradia': 'Casa',
 

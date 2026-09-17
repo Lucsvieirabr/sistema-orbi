@@ -60,3 +60,7 @@ Claude outputs/
 
 # Logs do reset-remote-db.sh
 .orbi-logs/
+
+# Gerenciador de pacotes: npm (package-lock.json). Cloudflare usa bun se achar lockfile do bun.
+bun.lockb
+bun.lock
