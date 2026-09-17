@@ -6,9 +6,9 @@ Idioma: português (Brasil). Moeda: BRL. Público: pessoas físicas e casais no 
 
 ## Produto
 
-- [Página inicial](https://orbi.com.br/): visão geral, recursos, como funciona e planos.
-- [Planos e preços](https://orbi.com.br/pricing): comparação dos planos (Free, Pro e Casal), ciclo mensal ou anual.
-- [Entrar ou criar conta](https://orbi.com.br/login): cadastro com e-mail e senha; o plano Free não pede cartão.
+- [Página inicial](https://app.meuorbi.com/): visão geral, recursos, como funciona e planos.
+- [Planos e preços](https://app.meuorbi.com/pricing): comparação dos planos (Free, Pro e Casal), ciclo mensal ou anual.
+- [Entrar ou criar conta](https://app.meuorbi.com/login): cadastro com e-mail e senha; o plano Free não pede cartão.
 
 ## Recursos principais
 
@@ -25,7 +25,7 @@ Idioma: português (Brasil). Moeda: BRL. Público: pessoas físicas e casais no 
 
 - Free: gratuito para sempre, com limites de contas, cartões e lançamentos por mês.
 - Pro e Casal: assinatura paga (mensal ou anual) processada pelo Asaas via Pix, boleto ou cartão de crédito. Cancelamento a qualquer momento, com acesso até o fim do período pago.
-- Valores atualizados sempre em https://orbi.com.br/pricing.
+- Valores atualizados sempre em https://app.meuorbi.com/pricing.
 
 ## Segurança e privacidade
 
@@ -35,10 +35,10 @@ Idioma: português (Brasil). Moeda: BRL. Público: pessoas físicas e casais no 
 
 ## Documentos legais
 
-- [Termos de Uso](https://orbi.com.br/legal/termos-de-uso)
-- [Política de Privacidade](https://orbi.com.br/legal/politica-de-privacidade)
+- [Termos de Uso](https://app.meuorbi.com/legal/termos-de-uso)
+- [Política de Privacidade](https://app.meuorbi.com/legal/politica-de-privacidade)
 
 ## Optional
 
-- [Sitemap](https://orbi.com.br/sitemap.xml)
+- [Sitemap](https://app.meuorbi.com/sitemap.xml)
 - A área autenticada (/sistema) e o painel administrativo (/admin) são privados e não devem ser indexados nem citados como conteúdo público.

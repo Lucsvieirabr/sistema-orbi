@@ -11,7 +11,7 @@
  *   indexável por padrão — não existe noindex implícito.
  */
 
-const RAW_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) || "https://orbi.com.br";
+const RAW_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) || "https://app.meuorbi.com";
 
 export const SITE_URL = RAW_SITE_URL.replace(/\/+$/, "");
 export const SITE_NAME = "Orbi";
@@ -187,9 +187,13 @@ const PRIVATE_TITLES: Array<[RegExp, string]> = [
   [/^\/sistema\/?$/, "Painel"],
   [/^\/admin/, "Admin"],
   [/^\/billing/, "Assinatura pendente"],
+  [/^\/esqueci-senha/, "Recuperar senha"],
+  [/^\/redefinir-senha/, "Nova senha"],
+  [/^\/login\/verificacao/, "Verificação em duas etapas"],
 ];
 
-const PRIVATE_PREFIXES = ["/sistema", "/admin", "/billing"];
+/** Fluxos de conta (recuperação, código TOTP) também ficam fora do índice. */
+const PRIVATE_PREFIXES = ["/sistema", "/admin", "/billing", "/esqueci-senha", "/redefinir-senha", "/login/verificacao"];
 
 export function resolveRouteSeo(pathname: string): SeoConfig {
   const path = normalizePath(pathname);

@@ -3,7 +3,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AdminAuthForm } from "@/admin/components/AdminAuthForm";
 import { Dashboard } from "@/components/dashboard/Dashboard";
@@ -43,8 +43,34 @@ import AdminManagement from "@/admin/pages/AdminManagement";
 import BugReportsManagement from "@/admin/pages/BugReportsManagement";
 import { supabase } from "@/integrations/supabase/client";
 import { RouteSeo } from "@/components/seo";
+import ForgotPassword from "@/pages/auth/ForgotPassword";
+import ResetPassword from "@/pages/auth/ResetPassword";
+import MfaChallenge from "@/pages/auth/MfaChallenge";
+import { stageFromSession, type SessionStage } from "@/lib/auth/assurance";
+import { AUTH_ROUTES, mfaChallengePath } from "@/lib/auth/redirect";
 
 const queryClient = new QueryClient();
+
+/**
+ * Rede de segurança do link de recuperação: se o Supabase devolver o usuário
+ * ao Site URL (redirect fora da allowlist) em vez de /redefinir-senha, o evento
+ * PASSWORD_RECOVERY ainda leva à tela certa. Precisa estar dentro do Router.
+ */
+function PasswordRecoveryRedirect() {
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY" && location.pathname !== AUTH_ROUTES.resetPassword) {
+        navigate(AUTH_ROUTES.resetPassword, { replace: true });
+      }
+    });
+    return () => data.subscription.unsubscribe();
+  }, [location.pathname, navigate]);
+
+  return null;
+}
 
 /**
  * App refatorado com fluxo simplificado
@@ -57,14 +83,21 @@ const queryClient = new QueryClient();
  * - C5: Acesso /sistema sem plano → /pricing (via SubscriptionGuard)
  * - C6: /pricing não autenticado → visualiza
  * - C7: /pricing clica plano sem auth → /login
+ * - C8: Login com MFA (sessão aal1 + TOTP verificado) → /login/verificacao;
+ *       nenhuma rota protegida abre antes do código (aal2)
+ * - C9: Link de recuperação → /redefinir-senha (pública, independe de sessão)
  */
 const App = () => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // `mfa_required` = senha certa, código pendente. Conta como NÃO autenticado
+  // para qualquer rota protegida. Autoridade real: RLS lendo o claim `aal`.
+  const [stage, setStage] = useState<SessionStage>("anonymous");
   const [authReady, setAuthReady] = useState(false);
+  const isAuthenticated = stage === "authenticated";
+  const mfaPending = stage === "mfa_required";
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
-    setIsAuthenticated(false);
+    setStage("anonymous");
   };
 
   useEffect(() => {
@@ -73,14 +106,15 @@ const App = () => {
     // Verificar sessão inicial
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
-      setIsAuthenticated(Boolean(data.session));
+      setStage(stageFromSession(data.session));
       setAuthReady(true);
     });
 
-    // Escutar mudanças de autenticação
+    // Escutar mudanças de autenticação. `stageFromSession` é síncrono de
+    // propósito: chamar a API do supabase-js aqui dentro trava o lock interno.
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
-      setIsAuthenticated(Boolean(session));
+      setStage(stageFromSession(session));
     });
 
     return () => {
@@ -107,8 +141,21 @@ const App = () => {
           <BrowserRouter>
             {/* <head> por rota: title, description, canonical, robots, OG, JSON-LD. */}
             <RouteSeo />
+            <PasswordRecoveryRedirect />
             <Routes>
               <Route path="/" element={<Landing isAuthenticated={isAuthenticated} />} />
+
+              {/* Recuperação de senha — sempre acessível: o link do e-mail pode
+                  abrir com ou sem sessão, e a própria tela trata cada caso. */}
+              <Route path={AUTH_ROUTES.forgotPassword} element={<ForgotPassword />} />
+              <Route path={AUTH_ROUTES.resetPassword} element={<ResetPassword />} />
+
+              {/* Segunda etapa do login (TOTP). Sem sessão volta ao login; já em
+                  aal2 a própria tela segue para o destino. */}
+              <Route
+                path={AUTH_ROUTES.mfaChallenge}
+                element={stage === "anonymous" ? <Navigate to="/login" replace /> : <MfaChallenge />}
+              />
 
               {/* Rotas públicas */}
               <Route path="/pricing" element={<Pricing />} />
@@ -126,11 +173,25 @@ const App = () => {
               {/* Bloqueio por inadimplência / pagamento pendente */}
               <Route
                 path="/billing"
-                element={isAuthenticated ? <Billing /> : <Navigate to="/login" replace />}
+                element={
+                  isAuthenticated ? (
+                    <Billing />
+                  ) : (
+                    <Navigate to={mfaPending ? mfaChallengePath() : "/login"} replace />
+                  )
+                }
               />
               <Route 
                 path="/login" 
-                element={isAuthenticated ? <Navigate to="/sistema" replace /> : <AuthForm />} 
+                element={
+                  isAuthenticated ? (
+                    <Navigate to="/sistema" replace />
+                  ) : mfaPending ? (
+                    <Navigate to={mfaChallengePath()} replace />
+                  ) : (
+                    <AuthForm />
+                  )
+                } 
               />
 
               {/* Atalhos curtos dos módulos de planejamento. */}
@@ -145,7 +206,15 @@ const App = () => {
               {/* Rota de login admin */}
               <Route 
                 path="/admin" 
-                element={isAuthenticated ? <Navigate to="/admin/dashboard" replace /> : <AdminAuthForm />} 
+                element={
+                  isAuthenticated ? (
+                    <Navigate to="/admin/dashboard" replace />
+                  ) : mfaPending ? (
+                    <Navigate to={mfaChallengePath("admin")} replace />
+                  ) : (
+                    <AdminAuthForm />
+                  )
+                } 
               />
 
               {/* Rotas protegidas do sistema */}
@@ -157,7 +226,7 @@ const App = () => {
                       <AppLayout onLogout={handleLogout} />
                     </SubscriptionGuard>
                   ) : (
-                    <Navigate to="/login" replace />
+                    <Navigate to={mfaPending ? mfaChallengePath() : "/login"} replace />
                   )
                 }
               >
@@ -193,7 +262,13 @@ const App = () => {
               {/* Rotas protegidas do admin */}
               <Route
                 path="/admin"
-                element={isAuthenticated ? <AdminLayout /> : <Navigate to="/admin" replace />}
+                element={
+                  isAuthenticated ? (
+                    <AdminLayout />
+                  ) : (
+                    <Navigate to={mfaPending ? mfaChallengePath("admin") : "/admin"} replace />
+                  )
+                }
               >
                 <Route path="dashboard" element={<AdminDashboard />} />
                 <Route path="users" element={<UserManagement />} />

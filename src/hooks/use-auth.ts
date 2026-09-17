@@ -7,6 +7,9 @@ import { User } from "@supabase/supabase-js";
 import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from "@/hooks/use-subscription";
 import { syncSubscriptionStatus } from "@/hooks/use-payment";
 import { buildSignupConsentMetadata } from "@/lib/legal";
+import { describeAuthError } from "@/lib/auth/auth-errors";
+import { assuranceFromSession } from "@/lib/auth/assurance";
+import { mfaChallengePath } from "@/lib/auth/redirect";
 
 interface AuthState {
   user: User | null;
@@ -77,15 +80,28 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  /** `captchaToken`: Turnstile, uso único — o formulário reseta o widget após cada tentativa. */
+  const login = async (email: string, password: string, captchaToken?: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    });
 
     if (error) {
-      toast({ title: "Falha no login", description: error.message, variant: "destructive" });
+      toast({ title: "Falha no login", description: describeAuthError(error, "login"), variant: "destructive" });
       return false;
     }
 
     if (!data.user) return false;
+
+    // Senha certa não basta se a conta tem TOTP: a sessão nasce aal1 e só vira
+    // aal2 na tela de código. Nada de assinatura/rota antes disso.
+    if (assuranceFromSession(data.session).needsChallenge) {
+      queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+      navigate(mfaChallengePath(), { replace: true });
+      return true;
+    }
 
     queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
 
@@ -106,18 +122,18 @@ export function useAuth() {
     return true;
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, fullName: string, captchaToken?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       // O aceite dos Termos e da Política é gravado junto da criação da conta
       // (data, hora e versão dos documentos) — prova do consentimento exigida
       // pelo art. 8º, §1º, da LGPD. A UI só chama `register` após o opt-in.
-      options: { data: { full_name: fullName, ...buildSignupConsentMetadata() } },
+      options: { data: { full_name: fullName, ...buildSignupConsentMetadata() }, captchaToken },
     });
 
     if (error) {
-      toast({ title: "Erro ao criar conta", description: error.message, variant: "destructive" });
+      toast({ title: "Erro ao criar conta", description: describeAuthError(error, "signup"), variant: "destructive" });
       return false;
     }
 

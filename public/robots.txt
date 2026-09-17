@@ -1,4 +1,4 @@
-# Orbi — https://orbi.com.br
+# Orbi — https://app.meuorbi.com
 # A URL base é reescrita no build a partir de VITE_SITE_URL (vite.config.ts → seoPlugin).
 
 User-agent: *
@@ -44,4 +44,4 @@ Disallow: /sistema
 Disallow: /admin
 Disallow: /billing
 
-Sitemap: https://orbi.com.br/sitemap.xml
+Sitemap: https://app.meuorbi.com/sitemap.xml

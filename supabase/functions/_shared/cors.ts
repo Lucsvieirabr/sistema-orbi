@@ -22,7 +22,7 @@
 //     qualquer XSS em CSRF com sessão.
 //
 // ALLOWED_ORIGINS: lista separada por vírgula. Ex.:
-//   supabase secrets set ALLOWED_ORIGINS="https://app.orbi.com.br,https://orbi.com.br"
+//   supabase secrets set ALLOWED_ORIGINS="https://app.meuorbi.com"
 // Vazia => apenas localhost de desenvolvimento.
 // ============================================================================
 

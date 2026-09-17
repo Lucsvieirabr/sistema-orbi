@@ -36,7 +36,9 @@
     #  - script-src sem 'unsafe-inline': mata a classe principal de XSS.
     #  - style-src 'unsafe-inline': Radix/shadcn injetam estilo inline.
     #  - frame-ancestors 'none' reforca o X-Frame-Options.
-    Content-Security-Policy = "default-src 'self'; script-src 'self'; worker-src 'self' blob:; child-src 'self' blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"
+    #  - challenges.cloudflare.com (script + frame): Cloudflare Turnstile no
+    #    login/cadastro/recuperacao. Unico host externo de script permitido.
+    Content-Security-Policy = "default-src 'self'; script-src 'self' https://challenges.cloudflare.com; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests"
 
 # SEO: area autenticada/admin fora do indice mesmo que um link externo aponte.
 [[headers]]

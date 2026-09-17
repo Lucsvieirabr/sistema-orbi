@@ -1,0 +1,1 @@
+Seu extrato chega falando "PAG*PADARIA CENTRAL". O Orbi devolve categorias, saldo projetado e o dia exato em que o caixa aperta. Importe o extrato, o Orbi organiza: app.meuorbi.com

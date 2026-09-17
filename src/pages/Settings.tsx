@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 
 import { FamilyGroupSettings } from "@/components/family/FamilyGroupSettings";
 import { LegalDocumentsCard } from "@/components/legal";
-import { PasswordSettings, SubscriptionSettings } from "@/components/settings";
+import { MfaSettings, PasswordSettings, SubscriptionSettings } from "@/components/settings";
 import { PageBody, PageHeader } from "@/components/ui/page";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -40,7 +40,7 @@ export default function Settings() {
         eyebrow="Conta"
         icon={Settings2}
         title="Configurações"
-        description="Compartilhamento, senha e assinatura da sua conta."
+        description="Compartilhamento, senha, verificação em duas etapas e assinatura da sua conta."
       />
 
       <Tabs value={section} onValueChange={handleSectionChange} className="max-w-3xl">
@@ -57,8 +57,9 @@ export default function Settings() {
           <LegalDocumentsCard />
         </TabsContent>
 
-        <TabsContent value="seguranca" className="mt-5 md:mt-6">
+        <TabsContent value="seguranca" className="mt-5 space-y-5 md:mt-6">
           <PasswordSettings />
+          <MfaSettings />
         </TabsContent>
 
         <TabsContent value="assinatura" className="mt-5 md:mt-6">

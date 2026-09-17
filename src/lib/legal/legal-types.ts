@@ -52,8 +52,8 @@ export type LegalDocumentSlug = "terms-of-use" | "privacy-policy";
 export const LEGAL_CONTROLLER = {
   productName: "Orbi",
   legalName: "Orbi Tecnologia e Gestão Financeira",
-  supportEmail: "suporte@orbi.com.br",
-  privacyEmail: "privacidade@orbi.com.br",
+  supportEmail: "suporte@meuorbi.com",
+  privacyEmail: "privacidade@meuorbi.com",
   dpoName: "Encarregado de Proteção de Dados do Orbi",
   jurisdiction: "República Federativa do Brasil",
 } as const;

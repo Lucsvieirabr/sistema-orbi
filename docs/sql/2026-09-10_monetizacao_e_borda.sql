@@ -26,7 +26,7 @@
 --    supabase functions deploy classify-transactions extract-pdf-text \
 --      asaas-create-customer asaas-create-payment asaas-manage-subscription \
 --      asaas-sync-subscription asaas-webhook-handler
---    supabase secrets set ALLOWED_ORIGINS="https://app.orbi.com.br,https://orbi.com.br"
+--    supabase secrets set ALLOWED_ORIGINS="https://app.meuorbi.com"
 --    supabase secrets unset LOGO_DEV_TOKEN LOGO_DEV_TOKEN_IMAGES
 -- ============================================================================
 

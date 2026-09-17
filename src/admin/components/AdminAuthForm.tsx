@@ -11,6 +11,11 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Shield, ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { describeAuthError } from "@/lib/auth/auth-errors";
+import { assuranceFromSession } from "@/lib/auth/assurance";
+import { mfaChallengePath } from "@/lib/auth/redirect";
+import { TurnstileField } from "@/components/auth/TurnstileField";
+import { useTurnstile } from "@/hooks/use-turnstile";
 
 /**
  * Formulário de login para administradores
@@ -21,20 +26,36 @@ export function AdminAuthForm() {
   const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
   const navigate = useNavigate();
+  const captcha = useTurnstile();
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (captcha.blocking) return;
     setIsLoading(true);
     
     const form = event.currentTarget;
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
     
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    const { data: signInData, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken: captcha.captchaToken },
+    });
+    // Token Turnstile é de uso único: já foi consumido por esta tentativa.
+    captcha.reset();
     
     if (error) {
-      toast({ title: "Falha no login", description: error.message, variant: "destructive" });
+      toast({ title: "Falha no login", description: describeAuthError(error, "login"), variant: "destructive" });
       setIsLoading(false);
+      return;
+    }
+
+    // Conta com TOTP: a checagem de admin acontece depois do código (aal2),
+    // na própria tela de verificação.
+    if (assuranceFromSession(signInData.session).needsChallenge) {
+      setIsLoading(false);
+      navigate(mfaChallengePath("admin"), { replace: true });
       return;
     }
 
@@ -110,7 +131,7 @@ export function AdminAuthForm() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@orbi.com"
+                placeholder="admin@meuorbi.com"
                 required
                 className="transition-all duration-200 border-destructive/20 focus:border-destructive/30"
               />
@@ -127,10 +148,12 @@ export function AdminAuthForm() {
               />
             </div>
 
+            <TurnstileField {...captcha.fieldProps} action="admin_login" />
+
             <Button 
               type="submit" 
               className="w-full bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              disabled={isLoading}
+              disabled={isLoading || captcha.blocking}
             >
               {isLoading ? (
                 <div className="flex items-center gap-2">

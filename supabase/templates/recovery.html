@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+  <body style="margin:0;padding:0;background:#f5f5f4;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1c1917;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="padding:32px 16px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e7e5e4;border-radius:12px;">
+            <tr>
+              <td style="padding:32px 28px;">
+                <p style="margin:0 0 20px;font-size:20px;font-weight:600;letter-spacing:-0.02em;">Orbi</p>
+                <h1 style="margin:0 0 12px;font-size:18px;font-weight:600;">Redefina sua senha</h1>
+                <p style="margin:0 0 24px;font-size:15px;line-height:1.6;color:#44403c;">
+                  Recebemos um pedido para criar uma nova senha para a conta {{ .Email }}. O link abaixo vale por 1 hora e funciona uma única vez.
+                </p>
+                <p style="margin:0 0 24px;">
+                  <a href="{{ .SiteURL }}/redefinir-senha?token_hash={{ .TokenHash }}&type=recovery"
+                     style="display:inline-block;background:#1c1917;color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:12px 20px;border-radius:8px;">
+                    Criar nova senha
+                  </a>
+                </p>
+                <p style="margin:0;font-size:13px;line-height:1.6;color:#78716c;">
+                  Não foi você? Ignore este e-mail: sua senha atual continua valendo. Nunca pedimos sua senha por e-mail.
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>

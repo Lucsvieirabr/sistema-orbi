@@ -6,7 +6,7 @@ import { componentTagger } from "lovable-tagger";
 
 /**
  * SEO no build:
- *  - troca a URL base placeholder (https://orbi.com.br) pela URL pública real
+ *  - troca a URL base placeholder (https://app.meuorbi.com) pela URL pública real
  *    (ver `resolveSiteUrl`) em index.html, robots.txt, sitemap.xml e llms.txt;
  *  - injeta a mesma URL em `import.meta.env.VITE_SITE_URL` (src/lib/seo.ts) para
  *    o <head> de runtime não divergir do HTML estático;
@@ -14,7 +14,7 @@ import { componentTagger } from "lovable-tagger";
  *  - injeta as metas de verificação do Google Search Console / Bing se as
  *    variáveis existirem (VITE_GOOGLE_SITE_VERIFICATION / VITE_BING_SITE_VERIFICATION).
  */
-const PLACEHOLDER_SITE_URL = "https://orbi.com.br";
+const PLACEHOLDER_SITE_URL = "https://app.meuorbi.com";
 const SEO_TEXT_FILES = ["robots.txt", "sitemap.xml", "llms.txt"];
 
 /**
@@ -83,9 +83,39 @@ function seoPlugin(siteUrl: string, env: Record<string, string>): Plugin {
   };
 }
 
+/**
+ * Guarda de segredo: tudo que começa com `VITE_` vai para o bundle público.
+ *  - nome com cara de segredo (SECRET/SERVICE_ROLE/PRIVATE/PASSWORD) → build falha;
+ *  - `VITE_TURNSTILE_SITE_KEY` fora do formato de SITE key → build falha. O
+ *    secret do Turnstile tem o mesmo prefixo `0x4AAAAAAA` e é mais longo: colado
+ *    no lugar errado, ele iria para qualquer visitante e permitiria forjar o
+ *    siteverify. O secret vive só no painel do Supabase (Auth → Attack Protection).
+ * Mesmo padrão de src/lib/auth/turnstile.ts.
+ */
+const TURNSTILE_SITE_KEY_PATTERN = /^[0-3]x[A-Za-z0-9_-]{20,26}$/;
+const SECRET_LIKE_ENV = /(SECRET|SERVICE_ROLE|PRIVATE_KEY|PASSWORD|WEBHOOK_TOKEN)/i;
+
+function assertNoSecretsInClientEnv(env: Record<string, string>) {
+  const leaked = Object.keys(env).filter((key) => key.startsWith("VITE_") && SECRET_LIKE_ENV.test(key));
+  if (leaked.length > 0) {
+    throw new Error(
+      `[env] Variáveis com cara de segredo não podem usar o prefixo VITE_ (vão para o bundle público): ${leaked.join(", ")}`,
+    );
+  }
+
+  const siteKey = env.VITE_TURNSTILE_SITE_KEY?.trim();
+  if (siteKey && !TURNSTILE_SITE_KEY_PATTERN.test(siteKey)) {
+    // Nunca ecoa o valor: pode ser justamente o secret.
+    throw new Error(
+      "[env] VITE_TURNSTILE_SITE_KEY não tem formato de SITE key do Turnstile. Se você colou o SECRET key, remova-o daqui e revogue-o (Cloudflare → Turnstile → Rotate secret).",
+    );
+  }
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
+  assertNoSecretsInClientEnv(env);
   const siteUrl = resolveSiteUrl(env);
 
   return {
