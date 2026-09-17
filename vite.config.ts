@@ -112,10 +112,33 @@ function assertNoSecretsInClientEnv(env: Record<string, string>) {
   }
 }
 
+/**
+ * Guarda de endpoint: `VITE_SUPABASE_URL` precisa apontar para o projeto Supabase
+ * (https://<ref>.supabase.co) — ou Supabase local em dev. Se apontar para o próprio
+ * site (ex.: https://app.meuorbi.com), o login faz POST em /auth/v1/token no Cloudflare
+ * Workers static assets, que responde 405 Method Not Allowed. A CSP (connect-src) também
+ * só libera *.supabase.co, então qualquer outro host quebraria em produção de todo jeito.
+ */
+const SUPABASE_URL_PATTERN = /^https:\/\/[a-z0-9]{20}\.supabase\.co\/?$/;
+const LOCAL_SUPABASE_URL_PATTERN = /^http:\/\/(localhost|127\.0\.0\.1|\[::1\]):\d+\/?$/;
+
+function assertSupabaseUrl(env: Record<string, string>, mode: string) {
+  const url = env.VITE_SUPABASE_URL?.trim();
+  if (!url) {
+    throw new Error("[env] VITE_SUPABASE_URL ausente. Defina https://<ref>.supabase.co nas variáveis de build.");
+  }
+  if (SUPABASE_URL_PATTERN.test(url)) return;
+  if (mode !== "production" && LOCAL_SUPABASE_URL_PATTERN.test(url)) return;
+  throw new Error(
+    `[env] VITE_SUPABASE_URL inválida (${url}). Deve ser a URL do projeto Supabase (https://<ref>.supabase.co), não o domínio do site.`,
+  );
+}
+
 // https://vitejs.dev/config/
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "VITE_");
   assertNoSecretsInClientEnv(env);
+  assertSupabaseUrl(env, mode);
   const siteUrl = resolveSiteUrl(env);
 
   return {
