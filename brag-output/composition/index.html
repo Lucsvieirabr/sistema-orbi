@@ -1,0 +1,503 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<title>Orbi — brag</title>
+<style>
+  :root {
+    --bg: 216 60% 9%;
+    --sunken: 217 62% 7%;
+    --card: 216 52% 13%;
+    --fg: 214 32% 94%;
+    --muted: 214 22% 70%;
+    --primary: 213 84% 66%;
+    --success: 158 46% 58%;
+    --success-soft: 160 36% 15%;
+    --danger: 2 78% 66%;
+    --border: 215 38% 22%;
+    --border-subtle: 216 44% 16%;
+    --secondary: 216 42% 18%;
+    --display: "TeX Gyre Heros", "Liberation Sans", sans-serif;
+    --sans: "TeX Gyre Heros", "Liberation Sans", sans-serif;
+    --mono: "DejaVu Sans Mono", "Liberation Mono", monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1920px; height: 1080px; overflow: hidden; background: hsl(var(--bg)); }
+  body { color: hsl(var(--fg)); font-family: var(--sans); -webkit-font-smoothing: antialiased; }
+  #stage { position: absolute; inset: 0; overflow: hidden;
+    background:
+      radial-gradient(1200px 800px at 78% 40%, hsl(216 70% 14%) 0%, transparent 60%),
+      radial-gradient(900px 700px at 10% 100%, hsl(217 62% 7%) 0%, transparent 70%),
+      hsl(var(--bg)); }
+  .abs { position: absolute; }
+  .tab { font-variant-numeric: tabular-nums; }
+  .display { font-family: var(--display); font-weight: 700; letter-spacing: -0.035em; line-height: 1.02; }
+  .accent { color: hsl(var(--primary)); }
+  .muted { color: hsl(var(--muted)); }
+  .line { display: block; overflow: hidden; padding-bottom: .12em; margin-bottom: -.12em; }
+  .line > span { display: block; will-change: transform; }
+
+  /* stars + orbits */
+  #stars { position: absolute; inset: 0; }
+  #orbits { position: absolute; width: 1000px; height: 1000px; left: 0; top: 0; transform-origin: 50% 50%; }
+  #orbits svg { width: 100%; height: 100%; overflow: visible; }
+  .ring { fill: none; stroke: hsl(var(--fg) / .12); stroke-width: 1.2; }
+  .ring--dashed { stroke-dasharray: 3 7; stroke: hsl(var(--fg) / .16); }
+  .ring--faint { stroke: hsl(var(--fg) / .06); }
+  .sat { fill: hsl(var(--fg) / .7); }
+  .sat--accent { fill: hsl(var(--primary)); }
+  .halo { fill: hsl(var(--primary) / .18); }
+  #orbitLight { position: absolute; width: 900px; height: 900px; border-radius: 50%;
+    background: radial-gradient(circle, hsl(213 84% 60% / .28) 0%, hsl(213 84% 50% / .08) 38%, transparent 68%); }
+
+  /* scene 1 */
+  .raw { font-family: var(--mono); font-size: 32px; color: hsl(var(--muted) / .9); letter-spacing: .02em; white-space: nowrap; }
+  .raw b { font-weight: 400; color: hsl(var(--fg) / .55); margin-left: 22px; }
+  #hook { left: 0; right: 0; top: 390px; text-align: center; font-size: 112px; }
+  #hookVeil { left: 360px; right: 360px; top: 300px; height: 480px; border-radius: 50%;
+    background: radial-gradient(closest-side, hsl(var(--bg) / .92), hsl(var(--bg) / 0)); }
+
+  /* scene 2 */
+  #hero { left: 160px; top: 330px; }
+  #hero h1 { font-size: 150px; }
+  #assure { margin-top: 56px; display: flex; gap: 44px; font-size: 32px; color: hsl(var(--muted)); }
+  #assure span { display: inline-flex; align-items: center; gap: 12px; }
+  #assure svg { width: 30px; height: 30px; stroke: hsl(var(--success)); }
+
+  /* bezel */
+  .bezel { padding: 9px; border-radius: 40px; background: hsl(var(--fg) / .035);
+    box-shadow: inset 0 0 0 1px hsl(var(--fg) / .08), 0 2px 4px hsl(220 60% 2% / .12), 0 60px 120px -40px hsl(220 60% 2% / .8); }
+  .core { position: relative; overflow: hidden; border-radius: 31px; background: hsl(var(--card));
+    box-shadow: inset 0 1px 0 hsl(0 0% 100% / .06), inset 0 0 0 1px hsl(var(--border-subtle)); }
+  .glyph { width: 60px; height: 60px; border-radius: 18px; flex: none; position: relative;
+    display: grid; place-items: center; background: hsl(var(--secondary)); box-shadow: inset 0 0 0 1px hsl(var(--border)); }
+  .glyph svg { width: 30px; height: 30px; position: absolute; stroke: hsl(var(--fg) / .9); fill: none; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+
+  /* scene 3 */
+  #s3title { left: 160px; top: 360px; width: 820px; }
+  #s3title h2 { font-size: 84px; white-space: nowrap; }
+  #learned { margin-top: 48px; display: flex; gap: 18px; align-items: center; font-size: 34px; color: hsl(var(--fg)); }
+  #learned svg { width: 36px; height: 36px; stroke: hsl(var(--primary)); fill: none; stroke-width: 1.6; flex: none; }
+  #ledger { left: 1000px; top: 150px; width: 760px; }
+  .lhead { display: flex; justify-content: space-between; align-items: center; padding: 30px 32px 26px; border-bottom: 1px solid hsl(var(--border-subtle)); }
+  .lfile { display: flex; gap: 18px; align-items: center; }
+  .lfile strong { display: block; font-size: 28px; font-weight: 700; letter-spacing: -.01em; }
+  .lfile small { display: block; font-size: 22px; color: hsl(var(--muted)); margin-top: 4px; }
+  .status { display: inline-flex; align-items: center; gap: 12px; padding: 10px 20px; border-radius: 999px; font-size: 22px;
+    background: hsl(var(--secondary)); box-shadow: inset 0 0 0 1px hsl(var(--border)); color: hsl(var(--muted)); white-space: nowrap; }
+  .status i { width: 12px; height: 12px; border-radius: 50%; background: hsl(var(--primary)); display: block; }
+  .status[data-done="1"] { background: hsl(var(--success-soft)); color: hsl(var(--success)); box-shadow: inset 0 0 0 1px hsl(var(--success) / .35); }
+  .status[data-done="1"] i { background: hsl(var(--success)); }
+  .rows { list-style: none; padding: 8px 32px; }
+  .row { display: grid; grid-template-columns: 60px 1fr auto; gap: 20px; align-items: center; padding: 18px 0; border-bottom: 1px solid hsl(var(--border-subtle) / .8); }
+  .row:last-child { border-bottom: 0; }
+  .rraw { display: block; font-family: var(--mono); font-size: 20px; color: hsl(var(--muted)); letter-spacing: .02em; white-space: nowrap; }
+  .rcat { display: block; position: relative; height: 34px; margin-top: 6px; }
+  .skel { position: absolute; left: 0; top: 8px; width: 170px; height: 20px; border-radius: 8px; overflow: hidden; background: hsl(var(--secondary)); }
+  .skel::after { content: ""; position: absolute; inset: 0; width: 60%; background: linear-gradient(90deg, transparent, hsl(var(--fg) / .10), transparent); transform: translateX(var(--sh, -100%)); }
+  .clabel { position: absolute; left: 0; top: 0; font-size: 28px; font-weight: 700; letter-spacing: -.01em; white-space: nowrap; display: flex; align-items: center; gap: 12px; }
+  .tag { font-size: 18px; font-weight: 400; padding: 3px 12px; border-radius: 999px; color: hsl(var(--primary)); background: hsl(var(--primary) / .12); box-shadow: inset 0 0 0 1px hsl(var(--primary) / .3); letter-spacing: 0; }
+  .rval { font-size: 28px; text-align: right; white-space: nowrap; }
+  .rval.in { color: hsl(var(--success)); }
+  .lfoot { display: flex; align-items: center; gap: 24px; padding: 22px 32px 28px; border-top: 1px solid hsl(var(--border-subtle)); font-size: 22px; color: hsl(var(--muted)); }
+  .progress { flex: 1; height: 8px; border-radius: 99px; background: hsl(var(--secondary)); overflow: hidden; }
+  .progress span { display: block; height: 100%; background: hsl(var(--primary)); transform-origin: left; }
+  #scan { position: absolute; left: 0; right: 0; height: 90px; pointer-events: none;
+    background: linear-gradient(180deg, transparent, hsl(var(--primary) / .10), transparent); }
+
+  /* scene 4 */
+  #s4title { left: 160px; top: 400px; width: 760px; }
+  #s4title h2 { font-size: 76px; white-space: nowrap; }
+  #well { left: 940px; top: 220px; width: 820px; }
+  .figs { display: grid; grid-template-columns: 0.8fr 1.2fr; gap: 24px; padding: 36px 40px 10px; }
+  .figs span { display: block; font-size: 24px; color: hsl(var(--muted)); }
+  .figs strong { display: block; white-space: nowrap; margin-top: 8px; font-size: 40px; font-weight: 700; letter-spacing: -.02em; font-family: var(--display); }
+  .figs .down { color: hsl(var(--danger)); }
+  #chart { display: block; margin: 16px 40px 0; width: 740px; height: 300px; overflow: visible; }
+  .grid { stroke: hsl(var(--fg) / .07); stroke-width: 1; }
+  .real { fill: none; stroke: hsl(var(--primary)); stroke-width: 3; stroke-linejoin: round; stroke-linecap: round; }
+  .proj { fill: none; stroke: hsl(var(--primary) / .8); stroke-width: 3; stroke-dasharray: 7 7; stroke-linejoin: round; }
+  .today { stroke: hsl(var(--fg) / .28); stroke-width: 1.5; stroke-dasharray: 3 5; }
+  .zero { stroke: hsl(var(--danger) / .55); stroke-width: 1.5; }
+  .dot { fill: hsl(var(--primary)); stroke: hsl(var(--card)); stroke-width: 3; }
+  .alert { fill: hsl(var(--danger)); stroke: hsl(var(--card)); stroke-width: 3; }
+  .pulse { fill: none; stroke: hsl(var(--danger)); stroke-width: 2; }
+  .axis { display: flex; justify-content: space-between; margin: 12px 40px 34px; font-size: 22px; color: hsl(var(--muted)); }
+
+  /* scene 5 */
+  #lockup { left: 0; right: 0; top: 250px; display: flex; justify-content: center; align-items: center; gap: 34px; }
+  #planetWrap { position: relative; width: 200px; height: 157px; }
+  #planetWrap img { width: 100%; height: 100%; position: relative; }
+  #planetHalo { position: absolute; left: 50%; top: 50%; width: 420px; height: 420px; margin: -210px 0 0 -210px; border-radius: 50%;
+    background: radial-gradient(circle, hsl(213 84% 60% / .35), transparent 65%); }
+  #word { font-family: var(--display); font-weight: 700; font-size: 150px; letter-spacing: -.04em; }
+  #final { left: 0; right: 0; top: 520px; text-align: center; }
+  #final h2 { font-size: 104px; }
+  #foot { left: 0; right: 0; top: 860px; text-align: center; font-size: 36px; color: hsl(var(--muted)); }
+  #foot b { color: hsl(var(--fg)); font-weight: 700; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <svg id="stars" viewBox="0 0 1920 1080" preserveAspectRatio="none"></svg>
+  <div id="orbitLight"></div>
+  <div id="orbits">
+    <svg viewBox="0 0 800 800">
+      <g id="o1"><circle class="ring" cx="400" cy="400" r="128"/><circle class="halo" id="h1" cx="528" cy="400" r="11"/><circle class="sat sat--accent" cx="528" cy="400" r="4.5"/></g>
+      <g id="o2"><circle class="ring ring--dashed" cx="400" cy="400" r="212"/><circle class="sat" cx="250" cy="250" r="3"/><circle class="sat" cx="612" cy="400" r="2"/></g>
+      <g id="o3"><circle class="ring" cx="400" cy="400" r="300"/><circle class="halo" cx="400" cy="100" r="9"/><circle class="sat sat--accent" cx="400" cy="100" r="3.5"/><circle class="sat" cx="188" cy="612" r="2.5"/></g>
+      <g id="o4"><circle class="ring ring--faint" cx="400" cy="400" r="388"/><circle class="sat" cx="788" cy="400" r="2"/></g>
+      <g id="core"><circle class="halo" id="coreHalo" cx="400" cy="400" r="22"/><circle class="sat sat--accent" cx="400" cy="400" r="7"/></g>
+    </svg>
+  </div>
+
+  <!-- Scene 1 -->
+  <div id="s1" class="abs" style="inset:0">
+    <div id="rawField"></div>
+    <div id="hookVeil" class="abs"></div>
+    <h1 id="hook" class="abs display">
+      <span class="line"><span>Seu extrato, do jeito</span></span>
+      <span class="line"><span class="muted">que o banco manda.</span></span>
+    </h1>
+  </div>
+
+  <!-- Scene 2 -->
+  <div id="s2" class="abs" style="inset:0">
+    <div id="hero" class="abs">
+      <h1 class="display">
+        <span class="line"><span id="h2a">Importe o extrato.</span></span>
+        <span class="line"><span id="h2b" class="accent">O Orbi organiza.</span></span>
+      </h1>
+      <div id="assure">
+        <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Plano Free para sempre</span>
+        <span><svg viewBox="0 0 24 24" fill="none" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>Sem cartão para começar</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 3 -->
+  <div id="s3" class="abs" style="inset:0">
+    <div id="s3title" class="abs">
+      <h2 class="display">
+        <span class="line"><span id="s3a">A IA lê o extrato</span></span>
+        <span class="line"><span id="s3b">do banco por você.</span></span>
+      </h2>
+      <div id="learned"><svg viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 14.06 8 20l-1.94-5.94L0 12l6.06-1.94L8 4l1.94 6.06L16 12Z" transform="translate(3 0) scale(.9)"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg><span><b>Corrigiu uma vez, está aprendido.</b></span></div>
+    </div>
+    <figure id="ledger" class="abs bezel">
+      <div class="core">
+        <div id="scan"></div>
+        <div class="lhead">
+          <div class="lfile">
+            <span class="glyph"><svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/></svg></span>
+            <div><strong>extrato-setembro.pdf</strong><small>Importação · 5 lançamentos</small></div>
+          </div>
+          <span class="status" id="status"><i id="sdot"></i><span id="stext">Classificando</span></span>
+        </div>
+        <ul class="rows" id="rows"></ul>
+        <div class="lfoot"><span class="tab" id="counter">0 de 5 categorizados</span><span class="progress"><span id="prog"></span></span></div>
+      </div>
+    </figure>
+  </div>
+
+  <!-- Scene 4 -->
+  <div id="s4" class="abs" style="inset:0">
+    <div id="s4title" class="abs">
+      <h2 class="display">
+        <span class="line"><span id="s4a">Saiba hoje o dia em</span></span>
+        <span class="line"><span id="s4b">que o <span class="accent">caixa aperta.</span></span></span>
+      </h2>
+    </div>
+    <div id="well" class="abs bezel">
+      <div class="core">
+        <div class="figs">
+          <div><span>Saldo real hoje</span><strong class="tab" id="realVal">R$ 3.240,10</strong></div>
+          <div><span>Ruptura prevista</span><strong class="tab down" id="rupVal">14/11 · −R$ 612,40</strong></div>
+        </div>
+        <svg id="chart" viewBox="0 0 320 120" preserveAspectRatio="none">
+          <defs><clipPath id="realClip"><rect id="realRect" x="-10" y="-20" width="0" height="160"/></clipPath><clipPath id="projClip"><rect id="projRect" x="0" y="-20" width="196" height="160"/></clipPath></defs>
+          <line class="grid" x1="0" y1="20" x2="320" y2="20" vector-effect="non-scaling-stroke"/>
+          <line class="grid" x1="0" y1="60" x2="320" y2="60" vector-effect="non-scaling-stroke"/>
+          <line class="zero" x1="0" y1="100" x2="320" y2="100" vector-effect="non-scaling-stroke"/>
+          <path id="real" clip-path="url(#realClip)" class="real" d="M4 70 L32 64 L60 80 L88 74 L116 88 L144 82 L172 92 L196 86" vector-effect="non-scaling-stroke"/>
+          <g clip-path="url(#projClip)"><path class="proj" d="M196 86 L220 70 L244 80 L262 104 L290 108 L314 112" vector-effect="non-scaling-stroke"/></g>
+          <line id="today" class="today" x1="196" y1="8" x2="196" y2="112" vector-effect="non-scaling-stroke"/>
+        </svg>
+        <!-- dots drawn in an unscaled overlay so circles stay round -->
+        <svg id="dots" class="abs" style="left:0;top:0;width:820px;height:600px;overflow:visible" viewBox="0 0 820 600">
+          <circle id="pulse" class="pulse" cx="0" cy="0" r="10"/>
+          <circle id="todayDot" class="dot" cx="0" cy="0" r="10"/>
+          <circle id="alertDot" class="alert" cx="0" cy="0" r="12"/>
+        </svg>
+        <div class="axis"><span>01/09</span><span>hoje</span><span>+90 dias</span></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scene 5 -->
+  <div id="s5" class="abs" style="inset:0">
+    <div id="lockup" class="abs">
+      <div id="planetWrap"><div id="planetHalo"></div><img src="assets/img/orbi-planet.png" alt=""/></div>
+      <div id="word">Orbi</div>
+    </div>
+    <div id="final" class="abs">
+      <h2 class="display">
+        <span class="line"><span id="f1">Seu próximo extrato</span></span>
+        <span class="line"><span id="f2" class="accent">já chega organizado.</span></span>
+      </h2>
+    </div>
+    <div id="foot" class="abs"><b>Plano Free para sempre</b> · app.meuorbi.com</div>
+  </div>
+</div>
+
+<script src="assets/rms.js"></script>
+<script>
+// ---------- deterministic helpers ----------
+const $ = (id) => document.getElementById(id);
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const outExpo = (p) => (p >= 1 ? 1 : 1 - Math.pow(2, -10 * p));
+const outCubic = (p) => 1 - Math.pow(1 - p, 3);
+const inOut = (p) => (p < 0.5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2);
+const outBack = (p) => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); };
+const tw = (t, start, dur, ease = outExpo) => ease(clamp((t - start) / dur));
+// keyframes: [[time, value], ...] with inOut easing between
+function kf(t, frames) {
+  if (t <= frames[0][0]) return frames[0][1];
+  for (let i = 1; i < frames.length; i++) {
+    if (t <= frames[i][0]) {
+      const [t0, v0] = frames[i - 1], [t1, v1] = frames[i];
+      const p = inOut((t - t0) / (t1 - t0));
+      return Array.isArray(v0) ? v0.map((x, k) => lerp(x, v1[k], p)) : lerp(v0, v1, p);
+    }
+  }
+  return frames[frames.length - 1][1];
+}
+function mulberry32(a) { return () => { a |= 0; a = (a + 0x6d2b79f5) | 0; let t = Math.imul(a ^ (a >>> 15), 1 | a); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+const FPS = 30;
+const rmsAt = (t) => { const R = window.RMS || []; const i = Math.floor(t * FPS); return R.length ? R[clamp(i, 0, R.length - 1)] : 0.4; };
+
+// ---------- build static DOM ----------
+const rnd = mulberry32(11);
+const STARS = Array.from({ length: 150 }, (_, i) => ({ x: rnd() * 1920, y: rnd() * 1080, r: 0.6 + rnd() * 1.7, o: 0.18 + rnd() * 0.55, tw: i % 5 === 0, ph: rnd() * 6.28, sp: 0.8 + rnd() * 1.4 }));
+$("stars").innerHTML = STARS.map((s, i) => `<circle id="st${i}" cx="${s.x.toFixed(1)}" cy="${s.y.toFixed(1)}" r="${s.r.toFixed(2)}" fill="hsl(214 32% 94%)" opacity="${s.o.toFixed(2)}"/>`).join("");
+
+const RAW = [
+  ["PAG*PADARIA CENTRAL", "−18,40", 170, 170],
+  ["POSTO ESTRELA 0231", "−212,00", 1180, 120],
+  ["PIX RECEBIDO SALARIO", "+6.480,00", 1260, 830],
+  ["FARMACIA BEM VIVER", "−64,75", 120, 860],
+  ["STREAMING MENSAL", "−39,90", 1340, 300],
+  ["ENERGIA ELETRICA 09/26", "−187,30", 230, 700],
+  ["APLICACAO CDB 30D", "−500,00", 640, 960],
+  ["COMPRA CARTAO 4412 IFD*", "−54,90", 820, 70],
+  ["TAR PACOTE SERVICOS", "−32,00", 90, 330],
+];
+$("rawField").innerHTML = RAW.map((r, i) => `<div class="abs raw" id="raw${i}" style="left:${r[2]}px;top:${r[3]}px">${r[0]}<b>${r[1]}</b></div>`).join("");
+
+const I = {
+  scan: '<path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><path d="M7 12h10"/>',
+  coffee: '<path d="M10 2v2"/><path d="M14 2v2"/><path d="M16 8a1 1 0 0 1 1 1v8a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4V9a1 1 0 0 1 1-1h14a4 4 0 1 1 0 8h-1"/><path d="M6 2v2"/>',
+  fuel: '<line x1="3" x2="15" y1="22" y2="22"/><line x1="4" x2="14" y1="9" y2="9"/><path d="M14 22V4a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v18"/><path d="M14 13h2a2 2 0 0 1 2 2v2a2 2 0 0 0 2 2a2 2 0 0 0 2-2V9.83a2 2 0 0 0-.59-1.42L18 5"/>',
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  heart: '<path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/><path d="M3.22 12H9.5l.5-1 2 4.5 2-7 1.5 3.5h5.27"/>',
+  repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+};
+const ROWS = [
+  { raw: "PAG*PADARIA CENTRAL", cat: "Alimentação", val: "−R$ 18,40", icon: "coffee" },
+  { raw: "POSTO ESTRELA 0231", cat: "Transporte", val: "−R$ 212,00", icon: "fuel", tag: "aprendido" },
+  { raw: "PIX RECEBIDO SALARIO", cat: "Salário", val: "+R$ 6.480,00", icon: "wallet", income: true },
+  { raw: "FARMACIA BEM VIVER", cat: "Saúde", val: "−R$ 64,75", icon: "heart" },
+  { raw: "STREAMING MENSAL", cat: "Assinaturas", val: "−R$ 39,90", icon: "repeat", tag: "fixa" },
+];
+// beat-grid: rows classify at 7.64, 8.19, 8.74 (strong cue), 9.29, 9.83
+const ROW_T = [7.64, 8.19, 8.74, 9.29, 9.83];
+$("rows").innerHTML = ROWS.map((r, i) => `
+  <li class="row" id="row${i}">
+    <span class="glyph"><svg id="rs${i}" viewBox="0 0 24 24">${I.scan}</svg><svg id="ri${i}" viewBox="0 0 24 24">${I[r.icon]}</svg></span>
+    <span style="min-width:0"><span class="rraw">${r.raw}</span>
+      <span class="rcat"><span class="skel" id="sk${i}"></span><span class="clabel" id="cl${i}">${r.cat}${r.tag ? `<span class="tag">${r.tag}</span>` : ""}</span></span></span>
+    <span class="rval tab ${r.income ? "in" : ""}">${r.val}</span>
+  </li>`).join("");
+
+const realLen = $("real").getTotalLength();
+
+// ---------- style setters ----------
+function set(el, { o, x = 0, y = 0, s = 1, b = 0 } = {}) {
+  if (typeof el === "string") el = $(el);
+  if (o !== undefined) el.style.opacity = o.toFixed(3);
+  el.style.transform = `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px) scale(${s.toFixed(4)})`;
+  el.style.filter = b > 0.05 ? `blur(${b.toFixed(2)}px)` : "none";
+}
+// mask-line reveal (Reveal variant="lines")
+function lineIn(id, t, start, dur = 0.85) { const p = tw(t, start, dur); $(id).style.transform = `translateY(${((1 - p) * 110).toFixed(2)}%)`; }
+// scene envelope: fade/lift in and out
+function envelope(t, inStart, inDur, outStart, outDur) {
+  const pin = tw(t, inStart, inDur, outCubic), pout = tw(t, outStart, outDur, inOut);
+  return { o: pin * (1 - pout), y: (1 - pin) * 40 - pout * 40, b: (1 - pin) * 10 + pout * 8 };
+}
+
+// ---------- render(t) ----------
+window.render = function (t) {
+  const rms = rmsAt(t);
+
+  // stars: slow drift + twinkle
+  STARS.forEach((s, i) => {
+    if (!s.tw) return;
+    const el = $("st" + i);
+    el.setAttribute("opacity", (s.o * (0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * s.sp + s.ph)))).toFixed(3));
+  });
+  $("stars").style.transform = `translate(${(-t * 6).toFixed(2)}px, ${(-t * 2).toFixed(2)}px) scale(1.03)`;
+
+  // orbits: position/scale/opacity per scene
+  const [ox, oy, os, oo] = kf(t, [
+    [0, [960, 540, 1.25, 0.18]],
+    [3.0, [960, 540, 1.25, 0.22]],
+    [3.9, [1420, 540, 1.05, 1]],
+    [6.3, [1420, 540, 1.05, 1]],
+    [7.2, [1380, 560, 1.25, 0.4]],
+    [12.3, [1380, 560, 1.25, 0.4]],
+    [13.0, [1350, 560, 1.3, 0.22]],
+    [16.9, [1350, 560, 1.3, 0.22]],
+    [17.9, [960, 330, 1.2, 0.95]],
+    [21.5, [960, 330, 1.26, 0.95]],
+  ]);
+  const orb = $("orbits");
+  orb.style.transform = `translate(${(ox - 500).toFixed(2)}px, ${(oy - 500).toFixed(2)}px) scale(${os.toFixed(4)})`;
+  orb.style.opacity = oo.toFixed(3);
+  const spin = (id, sec, dir = 1) => $(id).setAttribute("transform", `rotate(${((t / sec) * 360 * dir).toFixed(3)} 400 400)`);
+  spin("o1", 14); spin("o2", 22, -1); spin("o3", 32); spin("o4", 48, -1);
+  // audio-reactive: halo breathes with RMS
+  $("coreHalo").setAttribute("r", (20 + rms * 14).toFixed(2));
+  $("h1").setAttribute("r", (10 + rms * 7).toFixed(2));
+  $("core").style.opacity = (1 - tw(t, 16.9, 0.6, inOut)).toFixed(3);
+  const light = $("orbitLight");
+  light.style.transform = `translate(${(ox - 450).toFixed(2)}px, ${(oy - 450).toFixed(2)}px) scale(${(os * (0.95 + rms * 0.1)).toFixed(4)})`;
+  light.style.opacity = (oo * (0.55 + rms * 0.45)).toFixed(3);
+
+  // ===== Scene 1: 0 – 3.3 =====
+  const s1on = t < 3.6;
+  $("s1").style.display = s1on ? "block" : "none";
+  if (s1on) {
+    RAW.forEach((r, i) => {
+      const pin = tw(t, i * 0.06, 0.7, outCubic);
+      const pout = tw(t, 2.85, 0.6, inOut);
+      set("raw" + i, { o: pin * (1 - pout) * 0.8, x: (i % 2 ? -1 : 1) * (t * 10) + (1 - pin) * (i % 2 ? 40 : -40), y: 0, b: (1 - pin) * 6 + pout * 10 });
+    });
+    set("hookVeil", { o: tw(t, 0.4, 0.8) * (1 - tw(t, 2.9, 0.5)) });
+    const hin = tw(t, 0.55, 0.9);
+    const hout = tw(t, 2.95, 0.5, inOut);
+    set("hook", { o: hin * (1 - hout), y: (1 - hin) * 36 - hout * 30, b: (1 - hin) * 10 + hout * 6 });
+  }
+
+  // ===== Scene 2: 3.3 – 6.6 =====
+  const s2on = t > 3.2 && t < 6.9;
+  $("s2").style.display = s2on ? "block" : "none";
+  if (s2on) {
+    lineIn("h2a", t, 3.3);
+    lineIn("h2b", t, 3.82); // beat-grid: 3.82s
+    const a = tw(t, 4.5, 0.7, outCubic);
+    set("assure", { o: a, y: (1 - a) * 20 });
+    const out = tw(t, 6.2, 0.5, inOut);
+    set("hero", { o: 1 - out, y: -out * 50, b: out * 8 });
+  }
+
+  // ===== Scene 3: 6.6 – 12.6 =====
+  const s3on = t > 6.4 && t < 12.9;
+  $("s3").style.display = s3on ? "block" : "none";
+  if (s3on) {
+    lineIn("s3a", t, 6.75);
+    lineIn("s3b", t, 6.95);
+    const env = envelope(t, 6.5, 0.9, 12.25, 0.55);
+    set("s3title", { o: 1 - tw(t, 12.25, 0.55, inOut), y: -tw(t, 12.25, 0.55, inOut) * 30 });
+    set("ledger", { o: env.o, y: env.y * 2, b: env.b, s: 0.98 + 0.02 * tw(t, 6.5, 1.0) });
+    let done = 0;
+    ROWS.forEach((r, i) => {
+      const p = tw(t, ROW_T[i], 0.45, outCubic);
+      if (t >= ROW_T[i]) done = i + 1;
+      $("sk" + i).style.opacity = (1 - p).toFixed(3);
+      $("sk" + i).style.setProperty("--sh", `${(((t * 1.3 + i * 0.2) % 1) * 300 - 100).toFixed(1)}%`);
+      set("cl" + i, { o: p, x: (1 - p) * -14, b: (1 - p) * 4 });
+      $("rs" + i).style.opacity = (1 - p).toFixed(3);
+      $("ri" + i).style.opacity = p.toFixed(3);
+      $("row" + i).style.background = `linear-gradient(90deg, hsl(213 84% 66% / ${(0.10 * (1 - tw(t, ROW_T[i], 0.9, outCubic)) * (t >= ROW_T[i] ? 1 : 0)).toFixed(3)}), transparent 70%)`;
+    });
+    // scan band sweeps the next row to classify
+    const next = Math.min(done, 4);
+    const rowEl = $("row" + next);
+    const scanY = rowEl.offsetTop + rowEl.offsetHeight / 2 - 45 + 8;
+    $("scan").style.top = scanY + "px";
+    $("scan").style.opacity = (done >= 5 ? 1 - tw(t, 9.83, 0.4) : tw(t, 7.0, 0.4)).toFixed(3);
+    const finished = t >= 9.95;
+    $("status").dataset.done = finished ? "1" : "0";
+    $("stext").textContent = finished ? "Categorizado" : "Classificando";
+    $("sdot").style.opacity = finished ? "1" : (0.45 + 0.55 * (0.5 + 0.5 * Math.sin(t * 7))).toFixed(3);
+    $("counter").textContent = `${done} de 5 categorizados`;
+    // progress eases toward done/5
+    let prog = 0; ROW_T.forEach((rt) => { prog += tw(t, rt, 0.5, outCubic) / 5; });
+    $("prog").style.transform = `scaleX(${prog.toFixed(4)})`;
+    const l = tw(t, 10.2, 0.7, outCubic);
+    set("learned", { o: l, y: (1 - l) * 18 });
+  }
+
+  // ===== Scene 4: 12.6 – 17.2 =====
+  const s4on = t > 12.3 && t < 17.6;
+  $("s4").style.display = s4on ? "block" : "none";
+  if (s4on) {
+    lineIn("s4a", t, 12.6);
+    lineIn("s4b", t, 12.8);
+    const out = tw(t, 16.85, 0.55, inOut);
+    set("s4title", { o: 1 - out, y: -out * 30 });
+    const env = envelope(t, 12.45, 0.9, 16.85, 0.55);
+    set("well", { o: env.o, y: env.y * 2, b: env.b });
+    // beat-locked: 13.11s — real balance line draws
+    const d = tw(t, 13.11, 1.1, inOut);
+    $("realRect").setAttribute("width", (d * 210).toFixed(2));
+    // projection reveal 14.25 → crosses zero (x=259) at 15.29 → end 15.9
+    const px = t < 15.29 ? lerp(196, 259, tw(t, 14.25, 1.04, (p) => p)) : lerp(259, 320, tw(t, 15.29, 0.6, outCubic));
+    $("projRect").setAttribute("width", px.toFixed(2));
+    $("today").style.opacity = tw(t, 14.1, 0.4).toFixed(3);
+    // dot overlay mapping: chart svg 320x120 → 740x300 at offset (40, figs height + 16)
+    const chart = $("chart");
+    const cr = chart.getBoundingClientRect(), dr = $("dots").getBoundingClientRect();
+    const cx0 = cr.left - dr.left, cy0 = cr.top - dr.top;
+    const mx = (x) => cx0 + (x / 320) * 740, my = (y) => cy0 + (y / 120) * 300;
+    const td = tw(t, 14.1, 0.5, outBack);
+    const tdot = $("todayDot"); tdot.setAttribute("cx", mx(196)); tdot.setAttribute("cy", my(86)); tdot.setAttribute("r", (10 * td).toFixed(2));
+    const ad = tw(t, 15.29, 0.5, outBack);
+    const adot = $("alertDot"); adot.setAttribute("cx", mx(259)); adot.setAttribute("cy", my(100)); adot.setAttribute("r", (13 * ad).toFixed(2));
+    const pl = $("pulse"); pl.setAttribute("cx", mx(259)); pl.setAttribute("cy", my(100));
+    const pp = t >= 15.29 ? ((t - 15.29) % 1.1) / 1.1 : 0;
+    pl.setAttribute("r", (13 + pp * 34).toFixed(2));
+    pl.style.opacity = t >= 15.29 ? (1 - pp).toFixed(3) : "0";
+    // rupture value lands with the alert
+    const rv = tw(t, 15.29, 0.6, outCubic);
+    set("rupVal", { o: rv, y: (1 - rv) * 10 });
+    $("rupVal").style.textShadow = `0 0 ${(24 * rv * (1 - tw(t, 15.9, 1.0))).toFixed(1)}px hsl(2 78% 66% / .6)`;
+  }
+
+  // ===== Scene 5: 17.2 – 21.5 =====
+  const s5on = t > 16.9;
+  $("s5").style.display = s5on ? "block" : "none";
+  if (s5on) {
+    // beat-locked: 17.47s — Orbi mark lands
+    const m = tw(t, 17.3, 0.9, outBack);
+    const mo = tw(t, 17.3, 0.5, outCubic);
+    set("planetWrap", { o: mo, s: 0.6 + 0.4 * m, y: (1 - m) * 20 });
+    $("planetHalo").style.opacity = (mo * (0.55 + rms * 0.6)).toFixed(3);
+    $("planetHalo").style.transform = `scale(${(0.9 + rms * 0.2).toFixed(3)})`;
+    const w = tw(t, 17.6, 0.8, outCubic);
+    set("word", { o: w, x: (1 - w) * -30, b: (1 - w) * 8 });
+    // beat-locked: 18.56s — final line
+    lineIn("f1", t, 18.5);
+    lineIn("f2", t, 18.72);
+    const f = tw(t, 19.66, 0.7, outCubic); // beat 19.66
+    set("foot", { o: f, y: (1 - f) * 16 });
+  }
+};
+
+window.DURATION = 21.5;
+window.__ready = document.fonts.ready.then(() => { window.render(0); return true; });
+</script>
+</body>
+</html>

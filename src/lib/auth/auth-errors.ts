@@ -97,6 +97,10 @@ export function describeAuthError(error: unknown, context: AuthErrorContext): st
     case "user_banned":
       return "Esta conta está suspensa. Fale com o suporte.";
 
+    // ---- Captcha (Turnstile, validado pelo Supabase Auth) --------------
+    case "captcha_failed":
+      return "Não conseguimos confirmar a verificação de segurança. Aguarde um instante e tente de novo.";
+
     // ---- Envio de e-mail / limites -------------------------------------
     case "over_email_send_rate_limit":
       return "Já enviamos um e-mail há pouco. Aguarde um minuto antes de pedir outro.";

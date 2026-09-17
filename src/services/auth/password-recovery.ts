@@ -36,7 +36,11 @@ export const recoveryEmailSchema = z
 /** Espelha o formato do GoTrue (hash hex de 56 chars hoje); teto folgado. */
 const tokenHashSchema = z.string().regex(/^[A-Za-z0-9_-]{16,256}$/);
 
-export async function requestPasswordReset(rawEmail: string): Promise<void> {
+/**
+ * @param captchaToken token Turnstile de uso único (obrigatório quando o
+ *   captcha está ligado no Supabase Auth; ignorado quando não está).
+ */
+export async function requestPasswordReset(rawEmail: string, captchaToken?: string): Promise<void> {
   const parsed = recoveryEmailSchema.safeParse(rawEmail);
   if (!parsed.success) {
     throw new AuthFlowError("validation_failed", parsed.error.issues[0]?.message ?? "Digite um e-mail válido.");
@@ -44,6 +48,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
 
   const { error } = await supabase.auth.resetPasswordForEmail(parsed.data, {
     redirectTo: authRedirectUrl(AUTH_ROUTES.resetPassword),
+    captchaToken,
   });
 
   if (!error) return;
@@ -59,6 +64,7 @@ export async function requestPasswordReset(rawEmail: string): Promise<void> {
     code === "over_email_send_rate_limit" ||
     code === "over_request_rate_limit" ||
     code === "email_address_invalid" ||
+    code === "captcha_failed" ||
     (error.status !== undefined && error.status >= 500);
 
   if (exposable) {

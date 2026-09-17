@@ -148,8 +148,14 @@ verify_enabled = true
 [auth.captcha]
 # Ligar em producao: e a unica defesa contra credential stuffing distribuido
 # (o rate limit abaixo e por IP; botnet troca de IP, captcha nao).
+# Cloudflare Turnstile: o front manda `captchaToken` em signInWithPassword,
+# signUp e resetPasswordForEmail (src/components/auth/TurnstileField.tsx) e o
+# GoTrue chama o siteverify com o secret abaixo. Local fica desligado: o
+# secret nao existe neste repo. Producao: painel > Auth > Attack Protection.
+# Ligar SO depois do deploy do front com VITE_TURNSTILE_SITE_KEY — antes disso
+# todo login falha com `captcha_failed`.
 enabled = false
-provider = "hcaptcha"
+provider = "turnstile"
 secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
 
 # ============================================================================

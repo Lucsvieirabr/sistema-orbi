@@ -11,7 +11,7 @@
  *   indexável por padrão — não existe noindex implícito.
  */
 
-const RAW_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) || "https://orbi.com.br";
+const RAW_SITE_URL = (import.meta.env.VITE_SITE_URL as string | undefined) || "https://app.meuorbi.com";
 
 export const SITE_URL = RAW_SITE_URL.replace(/\/+$/, "");
 export const SITE_NAME = "Orbi";

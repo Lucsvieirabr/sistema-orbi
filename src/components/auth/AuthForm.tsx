@@ -13,6 +13,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/components/legal";
 import { cn } from "@/lib/utils";
 import { AUTH_ROUTES } from "@/lib/auth/redirect";
+import { TurnstileField } from "@/components/auth/TurnstileField";
+import { useTurnstile } from "@/hooks/use-turnstile";
 
 /** Item do segmented control: o fundo ativo é do thumb, não do item. */
 const segmentTrigger =
@@ -31,6 +33,9 @@ export function AuthForm() {
   );
   const { login, register } = useAuth();
   const navigate = useNavigate();
+  // Um widget por aba: o Radix desmonta a aba inativa, então cada formulário tem seu próprio token.
+  const loginCaptcha = useTurnstile();
+  const registerCaptcha = useTurnstile();
 
   /** Leva o e-mail já digitado para a tela de recuperação (via state, nunca na URL). */
   const goToForgotPassword = (event: React.MouseEvent<HTMLAnchorElement>) => {
@@ -50,14 +55,20 @@ export function AuthForm() {
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (loginCaptcha.blocking) return;
     setIsLoading(true);
     
     const form = event.currentTarget;
     const email = (form.querySelector('#email') as HTMLInputElement)?.value;
     const password = (form.querySelector('#password') as HTMLInputElement)?.value;
     
-    await login(email, password);
-    setIsLoading(false);
+    try {
+      await login(email, password, loginCaptcha.captchaToken);
+    } finally {
+      // Token Turnstile é de uso único: queimado com sucesso ou erro.
+      loginCaptcha.reset();
+      setIsLoading(false);
+    }
   };
 
   const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
@@ -69,6 +80,8 @@ export function AuthForm() {
       return;
     }
 
+    if (registerCaptcha.blocking) return;
+
     setConsentError(null);
     setIsLoading(true);
     
@@ -77,8 +90,12 @@ export function AuthForm() {
     const password = (form.querySelector('#register-password') as HTMLInputElement)?.value;
     const fullName = (form.querySelector('#register-name') as HTMLInputElement)?.value;
 
-    await register(email, password, fullName);
-    setIsLoading(false);
+    try {
+      await register(email, password, fullName, registerCaptcha.captchaToken);
+    } finally {
+      registerCaptcha.reset();
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -162,12 +179,14 @@ export function AuthForm() {
                   />
                 </div>
 
+                <TurnstileField {...loginCaptcha.fieldProps} action="login" />
+
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={isLoading}
+                  disabled={isLoading || loginCaptcha.blocking}
                 >
-                  {isLoading ? "Entrando..." : "Entrar"}
+                  {isLoading ? "Entrando..." : loginCaptcha.blocking ? "Verificando conexão…" : "Entrar"}
                 </Button>
 
                 {/* Disclaimer sutil: informa sem pedir novo opt-in — o aceite
@@ -224,12 +243,14 @@ export function AuthForm() {
                   className="pt-1"
                 />
 
+                <TurnstileField {...registerCaptcha.fieldProps} action="signup" />
+
                 <Button 
                   type="submit" 
                   className="w-full"
-                  disabled={isLoading || !acceptedTerms}
+                  disabled={isLoading || !acceptedTerms || registerCaptcha.blocking}
                 >
-                  {isLoading ? "Criando conta..." : "Criar Conta"}
+                  {isLoading ? "Criando conta..." : registerCaptcha.blocking ? "Verificando conexão…" : "Criar Conta"}
                 </Button>
               </form>
             </TabsContent>

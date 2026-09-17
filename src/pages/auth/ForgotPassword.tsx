@@ -3,6 +3,8 @@ import { Link, useLocation } from "react-router-dom";
 import { ArrowLeft, Loader2, MailCheck } from "lucide-react";
 
 import { AuthShell } from "@/components/auth/AuthShell";
+import { TurnstileField } from "@/components/auth/TurnstileField";
+import { useTurnstile } from "@/hooks/use-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -42,19 +44,22 @@ export default function ForgotPassword() {
   const [error, setError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const { secondsLeft, start } = useCountdown();
+  const captcha = useTurnstile();
 
   const send = async (target: string) => {
-    if (isSending) return;
+    if (isSending || captcha.blocking) return;
     setError(null);
     setIsSending(true);
     try {
-      await requestPasswordReset(target);
+      await requestPasswordReset(target, captcha.captchaToken);
       setSentTo(recoveryEmailSchema.parse(target));
       start();
     } catch (err) {
       setError(describeAuthError(err, "reset_request"));
       inputRef.current?.focus();
     } finally {
+      // Token Turnstile é de uso único: o próximo envio (ou reenvio) pede outro.
+      captcha.reset();
       setIsSending(false);
     }
   };
@@ -99,6 +104,8 @@ export default function ForgotPassword() {
             </p>
           </div>
 
+          <TurnstileField {...captcha.fieldProps} action="password_reset" />
+
           {error && (
             <p role="alert" className="text-sm text-destructive">
               {error}
@@ -110,7 +117,7 @@ export default function ForgotPassword() {
               type="button"
               variant="outline"
               className="w-full tabular-nums"
-              disabled={isSending || secondsLeft > 0}
+              disabled={isSending || secondsLeft > 0 || captcha.blocking}
               onClick={() => void send(sentTo)}
             >
               {isSending && <Loader2 className="animate-spin" aria-hidden />}
@@ -171,9 +178,11 @@ export default function ForgotPassword() {
           )}
         </div>
 
-        <Button type="submit" className="w-full" disabled={isSending}>
+        <TurnstileField {...captcha.fieldProps} action="password_reset" />
+
+        <Button type="submit" className="w-full" disabled={isSending || captcha.blocking}>
           {isSending && <Loader2 className="animate-spin" aria-hidden />}
-          {isSending ? "Enviando…" : "Enviar link de redefinição"}
+          {isSending ? "Enviando…" : captcha.blocking ? "Verificando conexão…" : "Enviar link de redefinição"}
         </Button>
       </form>
     </AuthShell>

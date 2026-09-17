@@ -80,8 +80,13 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  /** `captchaToken`: Turnstile, uso único — o formulário reseta o widget após cada tentativa. */
+  const login = async (email: string, password: string, captchaToken?: string) => {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+      options: { captchaToken },
+    });
 
     if (error) {
       toast({ title: "Falha no login", description: describeAuthError(error, "login"), variant: "destructive" });
@@ -117,14 +122,14 @@ export function useAuth() {
     return true;
   };
 
-  const register = async (email: string, password: string, fullName: string) => {
+  const register = async (email: string, password: string, fullName: string, captchaToken?: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
       // O aceite dos Termos e da Política é gravado junto da criação da conta
       // (data, hora e versão dos documentos) — prova do consentimento exigida
       // pelo art. 8º, §1º, da LGPD. A UI só chama `register` após o opt-in.
-      options: { data: { full_name: fullName, ...buildSignupConsentMetadata() } },
+      options: { data: { full_name: fullName, ...buildSignupConsentMetadata() }, captchaToken },
     });
 
     if (error) {

@@ -135,10 +135,10 @@ export default function MfaChallenge() {
           <p className="max-w-[36ch] text-balance text-center text-xs leading-relaxed text-muted-foreground">
             Perdeu acesso ao aplicativo? Escreva para{" "}
             <a
-              href="mailto:suporte@orbi.com.br"
+              href="mailto:suporte@meuorbi.com"
               className="font-medium text-foreground underline underline-offset-4 hover:text-primary"
             >
-              suporte@orbi.com.br
+              suporte@meuorbi.com
             </a>{" "}
             a partir do e-mail da conta.
           </p>

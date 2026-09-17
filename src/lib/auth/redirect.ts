@@ -16,7 +16,7 @@ export const AUTH_ROUTES = {
   mfaChallenge: "/login/verificacao",
 } as const;
 
-const FALLBACK_ORIGIN = ((import.meta.env.VITE_SITE_URL as string | undefined) || "https://orbi.com.br").replace(
+const FALLBACK_ORIGIN = ((import.meta.env.VITE_SITE_URL as string | undefined) || "https://app.meuorbi.com").replace(
   /\/+$/,
   "",
 );
