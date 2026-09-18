@@ -221,6 +221,17 @@ export default {
           "0%, 100%": { transform: "translateY(0)" },
           "50%": { transform: "translateY(-3px)" },
         },
+        /* Halo do sinal de "e-mail a caminho": um anel que expande e some.
+           So `transform` e `opacity` — compositor puro, zero reflow. */
+        halo: {
+          "0%, 100%": { opacity: "0.45", transform: "scale(1)" },
+          "60%": { opacity: "0", transform: "scale(1.4)" },
+        },
+        /* Orbita lenta do arco de 1px: o gesto da marca em estado de espera. */
+        "orbit-ring": {
+          from: { transform: "rotate(0deg)" },
+          to: { transform: "rotate(360deg)" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -232,6 +243,8 @@ export default {
         "fab-pulse": "fab-pulse 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite",
         "hint-float": "hint-float 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
         "caret-blink": "caret-blink 1.2s ease-out infinite",
+        halo: "halo 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        "orbit-ring": "orbit-ring 9s linear infinite",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",

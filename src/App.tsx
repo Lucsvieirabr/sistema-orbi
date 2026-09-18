@@ -3,7 +3,15 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from "react-router-dom";
+import {
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useLocation,
+  useNavigate,
+  useSearchParams,
+} from "react-router-dom";
 import { AuthForm } from "@/components/auth/AuthForm";
 import { AdminAuthForm } from "@/admin/components/AdminAuthForm";
 import { Dashboard } from "@/components/dashboard/Dashboard";
@@ -46,8 +54,9 @@ import { RouteSeo } from "@/components/seo";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import MfaChallenge from "@/pages/auth/MfaChallenge";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
 import { stageFromSession, type SessionStage } from "@/lib/auth/assurance";
-import { AUTH_ROUTES, mfaChallengePath } from "@/lib/auth/redirect";
+import { AUTH_ROUTES, loginPath, mfaChallengePath, safeInternalPath } from "@/lib/auth/redirect";
 
 const queryClient = new QueryClient();
 
@@ -73,19 +82,64 @@ function PasswordRecoveryRedirect() {
 }
 
 /**
+ * `/login`.
+ *
+ * Quem já tem sessão não vai mais, sempre, para `/sistema`: se chegou aqui por
+ * um fluxo interrompido (`?next=/pricing`, gravado quando clicou num plano sem
+ * estar logado), volta exatamente para onde estava. `safeInternalPath` recusa
+ * destino externo e recusa as próprias rotas de autenticação, que criariam laço.
+ */
+/**
+ * Rota protegida sem sessão utilizável.
+ *
+ * Manda para o login guardando de onde a pessoa veio (`?next=`), para que o
+ * login devolva ao destino original em vez de despejar todo mundo em
+ * `/sistema`. Com o TOTP pendente, a etapa do código vem antes de tudo.
+ */
+function SignedOutRedirect({ stage }: { stage: SessionStage }) {
+  const location = useLocation();
+
+  if (stage === "mfa_required") {
+    return <Navigate to={mfaChallengePath()} replace />;
+  }
+
+  return <Navigate to={loginPath(`${location.pathname}${location.search}`)} replace />;
+}
+
+function LoginRoute({ stage }: { stage: SessionStage }) {
+  const [searchParams] = useSearchParams();
+
+  if (stage === "authenticated") {
+    return <Navigate to={safeInternalPath(searchParams.get("next")) ?? AUTH_ROUTES.app} replace />;
+  }
+
+  if (stage === "mfa_required") {
+    return <Navigate to={mfaChallengePath()} replace />;
+  }
+
+  return <AuthForm />;
+}
+
+/**
  * App refatorado com fluxo simplificado
- * 
+ *
+ * Jornada canônica:
+ *   Landing → Cadastro → /verificar-email → Login → /pricing → Checkout → /sistema
+ *
  * Casos de uso:
- * - C1: Cadastro → /pricing
+ * - C1: Cadastro com confirmação de e-mail ligada → /verificar-email
+ * - C1b: Cadastro com confirmação desligada (sessão já criada) → /pricing
  * - C2: Login com plano ativo → /sistema
  * - C3: Login com plano inativo → /pricing
  * - C4: Acesso /sistema com plano ativo → /sistema
  * - C5: Acesso /sistema sem plano → /pricing (via SubscriptionGuard)
  * - C6: /pricing não autenticado → visualiza
- * - C7: /pricing clica plano sem auth → /login
+ * - C7: /pricing clica plano sem auth → /login?next=/pricing (e volta para cá)
  * - C8: Login com MFA (sessão aal1 + TOTP verificado) → /login/verificacao;
  *       nenhuma rota protegida abre antes do código (aal2)
  * - C9: Link de recuperação → /redefinir-senha (pública, independe de sessão)
+ * - C10: Link de confirmação do cadastro → /verificar-email (pública, com ou
+ *        sem sessão: a própria tela troca o código e segue para os planos)
  */
 const App = () => {
   // `mfa_required` = senha certa, código pendente. Conta como NÃO autenticado
@@ -150,6 +204,11 @@ const App = () => {
               <Route path={AUTH_ROUTES.forgotPassword} element={<ForgotPassword />} />
               <Route path={AUTH_ROUTES.resetPassword} element={<ResetPassword />} />
 
+              {/* Confirmação do cadastro — sempre acessível. É a tela de espera
+                  logo depois do signUp E o destino do link do e-mail, que pode
+                  chegar com sessão (mesmo navegador) ou sem (celular). */}
+              <Route path={AUTH_ROUTES.verifyEmail} element={<VerifyEmail />} />
+
               {/* Segunda etapa do login (TOTP). Sem sessão volta ao login; já em
                   aal2 a própria tela segue para o destino. */}
               <Route
@@ -174,25 +233,10 @@ const App = () => {
               <Route
                 path="/billing"
                 element={
-                  isAuthenticated ? (
-                    <Billing />
-                  ) : (
-                    <Navigate to={mfaPending ? mfaChallengePath() : "/login"} replace />
-                  )
+                  isAuthenticated ? <Billing /> : <SignedOutRedirect stage={stage} />
                 }
               />
-              <Route 
-                path="/login" 
-                element={
-                  isAuthenticated ? (
-                    <Navigate to="/sistema" replace />
-                  ) : mfaPending ? (
-                    <Navigate to={mfaChallengePath()} replace />
-                  ) : (
-                    <AuthForm />
-                  )
-                } 
-              />
+              <Route path={AUTH_ROUTES.login} element={<LoginRoute stage={stage} />} />
 
               {/* Atalhos curtos dos módulos de planejamento. */}
               <Route path="/budgets" element={<Navigate to="/sistema/budgets" replace />} />
@@ -226,7 +270,7 @@ const App = () => {
                       <AppLayout onLogout={handleLogout} />
                     </SubscriptionGuard>
                   ) : (
-                    <Navigate to={mfaPending ? mfaChallengePath() : "/login"} replace />
+                    <SignedOutRedirect stage={stage} />
                   )
                 }
               >

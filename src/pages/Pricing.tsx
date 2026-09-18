@@ -16,6 +16,8 @@ import { usePayment } from "@/hooks/use-payment";
 import { PaymentDialog } from "@/components/payment";
 import { LegalLinksInline, SubscriptionConsentDialog } from "@/components/legal";
 import { recordLegalConsent } from "@/lib/legal";
+import { AUTH_ROUTES, loginPath } from "@/lib/auth/redirect";
+import { requireSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
 
 /**
@@ -23,9 +25,24 @@ import { cn } from "@/lib/utils";
  *
  * Casos de uso:
  * - C6: Usuario nao autenticado pode visualizar planos
- * - C7: Usuario nao autenticado clica em plano -> /login (salva plano)
+ * - C7: Usuario nao autenticado clica em plano -> /login?next=/pricing (salva plano)
  * - C1: Usuario autenticado sem plano ativo -> pode selecionar plano
  * - C3: Usuario autenticado com plano inativo -> pode renovar/mudar
+ *
+ * ROTA HIBRIDA. Esta e a unica tela publica que tambem e usada por quem ja
+ * esta logado, e o bug de roteamento nascia exatamente dai: a selecao de plano
+ * decidia "tem sessao?" com um unico `supabase.auth.getSession()`. Esse metodo
+ * devolve `null` em situacoes transitorias (token expirando, refresh em voo,
+ * Web Lock `orbi-auth` ocupado por uma chamada anterior de `auth.updateUser` —
+ * que e justamente o que `recordLegalConsent` faz um passo antes da cobranca).
+ * O `null` virava `navigate('/login')`; o App via a sessao viva e mandava para
+ * `/sistema`; o SubscriptionGuard, sem plano, mandava de volta para `/pricing`.
+ * Tres rotas piscando com o dialogo de checkout aberto.
+ *
+ * Agora: a sessao e lida por `requireSession()` (getSession -> refreshSession ->
+ * getUser), a autenticacao da tela acompanha `onAuthStateChange` em vez de uma
+ * unica leitura na montagem, e o meio do checkout NUNCA ejeta para o login —
+ * na pior hipotese explica o que houve e mantem a pessoa aqui.
  *
  * Design: uma coluna editorial de cabecalho + trilha de cartoes. O plano em
  * destaque e marcado por uma regua de 1px e um rotulo — nao por escala e
@@ -75,6 +92,8 @@ export default function Pricing() {
   const [userActivePlan, setUserActivePlan] = useState<string | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
+  /** `requireSession()` pode ir à rede (refresh/getUser): o botão diz isso. */
+  const [isCheckingSession, setIsCheckingSession] = useState(false);
 
   /**
    * Plano pago aguardando confirmacao + aceite legal. Nenhuma cobranca e
@@ -94,6 +113,25 @@ export default function Pricing() {
 
   const formatPrice = (price: number) =>
     new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(price);
+
+  /**
+   * Guarda a intencao de assinatura enquanto a pessoa passa pelo login.
+   * Um lugar so: era duplicado em `requestPlan` e `handleSelectPlan`, e os dois
+   * podiam divergir no ciclo de cobranca gravado.
+   */
+  const rememberSelectedPlan = useCallback(
+    ({ planId, planSlug, isFree }: { planId: string; planSlug: string; isFree: boolean }) => {
+      try {
+        localStorage.setItem(
+          'orbi_selected_plan',
+          JSON.stringify({ planId, planSlug, billingCycle, isFree, timestamp: Date.now() }),
+        );
+      } catch {
+        /* storage bloqueado: a pessoa so precisa reescolher o plano depois do login */
+      }
+    },
+    [billingCycle],
+  );
 
   const calculateYearlySavings = (monthly: number, yearly: number) => {
     const yearlyCost = monthly * 12;
@@ -168,9 +206,10 @@ export default function Pricing() {
    * Manipula selecao de plano
    *
    * Fluxo:
-   * 1. Se nao autenticado -> salvar plano e redirecionar para /login (C7)
-   * 2. Se autenticado e ja tem plano ativo -> avisar
-   * 3. Se autenticado sem plano -> ativar plano (gratuito) ou ir para pagamento
+   * 1. Sessao expirada no meio do aceite -> guarda o plano e avisa AQUI; nunca
+   *    navega para /login com o dialogo aberto (era a origem do loop de rotas)
+   * 2. Se ja tem esse plano ativo -> avisa
+   * 3. Caso contrario -> ativa o gratuito ou abre a cobranca no Asaas
    */
   const handleSelectPlan = useCallback(async (
     planId: string,
@@ -181,25 +220,22 @@ export default function Pricing() {
     setIsProcessing(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      // `requestPlan` ja garantiu a sessao antes de abrir o dialogo. Aqui a
+      // leitura e so para confirmar que ela seguiu viva durante o aceite — e,
+      // se realmente expirou, a saida NAO e ejetar no meio do checkout: o plano
+      // fica guardado e a pessoa recebe uma instrucao clara, nesta mesma tela.
+      const session = await requireSession();
 
       if (!session) {
-        localStorage.setItem('orbi_selected_plan', JSON.stringify({
-          planId,
-          planSlug,
-          billingCycle,
-          isFree,
-          timestamp: Date.now()
-        }));
+        rememberSelectedPlan({ planId, planSlug, isFree });
 
         toast({
-          title: "Login necessário",
-          description: isFree
-            ? "Faça login ou crie uma conta para ativar seu plano gratuito."
-            : "Faça login ou crie uma conta para continuar com a assinatura.",
+          title: "Sua sessão expirou",
+          description: "Entre de novo — guardamos o plano escolhido e voltamos para cá.",
+          variant: "destructive",
         });
 
-        navigate('/login');
+        setShowConsentDialog(false);
         return;
       }
 
@@ -222,7 +258,7 @@ export default function Pricing() {
         });
 
         setUserActivePlan(planId);
-        navigate('/sistema', { replace: true });
+        navigate(AUTH_ROUTES.app, { replace: true });
         return;
       }
 
@@ -233,7 +269,7 @@ export default function Pricing() {
 
       if (result.success && result.free_plan) {
         await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
-        navigate('/sistema', { replace: true });
+        navigate(AUTH_ROUTES.app, { replace: true });
         return;
       }
 
@@ -250,7 +286,7 @@ export default function Pricing() {
     } finally {
       setIsProcessing(false);
     }
-  }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan]);
+  }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan, rememberSelectedPlan]);
 
   /**
    * Porta de entrada da selecao de plano.
@@ -264,16 +300,16 @@ export default function Pricing() {
     isFree: boolean,
     price: number,
   ) => {
-    const { data: { session } } = await supabase.auth.getSession();
+    setIsCheckingSession(true);
+    let session;
+    try {
+      session = await requireSession();
+    } finally {
+      setIsCheckingSession(false);
+    }
 
     if (!session) {
-      localStorage.setItem('orbi_selected_plan', JSON.stringify({
-        planId: plan.id,
-        planSlug: plan.slug,
-        billingCycle,
-        isFree,
-        timestamp: Date.now()
-      }));
+      rememberSelectedPlan({ planId: plan.id, planSlug: plan.slug, isFree });
 
       toast({
         title: "Login necessário",
@@ -282,7 +318,10 @@ export default function Pricing() {
           : "Faça login ou crie uma conta para continuar com a assinatura.",
       });
 
-      navigate('/login');
+      // `next=/pricing`: depois do login a pessoa volta para cá, e o plano
+      // guardado reabre o dialogo sozinho. Nunca `/login` pelado, que devolvia
+      // todo mundo para `/sistema` e disparava o pingue-pongue de rotas.
+      navigate(loginPath(AUTH_ROUTES.pricing));
       return;
     }
 
@@ -302,7 +341,7 @@ export default function Pricing() {
 
     setPendingPlan({ id: plan.id, slug: plan.slug, name: plan.name, price });
     setShowConsentDialog(true);
-  }, [billingCycle, handleSelectPlan, navigate, toast, userActivePlan]);
+  }, [handleSelectPlan, navigate, toast, userActivePlan, rememberSelectedPlan]);
 
   /** Aceite confirmado: registra a prova do consentimento e cobra. */
   const handleConfirmSubscription = useCallback(async ({ cpfCnpj }: { cpfCnpj: string }) => {
@@ -319,24 +358,51 @@ export default function Pricing() {
     setPendingPlan(null);
   }, [pendingPlan, billingCycle, handleSelectPlan]);
 
-  /** Verificar estado do usuario ao carregar a pagina */
+  /**
+   * Estado do usuario na tela.
+   *
+   * Uma leitura unica na montagem envelhecia: logar em outra aba, renovar o
+   * token ou sair deixava esta tela mostrando o cabecalho errado e decidindo
+   * por um `isAuthenticated` de minutos atras. Agora a fonte e o proprio fluxo
+   * de eventos do supabase-js, com `requireSession()` para o primeiro valor.
+   */
   useEffect(() => {
-    const checkUserState = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+    let active = true;
 
-      setIsAuthenticated(true);
-
+    const loadActivePlan = async () => {
       const { data, error } = await supabase.rpc('get_my_subscription_status');
-      if (error) return;
+      if (!active || error) return;
 
       const status = data as any;
-      if (status?.access === 'allowed' && status?.plan_id) {
-        setUserActivePlan(status.plan_id);
-      }
+      setUserActivePlan(status?.access === 'allowed' && status?.plan_id ? status.plan_id : null);
     };
 
-    checkUserState();
+    void requireSession().then((session) => {
+      if (!active) return;
+      setIsAuthenticated(Boolean(session));
+      if (session) void loadActivePlan();
+    });
+
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!active) return;
+      setIsAuthenticated(Boolean(session));
+
+      if (!session) {
+        setUserActivePlan(null);
+        return;
+      }
+
+      // Fora do callback: qualquer chamada ao supabase-js aqui dentro disputa
+      // o Web Lock interno de auth e pode travar a propria renovacao do token.
+      window.setTimeout(() => {
+        if (active) void loadActivePlan();
+      }, 0);
+    });
+
+    return () => {
+      active = false;
+      listener.subscription.unsubscribe();
+    };
   }, []);
 
   /** Processar plano salvo apos login */
@@ -435,16 +501,25 @@ export default function Pricing() {
               <ThemeToggle />
               {isAuthenticated ? (
                 userActivePlan ? (
-                  <Button size="sm" onClick={() => navigate('/sistema')}>
+                  <Button size="sm" onClick={() => navigate(AUTH_ROUTES.app)}>
                     Acessar Sistema
                   </Button>
                 ) : (
-                  <Button variant="outline" size="sm" onClick={() => navigate('/sistema')}>
-                    Minha conta
+                  // Sem plano, "Minha conta" apontava para /sistema — e o
+                  // SubscriptionGuard devolvia para cá na hora. Botão que só
+                  // pisca a tela não é botão.
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      void supabase.auth.signOut();
+                    }}
+                  >
+                    Sair
                   </Button>
                 )
               ) : (
-                <Button variant="outline" size="sm" onClick={() => navigate('/login')}>
+                <Button variant="outline" size="sm" onClick={() => navigate(loginPath(AUTH_ROUTES.pricing))}>
                   Entrar
                 </Button>
               )}
@@ -651,10 +726,12 @@ export default function Pricing() {
                         isFree,
                         price,
                       )}
-                      disabled={isProcessing || isUserCurrentPlan || isPaymentLoading}
+                      disabled={isProcessing || isUserCurrentPlan || isPaymentLoading || isCheckingSession}
                     >
                       {isUserCurrentPlan
                         ? 'Plano atual'
+                        : isCheckingSession
+                        ? 'Só um instante…'
                         : (isProcessing || isPaymentLoading)
                         ? 'Processando…'
                         : isUpgrade

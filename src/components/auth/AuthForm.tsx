@@ -1,5 +1,9 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Controller, useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { CircleAlert, Loader2 } from "lucide-react";
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,95 +18,140 @@ import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/co
 import { cn } from "@/lib/utils";
 import { AUTH_ROUTES } from "@/lib/auth/redirect";
 import { TurnstileField } from "@/components/auth/TurnstileField";
+import { PasswordField, PasswordMatchHint, PasswordStrengthHint } from "@/components/auth/PasswordField";
+import { EmailNotConfirmedDialog } from "@/components/auth/EmailNotConfirmedDialog";
 import { useTurnstile } from "@/hooks/use-turnstile";
+import { evaluatePassword } from "@/lib/password-strength";
+import {
+  LOGIN_DEFAULTS,
+  loginSchema,
+  normalizeEmail,
+  REGISTER_DEFAULTS,
+  registerSchema,
+  type LoginValues,
+  type RegisterValues,
+} from "@/lib/validation/auth-forms";
 
 /** Item do segmented control: o fundo ativo é do thumb, não do item. */
 const segmentTrigger =
   "data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none";
 
 /**
- * Formulário de autenticação simplificado
- * Usa o hook useAuth para toda lógica de login/cadastro e redirecionamento
+ * Erro de campo. Entra em 250ms com o ícone — o olho encontra o problema
+ * pelo movimento, não por varrer o formulário procurando texto vermelho.
+ */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p
+      id={id}
+      role="alert"
+      className="flex items-start gap-1.5 text-xs font-medium text-destructive motion-safe:animate-fade-in"
+    >
+      <CircleAlert className="mt-px h-3.5 w-3.5 shrink-0" aria-hidden />
+      <span className="leading-relaxed">{message}</span>
+    </p>
+  );
+}
+
+/**
+ * Login e cadastro.
+ *
+ * Validação em Zod + React Hook Form (`@/lib/validation/auth-forms`), com
+ * `mode: "onTouched"`: nada acusa erro enquanto a pessoa ainda digita pela
+ * primeira vez, e a partir do primeiro blur o campo passa a corrigir sozinho.
+ *
+ * O cadastro tem confirmação de senha (`.refine` no schema), medidor de força
+ * e o aceite legal explícito. O login intercepta `email_not_confirmed` e abre
+ * um diálogo com reenvio em vez de um toast sem saída.
  */
 export function AuthForm() {
-  const [isLoading, setIsLoading] = useState(false);
   const { theme } = useTheme();
   const [searchParams] = useSearchParams();
   const [activeTab, setActiveTab] = useState<"login" | "register">(() =>
     searchParams.get("modo") === "cadastro" ? "register" : "login",
   );
-  const { login, register } = useAuth();
+  const { login, register: registerAccount } = useAuth();
   const navigate = useNavigate();
+
   // Um widget por aba: o Radix desmonta a aba inativa, então cada formulário tem seu próprio token.
   const loginCaptcha = useTurnstile();
   const registerCaptcha = useTurnstile();
+
+  const [unconfirmedEmail, setUnconfirmedEmail] = useState<string | null>(null);
+
+  const loginForm = useForm<LoginValues>({
+    resolver: zodResolver(loginSchema),
+    defaultValues: LOGIN_DEFAULTS,
+    mode: "onTouched",
+  });
+
+  const registerForm = useForm<RegisterValues>({
+    resolver: zodResolver(registerSchema),
+    defaultValues: REGISTER_DEFAULTS,
+    mode: "onTouched",
+  });
+
+  const watchedPassword = registerForm.watch("password");
+  const watchedConfirm = registerForm.watch("confirmPassword");
+  const watchedEmail = registerForm.watch("email");
+  const evaluation = useMemo(() => evaluatePassword(watchedPassword, watchedEmail), [watchedPassword, watchedEmail]);
 
   /** Leva o e-mail já digitado para a tela de recuperação (via state, nunca na URL). */
   const goToForgotPassword = (event: React.MouseEvent<HTMLAnchorElement>) => {
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
     event.preventDefault();
-    const email = (document.getElementById("email") as HTMLInputElement | null)?.value?.trim() ?? "";
+    const email = loginForm.getValues("email").trim();
     navigate(AUTH_ROUTES.forgotPassword, { state: email ? { email } : undefined });
   };
 
-  /**
-   * Aceite legal do cadastro (LGPD art. 8º): estado próprio, SEMPRE iniciado
-   * como `false`. Não há caminho no código que marque isso automaticamente —
-   * só o clique do titular. O envio é bloqueado enquanto for `false`.
-   */
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
-  const [consentError, setConsentError] = useState<string | null>(null);
-
-  const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
+  const onLogin = async (values: LoginValues) => {
     if (loginCaptcha.blocking) return;
-    setIsLoading(true);
-    
-    const form = event.currentTarget;
-    const email = (form.querySelector('#email') as HTMLInputElement)?.value;
-    const password = (form.querySelector('#password') as HTMLInputElement)?.value;
-    
+    const email = normalizeEmail(values.email);
+
     try {
-      await login(email, password, loginCaptcha.captchaToken);
+      await login(email, values.password, loginCaptcha.captchaToken, {
+        onEmailNotConfirmed: (target) => setUnconfirmedEmail(target),
+      });
     } finally {
       // Token Turnstile é de uso único: queimado com sucesso ou erro.
       loginCaptcha.reset();
-      setIsLoading(false);
     }
   };
 
-  const handleRegister = async (event: React.FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-
-    // Validação do aceite antes de qualquer chamada de rede.
-    if (!acceptedTerms) {
-      setConsentError("Para criar sua conta, aceite os Termos de Uso e a Política de Privacidade.");
-      return;
-    }
-
+  const onRegister = async (values: RegisterValues) => {
     if (registerCaptcha.blocking) return;
 
-    setConsentError(null);
-    setIsLoading(true);
-    
-    const form = event.currentTarget;
-    const email = (form.querySelector('#register-email') as HTMLInputElement)?.value;
-    const password = (form.querySelector('#register-password') as HTMLInputElement)?.value;
-    const fullName = (form.querySelector('#register-name') as HTMLInputElement)?.value;
-
     try {
-      await register(email, password, fullName, registerCaptcha.captchaToken);
+      await registerAccount(
+        normalizeEmail(values.email),
+        values.password,
+        values.fullName.trim(),
+        registerCaptcha.captchaToken,
+      );
     } finally {
       registerCaptcha.reset();
-      setIsLoading(false);
     }
   };
+
+  const loginBusy = loginForm.formState.isSubmitting;
+  const registerBusy = registerForm.formState.isSubmitting;
+  const { errors: loginErrors } = loginForm.formState;
+  const { errors: registerErrors } = registerForm.formState;
 
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
       <div className="absolute right-4 top-4">
         <ThemeToggle />
       </div>
+
+      <EmailNotConfirmedDialog
+        open={unconfirmedEmail !== null}
+        onOpenChange={(open) => !open && setUnconfirmedEmail(null)}
+        email={unconfirmedEmail ?? ""}
+        captchaToken={loginCaptcha.captchaToken}
+      />
+
       <Card variant="elevated" className="w-full max-w-md animate-rise">
         <CardHeader className="items-center gap-1 pb-5 text-center">
           <h1 className="sr-only">Entrar ou criar conta no Orbi</h1>
@@ -121,7 +170,7 @@ export function AuthForm() {
             Gerencie suas finanças de forma inteligente
           </CardDescription>
         </CardHeader>
-        
+
         <CardContent>
           <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "login" | "register")}>
             {/* Segmented control com thumb deslizante. Uma única superfície de
@@ -147,18 +196,30 @@ export function AuthForm() {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="login">
-              <form onSubmit={handleLogin} className="space-y-4">
+            {/* ------------------------------------------------------------- */}
+            {/* Entrar                                                         */}
+            {/* ------------------------------------------------------------- */}
+            <TabsContent value="login" className="motion-safe:animate-fade-in">
+              <form onSubmit={loginForm.handleSubmit(onLogin)} noValidate className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="email">E-mail</Label>
                   <Input
                     id="email"
                     type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={254}
                     placeholder="seu@email.com"
-                    required
+                    aria-invalid={loginErrors.email ? true : undefined}
+                    aria-describedby={loginErrors.email ? "email-error" : undefined}
+                    disabled={loginBusy}
+                    {...loginForm.register("email")}
                   />
+                  <FieldError id="email-error" message={loginErrors.email?.message} />
                 </div>
-                
+
                 <div className="space-y-2">
                   <div className="flex items-baseline justify-between gap-3">
                     <Label htmlFor="password">Senha</Label>
@@ -175,18 +236,23 @@ export function AuthForm() {
                     type="password"
                     autoComplete="current-password"
                     placeholder="••••••••"
-                    required
+                    aria-invalid={loginErrors.password ? true : undefined}
+                    aria-describedby={loginErrors.password ? "password-error" : undefined}
+                    disabled={loginBusy}
+                    {...loginForm.register("password")}
                   />
+                  <FieldError id="password-error" message={loginErrors.password?.message} />
                 </div>
 
                 <TurnstileField {...loginCaptcha.fieldProps} action="login" />
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
-                  disabled={isLoading || loginCaptcha.blocking}
+                  disabled={loginBusy || loginCaptcha.blocking}
                 >
-                  {isLoading ? "Entrando..." : loginCaptcha.blocking ? "Verificando conexão…" : "Entrar"}
+                  {loginBusy && <Loader2 className="animate-spin" aria-hidden />}
+                  {loginBusy ? "Entrando..." : loginCaptcha.blocking ? "Verificando conexão…" : "Entrar"}
                 </Button>
 
                 {/* Disclaimer sutil: informa sem pedir novo opt-in — o aceite
@@ -195,16 +261,25 @@ export function AuthForm() {
               </form>
             </TabsContent>
 
-            <TabsContent value="register">
-              <form onSubmit={handleRegister} className="space-y-4">
+            {/* ------------------------------------------------------------- */}
+            {/* Criar conta                                                    */}
+            {/* ------------------------------------------------------------- */}
+            <TabsContent value="register" className="motion-safe:animate-fade-in">
+              <form onSubmit={registerForm.handleSubmit(onRegister)} noValidate className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="register-name">Nome Completo</Label>
                   <Input
                     id="register-name"
                     type="text"
+                    autoComplete="name"
+                    maxLength={80}
                     placeholder="Seu nome completo"
-                    required
+                    aria-invalid={registerErrors.fullName ? true : undefined}
+                    aria-describedby={registerErrors.fullName ? "register-name-error" : undefined}
+                    disabled={registerBusy}
+                    {...registerForm.register("fullName")}
                   />
+                  <FieldError id="register-name-error" message={registerErrors.fullName?.message} />
                 </div>
 
                 <div className="space-y-2">
@@ -212,45 +287,81 @@ export function AuthForm() {
                   <Input
                     id="register-email"
                     type="email"
+                    inputMode="email"
+                    autoComplete="email"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    maxLength={254}
                     placeholder="seu@email.com"
-                    required
+                    aria-invalid={registerErrors.email ? true : undefined}
+                    aria-describedby={registerErrors.email ? "register-email-error" : undefined}
+                    disabled={registerBusy}
+                    {...registerForm.register("email")}
                   />
-                </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="register-password">Senha</Label>
-                  <Input
-                    id="register-password"
-                    type="password"
-                    placeholder="••••••••"
-                    required
-                    minLength={8}
-                    maxLength={72}
-                    autoComplete="new-password"
-                  />
-                  <p className="text-xs text-muted-foreground">Mínimo de 8 caracteres, com letras e números</p>
+                  <FieldError id="register-email-error" message={registerErrors.email?.message} />
                 </div>
 
-                <LegalConsentCheckbox
-                  id="register-legal-consent"
-                  checked={acceptedTerms}
-                  onCheckedChange={(value) => {
-                    setAcceptedTerms(value);
-                    if (value) setConsentError(null);
-                  }}
-                  error={consentError}
-                  disabled={isLoading}
-                  className="pt-1"
+                <PasswordField
+                  id="register-password"
+                  label="Senha"
+                  autoComplete="new-password"
+                  maxLength={128}
+                  placeholder="••••••••"
+                  disabled={registerBusy}
+                  error={registerErrors.password?.message ?? null}
+                  hint={<PasswordStrengthHint evaluation={evaluation} />}
+                  {...registerForm.register("password")}
+                />
+
+                {/* Repita a senha: o erro de divergência vem do `.refine` do
+                    schema; o acerto vira confirmação verde imediata. */}
+                <PasswordField
+                  id="register-confirm-password"
+                  label="Repita a senha"
+                  autoComplete="new-password"
+                  maxLength={128}
+                  placeholder="••••••••"
+                  disabled={registerBusy}
+                  error={registerErrors.confirmPassword?.message ?? null}
+                  hint={
+                    <PasswordMatchHint
+                      matches={watchedConfirm.length > 0 && watchedConfirm === watchedPassword}
+                    />
+                  }
+                  {...registerForm.register("confirmPassword")}
+                />
+
+                <Controller
+                  control={registerForm.control}
+                  name="acceptedTerms"
+                  render={({ field }) => (
+                    <LegalConsentCheckbox
+                      id="register-legal-consent"
+                      checked={field.value}
+                      onCheckedChange={(value) => {
+                        field.onChange(value);
+                        if (value) registerForm.clearErrors("acceptedTerms");
+                      }}
+                      error={registerErrors.acceptedTerms?.message ?? null}
+                      disabled={registerBusy}
+                      className="pt-1"
+                    />
+                  )}
                 />
 
                 <TurnstileField {...registerCaptcha.fieldProps} action="signup" />
 
-                <Button 
-                  type="submit" 
+                <Button
+                  type="submit"
                   className="w-full"
-                  disabled={isLoading || !acceptedTerms || registerCaptcha.blocking}
+                  disabled={registerBusy || registerCaptcha.blocking}
                 >
-                  {isLoading ? "Criando conta..." : registerCaptcha.blocking ? "Verificando conexão…" : "Criar Conta"}
+                  {registerBusy && <Loader2 className="animate-spin" aria-hidden />}
+                  {registerBusy
+                    ? "Criando conta..."
+                    : registerCaptcha.blocking
+                      ? "Verificando conexão…"
+                      : "Criar Conta"}
                 </Button>
               </form>
             </TabsContent>
