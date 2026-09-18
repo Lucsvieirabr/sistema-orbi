@@ -82,7 +82,6 @@ export function evaluatePassword(password: string, email?: string | null): Passw
   const rules: PasswordRule[] = [
     { id: "length", label: `${PASSWORD_MIN_LENGTH} caracteres ou mais`, met: password.length >= PASSWORD_MIN_LENGTH },
     { id: "letters_numbers", label: "Letras e números", met: hasLetter && hasDigit },
-    { id: "not_email", label: "Sem o seu e-mail", met: password.length > 0 && !containsEmail },
   ];
 
   const tooLong = password.length > PASSWORD_MAX_LENGTH;
@@ -93,8 +92,6 @@ export function evaluatePassword(password: string, email?: string | null): Passw
   else if (tooLong) error = `Use no máximo ${PASSWORD_MAX_LENGTH} caracteres.`;
   else if (!rules[0].met) error = `A senha precisa de pelo menos ${PASSWORD_MIN_LENGTH} caracteres.`;
   else if (!rules[1].met) error = "Combine letras e números.";
-  else if (!rules[2].met) error = "A senha não pode conter o seu e-mail.";
-
   if (password.length === 0) {
     return { score: 0, label: SCORE_LABEL[0], rules, isValid: false, error };
   }

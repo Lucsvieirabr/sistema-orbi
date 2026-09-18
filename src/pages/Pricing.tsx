@@ -90,6 +90,12 @@ export default function Pricing() {
   const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('yearly');
   const [isProcessing, setIsProcessing] = useState(false);
   const [userActivePlan, setUserActivePlan] = useState<string | null>(null);
+  /**
+   * Ciclo da assinatura ativa (`billing_cycle` de get_my_subscription_status).
+   * Sem ele, "plano atual" era só o id do plano e o botão ficava desabilitado
+   * para quem queria trocar mensal <-> anual do mesmo plano.
+   */
+  const [userBillingCycle, setUserBillingCycle] = useState<'monthly' | 'yearly' | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   /** `requireSession()` pode ir à rede (refresh/getUser): o botão diz isso. */
@@ -131,6 +137,18 @@ export default function Pricing() {
       }
     },
     [billingCycle],
+  );
+
+  /**
+   * Plano atual = mesmo plano E mesmo ciclo de faturamento. Plano gratuito não
+   * tem ciclo (preço 0 nos dois), então o id basta; assinatura sem ciclo
+   * conhecido também cai nesse caso para não travar o botão.
+   */
+  const isCurrentPlanAndCycle = useCallback(
+    (planId: string, planIsFree: boolean) =>
+      userActivePlan === planId &&
+      (planIsFree || !userBillingCycle || userBillingCycle === billingCycle),
+    [userActivePlan, userBillingCycle, billingCycle],
   );
 
   const calculateYearlySavings = (monthly: number, yearly: number) => {
@@ -239,7 +257,7 @@ export default function Pricing() {
         return;
       }
 
-      if (userActivePlan === planId) {
+      if (isCurrentPlanAndCycle(planId, isFree)) {
         toast({
           title: "Você já tem este plano ativo",
           description: "Este é o seu plano atual.",
@@ -258,6 +276,7 @@ export default function Pricing() {
         });
 
         setUserActivePlan(planId);
+        setUserBillingCycle(null); // gratuito não tem ciclo de cobrança
         navigate(AUTH_ROUTES.app, { replace: true });
         return;
       }
@@ -286,7 +305,7 @@ export default function Pricing() {
     } finally {
       setIsProcessing(false);
     }
-  }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, userActivePlan, rememberSelectedPlan]);
+  }, [billingCycle, queryClient, toast, navigate, activateFreePlan, createPayment, isCurrentPlanAndCycle, rememberSelectedPlan]);
 
   /**
    * Porta de entrada da selecao de plano.
@@ -325,7 +344,7 @@ export default function Pricing() {
       return;
     }
 
-    if (userActivePlan === plan.id) {
+    if (isCurrentPlanAndCycle(plan.id, isFree)) {
       toast({
         title: "Você já tem este plano ativo",
         description: "Este é o seu plano atual.",
@@ -341,7 +360,7 @@ export default function Pricing() {
 
     setPendingPlan({ id: plan.id, slug: plan.slug, name: plan.name, price });
     setShowConsentDialog(true);
-  }, [handleSelectPlan, navigate, toast, userActivePlan, rememberSelectedPlan]);
+  }, [handleSelectPlan, navigate, toast, isCurrentPlanAndCycle, rememberSelectedPlan]);
 
   /** Aceite confirmado: registra a prova do consentimento e cobra. */
   const handleConfirmSubscription = useCallback(async ({ cpfCnpj }: { cpfCnpj: string }) => {
@@ -374,7 +393,14 @@ export default function Pricing() {
       if (!active || error) return;
 
       const status = data as any;
-      setUserActivePlan(status?.access === 'allowed' && status?.plan_id ? status.plan_id : null);
+      const allowed = status?.access === 'allowed' && status?.plan_id;
+      setUserActivePlan(allowed ? status.plan_id : null);
+      // 'annual' é aceito pelo backend como sinônimo de 'yearly'; null = sem ciclo.
+      setUserBillingCycle(
+        allowed && status?.billing_cycle
+          ? (status.billing_cycle === 'monthly' ? 'monthly' : 'yearly')
+          : null,
+      );
     };
 
     void requireSession().then((session) => {
@@ -389,6 +415,7 @@ export default function Pricing() {
 
       if (!session) {
         setUserActivePlan(null);
+        setUserBillingCycle(null);
         return;
       }
 
@@ -575,16 +602,19 @@ export default function Pricing() {
               const savings = billingCycle === 'yearly' && plan.price_yearly > 0
                 ? calculateYearlySavings(plan.price_monthly, plan.price_yearly)
                 : null;
-              const isUserCurrentPlan = userActivePlan === plan.id;
               const isFree = plan.price_monthly === 0 && plan.price_yearly === 0;
+              // Mesmo plano + mesmo ciclo. Mesmo plano em ciclo diferente vira
+              // troca de ciclo (botão habilitado), não "plano atual".
+              const isUserCurrentPlan = isCurrentPlanAndCycle(plan.id, isFree);
+              const isCycleSwitch = userActivePlan === plan.id && !isUserCurrentPlan;
 
               const currentPlan = sortedPlans.find(p => p.id === userActivePlan);
               const currentPlanPrice = currentPlan
                 ? (billingCycle === 'yearly' ? currentPlan.price_yearly : currentPlan.price_monthly)
                 : 0;
               const thisPlanPrice = billingCycle === 'yearly' ? plan.price_yearly : plan.price_monthly;
-              const isUpgrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice > currentPlanPrice;
-              const isDowngrade = userActivePlan && !isUserCurrentPlan && thisPlanPrice < currentPlanPrice;
+              const isUpgrade = userActivePlan && !isUserCurrentPlan && !isCycleSwitch && thisPlanPrice > currentPlanPrice;
+              const isDowngrade = userActivePlan && !isUserCurrentPlan && !isCycleSwitch && thisPlanPrice < currentPlanPrice;
 
               const featured = !isUserCurrentPlan && plan.is_featured;
               const freeMonths = savings
@@ -734,6 +764,8 @@ export default function Pricing() {
                         ? 'Só um instante…'
                         : (isProcessing || isPaymentLoading)
                         ? 'Processando…'
+                        : isCycleSwitch
+                        ? `Mudar para o ${billingCycle === 'yearly' ? 'anual' : 'mensal'}`
                         : isUpgrade
                         ? `Fazer upgrade para ${plan.name}`
                         : isDowngrade

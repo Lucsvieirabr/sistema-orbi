@@ -541,7 +541,7 @@ function MonthlyStatementContent() {
     setValue(0);
     setDescription("");
     setDate(getCurrentDateString());
-    setIsFixed(type === "fixed"); // Ativa automaticamente para tipo fixo
+    setIsFixed(false); // Sempre limpo: evita parcelada herdar "Fixo" do formulário anterior
     setFixedType("expense"); // Define gasto como padrão para tipo fixo
     setFrequency("monthly");
     setEndDate("");
@@ -1083,6 +1083,26 @@ function MonthlyStatementContent() {
       }
 
       // Validação específica por tipo
+      if (type === "transfer") {
+        // Descrição e valor já foram validados acima (obrigatórios / > 0).
+        if (!fromAccountId || !toAccountId) {
+          toast({
+            title: "Erro",
+            description: "Selecione a conta de origem e a de destino",
+            variant: "destructive",
+          });
+          return;
+        }
+        if (fromAccountId === toAccountId) {
+          toast({
+            title: "Erro",
+            description: "A conta de destino deve ser diferente da de origem",
+            variant: "destructive",
+          });
+          return;
+        }
+      }
+
       if (type === "fixed") {
         // Validar método de pagamento para transações fixas
         if (paymentMethod === "debit" && !accountId) {
@@ -1291,8 +1311,58 @@ function MonthlyStatementContent() {
           const { data: user } = await supabase.auth.getUser();
           if (!user.user) throw new Error("Usuário não autenticado");
 
-          // Se for empréstimo ou rateio, criar transações compartilhadas
-          if (isLoan || (type === "expense" && isRateio)) {
+          if (type === "transfer") {
+            // Transferência = par de lançamentos ligados: saída na conta de
+            // origem + entrada na de destino. `transactions` não tem colunas
+            // from/to e as views de saldo só somam income/expense — um único
+            // registro type="transfer" não movimentava conta nenhuma.
+            const { data: outTxn, error: outError } = await supabase
+              .from("transactions")
+              .insert({
+                user_id: user.user.id,
+                type: "expense",
+                account_id: fromAccountId,
+                category_id: null,
+                value: payload.value,
+                description: payload.description,
+                date: payload.date,
+                payment_method: "debit",
+                credit_card_id: null,
+                status: payload.status,
+              })
+              .select("id")
+              .single();
+
+            if (outError) throw outError;
+
+            const { error: inError } = await supabase
+              .from("transactions")
+              .insert({
+                user_id: user.user.id,
+                type: "income",
+                account_id: toAccountId,
+                category_id: null,
+                value: payload.value,
+                description: payload.description,
+                date: payload.date,
+                payment_method: "debit",
+                credit_card_id: null,
+                status: payload.status,
+                linked_txn_id: outTxn.id,
+              });
+
+            if (inError) {
+              // Sem a entrada, a saída sozinha vira um gasto fantasma.
+              await supabase.from("transactions").delete().eq("id", outTxn.id);
+              throw inError;
+            }
+
+            toast({
+              title: "Sucesso",
+              description: "Transferência registrada",
+              duration: 2000,
+            });
+          } else if (isLoan || (type === "expense" && isRateio)) {
             // Buscar nome da pessoa para empréstimo
             if (isLoan && personId) {
               const { data: personData } = await supabase
@@ -1332,6 +1402,15 @@ function MonthlyStatementContent() {
           }
         }
       }
+      // Sucesso: só aqui o modal fecha, o formulário é limpo e os caches são
+      // invalidados. Falhas de validação (returns acima) e erros (catch)
+      // preservam os dados digitados.
+      setOpen(false);
+      resetForm();
+      queryClient.invalidateQueries({
+        queryKey: ["monthly-transactions", year, month],
+      });
+      queryClient.invalidateQueries({ queryKey: ["balances"] });
     } catch (e: any) {
       toast({
         title: "Erro",
@@ -1341,12 +1420,6 @@ function MonthlyStatementContent() {
       });
     } finally {
       setIsSubmitting(false);
-      setOpen(false);
-      resetForm();
-      queryClient.invalidateQueries({
-        queryKey: ["monthly-transactions", year, month],
-      });
-      queryClient.invalidateQueries({ queryKey: ["balances"] });
     }
   };
 
@@ -3109,8 +3182,17 @@ function MonthlyStatementContent() {
 
             {/* Campos principais com lógica de visibilidade dinâmica */}
             {type === "transfer" ? (
-              /* Transferência: Conta Origem + Conta Destino */
+              /* Transferência: Descrição + Conta Origem + Conta Destino + Valor */
               <div className="grid grid-cols-1 gap-3">
+                <div className="space-y-1">
+                  <Label className="text-xs lg:text-sm">Descrição</Label>
+                  <Input
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    placeholder="Ex: Transferência para poupança"
+                    className="h-8 lg:h-9"
+                  />
+                </div>
                 <div className="space-y-1">
                   <Label className="text-xs lg:text-sm">Conta de Origem</Label>
                   <SelectWithAddButton
@@ -3140,6 +3222,16 @@ function MonthlyStatementContent() {
                       </SelectItem>
                     ))}
                   </SelectWithAddButton>
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-xs lg:text-sm">Valor</Label>
+                  <NumericInput
+                    currency
+                    value={value}
+                    onChange={setValue}
+                    placeholder="0,00"
+                    className="h-8 lg:h-9"
+                  />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm">Data</Label>

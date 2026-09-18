@@ -12,6 +12,7 @@ import {
   asaasFetch,
   asaasId,
   findOrCreateCustomer,
+  isAsaasNotFound,
   normalizeBillingCycle,
   parseCpfCnpj,
   toAsaasCycle,
@@ -63,9 +64,47 @@ serve(async (req) => {
     if (!(amount > 0)) {
       const now = new Date()
 
+      // ----------------------------------------------------------------------
+      // DOWNGRADE PARA O PLANO GRATUITO
+      // ----------------------------------------------------------------------
+      // Antes só o banco era atualizado: a assinatura seguia viva no Asaas e o
+      // usuário continuava recebendo faturas de um plano que não tem mais.
+      // Encerra a recorrência no gateway ANTES de gravar. Se o DELETE falhar, o
+      // banco não é tocado e o usuário permanece no plano pago (estado
+      // consistente) em vez de ficar "free" sendo cobrado.
+      const { data: activeSubs, error: activeError } = await supabase
+        .from('user_subscriptions')
+        .select('id, asaas_subscription_id')
+        .eq('user_id', user.id)
+        .in('status', ACTIVE_STATUSES)
+
+      if (activeError) throw activeError
+
+      const gatewayIds = Array.from(
+        new Set(
+          (activeSubs ?? [])
+            .map((s) => s.asaas_subscription_id)
+            .filter((id): id is string => !!id),
+        ),
+      )
+
+      for (const subscriptionId of gatewayIds) {
+        try {
+          await asaasFetch(`/subscriptions/${asaasId(subscriptionId, 'subscription')}`, { method: 'DELETE' })
+        } catch (asaasError) {
+          // Já removida no gateway: segue o fluxo. Qualquer outra falha aborta.
+          if (!isAsaasNotFound(asaasError)) throw asaasError
+        }
+      }
+
       await supabase
         .from('user_subscriptions')
-        .update({ status: 'canceled', cancel_at_period_end: false, updated_at: now.toISOString() })
+        .update({
+          status: 'canceled',
+          cancel_at_period_end: false,
+          next_due_date: null,
+          updated_at: now.toISOString(),
+        })
         .eq('user_id', user.id)
         .in('status', ACTIVE_STATUSES)
 
@@ -83,7 +122,26 @@ serve(async (req) => {
         .single()
 
       if (error) throw error
-      return jsonFor(req, { success: true, free_plan: true, subscription: toPublicSubscription(data) })
+
+      if (gatewayIds.length) {
+        await supabase
+          .from('audit_logs')
+          .insert({
+            user_id: user.id,
+            action: 'subscription_downgraded_free',
+            entity_type: 'user_subscriptions',
+            entity_id: data.id,
+            metadata: { canceled_asaas_subscription_ids: gatewayIds },
+          })
+          .then(() => undefined, () => undefined)
+      }
+
+      return jsonFor(req, {
+        success: true,
+        free_plan: true,
+        canceled_gateway_subscriptions: gatewayIds.length,
+        subscription: toPublicSubscription(data),
+      })
     }
 
     // Valida antes de qualquer escrita no gateway: documento malformado = 400.
