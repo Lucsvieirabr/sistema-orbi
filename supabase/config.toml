@@ -123,6 +123,16 @@ otp_expiry = 3600
 subject = "Redefina sua senha do Orbi"
 content_path = "./supabase/templates/recovery.html"
 
+# Confirmacao de cadastro. `{{ .ConfirmationURL }}` aponta para o /auth/v1/verify
+# do GoTrue, que consome o token e devolve a pessoa no `emailRedirectTo` do
+# signUp (/verificar-email) — com `?code=` no fluxo PKCE ou `error_code=` se o
+# link ja tiver sido usado; a tela trata os dois.
+# Producao: painel > Authentication > Emails > "Confirm signup" (colar o mesmo
+# HTML de ./supabase/templates/confirmation.html).
+[auth.email.template.confirmation]
+subject = "Confirme seu e-mail — Orbi"
+content_path = "./supabase/templates/confirmation.html"
+
 # Uncomment to customize email template
 # [auth.email.template.invite]
 # subject = "You have been invited"

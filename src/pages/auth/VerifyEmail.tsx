@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, Loader2, LogIn, Send } from "lucide-react";
@@ -65,18 +65,46 @@ export default function VerifyEmail() {
     return readPendingEmail() ?? "";
   }, [location.state]);
 
+  /** Sessão de pé = o link já cumpriu o papel. Promove a tela e engole o erro. */
+  const settleAsConfirmed = useCallback(() => {
+    forgetPendingEmail();
+    queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+    setPhase("confirmed");
+  }, [queryClient]);
+
+  const salvageWithActiveSession = useCallback(async () => {
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    if (!session) return false;
+    settleAsConfirmed();
+    return true;
+  }, [settleAsConfirmed]);
+
+  /**
+   * Consome o link UMA única vez.
+   *
+   * `handledRef` sobrevive ao ciclo monta/desmonta/monta do StrictMode — e, por
+   * isso mesmo, o efeito NÃO pode ter cleanup de `active`: a primeira execução
+   * já disparou a troca do token e a segunda sai na porta, então cancelar a
+   * primeira deixaria a tela travada em "Confirmando" para sempre.
+   *
+   * O token de confirmação é de uso único: um segundo disparo (StrictMode,
+   * scanner de e-mail, F5) devolve `otp_expired` mesmo com a conta JÁ ativa —
+   * o falso "link expirado". Antes de acusar erro, checamos a sessão: existindo,
+   * o desfecho é sucesso.
+   */
   useEffect(() => {
     if (handledRef.current) return;
     handledRef.current = true;
 
     if (link.kind === "none") return;
 
-    let active = true;
-
     void (async () => {
       if (link.kind === "error") {
         scrubConfirmationUrl();
-        if (!active) return;
+        if (await salvageWithActiveSession()) return;
         setInvalidReason(describeAuthError({ code: link.code }, "reset_link"));
         setPhase("invalid");
         return;
@@ -87,9 +115,9 @@ export default function VerifyEmail() {
           link.kind === "token_hash" ? await verifyConfirmationToken(link.tokenHash) : await awaitConfirmedSession();
 
         scrubConfirmationUrl();
-        if (!active) return;
 
         if (!session) {
+          if (await salvageWithActiveSession()) return;
           setInvalidReason(
             "Abra o link no mesmo navegador em que você criou a conta, ou entre com seu e-mail e senha.",
           );
@@ -97,21 +125,15 @@ export default function VerifyEmail() {
           return;
         }
 
-        forgetPendingEmail();
-        queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
-        setPhase("confirmed");
+        settleAsConfirmed();
       } catch (error) {
         scrubConfirmationUrl();
-        if (!active) return;
+        if (await salvageWithActiveSession()) return;
         setInvalidReason(describeAuthError(error, "reset_link"));
         setPhase("invalid");
       }
     })();
-
-    return () => {
-      active = false;
-    };
-  }, [link, queryClient]);
+  }, [link, salvageWithActiveSession, settleAsConfirmed]);
 
   /**
    * Confirmou em outra aba? Esta volta sozinha para o fluxo, sem F5.
@@ -121,14 +143,11 @@ export default function VerifyEmail() {
     if (phase !== "waiting") return;
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) {
-        forgetPendingEmail();
-        setPhase("confirmed");
-      }
+      if (session) settleAsConfirmed();
     });
 
     return () => data.subscription.unsubscribe();
-  }, [phase]);
+  }, [phase, settleAsConfirmed]);
 
   /** Conta ativa e sessão aberta: o backend decide entre planos, sistema e cobrança. */
   const continueToApp = async () => {
@@ -237,8 +256,13 @@ export default function VerifyEmail() {
         email ? (
           <>
             Enviamos um link de confirmação para{" "}
-            <span className="break-all font-medium text-foreground">{email}</span>. Verifique sua caixa de entrada para
-            ativar sua conta e retornar ao login.
+            {/* `inline-block` + `max-w-full` + `break-all`: sem isso um e-mail
+                longo (sem espaço para quebrar) empurra a largura do card e
+                corta a tela no celular. */}
+            <span className="inline-block max-w-full break-all align-bottom font-medium text-foreground">
+              {email}
+            </span>
+            . Verifique sua caixa de entrada para ativar sua conta e retornar ao login.
           </>
         ) : (
           "Enviamos um link de confirmação para o seu e-mail. Verifique sua caixa de entrada para ativar sua conta e retornar ao login."

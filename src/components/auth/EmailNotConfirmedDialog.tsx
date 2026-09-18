@@ -34,23 +34,27 @@ export function EmailNotConfirmedDialog({ open, onOpenChange, email, captchaToke
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
-        <DialogHeader className="items-center text-center sm:text-center">
+        <DialogHeader className="min-w-0 items-center text-center sm:text-center">
           <EnvelopeBeacon tone={hasSent ? "success" : "waiting"} className="mb-1" />
           <DialogTitle className="pr-0">
             {hasSent ? "Link reenviado" : "Confirme seu e-mail para entrar"}
           </DialogTitle>
-          <DialogDescription className="text-pretty leading-relaxed">
+          <DialogDescription className="min-w-0 max-w-full text-pretty leading-relaxed [overflow-wrap:anywhere]">
             {hasSent ? (
               <>
                 Enviamos um novo link para{" "}
-                <span className="break-all font-medium text-foreground">{email}</span>. Ele vale por 1 hora e só
-                funciona uma vez.
+                <span className="inline-block max-w-full break-all align-bottom font-medium text-foreground">
+                  {email}
+                </span>
+                . Ele vale por 1 hora e só funciona uma vez.
               </>
             ) : (
               <>
                 Sua senha está correta, mas a conta{" "}
-                <span className="break-all font-medium text-foreground">{email}</span> ainda não foi ativada. Abra o
-                link que enviamos por e-mail para liberar o acesso.
+                <span className="inline-block max-w-full break-all align-bottom font-medium text-foreground">
+                  {email}
+                </span>{" "}
+                ainda não foi ativada. Abra o link que enviamos por e-mail para liberar o acesso.
               </>
             )}
           </DialogDescription>

@@ -70,7 +70,11 @@ export function LegalConsentCheckbox({
 
   return (
     <div className={cn("space-y-2", className)}>
-      <div className="flex items-start gap-2.5">
+      {/* `items-start` alinha a caixa pela primeira linha do texto; `shrink-0`
+          impede que o quadrado seja esmagado quando o texto quebra; `min-w-0
+          flex-1` faz o texto FLUIR ao lado em coluna própria em vez de
+          transbordar por baixo da caixa. */}
+      <div className="flex items-start gap-2">
         <Checkbox
           id={id}
           checked={checked}
@@ -80,11 +84,11 @@ export function LegalConsentCheckbox({
           aria-required="true"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? errorId : undefined}
-          className={cn("mt-0.5", error && "border-destructive")}
+          className={cn("mt-0.5 shrink-0", error && "border-destructive")}
         />
         <label
           htmlFor={id}
-          className="cursor-pointer text-xs leading-relaxed text-pretty text-muted-foreground"
+          className="min-w-0 flex-1 cursor-pointer text-pretty text-xs leading-relaxed text-muted-foreground"
         >
           {label ?? (
             <>
@@ -95,8 +99,10 @@ export function LegalConsentCheckbox({
         </label>
       </div>
 
+      {/* Recuo = largura da caixa (1rem) + gap (0.5rem): o erro nasce sob o
+          texto, não sob o checkbox. */}
       {error && (
-        <p id={errorId} role="alert" className="pl-[1.625rem] text-xs font-medium text-destructive">
+        <p id={errorId} role="alert" className="pl-6 text-xs font-medium text-destructive">
           {error}
         </p>
       )}

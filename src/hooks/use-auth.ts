@@ -59,6 +59,29 @@ export async function resolvePostAuthRoute(preferred?: string | null): Promise<s
   }
 }
 
+const EMAIL_IN_USE = "Este e-mail já está em uso";
+
+/**
+ * O GoTrue sinaliza e-mail duplicado de três formas, dependendo da versão e da
+ * configuração de "Prevent use of leaked passwords"/anti-enumeração:
+ *
+ *   1. `error.code = user_already_exists | email_exists` (caminho explícito);
+ *   2. HTTP 422/400 com "User already registered" na mensagem (versões antigas);
+ *   3. HTTP 200 com um usuário-fantasma: `identities: []` e sem sessão.
+ *
+ * Os três casos param o submit com o mesmo toast.
+ */
+function isDuplicateEmailError(error: unknown): boolean {
+  const e = (error ?? {}) as { code?: string; status?: number; message?: string };
+
+  if (e.code === "user_already_exists" || e.code === "email_exists") return true;
+
+  return (
+    (e.status === 400 || e.status === 422) &&
+    /already\s*(registered|exists|been\s*registered)|user\s*already/i.test(e.message ?? "")
+  );
+}
+
 export interface LoginHandlers {
   /** `email_not_confirmed`: a senha estava certa, falta ativar a conta. */
   onEmailNotConfirmed?: (email: string) => void;
@@ -172,11 +195,33 @@ export function useAuth() {
     });
 
     if (error) {
+      // E-mail duplicado: interrompe o submit com mensagem direta, em vez de
+      // mandar a pessoa para a tela de espera de um e-mail que nunca chega.
+      if (isDuplicateEmailError(error)) {
+        toast({
+          title: EMAIL_IN_USE,
+          description: "Entre com esse e-mail ou use “Esqueci minha senha” para recuperar o acesso.",
+          variant: "destructive",
+        });
+        return false;
+      }
+
       toast({ title: "Erro ao criar conta", description: describeAuthError(error, "signup"), variant: "destructive" });
       return false;
     }
 
     if (!data.user) return false;
+
+    // Usuário-fantasma do GoTrue (200 + `identities: []`): o e-mail JÁ tem
+    // conta. Sem isso o cadastro "dava certo" e travava em /verificar-email.
+    if (Array.isArray(data.user.identities) && data.user.identities.length === 0 && !data.session) {
+      toast({
+        title: EMAIL_IN_USE,
+        description: "Entre com esse e-mail ou use “Esqueci minha senha” para recuperar o acesso.",
+        variant: "destructive",
+      });
+      return false;
+    }
 
     // Confirmação de e-mail DESLIGADA no projeto: a sessão já vem pronta e o
     // próximo passo é escolher o plano.
@@ -188,12 +233,8 @@ export function useAuth() {
       return true;
     }
 
-    // Confirmação LIGADA: `signUp` devolve `user` sem `session`.
-    //
-    // `identities: []` é o usuário-fantasma que o GoTrue devolve quando o
-    // e-mail JÁ existe — proteção anti-enumeração. A resposta da interface é
-    // exatamente a mesma nos dois casos (nenhuma pista de que a conta existe),
-    // e o reenvio da tela de espera resolve o caso legítimo.
+    // Confirmação LIGADA: `signUp` devolve `user` sem `session`. Aqui o e-mail
+    // é novo (o duplicado já saiu acima), então segue para a tela de espera.
     rememberPendingEmail(email);
     queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
     navigate(AUTH_ROUTES.verifyEmail, { replace: true, state: { email } });

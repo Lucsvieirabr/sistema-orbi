@@ -29,8 +29,11 @@ export function AuthShell({ title, description, children, aside, className }: Au
         <ThemeToggle />
       </div>
 
-      <Card variant="elevated" className={cn("w-full max-w-md animate-rise", className)}>
-        <CardHeader className="items-center gap-1.5 pb-5 text-center">
+      {/* `overflow-hidden` + `min-w-0` nos filhos: um e-mail longo sem espaços
+          (o caso que estourava a tela) quebra dentro do card em vez de esticar
+          a largura do grid do CardHeader. */}
+      <Card variant="elevated" className={cn("w-full max-w-md overflow-hidden animate-rise", className)}>
+        <CardHeader className="items-center gap-1.5 px-5 pb-5 text-center sm:px-6">
           <img
             src={theme === "dark" ? orbiLogoDark : orbiLogoLight}
             alt="Orbi"
@@ -39,12 +42,16 @@ export function AuthShell({ title, description, children, aside, className }: Au
             decoding="async"
             className="mb-2 h-12 w-12 object-contain"
           />
-          <h1 className="text-balance text-xl font-semibold tracking-[-0.02em] text-foreground">{title}</h1>
+          <h1 className="min-w-0 max-w-full text-balance text-xl font-semibold tracking-[-0.02em] text-foreground">
+            {title}
+          </h1>
           {description && (
-            <CardDescription className="max-w-[34ch] text-pretty leading-relaxed">{description}</CardDescription>
+            <CardDescription className="min-w-0 max-w-full text-pretty leading-relaxed [overflow-wrap:anywhere] sm:max-w-[34ch]">
+              {description}
+            </CardDescription>
           )}
         </CardHeader>
-        <CardContent>{children}</CardContent>
+        <CardContent className="px-5 sm:px-6">{children}</CardContent>
       </Card>
 
       {aside && <div className="mt-5 flex flex-col items-center gap-1 text-sm">{aside}</div>}
