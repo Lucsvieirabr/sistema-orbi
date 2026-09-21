@@ -5,6 +5,7 @@ import { userClient } from '../_shared/auth.ts';
 import { gateUser, gateFailure } from '../_shared/gate.ts';
 import { parseJson, stripControl, z } from '../_shared/validation.ts';
 import { MerchantIndex, type DictionaryRow } from './merchant-index.ts';
+import { REFERENCE_DICTIONARY, REFERENCE_DATA_VERSION, supplementDictionary } from './reference-data.ts';
 import {
   CategoryResolver,
   LearnedPatterns,
@@ -35,8 +36,8 @@ const MAX_DESCRIPTION_LENGTH = 300;
 const MAX_BODY_BYTES = 2 * 1024 * 1024;
 const MAX_LEARNED_PATTERNS = 2000;
 const DICTIONARY_TTL_MS = 15 * 60 * 1000;
-const DICTIONARY_PAGE = 1000;
-const DICTIONARY_MAX_PAGES = 20;
+const DICTIONARY_PAGE = 500;
+const DICTIONARY_MAX_PAGES = 40;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const DICTIONARY_COLUMNS =
@@ -47,7 +48,7 @@ const transactionInputSchema = z.object({
     .string()
     .max(MAX_DESCRIPTION_LENGTH * 8)
     .transform((v) => stripControl(v).slice(0, MAX_DESCRIPTION_LENGTH)),
-  type: z.unknown().transform((v): 'income' | 'expense' => (v === 'income' ? 'income' : 'expense')),
+  type: z.enum(['income', 'expense']),
   amount: z.unknown().transform((v) => (typeof v === 'number' && Number.isFinite(v) ? v : undefined)),
   date: z.unknown().transform((v) =>
     typeof v === 'string' && /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : undefined,
@@ -59,9 +60,9 @@ const batchSchema = z.object({
     .array(transactionInputSchema)
     .min(1, 'Envie ao menos uma transação.')
     .max(MAX_TRANSACTIONS, `Máximo de ${MAX_TRANSACTIONS} transações por requisição.`),
-  user_location: z
-    .unknown()
-    .transform((v) => (typeof v === 'string' ? stripControl(v).replace(/[^A-Za-z -]/g, '').slice(0, 10) : '') || 'SP'),
+  user_location: z.string().trim().length(2).transform(v => v.toUpperCase())
+    .refine(v => /^(AC|AL|AP|AM|BA|CE|DF|ES|GO|MA|MT|MS|MG|PA|PB|PR|PE|PI|RJ|RN|RS|RO|RR|SC|SP|SE|TO)$/.test(v))
+    .optional(),
 });
 
 interface BatchClassificationResponse {
@@ -103,14 +104,14 @@ function loadDictionary(client: SupabaseClient): Promise<MerchantIndex | null> {
         rows.push(...((data ?? []) as DictionaryRow[]));
         if (!data || data.length < DICTIONARY_PAGE) break;
       }
-      const index = new MerchantIndex(rows);
+      const index = new MerchantIndex(supplementDictionary(rows));
       dictionaryCache = { index, loadedAt: Date.now() };
       return index;
     } catch (error) {
       // Sem dicionário ainda há regras bancárias e padrões do usuário; um
       // índice antigo é melhor que nenhum.
       console.error('classify-transactions: dicionário indisponível:', (error as Error)?.message);
-      return dictionaryCache?.index ?? null;
+      return dictionaryCache?.index ?? new MerchantIndex(REFERENCE_DICTIONARY);
     } finally {
       dictionaryLoading = null;
     }
@@ -120,14 +121,20 @@ function loadDictionary(client: SupabaseClient): Promise<MerchantIndex | null> {
 }
 
 async function loadLearnedPatterns(client: SupabaseClient, userId: string): Promise<LearnedPatternRow[]> {
-  const { data, error } = await client
-    .from('user_learned_patterns')
-    .select('description, normalized_description, category, subcategory, confidence, usage_count, is_active')
-    .eq('user_id', userId)
-    .order('usage_count', { ascending: false })
-    .limit(MAX_LEARNED_PATTERNS);
-  if (error) throw error;
-  return ((data ?? []) as Array<LearnedPatternRow & { is_active: boolean | null }>).filter((row) => row.is_active !== false);
+  const rows: LearnedPatternRow[] = [];
+  // PostgREST's max_rows caps a limit(2000) at 1000; inactive rows must not
+  // consume the budget. New corrections take priority over historic volume.
+  for (let from = 0; from < MAX_LEARNED_PATTERNS; from += 500) {
+    const { data, error } = await client.from('user_learned_patterns')
+      .select('description, normalized_description, category, subcategory, confidence, usage_count, is_active, last_used_at, metadata')
+      .eq('user_id', userId).eq('is_active', true)
+      .order('last_used_at', { ascending: false }).order('id')
+      .range(from, from + 499);
+    if (error) throw error;
+    rows.push(...((data ?? []) as LearnedPatternRow[]));
+    if (!data || data.length < 500) break;
+  }
+  return rows;
 }
 
 async function loadCategories(client: SupabaseClient, userId: string): Promise<CategoryRow[]> {
@@ -136,8 +143,8 @@ async function loadCategories(client: SupabaseClient, userId: string): Promise<C
   if (!UUID_RE.test(userId)) return [];
   const { data, error } = await client
     .from('categories')
-    .select('name, category_type')
-    .or(`is_system.eq.true,user_id.eq.${userId}`);
+    .select('id, name, category_type, is_system')
+    .or(`and(is_system.eq.true,user_id.is.null),user_id.eq.${userId}`);
   if (error) throw error;
   return (data ?? []) as CategoryRow[];
 }
@@ -178,7 +185,7 @@ serve(async (req) => {
     try {
       results = classifyBatch(transactions, {
         index: settled(dictionary, 'dicionário', null),
-        learned: new LearnedPatterns(settled(patterns, 'padrões aprendidos', [])),
+        learned: new LearnedPatterns(settled(patterns, 'padrões aprendidos', []), categoryResolver),
         categories: categoryResolver,
         location: body.user_location,
       });
@@ -200,6 +207,14 @@ serve(async (req) => {
       },
     };
 
+    // Counts only: no descriptions or financial details in logs.
+    console.info('classify-transactions', {
+      version: REFERENCE_DATA_VERSION, total: results.length,
+      learned: results.filter(r => r.learned_from_user).length,
+      review: results.filter(r => r.needs_review).length,
+      fallback: results.filter(r => r.method === 'default_fallback').length,
+      durationMs: response.stats.processing_time_ms,
+    });
     return jsonFor(req, response, 200);
   } catch (error) {
     return gateFailure(req, error, 'classify-transactions');

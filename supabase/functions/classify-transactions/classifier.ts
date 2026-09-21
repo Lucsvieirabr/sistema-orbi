@@ -43,9 +43,13 @@ export interface ClassificationResult {
   method: string;
   features_used: string[];
   learned_from_user?: boolean;
+  category_id?: string;
+  needs_review: boolean;
 }
 
 export interface CategoryRow {
+  id?: string;
+  is_system?: boolean;
   name: string;
   category_type: string;
 }
@@ -57,6 +61,9 @@ export interface LearnedPatternRow {
   subcategory: string | null;
   confidence: number | string | null;
   usage_count: number | null;
+  last_used_at?: string | null;
+  is_active?: boolean | null;
+  metadata?: { transaction_type?: string; category_id?: string } | null;
 }
 
 // ---------------------------------------------------------------------------
@@ -98,14 +105,23 @@ const CATEGORY_ALIASES: Record<string, string> = {
 const categoryKey = (name: string) => foldAccents(name ?? '').toLowerCase().replace(/\s+/g, ' ').trim();
 
 export class CategoryResolver {
-  private byKey = new Map<string, { name: string; type: Direction }>();
+  private byKey = new Map<string, { id?: string; name: string; type: Direction; isSystem: boolean }>();
+  private byId = new Map<string, CategoryRow>();
 
   constructor(rows: CategoryRow[] | null | undefined) {
-    const source = rows && rows.length ? [...SYSTEM_CATEGORIES, ...rows] : SYSTEM_CATEGORIES;
+    // An explicit empty catalog means unavailable: do not invent destinations.
+    const source = rows ?? SYSTEM_CATEGORIES;
     for (const row of source) {
-      if (!row?.name) continue;
-      const type: Direction = row.category_type === 'income' ? 'income' : 'expense';
-      this.byKey.set(categoryKey(row.name), { name: row.name, type });
+      if (!row?.name || (row.category_type !== 'income' && row.category_type !== 'expense')) continue;
+      const type = row.category_type;
+      if (row.id) this.byId.set(row.id, row);
+      const key = `${type}|${categoryKey(row.name)}`;
+      const current = this.byKey.get(key);
+      // Same name can exist in both directions and in system/custom catalogs.
+      // Prefer the user's category deterministically, irrespective of row order.
+      if (current && ((!current.isSystem && row.is_system) ||
+        (current.isSystem === !!row.is_system && (current.id ?? '') < (row.id ?? '')))) continue;
+      this.byKey.set(key, { id: row.id, name: row.name, type, isSystem: !!row.is_system });
     }
   }
 
@@ -113,19 +129,30 @@ export class CategoryResolver {
    * Categoria válida para o lançamento, ou null.
    * `adjusted` = despesa em crédito virou "Outras Receitas" (estorno).
    */
-  resolve(name: string | null | undefined, direction: Direction): { name: string; adjusted: boolean } | null {
+  resolve(name: string | null | undefined, direction: Direction): { id?: string; name: string; adjusted: boolean } | null {
     if (!name) return null;
     const key = categoryKey(name);
-    const found = this.byKey.get(key) ?? this.byKey.get(categoryKey(CATEGORY_ALIASES[key] ?? ''));
-    if (!found) return null;
-    if (found.type === direction) return { name: found.name, adjusted: false };
-    if (direction === 'income') return { name: this.fallback('income'), adjusted: true };
+    const find = (type: Direction) => this.byKey.get(`${type}|${key}`) ??
+      this.byKey.get(`${type}|${categoryKey(CATEGORY_ALIASES[key] ?? '')}`);
+    const found = find(direction);
+    if (found) return { id: found.id, name: found.name, adjusted: false };
+    const opposite = find(direction === 'income' ? 'expense' : 'income');
+    if (opposite && direction === 'income') return { name: this.fallback('income'), adjusted: true };
     return null;
   }
 
   fallback(direction: Direction): string {
     const name = direction === 'income' ? CAT.OUTRAS_RECEITAS : CAT.OUTROS;
-    return this.byKey.get(categoryKey(name))?.name ?? name;
+    return this.byKey.get(`${direction}|${categoryKey(name)}`)?.name ?? name;
+  }
+
+  resolveLearned(row: LearnedPatternRow, direction: Direction) {
+    if (row.metadata?.category_id) {
+      const category = this.byId.get(row.metadata.category_id);
+      return category?.category_type === direction
+        ? { id: category.id, name: category.name, adjusted: false } : null;
+    }
+    return this.resolve(row.category, direction);
   }
 }
 
@@ -141,24 +168,24 @@ interface IndexedPattern {
 }
 
 function residualSignature(norm: NormalizedDescription, direction: Direction): string {
-  const { residual, primary } = applyContextRules(norm.text, direction);
-  if (!primary) return '';
+  const { residual } = applyContextRules(norm.text, direction);
   const tokens = tokenize(residual);
   return tokens.some((t) => t.length >= 3) ? tokens.join(' ') : '';
 }
 
 export class LearnedPatterns {
-  private bySignature = new Map<string, IndexedPattern>();
-  private byResidual = new Map<string, IndexedPattern>();
+  private bySignature = new Map<string, IndexedPattern[]>();
+  private byResidual = new Map<string, IndexedPattern[]>();
   private byToken = new Map<string, IndexedPattern[]>();
   readonly size: number;
 
-  constructor(rows: LearnedPatternRow[] | null | undefined) {
+  constructor(rows: LearnedPatternRow[] | null | undefined, private categories = new CategoryResolver(undefined)) {
     let count = 0;
     for (const row of rows ?? []) {
       const source = row?.description || row?.normalized_description;
-      if (!source || !row.category) continue;
-      const baseConfidence = Math.min(Math.max(Number(row.confidence ?? 85) || 85, 50), 98);
+      if (!source || !row.category || row.is_active === false) continue;
+      const rawConfidence = Number(row.confidence ?? 85);
+      const baseConfidence = Number.isFinite(rawConfidence) ? Math.min(Math.max(rawConfidence, 0), 98) : 0;
       if (baseConfidence < 60) continue;
 
       const norm = normalizeDescription(source);
@@ -170,10 +197,11 @@ export class LearnedPatterns {
         usage: Math.max(Number(row.usage_count ?? 1) || 1, 1),
       };
 
-      keepStronger(this.bySignature, norm.signature, pattern);
+      appendPattern(this.bySignature, norm.signature, pattern);
       for (const direction of ['income', 'expense'] as Direction[]) {
         const residual = residualSignature(norm, direction);
-        if (residual) keepStronger(this.byResidual, `${direction}|${residual}`, pattern);
+        if (residual) appendPattern(this.byResidual, `${direction}|${residual}`, pattern);
+        if (norm.signature) appendPattern(this.byResidual, `${direction}|${norm.signature}`, pattern);
       }
       for (const token of pattern.tokens) {
         if (token.length < 3) continue;
@@ -189,13 +217,20 @@ export class LearnedPatterns {
   lookup(norm: NormalizedDescription, direction: Direction): { pattern: IndexedPattern; confidence: number; how: string } | null {
     if (this.size === 0 || !norm.signature) return null;
 
-    const exact = this.bySignature.get(norm.signature);
+    const compatible = (pattern: IndexedPattern) => {
+      if (pattern.row.metadata?.transaction_type && pattern.row.metadata.transaction_type !== direction) return false;
+      const resolved = this.categories.resolveLearned(pattern.row, direction);
+      return resolved && !resolved.adjusted;
+    };
+    const choose = (patterns: IndexedPattern[] | undefined) =>
+      choosePattern((patterns ?? []).filter(compatible));
+    const exact = choose(this.bySignature.get(norm.signature));
     if (exact) {
       return { pattern: exact, confidence: Math.min(Math.max(exact.baseConfidence, 90) + Math.min(exact.usage, 5), 99), how: 'exact' };
     }
 
     const residual = residualSignature(norm, direction);
-    const viaResidual = residual ? this.byResidual.get(`${direction}|${residual}`) : undefined;
+    const viaResidual = residual ? choose(this.byResidual.get(`${direction}|${residual}`)) : undefined;
     if (viaResidual) {
       return { pattern: viaResidual, confidence: Math.min(Math.max(viaResidual.baseConfidence, 88) + Math.min(viaResidual.usage, 4), 95), how: 'residual' };
     }
@@ -208,7 +243,7 @@ export class LearnedPatterns {
     let best: { pattern: IndexedPattern; score: number } | null = null;
     for (const token of query) {
       for (const candidate of this.byToken.get(token) ?? []) {
-        if (seen.has(candidate) || candidate.tokens.size < 2) continue;
+        if (seen.has(candidate) || candidate.tokens.size < 2 || !compatible(candidate)) continue;
         seen.add(candidate);
         let intersection = 0;
         for (const t of candidate.tokens) if (query.has(t)) intersection++;
@@ -218,13 +253,32 @@ export class LearnedPatterns {
         }
       }
     }
-    return best ? { pattern: best.pattern, confidence: Math.round(Math.min(best.pattern.baseConfidence, 90) * best.score), how: 'similar' } : null;
+    if (!best) return null;
+    // Do not guess between equally similar examples with different labels.
+    for (const candidate of seen) {
+      if (candidate.row.category === best.pattern.row.category) continue;
+      let intersection = 0;
+      for (const token of candidate.tokens) if (query.has(token)) intersection++;
+      if (intersection / (query.size + candidate.tokens.size - intersection) >= best.score - 0.03) return null;
+    }
+    return { pattern: best.pattern, confidence: Math.round(Math.min(best.pattern.baseConfidence, 90) * best.score), how: 'similar' };
   }
 }
 
-function keepStronger(map: Map<string, IndexedPattern>, key: string, pattern: IndexedPattern) {
-  const current = map.get(key);
-  if (!current || pattern.usage > current.usage) map.set(key, pattern);
+function appendPattern(map: Map<string, IndexedPattern[]>, key: string, pattern: IndexedPattern) {
+  const current = map.get(key) ?? [];
+  if (!current.includes(pattern)) current.push(pattern);
+  map.set(key, current);
+}
+
+function choosePattern(patterns: IndexedPattern[]): IndexedPattern | null {
+  const updated = (pattern: IndexedPattern) => Date.parse(pattern.row.last_used_at ?? '') || 0;
+  const ranked = [...patterns].sort((a, b) => updated(b) - updated(a) || b.usage - a.usage);
+  if (!ranked.length) return null;
+  // Recent explicit corrections supersede old high-frequency rules. With no
+  // recency evidence, conflicting labels must be reviewed rather than guessed.
+  if (ranked.some(p => p.row.category !== ranked[0].row.category && updated(p) === updated(ranked[0]))) return null;
+  return ranked[0];
 }
 
 // ---------------------------------------------------------------------------
@@ -250,6 +304,8 @@ export function fallbackResult(input: ClassifierInput, categories: CategoryResol
     method: 'default_fallback',
     features_used: ['safe_fallback', ...features],
     learned_from_user: false,
+    category_id: categories?.resolve(categories.fallback(direction), direction)?.id,
+    needs_review: true,
   };
 }
 
@@ -265,7 +321,7 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
   // 1) aprendido do usuário -------------------------------------------------
   const learned = ctx.learned.lookup(norm, direction);
   if (learned && learned.confidence >= ACCEPT_THRESHOLD) {
-    const resolved = ctx.categories.resolve(learned.pattern.row.category, direction);
+    const resolved = ctx.categories.resolveLearned(learned.pattern.row, direction);
     if (resolved && !resolved.adjusted) {
       return {
         description: input.description,
@@ -275,6 +331,8 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
         method: 'user_learned',
         features_used: [...base, `user_learned:${learned.how}`],
         learned_from_user: true,
+        category_id: resolved.id,
+        needs_review: learned.confidence < 80,
       };
     }
   }
@@ -292,18 +350,30 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
         method: 'banking_pattern',
         features_used: [...base, `banking_rule:${terminal.id}`],
         learned_from_user: false,
+        category_id: resolved.id,
+        needs_review: resolved.adjusted || terminal.confidence < 80,
       };
     }
   }
 
   // 3) canal + entidade -----------------------------------------------------
   const context = applyContextRules(norm.text, direction);
+  if (/\b99\s*pay\b/.test(context.residual)) {
+    return fallbackResult(input, ctx.categories, [...base, 'payment_intermediary']);
+  }
   const residualTokens = context.primary ? tokenize(context.residual) : norm.tokens;
   const features = [...base, ...context.ids.map((id) => `context:${id}`)];
 
   let entity: MerchantMatch | null = null;
   if (ctx.index && (residualTokens.length || norm.hints.length)) {
-    entity = ctx.index.match(residualTokens, { hints: norm.hints, location: ctx.location });
+    entity = ctx.index.match(residualTokens, {
+      hints: norm.hints, location: ctx.location,
+      acceptsCategory: name => {
+        const resolved = ctx.categories.resolve(name, direction);
+        // A merchant in an incoming PIX is not proof of a refund or salary.
+        return !!resolved && !resolved.adjusted;
+      },
+    });
   }
 
   if (entity) {
@@ -312,9 +382,13 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
     // Uma única palavra casando dentro de um nome composto ("MARIA LUZ") é
     // quase sempre coincidência.
     const singleWordInName = entity.matched.split(' ').length === 1 && residualTokens.length >= 2;
+    const commercial = /\b(restaurantes?|supermercados?|hipermercados?|atacadista|drogaria|farmacia|lanchonete|pizzaria|padaria|acougue|pet\s*shop|clinica|hospital|posto\s+(de\s+)?(combustivel|gasolina)|auto\s+posto)\b/.test(context.residual);
+    const personalName = /^(maria|joao|jose|ana|antonio|francisco|carlos|paulo|pedro|lucas|luiz|luis|marcos|julia|juliana|fernanda|rafael|rodrigo|gabriel|bruno)\b/.test(context.residual);
     let required = isTransfer
-      ? entity.method === 'keyword_analysis' || singleWordInName ? 88 : 75
+      ? commercial ? 65 : singleWordInName ? 88 : 75
       : ACCEPT_THRESHOLD;
+    if (isTransfer && personalName && singleWordInName && !commercial) required = 101;
+    if (isTransfer && singleWordInName && !commercial && residualTokens[0] !== entity.matched) required = 101;
 
     const resolved = ctx.categories.resolve(entity.category, direction);
     // Despesa em crédito só vira estorno com entidade inequívoca.
@@ -330,6 +404,8 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
           method: entity.method,
           features_used: [...features, `entity:${entity.entryKey}`, `matched:${entity.matched}`],
           learned_from_user: false,
+          category_id: resolved.id,
+          needs_review: confidence < 80,
         };
       }
     }
@@ -348,6 +424,8 @@ export function classifyTransaction(input: ClassifierInput, ctx: ClassifierConte
         method: 'banking_pattern',
         features_used: [...features, `channel_default:${context.primary.id}`],
         learned_from_user: false,
+        category_id: resolved.id,
+        needs_review: true,
       };
     }
   }
@@ -366,7 +444,8 @@ export function classifyBatch(inputs: ClassifierInput[], ctx: ClassifierContext)
   return inputs.map((input) => {
     try {
       const direction = input.type === 'income' ? 'income' : 'expense';
-      const key = `${direction}|${normalizeDescription(input.description ?? '').text}`;
+      const norm = normalizeDescription(input.description ?? '');
+      const key = JSON.stringify([direction, norm.text, norm.hints, norm.gateways]);
       const cached = memo.get(key);
       if (cached) return { ...cached, description: input.description, features_used: [...cached.features_used] };
       const result = classifyTransaction(input, ctx);

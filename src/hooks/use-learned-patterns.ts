@@ -19,7 +19,7 @@ export interface LearnedPattern {
   first_learned_at: string;
   is_active: boolean;
   source_type: string;
-  metadata: any;
+  metadata: { transaction_type?: string; category_id?: string; [key: string]: unknown } | null;
 }
 
 /**
@@ -29,13 +29,16 @@ export function useLearnedPatterns() {
   return useQuery({
     queryKey: ['learned-patterns'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_learned_patterns')
-        .select('*')
-        .order('usage_count', { ascending: false });
-
-      if (error) throw error;
-      return data as LearnedPattern[];
+      const rows: LearnedPattern[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from('user_learned_patterns')
+          .select('*').eq('is_active', true)
+          .order('last_used_at', { ascending: false }).order('id')
+          .range(offset, offset + 499);
+        if (error) throw error;
+        rows.push(...data as LearnedPattern[]);
+        if (data.length < 500) return rows;
+      }
     },
   });
 }
@@ -50,19 +53,29 @@ export function useUpdateLearnedPattern() {
   return useMutation({
     mutationFn: async (params: {
       id: string;
-      category: string;
-      subcategory?: string;
-      confidence?: number;
+      categoryId: string;
     }) => {
+      const [{ data: pattern, error: patternError }, { data: category, error: categoryError }] = await Promise.all([
+        supabase.from('user_learned_patterns').select('metadata').eq('id', params.id).single(),
+        supabase.from('categories').select('id, name, category_type').eq('id', params.categoryId).single(),
+      ]);
+      if (patternError) throw patternError;
+      if (categoryError) throw categoryError;
+      const metadata = pattern.metadata && typeof pattern.metadata === 'object' && !Array.isArray(pattern.metadata)
+        ? pattern.metadata : {};
+      if (metadata.transaction_type && metadata.transaction_type !== category.category_type) {
+        throw new Error('A categoria deve ter o mesmo tipo (receita ou despesa) da regra.');
+      }
       const { error } = await supabase
         .from('user_learned_patterns')
         .update({
-          category: params.category,
-          subcategory: params.subcategory,
-          confidence: params.confidence || 90,
+          category: category.name,
+          subcategory: null,
+          confidence: 90,
+          metadata: { ...metadata, category_id: category.id, transaction_type: category.category_type },
           last_used_at: new Date().toISOString(),
         })
-        .eq('id', params.id);
+        .eq('id', params.id).select('id').single();
 
       if (error) throw error;
     },
@@ -120,15 +133,8 @@ export function useDeleteLearnedPattern() {
  * Hook para obter estatísticas dos padrões aprendidos
  */
 export function useLearnedPatternsStats() {
-  return useQuery({
-    queryKey: ['learned-patterns-stats'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_learned_patterns')
-        .select('category, confidence, usage_count');
-
-      if (error) throw error;
-
+  const query = useLearnedPatterns();
+  const data = query.data ?? [];
       const stats = {
         total: data.length,
         byCategory: {} as Record<string, number>,
@@ -154,8 +160,5 @@ export function useLearnedPatternsStats() {
         stats.avgConfidence = stats.avgConfidence / data.length;
       }
 
-      return stats;
-    },
-  });
+  return { ...query, data: query.data ? stats : undefined };
 }
-

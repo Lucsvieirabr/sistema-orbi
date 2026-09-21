@@ -1,16 +1,17 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { FileText, AlertCircle, CheckCircle, Brain } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { IntelligentTransactionClassifier } from './IntelligentTransactionClassifier';
+import { mapClassification, type ReviewTransaction } from './classification';
+import { assertUuid } from '@/lib/utils';
 import { ConfirmationDialog } from './ConfirmationDialog';
 import { CSVParser, type ParsedTransaction } from './CSVParser';
 import { StatementParser, type StatementParseDiagnostics } from './StatementParser';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
 import { MAX_DOCUMENT_BYTES } from '@/integrations/parser_api';
-import type { ClassificationResult } from './BatchClassifier';
+import { BatchTransactionClassifier } from './BatchClassifier';
 
 const MAX_CSV_SIZE = 10 * 1024 * 1024;
 const SNIFF_BYTES = 4096;
@@ -91,6 +92,7 @@ interface ExtratoUploaderProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onTransactionsImported: () => void;
+  userLocation?: string;
 }
 
 interface ProcessingStats {
@@ -105,7 +107,7 @@ interface ProcessingStats {
   hybridDecisions: number;
 }
 
-export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: ExtratoUploaderProps) {
+export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, userLocation }: ExtratoUploaderProps) {
   const [isDragActive, setIsDragActive] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [stage, setStage] = useState<ProcessingStage>('reading');
@@ -113,74 +115,12 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [processingStats, setProcessingStats] = useState<ProcessingStats | null>(null);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  const [processedTransactions, setProcessedTransactions] = useState<any[]>([]);
-  const [classifier, setClassifier] = useState<IntelligentTransactionClassifier | null>(null);
-  const [isInitializingClassifier, setIsInitializingClassifier] = useState(true);
+  const [processedTransactions, setProcessedTransactions] = useState<ReviewTransaction[]>([]);
   const [errors, setErrors] = useState<string[]>([]);
   const { toast } = useToast();
 
-  // Inicializa o classificador inteligente
-  useEffect(() => {
-    const initializeClassifier = async () => {
-      setIsInitializingClassifier(true);
-      try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
-
-        if (userError) {
-          console.error('Erro ao buscar usuário:', userError);
-          toast({
-            title: "Erro de autenticação",
-            description: "Não foi possível verificar o usuário. Faça login novamente.",
-            variant: "destructive"
-          });
-          setIsInitializingClassifier(false);
-          return;
-        }
-
-        if (!user) {
-          console.error('Usuário não autenticado');
-          toast({
-            title: "Erro de autenticação",
-            description: "Você precisa estar autenticado para importar transações.",
-            variant: "destructive"
-          });
-          setIsInitializingClassifier(false);
-          return;
-        }
-
-        const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
-
-        // Pré-carrega padrões frequentes
-        await intelligentClassifier.preloadFrequentPatterns();
-
-        setClassifier(intelligentClassifier);
-      } catch (error) {
-        console.error('Erro ao inicializar classificador:', error);
-        toast({
-          title: "Erro na inicialização",
-          description: "Não foi possível inicializar o sistema de classificação. Tente recarregar a página.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsInitializingClassifier(false);
-      }
-    };
-
-    if (open) {
-      initializeClassifier();
-    }
-  }, [open, toast]);
-
-  const processFile = useCallback(async (file: File) => {
-    if (!classifier) {
-      toast({
-        title: "Erro",
-        description: "Classificador não inicializado. Tente novamente.",
-        variant: "destructive"
-      });
-      return;
-    }
-
+  const processFile = async (file: File) => {
+    if (isProcessing) return;
     setIsProcessing(true);
     setStage('reading');
     setProgress(0);
@@ -233,7 +173,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       }
 
       setStage('classifying');
-      const results = await processTransactionsWithAI(rawTransactions, classifier);
+      const results = await processTransactionsWithAI(rawTransactions);
 
       setProgress(90);
 
@@ -255,13 +195,13 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     } finally {
       setIsProcessing(false);
     }
-  }, [classifier, toast]);
+  };
 
-  const parseCSVFile = async (file: File): Promise<any[]> => {
+  const parseCSVFile = async (file: File): Promise<Record<string, string>[]> => {
     const csvText = await decodeCsvFile(file);
     return new Promise((resolve, reject) => {
       import('papaparse').then(({ default: Papa }) => {
-        Papa.parse(csvText, {
+        Papa.parse<Record<string, string>>(csvText, {
           header: true,
           skipEmptyLines: true,
           transformHeader: (header: string) => {
@@ -270,7 +210,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
           transform: (value: string) => {
             return value ? value.trim() : '';
           },
-          complete: (results: any) => {
+          complete: (results) => {
             if (results.data.length === 0) {
               reject(new Error('Arquivo CSV vazio ou sem dados válidos.'));
               return;
@@ -282,210 +222,45 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
             reject(new Error(`Erro ao ler arquivo: ${error.message}`));
           }
         });
-      });
+      }).catch(reject);
     });
   };
 
-  const processTransactionsWithAI = async (parsedTransactions: ParsedTransaction[], _classifier: IntelligentTransactionClassifier) => {
-    const stats: ProcessingStats = {
-      total: 0,
-      processed: 0,
-      withHighConfidence: 0,
-      withMediumConfidence: 0,
-      withLowConfidence: 0,
-      learned: 0,
-      mlPredictions: 0,
-      dictionaryMatches: 0,
-      hybridDecisions: 0
-    };
-
-    const transactions: any[] = [];
-
-    // Buscar categorias do banco para mapear nomes para IDs
-    const { data: categoriesData } = await supabase
+  const processTransactionsWithAI = async (parsedTransactions: ParsedTransaction[]) => {
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) throw new Error('Sessão expirada. Faça login novamente para importar.');
+    const userId = assertUuid(user.id, 'user_id');
+    const { data: categories, error: categoriesError } = await supabase
       .from('categories')
-      .select('id, name, category_type')
-      .order('name');
+      .select('id, name, category_type, user_id, is_system')
+      .or(`is_system.eq.true,user_id.eq.${userId}`)
+      .order('id');
+    if (categoriesError) throw new Error('Não foi possível carregar suas categorias. Tente novamente.');
 
-    const categoryMap: { [key: string]: { id: string; type: 'income' | 'expense' } } = {};
-    const categoryAliases: { [key: string]: string } = {
-      // Mapeamentos de categorias alternativas para categorias padrão
-      'moradia': 'Casa',
-      'energia': 'Casa',
-      'água/saneamento': 'Casa',
-      'gás': 'Casa',
-      'assinaturas': 'Assinaturas',
-      'streaming': 'Assinaturas',
-      'telefonia': 'Assinaturas',
-      'internet': 'Assinaturas',
-      'telefonia móvel': 'Assinaturas',
-      'telefonia fixa': 'Assinaturas',
-      'refeição': 'Alimentação',
-      'comida': 'Alimentação',
-      'supermercado': 'Alimentação',
-      'mercado': 'Alimentação',
-      'restaurante': 'Alimentação',
-      'lanchonete': 'Alimentação',
-      'fast food': 'Alimentação',
-      'delivery': 'Alimentação',
-      'combustível': 'Transporte',
-      'gasolina': 'Transporte',
-      'etanol': 'Transporte',
-      'diesel': 'Transporte',
-      'uber': 'Transporte',
-      '99': 'Transporte',
-      'taxi': 'Transporte',
-      'farmácia': 'Proteção Pessoal / Saúde / Farmácia',
-      'saúde': 'Proteção Pessoal / Saúde / Farmácia',
-      'beleza': 'Bem Estar / Beleza',
-      'cabelo': 'Bem Estar / Beleza',
-      'estética': 'Bem Estar / Beleza',
-      'roupas': 'Roupas e acessórios',
-      'roupas e acessórios': 'Roupas e acessórios',
-      'vestuário': 'Roupas e acessórios',
-      'educação': 'Outros',
-      'curso': 'Outros',
-      'livros': 'Outros',
-      'lazer': 'Lazer',
-      'entretenimento': 'Lazer',
-      'jogos': 'Lazer',
-      'pet': 'Pet',
-      'animais': 'Pet',
-      'veterinário': 'Pet',
-      'presentes': 'Presentes / Compras',
-      'compras': 'Presentes / Compras',
-      'despesas pessoais': 'Despesas Pessoais',
-      'pessoais': 'Despesas Pessoais',
-      'transferências': 'Outros',
-      'pix enviado': 'Outros',
-      'pix recebido': 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-      'salário': 'Salário / 13° Salário / Férias',
-      'pró labore': 'Pró Labore',
-      'comissões': 'Participação de Lucros / Comissões',
-      'investimentos': 'Renda de Investimentos',
-      'aluguel': 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-      'reembolso': 'Outras Receitas (Aluguéis, extras, reembolso etc.)',
-      'tarifas': 'Tarifas Bancárias / Juros / Impostos / Taxas',
-      'juros': 'Tarifas Bancárias / Juros / Impostos / Taxas',
-      'taxas': 'Tarifas Bancárias / Juros / Impostos / Taxas',
-      'impostos': 'Tarifas Bancárias / Juros / Impostos / Taxas'
+    const response = await new BatchTransactionClassifier(userLocation, 500).classifyBatch(
+      parsedTransactions.map(t => ({ description: t.description, type: t.type, amount: t.value, date: t.date })),
+    );
+    const transactions = parsedTransactions.map((t, i) => mapClassification(t, response.results[i], categories ?? [], userId));
+    const stats: ProcessingStats = {
+      total: transactions.length, processed: transactions.length,
+      withHighConfidence: transactions.filter(t => t.confidence >= 90).length,
+      withMediumConfidence: transactions.filter(t => t.confidence >= 70 && t.confidence < 90).length,
+      withLowConfidence: transactions.filter(t => t.confidence < 70).length,
+      learned: transactions.filter(t => t.learned_from_user).length,
+      mlPredictions: transactions.filter(t => t.method === 'merchant_fuzzy').length,
+      dictionaryMatches: transactions.filter(t => ['merchant_entity', 'merchant_specific', 'banking_pattern', 'keyword_analysis'].includes(t.method)).length,
+      hybridDecisions: transactions.filter(t => t.method === 'hybrid').length,
     };
-
-    if (categoriesData) {
-      categoriesData.forEach(cat => {
-        categoryMap[cat.name.toLowerCase()] = {
-          id: cat.id,
-          type: cat.category_type as 'income' | 'expense'
-        };
-      });
-    }
-
-    // Classificação no servidor (classify-transactions v2). Uma request por
-    // até 500 linhas: cada chamada consome a cota horária de rate limit.
-    //
-    // FALLBACK SEGURO: se a Edge Function falhar (rede, 429, 5xx) ou devolver
-    // menos resultados, NENHUMA linha é perdida e a importação não aborta — a
-    // linha segue como "Outros"/"Outras Receitas" com confiança 0 para revisão.
-    let classifications: ClassificationResult[] = [];
-    let classifierUnavailable = false;
-    try {
-      const { BatchTransactionClassifier } = await import('./BatchClassifier');
-      const batchClassifier = new BatchTransactionClassifier('SP', 500);
-      const batchResponse = await batchClassifier.classifyBatch(
-        parsedTransactions.map(t => ({
-          description: t.description,
-          type: t.type,
-          amount: t.value,
-          date: t.date,
-        })),
-      );
-      classifications = Array.isArray(batchResponse?.results) ? batchResponse.results : [];
-    } catch (error) {
-      classifierUnavailable = true;
-      console.error('Classificação automática indisponível:', error instanceof Error ? error.message : error);
-    }
-
-    const fallbackCategoryName = (type: 'income' | 'expense') =>
-      type === 'income' ? 'Outras Receitas (Aluguéis, extras, reembolso etc.)' : 'Outros';
-
-    let fallbackCount = 0;
-
-    for (let i = 0; i < parsedTransactions.length; i++) {
-      const parsedTransaction = parsedTransactions[i];
-      const received = classifications[i];
-      const classification: ClassificationResult = received && typeof received.category === 'string'
-        ? received
-        : {
-            description: parsedTransaction.description,
-            category: fallbackCategoryName(parsedTransaction.type),
-            subcategory: 'A Classificar',
-            confidence: 0,
-            method: 'default_fallback',
-            features_used: ['client_fallback'],
-            learned_from_user: false,
-          };
-
-      stats.total++;
-      stats.processed++;
-
-      // Normalizar categoria usando aliases
-      let normalizedCategory = classification.category.toLowerCase();
-      if (categoryAliases[normalizedCategory]) {
-        normalizedCategory = categoryAliases[normalizedCategory].toLowerCase();
-      }
-
-      // Mapear categoria para ID (só vale se o tipo bate com o lançamento)
-      const mappedCategory = categoryMap[normalizedCategory];
-      let category_id = mappedCategory && mappedCategory.type === parsedTransaction.type ? mappedCategory.id : undefined;
-
-      // Sem categoria específica: categoria genérica do tipo, nunca descartar a linha
-      if (!category_id) {
-        category_id = categoryMap[fallbackCategoryName(parsedTransaction.type).toLowerCase()]?.id;
-      }
-
-      if (classification.method === 'default_fallback') fallbackCount++;
-
-      transactions.push({
-        id: parsedTransaction.id,
-        date: parsedTransaction.date,
-        description: parsedTransaction.description,
-        value: parsedTransaction.value,
-        type: parsedTransaction.type,
-        category_id,
-        category_name: classification.category,
-        subcategory: classification.subcategory,
-        confidence: classification.confidence,
-        method: classification.method,
-        learned_from_user: classification.learned_from_user,
-        payment_method: parsedTransaction.payment_method,
-        card_last4: parsedTransaction.card_last4,
-        installments: parsedTransaction.installments,
-        installment_number: parsedTransaction.installment_number
-      });
-
-      // Atualizar estatísticas
-      if (classification.confidence >= 90) stats.withHighConfidence++;
-      else if (classification.confidence >= 70) stats.withMediumConfidence++;
-      else stats.withLowConfidence++;
-
-      if (classification.learned_from_user) stats.learned++;
-      if (classification.method === 'merchant_fuzzy') stats.mlPredictions++;
-      if (['merchant_entity', 'merchant_specific', 'banking_pattern', 'keyword_analysis'].includes(classification.method)) stats.dictionaryMatches++;
-      if (classification.method === 'hybrid') stats.hybridDecisions++;
-    }
-
-    if (classifierUnavailable) {
+    if (response.failures.length > 0) {
+      const count = response.failures.reduce((sum, failure) => sum + failure.count, 0);
       toast({
-        title: 'Classificação automática indisponível',
-        description: 'As transações foram mantidas como "Outros"/"Outras Receitas". Revise as categorias antes de salvar.',
+        title: 'Classificação parcialmente indisponível',
+        description: `${count} transação(ões) precisam de revisão. As classificações dos demais lotes foram preservadas.`,
+        variant: 'destructive',
       });
-    } else if (fallbackCount > 0) {
-      console.info(`[ExtratoUploader] ${fallbackCount} transação(ões) sem categoria confiável — marcadas para revisão.`);
     }
-
     return { transactions, stats };
   };
-
 
   const handleDrag = useCallback((e: React.DragEvent) => {
     e.preventDefault();
@@ -497,7 +272,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     }
   }, []);
 
-  const handleDrop = useCallback((e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setIsDragActive(false);
@@ -505,32 +280,30 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       processFile(e.dataTransfer.files[0]);
     }
-  }, [processFile]);
+  };
 
-  const handleFileInput = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       processFile(e.target.files[0]);
     }
     e.target.value = '';
-  }, [processFile]);
+  };
 
-  const handleTransactionsSaved = () => {
+  const handleTransactionsSaved = (complete = true) => {
+    onTransactionsImported();
+    if (!complete) return;
     setShowConfirmation(false);
     setProcessedTransactions([]);
     setUploadedFile(null);
     setProcessingStats(null);
     setProgress(0);
     setErrors([]);
-    onTransactionsImported();
     onOpenChange(false);
 
-    toast({
-      title: "Sucesso",
-      description: "Transações importadas com sucesso!",
-    });
   };
 
   const handleDialogClose = (open: boolean) => {
+    if (isProcessing) return;
     if (!open) {
       // Limpar todos os dados quando fechar
       setShowConfirmation(false);
@@ -539,8 +312,6 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
       setProcessingStats(null);
       setProgress(0);
       setErrors([]);
-      setClassifier(null);
-      setIsInitializingClassifier(true);
     }
     onOpenChange(open);
   };
@@ -568,7 +339,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
                 ? 'border-primary bg-primary/5'
                 : 'border-border hover:border-border'
               }
-              ${isProcessing || isInitializingClassifier ? 'pointer-events-none opacity-50' : ''}
+              ${isProcessing ? 'pointer-events-none opacity-50' : ''}
             `}
             onDragEnter={handleDrag}
             onDragLeave={handleDrag}
@@ -580,7 +351,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
               accept={ACCEPTED_EXTENSIONS}
               onChange={handleFileInput}
               className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-              disabled={isProcessing || isInitializingClassifier}
+              disabled={isProcessing}
             />
 
             <div className="space-y-4">
@@ -594,33 +365,18 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
 
               <div className="space-y-2">
                 <p className="text-lg font-medium">
-                  {isInitializingClassifier
-                    ? 'Inicializando sistema de classificação inteligente...'
-                    : uploadedFile
+                  {uploadedFile
                     ? `Arquivo carregado: ${uploadedFile.name}`
                     : 'Arraste e solte seu extrato ou fatura aqui ou clique para selecionar'
                   }
                 </p>
 
                 <p className="text-sm text-muted-foreground">
-                  {isInitializingClassifier
-                    ? 'Carregando padrões de classificação e modelos de IA...'
-                    : 'Formatos suportados: CSV, OFX, PDF e imagem (JPG, PNG)'
-                  }
+                  Formatos suportados: CSV, OFX, PDF e imagem (JPG, PNG)
                 </p>
               </div>
 
-              {isInitializingClassifier && (
-                <div className="space-y-2">
-                  <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-                    <Brain className="h-4 w-4 animate-pulse text-primary" />
-                    Preparando classificador inteligente...
-                  </p>
-                  <Progress value={50} className="w-full animate-pulse" />
-                </div>
-              )}
-
-              {isProcessing && !isInitializingClassifier && (
+              {isProcessing && (
                 <div className="space-y-2">
                   <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
                     <Brain className="h-4 w-4 animate-pulse" />
@@ -671,4 +427,3 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     </Dialog>
   );
 }
-
