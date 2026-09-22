@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import {
-  LayoutDashboard,
-  Wallet,
-  Receipt,
-  List,
-  CreditCard,
-  Users,
-  Plus,
-  Brain,
-  StickyNote,
-  Settings,
   Lock,
+  Plus,
   X,
   ChevronRight,
 } from "lucide-react";
@@ -25,29 +16,12 @@ import { useIsCompact } from "@/hooks/use-mobile";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { useSubscription } from "@/hooks/use-subscription";
-import { PREMIUM_MODULES, type PremiumModule } from "@/lib/features/premium-modules";
-
-interface SidebarItem {
-  title: string;
-  icon: typeof LayoutDashboard;
-  path: string;
-  /** Feature de plano exigida (módulos premium). Sem ela, o item mostra um cadeado. */
-  feature?: string;
-}
-
-interface SidebarGroup {
-  id: string;
-  /** Sem label = grupo fixo, sempre aberto (destinos de maior tráfego). */
-  label?: string;
-  items: SidebarItem[];
-}
-
-const fromModule = (module: PremiumModule): SidebarItem => ({
-  title: module.navLabel,
-  icon: module.icon,
-  path: module.path,
-  feature: module.feature,
-});
+import {
+  APP_NAVIGATION_GROUPS,
+  SETTINGS_NAVIGATION_ITEM,
+  type AppNavigationGroup,
+  type AppNavigationItem,
+} from "./app-navigation";
 
 /**
  * Arquitetura da navegação (16 destinos → 4 blocos):
@@ -62,46 +36,11 @@ const fromModule = (module: PremiumModule): SidebarItem => ({
  * bloco que contém a rota atual abre sozinho — a página ativa nunca fica
  * escondida. Resultado: nenhuma rolagem interna em telas a partir de ~700px.
  */
-const menuGroups: SidebarGroup[] = [
-  {
-    id: "core",
-    items: [
-      { title: "Dashboard", icon: LayoutDashboard, path: "/sistema" },
-      { title: "Extrato", icon: Receipt, path: "/sistema/statement" },
-      { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
-      { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
-    ],
-  },
-  {
-    id: "plan",
-    label: "Planejar",
-    items: [PREMIUM_MODULES.budgets, PREMIUM_MODULES.goals, PREMIUM_MODULES.projects, PREMIUM_MODULES.ledgers].map(
-      fromModule,
-    ),
-  },
-  {
-    id: "insights",
-    label: "Analisar",
-    items: [PREMIUM_MODULES.forecast, PREMIUM_MODULES.analytics, PREMIUM_MODULES.inflation].map(fromModule),
-  },
-  {
-    id: "setup",
-    label: "Cadastros",
-    items: [
-      { title: "Categorias", icon: List, path: "/sistema/categories" },
-      { title: "Pessoas", icon: Users, path: "/sistema/people" },
-      { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
-      { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
-    ],
-  },
-];
-
-const SETTINGS_PATH = "/sistema/settings";
 const STORAGE_KEY = "orbi:sidebar:open-groups";
 const DEFAULT_OPEN = ["plan"];
 
 const groupOfPath = (path: string) =>
-  menuGroups.find((group) => group.label && group.items.some((item) => item.path === path))?.id;
+  APP_NAVIGATION_GROUPS.find((group) => group.label && group.items.some((item) => item.path === path))?.id;
 
 function readOpenGroups(): string[] {
   try {
@@ -176,9 +115,9 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
   };
 
   // Enquanto o plano carrega, nada de cadeado piscando.
-  const isLocked = (item: SidebarItem) => Boolean(item.feature) && !planLoading && !hasFeature(item.feature!);
+  const isLocked = (item: AppNavigationItem) => Boolean(item.feature) && !planLoading && !hasFeature(item.feature!);
 
-  const renderItem = (item: SidebarItem) => {
+  const renderItem = (item: AppNavigationItem) => {
     const Icon = item.icon;
     const isActive = currentPath === item.path;
     const locked = isLocked(item);
@@ -216,7 +155,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
     );
   };
 
-  const renderGroup = (group: SidebarGroup) => {
+  const renderGroup = (group: AppNavigationGroup) => {
     const list = <ul className="space-y-px">{group.items.map(renderItem)}</ul>;
 
     if (!group.label) {
@@ -268,7 +207,8 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
     );
   };
 
-  const settingsActive = currentPath === SETTINGS_PATH;
+  const settingsActive = currentPath === SETTINGS_NAVIGATION_ITEM.path;
+  const SettingsIcon = SETTINGS_NAVIGATION_ITEM.icon;
 
   // Função de render (não componente interno): evita remontar a árvore a cada
   // render do pai, o que reiniciaria as animações dos blocos.
@@ -315,7 +255,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
         aria-label="Navegação principal"
         className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-3 pt-1 [scrollbar-width:thin]"
       >
-        {menuGroups.map(renderGroup)}
+        {APP_NAVIGATION_GROUPS.map(renderGroup)}
       </nav>
 
       {/* Utilitários */}
@@ -323,7 +263,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
         <button
           type="button"
           aria-current={settingsActive ? "page" : undefined}
-          onClick={() => handleNavigate(SETTINGS_PATH)}
+          onClick={() => handleNavigate(SETTINGS_NAVIGATION_ITEM.path)}
           className={cn(
             "flex h-11 min-w-0 flex-1 items-center gap-3 rounded-md px-3 text-sm lg:h-8 lg:gap-2.5 lg:px-2.5",
             "transition-colors duration-200 ease-swift",
@@ -333,8 +273,8 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
               : "text-sidebar-muted hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground",
           )}
         >
-          <Settings className={cn("h-4 w-4 shrink-0", !settingsActive && "opacity-80")} aria-hidden />
-          <span className="truncate">Configurações</span>
+          <SettingsIcon className={cn("h-4 w-4 shrink-0", !settingsActive && "opacity-80")} aria-hidden />
+          <span className="truncate">{SETTINGS_NAVIGATION_ITEM.title}</span>
         </button>
         <ReportBugDialog variant="icon" />
       </div>

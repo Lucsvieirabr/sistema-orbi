@@ -1,5 +1,6 @@
 import { Settings2 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useEffect } from "react";
+import { useLocation, useSearchParams } from "react-router-dom";
 
 import { FamilyGroupSettings } from "@/components/family/FamilyGroupSettings";
 import { LegalDocumentsCard } from "@/components/legal";
@@ -23,9 +24,25 @@ const isSection = (value: string | null): value is Section => SECTIONS.some((sec
  * página não perde a posição. Trocar de aba substitui a entrada do histórico.
  */
 export default function Settings() {
+  const { hash } = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const requested = searchParams.get("secao");
   const section: Section = isSection(requested) ? requested : "geral";
+
+  useEffect(() => {
+    if (section !== "seguranca" || hash !== "#verificacao-em-duas-etapas") return;
+
+    const frame = window.requestAnimationFrame(() => {
+      const target = document.getElementById("verificacao-em-duas-etapas");
+      if (!target) return;
+
+      const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      target.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
+      target.focus({ preventScroll: true });
+    });
+
+    return () => window.cancelAnimationFrame(frame);
+  }, [hash, section]);
 
   const handleSectionChange = (value: string) => {
     const next = new URLSearchParams(searchParams);

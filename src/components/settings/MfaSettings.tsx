@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
+import { syncMfaStatus } from "@/hooks/use-mfa-status";
 import { describeAuthError } from "@/lib/auth/auth-errors";
 import {
   cancelTotpEnrollment,
@@ -57,6 +58,7 @@ export function MfaSettings() {
     try {
       const next = await getMfaStatus();
       setStatus(next);
+      syncMfaStatus(next);
       setView(next.enabled ? "on" : "off");
     } catch (error) {
       setActionError(describeAuthError(error, "mfa"));
@@ -178,10 +180,16 @@ export function MfaSettings() {
   const enabledSince = status?.factor?.created_at ? dateFormatter.format(new Date(status.factor.created_at)) : null;
 
   return (
-    <Card>
+    <Card
+      id="verificacao-em-duas-etapas"
+      role="region"
+      aria-labelledby={`${baseId}-title`}
+      tabIndex={-1}
+      className="scroll-mt-6"
+    >
       <CardHeader>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-          <CardTitle>Verificação em duas etapas</CardTitle>
+          <CardTitle id={`${baseId}-title`}>Verificação em duas etapas</CardTitle>
           {(view === "on" || view === "disabling") && <Badge variant="success">Ativa</Badge>}
           {view === "off" && <Badge variant="default">Desativada</Badge>}
         </div>

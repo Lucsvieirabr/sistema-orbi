@@ -1,25 +1,28 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LayoutDashboard, Wallet, Receipt, List, CreditCard, Users, Plus } from "lucide-react";
+import { Plus, Search, type LucideIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { APP_NAVIGATION_ITEMS } from "./app-navigation";
 
 interface SearchItem {
   title: string;
-  icon: any;
+  icon: LucideIcon;
   path: string;
 }
 
 const searchItems: SearchItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/sistema" },
-  { title: "Extrato", icon: Receipt, path: "/sistema/statement" },
-  { title: "Contas", icon: Wallet, path: "/sistema/accounts" },
-  { title: "Categorias", icon: List, path: "/sistema/categories" },
-  { title: "Cartões", icon: CreditCard, path: "/sistema/cards" },
-  { title: "Pessoas", icon: Users, path: "/sistema/people" },
-  { title: "Nova Transação", icon: Plus, path: "/sistema/statement?new=1" },
+  ...APP_NAVIGATION_ITEMS,
+  { title: "Nova transação", icon: Plus, path: "/sistema/statement?new=1" },
 ];
+
+const normalizeSearchText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLocaleLowerCase("pt-BR")
+    .trim();
 
 export function SearchPopover() {
   const [open, setOpen] = useState(false);
@@ -28,10 +31,11 @@ export function SearchPopover() {
   const isMac = typeof navigator !== "undefined" && /Mac|iPhone|iPad|iPod/.test(navigator.platform);
   const shortcutLabel = isMac ? "⌘K" : "Ctrl+K";
 
-  const filteredItems = searchItems.filter(item =>
-    item.title.toLowerCase().includes(searchValue.toLowerCase()) ||
-    item.path.toLowerCase().includes(searchValue.toLowerCase())
-  );
+  const normalizedSearch = normalizeSearchText(searchValue);
+  const filteredItems = searchItems.filter((item) => {
+    const searchableText = normalizeSearchText(`${item.title} ${item.path}`);
+    return searchableText.includes(normalizedSearch);
+  });
 
   const handleSelect = (path: string) => {
     navigate(path);
@@ -63,7 +67,7 @@ export function SearchPopover() {
           aria-label="Buscar"
           className="h-11 w-11 justify-center px-0 text-muted-foreground md:h-10 md:w-72 md:justify-start md:px-3 lg:border lg:border-border"
         >
-          <Search className="h-4 w-4 md:mr-2" />
+          <Search className="h-4 w-4 md:mr-2" aria-hidden />
           <span className="hidden md:inline">Buscar páginas</span>
           <kbd className="pointer-events-none ml-auto hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium text-muted-foreground md:flex">
             {shortcutLabel}
@@ -73,7 +77,7 @@ export function SearchPopover() {
       <PopoverContent className="w-[min(20rem,calc(100vw-1.5rem))] p-0" align="start" sideOffset={4}>
         <Command shouldFilter={false}>
           <CommandInput
-            placeholder="Buscar páginas"
+            placeholder="Buscar páginas…"
             value={searchValue}
             onValueChange={setSearchValue}
           />
@@ -90,7 +94,7 @@ export function SearchPopover() {
                       onSelect={() => handleSelect(item.path)}
                       className="flex min-h-touch items-center gap-3 px-3 py-2.5 md:min-h-0 md:py-2"
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-4 w-4" aria-hidden />
                       <span>{item.title}</span>
                     </CommandItem>
                   );

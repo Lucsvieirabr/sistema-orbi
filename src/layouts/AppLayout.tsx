@@ -3,6 +3,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
 import { BottomNav } from "@/components/navigation/BottomNav";
+import { MfaSecurityReminder } from "@/components/auth/MfaSecurityReminder";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useIsCompact } from "@/hooks/use-mobile";
@@ -86,6 +87,8 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
             onMenuClick={() => setMobileMenuOpen(true)}
             menuOpen={mobileMenuOpen}
           />
+
+          <MfaSecurityReminder />
 
           {/* Whitespace é o elemento de design: gutters largos no desktop,
               econômicos no telefone. */}
