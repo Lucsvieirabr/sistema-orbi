@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +21,7 @@ export function useBugReports(isAdmin: boolean = false) {
   const { toast } = useToast();
 
   const fetchBugReports = async (): Promise<BugReport[]> => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await getCachedAuthUser();
     if (userError) throw userError;
 
     let query = supabase.from("bug_reports").select("*");
@@ -57,7 +58,7 @@ export function useBugReports(isAdmin: boolean = false) {
 
   const createBugReport = async (titulo: string, descricao: string, imagem_url?: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // SEGURANÇA: este conteúdo é renderizado no painel /admin. `imagem_url`

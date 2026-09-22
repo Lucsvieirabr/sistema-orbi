@@ -1,3 +1,4 @@
+import { getImmediateSessionUser } from "@/hooks/use-current-user";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,7 +61,7 @@ export function AdminAuthForm() {
     }
 
     // Verificar se o usuário é admin
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (user) {
       const { data: adminData } = await supabase.rpc('get_admin_user');
       const isAdmin = adminData && (Array.isArray(adminData) ? adminData.length > 0 : true);
@@ -180,5 +181,4 @@ export function AdminAuthForm() {
     </div>
   );
 }
-
 

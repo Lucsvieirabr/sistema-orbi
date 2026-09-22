@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Plano Casal — guarda de escrita.
  * No modo Casal o usuário LÊ os registros do parceiro, mas nunca escreve neles
@@ -9,7 +10,7 @@ export const PARTNER_READ_ONLY_MESSAGE =
   "Este registro é do seu parceiro. No modo Casal a visualização é somente leitura.";
 
 export async function getCurrentUserId(): Promise<string | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   return user?.id ?? null;
 }
 

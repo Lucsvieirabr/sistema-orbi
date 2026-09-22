@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,11 +8,19 @@ import { categorySchema, parseOrThrow } from "@/lib/validation/schemas";
 
 type Category = Tables<"categories">;
 
+function throwCategoryError(error: { code?: string; message?: string } | null): void {
+  if (!error) return;
+  if (error.code === "23505") {
+    throw new Error("Já existe uma categoria com este nome e tipo.");
+  }
+  throw error;
+}
+
 export function useCategories() {
   const queryClient = useQueryClient();
 
   const fetchCategories = async (): Promise<Category[]> => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await getCachedAuthUser();
     if (userError) throw userError;
     if (!user) throw new Error("Usuário não autenticado");
 
@@ -49,7 +58,7 @@ export function useCategories() {
   }, [queryClient]);
 
   const createCategory = async (values: Pick<TablesInsert<"categories">, "name" | "category_type" | "icon">) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuário não autenticado");
     // SEGURANCA: `category_type` era texto livre — so 'expense'/'income'.
     const safe = parseOrThrow(categorySchema, values);
@@ -62,7 +71,7 @@ export function useCategories() {
       user_id: user.id
     };
     const { data, error } = await supabase.from("categories").insert(payload).select().single();
-    if (error) throw error;
+    throwCategoryError(error);
     return data;
   };
 
@@ -78,7 +87,7 @@ export function useCategories() {
       throw new Error("Categorias do sistema não podem ser editadas.");
     }
     
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuário não autenticado");
     const safe = parseOrThrow(categorySchema, values);
     const { error } = await supabase
@@ -91,7 +100,7 @@ export function useCategories() {
       .eq("id", assertUuid(id, "category_id"))
       .eq("user_id", user.id)
       .eq("is_system", false);
-    if (error) throw error;
+    throwCategoryError(error);
   };
 
   const deleteCategory = async (id: string) => {
@@ -119,5 +128,4 @@ export function useCategories() {
     deleteCategory,
   };
 }
-
 

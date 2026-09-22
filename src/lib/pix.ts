@@ -10,6 +10,36 @@ export type PixKeyKind = "email" | "cpf" | "cnpj" | "phone" | "evp" | "unknown";
 
 const EVP = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const E164_PHONE = /^\+[1-9]\d{7,14}$/;
+
+function hasValidCheckDigits(value: string, weights: number[][]): boolean {
+  if (/^(\d)\1+$/.test(value)) return false;
+  const baseLength = value.length - weights.length;
+  let current = value.slice(0, baseLength);
+
+  for (let digit = 0; digit < weights.length; digit += 1) {
+    const sum = weights[digit].reduce((total, weight, index) => total + Number(current[index]) * weight, 0);
+    const remainder = sum % 11;
+    const expected = remainder < 2 ? 0 : 11 - remainder;
+    if (expected !== Number(value[baseLength + digit])) return false;
+    current += String(expected);
+  }
+  return true;
+}
+
+function isValidCpf(value: string): boolean {
+  return /^\d{11}$/.test(value) && hasValidCheckDigits(value, [
+    [10, 9, 8, 7, 6, 5, 4, 3, 2],
+    [11, 10, 9, 8, 7, 6, 5, 4, 3, 2],
+  ]);
+}
+
+function isValidCnpj(value: string): boolean {
+  return /^\d{14}$/.test(value) && hasValidCheckDigits(value, [
+    [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+    [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2],
+  ]);
+}
 
 /** Normaliza a chave para o formato que o DICT espera. */
 export function normalizePixKey(raw: string): { key: string; kind: PixKeyKind } {
@@ -20,14 +50,35 @@ export function normalizePixKey(raw: string): { key: string; kind: PixKeyKind } 
 
   if (value.startsWith("+")) {
     const digits = value.replace(/\D/g, "");
-    return { key: `+${digits}`, kind: digits.length >= 12 ? "phone" : "unknown" };
+    const phone = `+${digits}`;
+    return { key: phone, kind: E164_PHONE.test(phone) ? "phone" : "unknown" };
   }
 
   const digits = value.replace(/\D/g, "");
-  if (digits.length === 11 && /^[\d.\-\s]+$/.test(value)) return { key: digits, kind: "cpf" };
+  const explicitCpf = /[.-]/.test(value);
+  if (digits.length === 11 && explicitCpf && /^[\d.\-\s]+$/.test(value)) return { key: digits, kind: "cpf" };
+  if (digits.length === 11 && isValidCpf(digits)) return { key: digits, kind: "cpf" };
   if (digits.length === 14 && /^[\d./\-\s]+$/.test(value)) return { key: digits, kind: "cnpj" };
   if (/^\(?\d{2}\)?\s?9?\d{4}-?\d{4}$/.test(value)) return { key: `+55${digits}`, kind: "phone" };
   return { key: value, kind: "unknown" };
+}
+
+export function isValidPixKey(raw: string): boolean {
+  const { key, kind } = normalizePixKey(raw);
+  switch (kind) {
+    case "email":
+      return key.length <= 77 && EMAIL.test(key);
+    case "cpf":
+      return isValidCpf(key);
+    case "cnpj":
+      return isValidCnpj(key);
+    case "phone":
+      return E164_PHONE.test(key);
+    case "evp":
+      return EVP.test(key);
+    default:
+      return false;
+  }
 }
 
 /** Maiúsculas, sem acento e só caracteres aceitos pelo padrão. */
@@ -73,6 +124,9 @@ export interface PixPayloadInput {
 export function buildPixPayload({ key, name, city = "BRASIL", amount, description, txid }: PixPayloadInput): string {
   const { key: normalizedKey } = normalizePixKey(key);
   if (!normalizedKey) throw new Error("Informe uma chave PIX.");
+  if (!isValidPixKey(key)) {
+    throw new Error("Chave PIX inválida. Use e-mail, CPF, CNPJ, celular em formato internacional ou chave aleatória.");
+  }
 
   const info = description ? sanitizeField(description, 40, "") : "";
   const account =

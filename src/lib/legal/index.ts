@@ -1,3 +1,4 @@
+import { getImmediateSessionUser } from "@/hooks/use-current-user";
 import { supabase } from "@/integrations/supabase/client";
 
 import { PRIVACY_POLICY } from "./privacy-policy";
@@ -56,7 +57,7 @@ export interface LegalConsentPayload {
  */
 export async function recordLegalConsent(payload: LegalConsentPayload): Promise<void> {
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) return;
 
     const previous = Array.isArray((user.user_metadata as any)?.legal_consents)

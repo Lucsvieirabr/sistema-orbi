@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -78,7 +79,7 @@ export function useAccounts() {
   }, [accountsQuery.data, projectedBalancesQuery.data]);
 
   const createAccount = async (values: Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuario nao autenticado");
     // SEGURANCA: valida/sanitiza antes de ir ao banco (whitelist de `type`,
     // cor so em hex, nome sem caractere de controle). O banco repete via CHECK.
@@ -90,7 +91,7 @@ export function useAccounts() {
   };
 
   const updateAccount = async (id: string, values: Pick<TablesUpdate<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const safe = parseOrThrow(accountSchema, values);
     // `.eq("user_id")` e defesa em profundidade: a RLS ja isola, mas o filtro
@@ -105,7 +106,7 @@ export function useAccounts() {
   };
 
   const deleteAccount = async (id: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const { error } = await supabase
       .from("accounts")

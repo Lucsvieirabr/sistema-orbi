@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Metas financeiras (módulo premium — Pro/Casal).
  *
@@ -67,7 +68,7 @@ function toGoalPayload(input: GoalInput) {
 }
 
 async function requireUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
   return user.id;
 }

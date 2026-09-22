@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -54,7 +55,7 @@ export const useNotes = () => {
   // Create a new note
   const createNoteMutation = useMutation({
     mutationFn: async (noteData: CreateNoteData) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("User not authenticated");
 
       const safeNote = parseOrThrow(noteSchema, noteData);
@@ -95,7 +96,7 @@ export const useNotes = () => {
   // Update a note
   const updateNoteMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: UpdateNoteData }) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("User not authenticated");
 
       // SEGURANCA: `data` vinha do chamador e ia inteiro para o UPDATE — nada

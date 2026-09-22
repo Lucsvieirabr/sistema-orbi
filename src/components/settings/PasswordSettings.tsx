@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 
@@ -36,7 +37,7 @@ export function PasswordSettings() {
 
   useEffect(() => {
     let active = true;
-    supabase.auth.getUser().then(({ data }) => {
+    getCachedAuthUser().then(({ data }) => {
       if (active) setEmail(data.user?.email ?? "");
     });
     return () => {

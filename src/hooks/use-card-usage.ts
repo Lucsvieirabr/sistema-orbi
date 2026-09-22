@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,7 +38,7 @@ export function useCardUsage({ cardId, statementDay }: CardUsageParams) {
   return useQuery({
     queryKey: ["card_usage", cardId, statementDay],
     queryFn: async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await getCachedAuthUser();
       if (userError) throw userError;
 
       const period = getCurrentStatementPeriod(statementDay);

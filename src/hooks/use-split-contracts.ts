@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Contratos de rateio (módulo premium — Pro/Casal).
  *
@@ -40,7 +41,7 @@ export interface SplitContractInput {
 export const SPLIT_CONTRACTS_QUERY_KEY = ["split-contracts"] as const;
 
 async function requireUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
   return user.id;
 }

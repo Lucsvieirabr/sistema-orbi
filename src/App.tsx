@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider } from "@tanstack/react-query";
 import {
   BrowserRouter,
   Routes,
@@ -57,8 +57,8 @@ import MfaChallenge from "@/pages/auth/MfaChallenge";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
 import { stageFromSession, type SessionStage } from "@/lib/auth/assurance";
 import { AUTH_ROUTES, loginPath, mfaChallengePath, safeInternalPath } from "@/lib/auth/redirect";
-
-const queryClient = new QueryClient();
+import { syncAuthUser } from "@/hooks/use-current-user";
+import { queryClient } from "@/lib/query-client";
 
 /**
  * Rede de segurança do link de recuperação: se o Supabase devolver o usuário
@@ -160,6 +160,7 @@ const App = () => {
     // Verificar sessão inicial
     supabase.auth.getSession().then(({ data }) => {
       if (!isMounted) return;
+      syncAuthUser(data.session);
       setStage(stageFromSession(data.session));
       setAuthReady(true);
     });
@@ -168,6 +169,7 @@ const App = () => {
     // propósito: chamar a API do supabase-js aqui dentro trava o lock interno.
     const { data: authListener } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!isMounted) return;
+      syncAuthUser(session);
       setStage(stageFromSession(session));
     });
 

@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { getCachedAuthUser } from "@/hooks/use-current-user";
+import React, { useState, useEffect, useMemo } from 'react';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -159,6 +161,20 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
         }),
       );
 
+      // Inicializa o classificador para aprendizado
+      const initializeClassifier = async () => {
+        try {
+          const { data: { user } } = await getCachedAuthUser();
+          if (user) {
+            const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
+            setClassifier(intelligentClassifier);
+          }
+        } catch (error) {
+          // Erro ao inicializar classificador
+        }
+      };
+
+      initializeClassifier();
     } else if (!open) {
       // Limpar dados quando fechar
       setEditedTransactions([]);
@@ -447,7 +463,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
         return;
       }
 
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await getCachedAuthUser();
       if (userError) throw userError;
       if (!user) throw new Error('Sessão expirada. Faça login novamente para importar.');
 

@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -124,7 +125,7 @@ export const PROJECTS_QUERY_KEY = ["projects"] as const;
 const KINDS = new Set<ProjectKind>(["event", "trip", "purchase", "home", "family", "other"]);
 
 async function requireUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
   return user.id;
 }

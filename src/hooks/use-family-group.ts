@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Plano Casal — fluxo cru:
  *   criar grupo -> adicionar e-mail do parceiro -> parceiro abre o app e é vinculado.
@@ -40,7 +41,7 @@ export function useFamilyGroup() {
   const queryClient = useQueryClient();
 
   const fetchFamilyGroup = async (): Promise<FamilyGroupState> => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) return EMPTY;
 
     // Vincula convites pendentes endereçados ao e-mail deste usuário.
@@ -94,7 +95,7 @@ export function useFamilyGroup() {
   }, [queryClient]);
 
   const createGroup = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     const { data, error } = await db
       .from("family_groups")
       .insert({ owner_id: user!.id })

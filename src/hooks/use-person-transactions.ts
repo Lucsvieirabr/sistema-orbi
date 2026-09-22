@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +31,7 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
   const fetchPersonTransactions = async (): Promise<Transaction[]> => {
     if (!personId) return [];
 
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuário não autenticado");
 
     const { data, error } = await supabase
@@ -151,7 +152,7 @@ export function useCreatePaymentTransaction() {
   const queryClient = useQueryClient();
 
   const createPaymentTransaction = async (debtTransactionId: string, paymentValue: number) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuário não autenticado");
 
     // Primeiro, buscar a transação de dívida original

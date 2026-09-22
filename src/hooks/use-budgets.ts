@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Orçamentos (módulo premium — Pro/Casal).
  *
@@ -97,7 +98,7 @@ function normalize(raw: any, month: string): BudgetOverview {
 }
 
 async function requireUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
   return user.id;
 }

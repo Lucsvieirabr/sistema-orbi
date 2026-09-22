@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +17,7 @@ export function useDebts() {
   return useQuery({
     queryKey: ["debts"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data, error } = await supabase
@@ -39,7 +40,7 @@ export function useDebtsByStatus(status: "PENDING" | "PAID") {
   return useQuery({
     queryKey: ["debts", status],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data, error } = await supabase
@@ -63,7 +64,7 @@ export function useDebtsByType(type: "TO_RECEIVE" | "TO_PAY") {
   return useQuery({
     queryKey: ["debts", type],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data, error } = await supabase
@@ -237,7 +238,7 @@ export function useDebtStats() {
   return useQuery({
     queryKey: ["debt-stats"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Buscar todas as transações pendentes (PENDING)

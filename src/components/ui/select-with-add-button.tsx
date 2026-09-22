@@ -260,6 +260,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
   const scrollAreaRef = React.useRef<HTMLDivElement>(null);
+  const listboxId = React.useId();
   const navigate = useNavigate();
 
   // Buscar dados para verificar limites
@@ -410,6 +411,8 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
             variant="outline"
             role="combobox"
             aria-expanded={open}
+            aria-haspopup="listbox"
+            aria-controls={listboxId}
             className="w-full justify-between pr-12 border border-input"
             disabled={disabled}
           >
@@ -419,7 +422,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
             <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-full p-0" align="start">
+        <PopoverContent className="w-full p-0" align="start" role="presentation">
           <div className="border-b p-2">
             <Input 
               placeholder="Buscar..." 
@@ -438,10 +441,12 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
                 Nenhum item encontrado.
               </div>
             ) : (
-              <div className="p-1">
+              <div id={listboxId} className="p-1" role="listbox">
                 {filteredItems.map((item) => (
                   <div
                     key={item.value}
+                    role="option"
+                    aria-selected={value === item.value}
                     className="relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none hover:bg-accent hover:text-accent-foreground"
                     onClick={() => {
                       onValueChange?.(item.value === value ? "" : item.value);

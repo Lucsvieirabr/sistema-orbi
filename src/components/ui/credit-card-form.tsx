@@ -88,6 +88,12 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       });
       return;
     }
+    if (dueDate < statementDate) {
+      toast({
+        title: "Vencimento após a virada do mês",
+        description: `O dia ${dueDate} vem antes do fechamento no dia ${statementDate}; ele será tratado como vencimento no mês seguinte.`,
+      });
+    }
 
     const payload = {
       name,
@@ -194,4 +200,3 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
     </>
   );
 };
-
