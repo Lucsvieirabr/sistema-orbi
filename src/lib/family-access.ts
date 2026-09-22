@@ -1,13 +1,28 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
- * Plano Casal — guarda de escrita.
- * No modo Casal o usuário LÊ os registros do parceiro, mas nunca escreve neles
- * (RLS já bloqueia; aqui a falha vira mensagem clara em vez de erro genérico).
+ * Plano Casal — regras de escrita no espaço compartilhado.
+ *
+ *   - Transações: os dois EDITAM (policy `family_update_transactions`), com o
+ *     trigger `orbi_transactions_family_guard` limitando o parceiro a
+ *     descrição, valor, data, categoria, status e pagador. Excluir segue só
+ *     com quem lançou.
+ *   - Contas, cartões, pessoas, metas: escrita só do dono (RLS).
+ *
+ * Aqui a falha do banco vira mensagem clara em vez de erro genérico.
  */
 import { supabase } from "@/integrations/supabase/client";
 
 export const PARTNER_READ_ONLY_MESSAGE =
-  "Este registro é do seu parceiro. No modo Casal a visualização é somente leitura.";
+  "Este registro é do seu parceiro. Contas, cartões e cadastros só podem ser alterados por quem os criou.";
+
+export const PARTNER_DELETE_MESSAGE =
+  "Só quem lançou a transação pode excluí-la. Você pode editar os detalhes no Nosso espaço.";
+
+export const SHARED_EDIT_DENIED_MESSAGE =
+  "Você não tem permissão para alterar esta transação. Verifique se o Plano Casal continua ativo.";
+
+export const TRANSACTION_NOT_FOUND_MESSAGE =
+  "Transação não encontrada. Ela pode ter sido excluída ou não está mais compartilhada com você.";
 
 export async function getCurrentUserId(): Promise<string | null> {
   const { data: { user } } = await getCachedAuthUser();
@@ -20,14 +35,45 @@ export function isOwnRow(rowUserId: string | null | undefined, currentUserId: st
   return rowUserId === currentUserId;
 }
 
-/** Lança erro se a transação não for do usuário logado. */
+let claimInFlight: Promise<void> | null = null;
+
+/**
+ * Vincula convites pendentes do Plano Casal ao usuário logado
+ * (RPC `orbi_claim_family_invites`, idempotente, só com e-mail confirmado).
+ *
+ * Roda ANTES de ler o status da assinatura: o convidado herda o plano do dono,
+ * e sem o vínculo o primeiro acesso dele cairia em `no_plan` → /pricing.
+ * Falha aqui nunca bloqueia o fluxo — o status segue como está no servidor.
+ */
+export function claimFamilyInvites(): Promise<void> {
+  if (claimInFlight) return claimInFlight;
+
+  claimInFlight = (async () => {
+    try {
+      await supabase.rpc("orbi_claim_family_invites");
+    } catch {
+      /* best-effort: o servidor decide o acesso */
+    } finally {
+      claimInFlight = null;
+    }
+  })();
+
+  return claimInFlight;
+}
+
+/**
+ * Lança erro se a transação não for do usuário logado (usado antes de EXCLUIR).
+ * `maybeSingle` + RLS: sem filtro de user_id no client — linha invisível vira
+ * "não encontrada", nunca PGRST116.
+ */
 export async function assertOwnTransaction(transactionId: string): Promise<void> {
   const currentUserId = await getCurrentUserId();
   const { data, error } = await supabase
     .from("transactions")
     .select("user_id")
     .eq("id", transactionId)
-    .single();
+    .maybeSingle();
   if (error) throw error;
-  if (!isOwnRow(data?.user_id, currentUserId)) throw new Error(PARTNER_READ_ONLY_MESSAGE);
+  if (!data) throw new Error(TRANSACTION_NOT_FOUND_MESSAGE);
+  if (!isOwnRow(data.user_id, currentUserId)) throw new Error(PARTNER_DELETE_MESSAGE);
 }

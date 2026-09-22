@@ -27,7 +27,6 @@ import {
   X,
 } from "lucide-react";
 
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { LedgerStrip, type LedgerTone } from "@/components/planning/LedgerStrip";
 import {
   describePlanningError,
@@ -163,7 +162,6 @@ export default function CashForecast() {
           </span>
         )}
         <ToolbarSpacer />
-        <ViewModeToggle />
       </PageToolbar>
 
       {isLoading ? (

@@ -4,10 +4,12 @@ import { getCachedAuthUser } from "@/hooks/use-current-user";
  *   criar grupo -> adicionar e-mail do parceiro -> parceiro abre o app e é vinculado.
  * Sem e-mail transacional, sem token, sem página de aceite.
  */
-import { useEffect } from "react";
+import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isOwnRow } from "@/lib/family-access";
+import { SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
+import { QUOTA_QUERY_KEY } from "@/hooks/use-quota";
 
 export interface FamilyMember {
   id: string;
@@ -16,14 +18,29 @@ export interface FamilyMember {
   created_at: string;
 }
 
+/** Pessoa do grupo visível no modo Casal (RPC `orbi_family_directory`). */
+export interface FamilyAuthor {
+  userId: string;
+  /** Primeiro nome; "Parceiro(a)" quando a conta não tem nome cadastrado. */
+  name: string;
+  /** Inicial para o avatar. */
+  initial: string;
+  isSelf: boolean;
+}
+
 export interface FamilyGroupState {
   groupId: string | null;
   ownerId: string | null;
   isOwner: boolean;
   members: FamilyMember[];
   currentUserId: string | null;
-  /** Grupo com 2 pessoas efetivamente vinculadas -> modo Casal disponível */
+  /**
+   * Leitura compartilhada ATIVA: 2+ pessoas vinculadas e o dono ainda com
+   * `familia_compartilhada`. Downgrade do dono desliga o modo Casal.
+   */
   isLinked: boolean;
+  /** Quem aparece no modo Casal (eu primeiro). Vazio fora do Casal. */
+  directory: FamilyAuthor[];
 }
 
 const db = supabase as any;
@@ -35,7 +52,26 @@ const EMPTY: FamilyGroupState = {
   members: [],
   currentUserId: null,
   isLinked: false,
+  directory: [],
 };
+
+const FAMILY_GROUP_QUERY_KEY = ["family-group"] as const;
+
+interface DirectoryRow {
+  user_id: string;
+  is_self: boolean;
+  name: string | null;
+}
+
+function toAuthor(row: DirectoryRow): FamilyAuthor {
+  const name = row.name?.trim() || (row.is_self ? "Você" : "Parceiro(a)");
+  return {
+    userId: row.user_id,
+    name,
+    initial: name.charAt(0).toLocaleUpperCase("pt-BR"),
+    isSelf: row.is_self,
+  };
+}
 
 export function useFamilyGroup() {
   const queryClient = useQueryClient();
@@ -49,6 +85,15 @@ export function useFamilyGroup() {
 
     const { data: groupId, error: rpcError } = await db.rpc("orbi_my_family_group_id");
     if (rpcError) throw rpcError;
+
+    // Vínculo novo (ou desfeito) muda o plano efetivo do parceiro: o status da
+    // assinatura e a cota precisam ser relidos, senão ele segue preso em /pricing.
+    const previous = queryClient.getQueryData<FamilyGroupState>(FAMILY_GROUP_QUERY_KEY);
+    if (previous && (previous.groupId ?? null) !== (groupId ?? null)) {
+      void queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+      void queryClient.invalidateQueries({ queryKey: QUOTA_QUERY_KEY });
+    }
+
     if (!groupId) return { ...EMPTY, currentUserId: user.id };
 
     const { data: group, error: groupError } = await db
@@ -64,8 +109,13 @@ export function useFamilyGroup() {
       .eq("family_group_id", groupId);
     if (membersError) throw membersError;
 
+    // Diretório já passa pelo gate do banco (dono com familia_compartilhada).
+    const { data: directoryRows, error: directoryError } = await db.rpc("orbi_family_directory");
+    if (directoryError) throw directoryError;
+
     const memberList: FamilyMember[] = members ?? [];
     const isOwner = group?.owner_id === user.id;
+    const directory = (Array.isArray(directoryRows) ? (directoryRows as DirectoryRow[]) : []).map(toAuthor);
 
     return {
       groupId,
@@ -73,12 +123,13 @@ export function useFamilyGroup() {
       isOwner,
       members: memberList,
       currentUserId: user.id,
-      isLinked: isOwner ? memberList.some((m) => !!m.user_id) : true,
+      isLinked: directory.length > 1,
+      directory: directory.length > 1 ? directory : [],
     };
   };
 
   const query = useQuery({
-    queryKey: ["family-group"],
+    queryKey: FAMILY_GROUP_QUERY_KEY,
     queryFn: fetchFamilyGroup,
   });
 
@@ -86,7 +137,9 @@ export function useFamilyGroup() {
     const channel = supabase
       .channel("family-group-changes")
       .on("postgres_changes", { event: "*", schema: "public", table: "family_group_members" }, () => {
-        queryClient.invalidateQueries({ queryKey: ["family-group"] });
+        queryClient.invalidateQueries({ queryKey: FAMILY_GROUP_QUERY_KEY });
+        queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+        queryClient.invalidateQueries({ queryKey: QUOTA_QUERY_KEY });
       })
       .subscribe();
     return () => {
@@ -127,9 +180,21 @@ export function useFamilyGroup() {
   /** true se a linha (conta, cartão, transação) pertence ao usuário logado */
   const isMine = (rowUserId?: string | null) => isOwnRow(rowUserId, state.currentUserId);
 
+  /**
+   * Autor de uma linha no modo Casal (selo "quem lançou").
+   * `null` fora do Casal ou para user_id fora do grupo visível.
+   */
+  const { directory } = state;
+  const authorOf = useCallback(
+    (rowUserId?: string | null): FamilyAuthor | null =>
+      (rowUserId && directory.find((person) => person.userId === rowUserId)) || null,
+    [directory],
+  );
+
   return {
     ...state,
     isMine,
+    authorOf,
     isLoading: query.isLoading,
     error: query.error,
     createGroup,

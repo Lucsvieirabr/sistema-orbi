@@ -72,6 +72,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
         id, user_id, description, value, date, type, payment_method,
         account_id, credit_card_id, category_id, person_id, series_id, status, created_at, 
         updated_at, liquidation_date, compensation_value, installment_number, is_fixed, composition_details,
+        is_shared, linked_txn_id,
         accounts(name),
         categories(name),
         credit_cards(name),

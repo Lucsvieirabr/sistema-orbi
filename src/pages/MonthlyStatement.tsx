@@ -39,7 +39,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
-import { assertOwnTransaction } from "@/lib/family-access";
+import { assertOwnTransaction, SHARED_EDIT_DENIED_MESSAGE, TRANSACTION_NOT_FOUND_MESSAGE } from "@/lib/family-access";
 import {
   sanitizeSingleLine,
   moneySchema,
@@ -47,7 +47,12 @@ import {
   transactionStatusSchema,
   optionalUuid,
 } from "@/lib/validation/schemas";
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { AuthorTag } from "@/components/family/AuthorTag";
+import { SplitPill } from "@/components/family/SplitPill";
+import { PayerPicker } from "@/components/family/PayerPicker";
+import { SharedAuthorNotice } from "@/components/family/SharedAuthorNotice";
+import { useFamilyGroup } from "@/hooks/use-family-group";
+import { useViewMode } from "@/hooks/use-view-mode";
 import { useCategories } from "@/hooks/use-categories";
 import { useAccounts } from "@/hooks/use-accounts";
 import { useCreditCards } from "@/hooks/use-credit-cards";
@@ -115,6 +120,11 @@ import {
   Upload,
 } from "lucide-react";
 
+
+/** Plano Casal: só grava o pagador quando escolhido (NULL = quem lança). */
+const payerField = (payload: { paid_by_user_id?: string | null }) =>
+  payload.paid_by_user_id ? { paid_by_user_id: payload.paid_by_user_id } : {};
+
 export default function MonthlyStatement() {
   return (
     <FeaturePageGuard feature="extrato">
@@ -163,6 +173,9 @@ function MonthlyStatementContent() {
   );
   const [toAccountId, setToAccountId] = useState<string | undefined>(undefined);
   const [status, setStatus] = useState<"PAID" | "PENDING">("PAID");
+  // Plano Casal: quem pagou (null = quem lança) e dono da transação em edição.
+  const [paidByUserId, setPaidByUserId] = useState<string | null>(null);
+  const [editingOwnerId, setEditingOwnerId] = useState<string | null>(null);
   const [editScope, setEditScope] = useState<
     "current" | "future" | "individual"
   >("current");
@@ -275,6 +288,11 @@ function MonthlyStatementContent() {
   const month = currentDate.getMonth() + 1;
 
   const monthlyData = useMonthlyTransactions(year, month);
+
+  // Plano Casal: no modo Casal cada linha mostra quem lançou.
+  const viewMode = useViewMode();
+  const { isLinked: isCoupleLinked, authorOf } = useFamilyGroup();
+  const showAuthor = viewMode === "couple" && isCoupleLinked;
   const {
     transactions,
     groupedTransactions,
@@ -399,15 +417,14 @@ function MonthlyStatementContent() {
 
   const loadTransactionData = async (transactionId: string) => {
     try {
-      const {
-        data: { user },
-      } = await getCachedAuthUser();
+      // Sem filtro de user_id: o RLS (dono + `family_read_transactions`) já
+      // restringe a leitura. No Nosso espaço a linha pode ser do parceiro —
+      // o filtro antigo a escondia e o `.single()` estourava 406/PGRST116.
       const { data, error } = await supabase
         .from("transactions")
         .select(
           `
-          id, user_id, description, value, date, type, payment_method,
-          account_id, credit_card_id, category_id, person_id, series_id, status, created_at, ledger_id, project_id,
+          *,
           accounts(name),
           categories(name),
           credit_cards(name),
@@ -416,12 +433,23 @@ function MonthlyStatementContent() {
         `
         )
         .eq("id", transactionId)
-        .eq("user_id", user?.id ?? "")
-        .single();
-
+        .maybeSingle();
       if (error) throw error;
 
+      if (!data) {
+        setOpen(false);
+        setEditingId(null);
+        toast({
+          title: "Transação não encontrada",
+          description: TRANSACTION_NOT_FOUND_MESSAGE,
+          variant: "destructive",
+        });
+        return;
+      }
+
       if (data) {
+        setEditingOwnerId((data as any).user_id ?? null);
+        setPaidByUserId((data as any).paid_by_user_id ?? null);
         // Verificar se é uma transação em série
         const hasSeries = Boolean(
           data.series_id ||
@@ -444,7 +472,6 @@ function MonthlyStatementContent() {
             `
             )
             .eq("series_id", data.series_id)
-            .eq("user_id", user?.id ?? "")
             .order("date");
 
           if (seriesError) {
@@ -570,6 +597,8 @@ function MonthlyStatementContent() {
     setPaymentMethod("debit");
     setCreditCardId(null);
     setPersonId(null);
+    setPaidByUserId(null);
+    setEditingOwnerId(null);
     setInstallments(null);
     setFromAccountId(accountsWithBalance[0]?.id);
     setToAccountId(accountsWithBalance[1]?.id);
@@ -816,6 +845,7 @@ function MonthlyStatementContent() {
             status: payload.status,
             ledger_id: payload.ledger_id ?? null,
             project_id: payload.project_id ?? null,
+            ...payerField(payload),
           });
           if (soloError) throw soloError;
           toast({
@@ -855,6 +885,7 @@ function MonthlyStatementContent() {
             composition_details: compositionDetailsJson, // Detalhes da composição
             ledger_id: payload.ledger_id ?? null,
             project_id: payload.project_id ?? null,
+            ...payerField(payload),
           })
           .select()
           .single();
@@ -1180,6 +1211,7 @@ function MonthlyStatementContent() {
         splitCompensation: isRateio ? splitCompensation : null, // Contrato de rateio (Pro/Casal)
         ledger_id: type === "expense" ? ledgerId : null, // Acerto de viagem (Pro/Casal)
         project_id: type === "transfer" ? null : projectId,
+        paid_by_user_id: type === "transfer" ? null : paidByUserId, // Plano Casal: quem pagou
         status: status, // Status da transação
       };
 
@@ -1413,6 +1445,7 @@ function MonthlyStatementContent() {
               status: payload.status,
               ledger_id: payload.ledger_id ?? null,
               project_id: payload.project_id ?? null,
+              ...payerField(payload),
             });
 
             if (error) throw error;
@@ -1452,10 +1485,9 @@ function MonthlyStatementContent() {
       } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
-      // Plano Casal: transação do parceiro é somente leitura
-      await assertOwnTransaction(transactionId);
-
-      // 1. Buscar dados atuais da transação
+      // 1. Buscar dados atuais da transação. No Nosso espaço ela pode ser do
+      // parceiro: o RLS libera a leitura e a edição (policy
+      // `family_update_transactions` + guarda de colunas no banco).
       const { data: currentTransaction, error: fetchError } = await supabase
         .from("transactions")
         .select(
@@ -1465,10 +1497,10 @@ function MonthlyStatementContent() {
         `
         )
         .eq("id", transactionId)
-        .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
+      if (!currentTransaction) throw new Error(TRANSACTION_NOT_FOUND_MESSAGE);
 
       // 2. Aplicar regras de imutabilidade
       const immutableFields = {
@@ -1554,7 +1586,7 @@ function MonthlyStatementContent() {
       }
 
       // 8. Executar transação com campos imutáveis preservados
-      const { error: updateError } = await supabase
+      const { data: updatedRows, error: updateError } = await supabase
         .from("transactions")
         .update({
           // Campos editáveis
@@ -1585,10 +1617,16 @@ function MonthlyStatementContent() {
           (newData.project_id ?? null) !== ((currentTransaction as any).project_id ?? null)
             ? { project_id: newData.project_id ?? null }
             : {}),
+          // Pagador só vai no UPDATE quando muda (o trigger valida o grupo).
+          ...((newData.paid_by_user_id ?? null) !== ((currentTransaction as any).paid_by_user_id ?? null)
+            ? { paid_by_user_id: newData.paid_by_user_id ?? null }
+            : {}),
         })
-        .eq("id", transactionId);
+        .eq("id", transactionId)
+        .select("id");
 
       if (updateError) throw updateError;
+      if (!updatedRows?.length) throw new Error(SHARED_EDIT_DENIED_MESSAGE);
 
       toast({
         title: "Sucesso",
@@ -2290,7 +2328,7 @@ function MonthlyStatementContent() {
       duration: 2000,
     });
     try {
-      // Plano Casal: transação do parceiro é somente leitura
+      // Plano Casal: editar é dos dois; excluir, só de quem lançou.
       await assertOwnTransaction(transactionId);
 
       const { error } = await supabase
@@ -2335,10 +2373,10 @@ function MonthlyStatementContent() {
         .from("transactions")
         .select("series_id, is_fixed, date")
         .eq("id", editingId)
-        .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       if (fetchError) throw fetchError;
+      if (!currentTransaction) throw new Error(TRANSACTION_NOT_FOUND_MESSAGE);
       if (!currentTransaction?.series_id)
         throw new Error("Transação não faz parte de uma série");
 
@@ -2509,8 +2547,6 @@ function MonthlyStatementContent() {
         description="Tudo que entrou e saiu no mês, dia a dia. Marque como pago para o saldo acompanhar."
         actions={
           <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
-            <ViewModeToggle />
-
             {/* Navegação de mês: trilho afundado, com o seletor no meio. */}
             <div className="relative flex flex-1 items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1 lg:flex-none">
               <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("prev")} aria-label="Mês anterior">
@@ -2777,6 +2813,9 @@ function MonthlyStatementContent() {
                           transaction.type === "expense" &&
                           transaction.status === "PAID" &&
                           transaction.is_shared;
+                        const author = showAuthor
+                          ? authorOf(transaction.user_id)
+                          : null;
 
                         return (
                           <div
@@ -2845,6 +2884,7 @@ function MonthlyStatementContent() {
                                     )}
                                 </div>
                                 <div className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs text-muted-foreground md:gap-x-2 md:text-sm">
+                                  {author && <AuthorTag author={author} />}
                                   <span className="max-w-[10rem] truncate lg:max-w-none">{getAccountName(transaction)}</span>
                                   {transaction.categories?.name && (
                                     <>
@@ -2875,6 +2915,13 @@ function MonthlyStatementContent() {
                                   {transaction.type === "income" ? "+" : "-"}
                                   {formatCurrencyBRL(transaction.value)}
                                 </div>
+                                {transaction.type === "expense" && (transaction as any).is_shared && (
+                                  <SplitPill
+                                    className="mt-0.5"
+                                    value={transaction.value}
+                                    compensationValue={(transaction as any).compensation_value}
+                                  />
+                                )}
                                 <div className="text-2xs text-muted-foreground md:text-xs">
                                   {transaction.status === "PAID"
                                     ? (transaction.type === "income"
@@ -2980,6 +3027,7 @@ function MonthlyStatementContent() {
         <DialogContent className="lg:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base lg:text-lg">{title}</DialogTitle>
+            {editingId && <SharedAuthorNotice ownerId={editingOwnerId} />}
           </DialogHeader>
           <div className="space-y-4 lg:space-y-6">
             {/* Tipo de Transação - IMUTÁVEL em edição */}
@@ -3919,6 +3967,15 @@ function MonthlyStatementContent() {
                 )}
 
                 {!isLoan && <ProjectPicker value={projectId} onChange={setProjectId} />}
+
+                {/* Nosso espaço: quem pagou (acerto de caixa do casal). */}
+                {type === "expense" && !isLoan && !(!editingId && installments && installments > 1) && (
+                    <PayerPicker
+                      value={paidByUserId}
+                      onChange={setPaidByUserId}
+                      ownerId={editingId ? editingOwnerId : null}
+                    />
+                  )}
 
                 {/* Configurações */}
                 <div className="space-y-3">

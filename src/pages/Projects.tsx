@@ -2,7 +2,6 @@ import { useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { CalendarRange, Flag, FolderKanban, Plus, RotateCw, Split, Target } from "lucide-react";
 
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { formatDateMedium, formatMoney, formatPct, plural, describePlanningError } from "@/components/planning/planning-utils";
 import { PaceMeter } from "@/components/projects/PaceMeter";
 import { ProjectDetail } from "@/components/projects/ProjectDetail";
@@ -82,7 +81,6 @@ function ProjectList({ onOpen }: { onOpen: (id: string) => void }) {
           <ToolbarSpacer />
           <div className="flex items-center gap-3">
             {isFetching && !isLoading && <Spinner className="h-4 w-4" />}
-            <ViewModeToggle />
           </div>
         </PageToolbar>
       )}

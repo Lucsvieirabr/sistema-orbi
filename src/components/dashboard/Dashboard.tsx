@@ -30,10 +30,11 @@ import { formatDateForDisplay, cn } from "@/lib/utils";
 import { useChartPalette } from "@/lib/chart-colors";
 import { SubscriptionChart } from "./SubscriptionChart";
 import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
+import { AuthorTag } from "@/components/family/AuthorTag";
+import { SplitPill } from "@/components/family/SplitPill";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useViewMode } from "@/hooks/use-view-mode";
-import { assertOwnTransaction } from "@/lib/family-access";
+import { assertOwnTransaction, SHARED_EDIT_DENIED_MESSAGE } from "@/lib/family-access";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 
@@ -122,8 +123,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   const { transactions, indicators, isLoading: transactionsLoading } = useMonthlyTransactions(year, month);
   const { data: debtStats } = useDebtStats();
-  const { currentUserId, isMine } = useFamilyGroup();
+  const { isMine, isLinked: isCoupleLinked, authorOf } = useFamilyGroup();
   const viewMode = useViewMode();
+  // Plano Casal: no modo Casal cada linha mostra quem lançou.
+  const showAuthor = viewMode === "couple" && isCoupleLinked;
 
   const categoryExpenses = useMemo(() => {
     const expensesByCategory: Record<string, number> = {};
@@ -176,17 +179,19 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   const setStatus = async (transactionId: string, status: "PAID" | "PENDING") => {
     try {
-      if (status === "PENDING") await assertOwnTransaction(transactionId);
-
-      const { error } = await supabase
+      // Plano Casal: status é editável pelos dois; o RLS decide. `select` só
+      // para distinguir "0 linhas" (sem permissão) de sucesso silencioso.
+      const { data: updated, error } = await supabase
         .from("transactions")
         .update({
           status,
           liquidation_date: status === "PAID" ? new Date().toISOString() : null,
         })
-        .eq("id", transactionId);
+        .eq("id", transactionId)
+        .select("id");
 
       if (error) throw error;
+      if (!updated?.length) throw new Error(SHARED_EDIT_DENIED_MESSAGE);
 
       toast({
         title: status === "PAID" ? "Transação liquidada" : "Transação reaberta",
@@ -272,7 +277,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
         eyebrow={<span className="capitalize">{monthLabel}</span>}
         title="Visão geral"
         description="Como o mês está fechando: o que já entrou, o que já saiu e o que ainda está por vir."
-        actions={<ViewModeToggle />}
       />
 
       {/* KPIs — os protagonistas da tela */}
@@ -460,10 +464,15 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           </Badge>
                         )}
                       </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
-                        {transaction.categories?.name && ` · ${transaction.categories.name}`}
-                      </p>
+                      <div className="flex min-w-0 items-center gap-1.5">
+                        {showAuthor && authorOf(transaction.user_id) && (
+                          <AuthorTag author={authorOf(transaction.user_id)!} />
+                        )}
+                        <p className="min-w-0 truncate text-xs text-muted-foreground">
+                          <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
+                          {transaction.categories?.name && ` · ${transaction.categories.name}`}
+                        </p>
+                      </div>
                     </div>
 
                     <div className="shrink-0 text-right">
@@ -541,6 +550,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   const isPaidSharedExpense =
                     transaction.type === "expense" && transaction.status === "PAID" && transaction.is_shared;
                   const isSettled = transaction.status === "PAID";
+                  const author = showAuthor ? authorOf(transaction.user_id) : null;
 
                   return (
                     <li
@@ -556,30 +566,35 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           </span>
                           {transaction.series_id && transaction.is_shared && <Badge variant="secondary">Rateio</Badge>}
                           {transaction.linked_txn_id && <Badge variant="outline">Ligada</Badge>}
-                          {viewMode === "couple" && currentUserId && transaction.user_id !== currentUserId && (
-                            <Badge variant="outline">Parceiro</Badge>
-                          )}
                           {transaction.installmentNumber && transaction.totalInstallments > 1 && (
                             <Badge variant="outline">
                               {transaction.installmentNumber}/{transaction.totalInstallments}
                             </Badge>
                           )}
                         </div>
-                        <p className="truncate text-xs text-muted-foreground">
-                          {truncateText(getAccountName(transaction), 18)}
-                          {transaction.categories?.name && ` · ${truncateText(transaction.categories.name, 18)}`}
-                          {transaction.people?.name && ` · ${truncateText(transaction.people.name, 18)}`}
-                          {" · "}
-                          <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
-                          {isPaidSharedExpense && ` · minha parte ${formatCurrency(transaction.value)}`}
-                        </p>
+                        <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
+                          {author && <AuthorTag author={author} />}
+                          <p className="min-w-0 truncate text-xs text-muted-foreground">
+                            {truncateText(getAccountName(transaction), 18)}
+                            {transaction.categories?.name && ` · ${truncateText(transaction.categories.name, 18)}`}
+                            {transaction.people?.name && ` · ${truncateText(transaction.people.name, 18)}`}
+                            {" · "}
+                            <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
+                            {isPaidSharedExpense && ` · minha parte ${formatCurrency(transaction.value)}`}
+                          </p>
+                        </div>
                       </div>
 
                       <div className="shrink-0 text-right">
-                        <p className={cn("figure-sm tabular", transactionTone(transaction.type))}>
-                          {transaction.type === "income" ? "+" : "−"}
-                          {formatCurrency(transaction.value)}
-                        </p>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {transaction.type === "expense" && transaction.is_shared && (
+                            <SplitPill value={transaction.value} compensationValue={transaction.compensation_value} />
+                          )}
+                          <p className={cn("figure-sm tabular", transactionTone(transaction.type))}>
+                            {transaction.type === "income" ? "+" : "−"}
+                            {formatCurrency(transaction.value)}
+                          </p>
+                        </div>
                         <p className="text-2xs text-muted-foreground">
                           {isSettled ? (transaction.type === "income" ? "Recebido" : "Pago") : "Pendente"}
                         </p>
@@ -591,7 +606,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
                           size="icon-sm"
                           variant="ghost"
                           aria-label={`Editar ${transaction.description}`}
-                          disabled={!isMine(transaction.user_id)}
                           onClick={() => navigate(`/sistema/statement?edit=${transaction.id}`)}
                         >
                           <Edit />
@@ -604,7 +618,6 @@ export function Dashboard({ onLogout }: DashboardProps) {
                               ? `Reabrir ${transaction.description}`
                               : `Marcar ${transaction.description} como liquidada`
                           }
-                          disabled={!isMine(transaction.user_id)}
                           onClick={() => setStatus(transaction.id, isSettled ? "PENDING" : "PAID")}
                         >
                           {isSettled ? <Undo2 /> : <CheckCircle />}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowDownRight, ArrowUpRight, CalendarClock, FolderKanban, Minus, RotateCw, ScrollText } from "lucide-react";
 import {
@@ -12,8 +12,8 @@ import {
   type TooltipProps,
 } from "recharts";
 
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
+import { CoupleSplitCard } from "@/components/family/CoupleSplitCard";
 import { LedgerStrip, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { MonthSwitcher, useMonthParam } from "@/components/planning/MonthSwitcher";
 import {
@@ -104,7 +104,6 @@ export default function MonthlyClosing() {
               </Label>
             </div>
           )}
-          <ViewModeToggle />
         </div>
       </PageToolbar>
 
@@ -137,7 +136,10 @@ export default function MonthlyClosing() {
           {data.trend.some((point) => point.income > 0 || point.expenses > 0) && <TrendCard closing={data} />}
         </div>
       ) : (
-        <ClosingReport closing={data} />
+        <ClosingReport
+          closing={data}
+          insight={<CoupleSplitCard month={month} excludeProjects={!includeProjects} />}
+        />
       )}
     </PageBody>
   );
@@ -156,7 +158,7 @@ function ClosingSkeleton() {
   );
 }
 
-function ClosingReport({ closing }: { closing: Closing }) {
+function ClosingReport({ closing, insight }: { closing: Closing; insight?: ReactNode }) {
   const { current, previous, variation, largestExpense } = closing;
   const monthName = formatMonthName(closing.month);
   const previousName = formatMonthName(closing.previousMonth);
@@ -214,6 +216,8 @@ function ClosingReport({ closing }: { closing: Closing }) {
           },
         ]}
       />
+
+      {insight}
 
       <InflationAlertCard teaser={false} />
 

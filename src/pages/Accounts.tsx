@@ -17,6 +17,7 @@ import { ColorPicker } from "@/components/ui/color-picker";
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { OwnerMark } from "@/components/family/OwnerMark";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 import { cn, onColorClass } from "@/lib/utils";
 import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
@@ -302,12 +303,15 @@ function AccountsContent() {
               <CardHeader className="gap-0 space-y-0">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h2
-                      className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
-                      title={a.name}
-                    >
-                      {a.name}
-                    </h2>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <OwnerMark userId={a.user_id} />
+                      <h2
+                        className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
+                        title={a.name}
+                      >
+                        {a.name}
+                      </h2>
+                    </div>
                     <p className="label-eyebrow mt-1">{a.type}</p>
                   </div>
                   {rowActions(a)}
@@ -341,9 +345,12 @@ function AccountsContent() {
                   style={{ backgroundColor: a.color ?? "hsl(var(--border))" }}
                 />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-foreground" title={a.name}>
-                    {a.name}
-                  </p>
+                  <div className="flex min-w-0 items-center gap-2">
+                    <OwnerMark userId={a.user_id} />
+                    <p className="truncate text-sm font-medium text-foreground" title={a.name}>
+                      {a.name}
+                    </p>
+                  </div>
                   <p className="mt-0.5 text-xs text-muted-foreground">{a.type}</p>
                 </div>
                 <div className="flex items-center justify-between gap-3 border-t border-border-subtle pt-2 lg:justify-end lg:border-t-0 lg:pt-0">

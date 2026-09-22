@@ -1,6 +1,7 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { claimFamilyInvites } from "@/lib/family-access";
 
 export type SubscriptionAccess = "allowed" | "blocked" | "pending_payment" | "no_plan" | "unauthenticated";
 export type SubscriptionStatus =
@@ -44,6 +45,12 @@ export interface SubscriptionStatusPayload {
   trial_end?: string | null;
   blocked_reason?: string | null;
   cancel_at_period_end?: boolean;
+  /**
+   * Plano Casal: o plano vem da assinatura do DONO do grupo (o usuário é o
+   * parceiro vinculado). Nesse caso o payload não traz dados de cobrança
+   * (subscription_id, vencimento, motivo de bloqueio) — quem paga é o dono.
+   */
+  inherited?: boolean;
 }
 
 const EMPTY: SubscriptionStatusPayload = { access: "no_plan", has_subscription: false };
@@ -60,6 +67,10 @@ export function useSubscriptionStatus() {
     queryFn: async () => {
       const { data: { user } } = await getCachedAuthUser();
       if (!user) return { access: "unauthenticated", has_subscription: false };
+
+      // Convidado do Plano Casal: vincula antes de ler o status para herdar o
+      // plano do dono em vez de cair em `no_plan`.
+      await claimFamilyInvites();
 
       const { data, error } = await supabase.rpc("get_my_subscription_status");
       if (error) throw error;
@@ -142,6 +153,8 @@ export function useSubscription() {
     isBlocked: status.access === "blocked",
     hasActivePlan: status.access === "allowed",
     hasAnyPlan: status.has_subscription,
+    /** Plano herdado do dono do Plano Casal (sem cobrança própria). */
+    isInherited: status.inherited === true,
     blockedReason: status.blocked_reason ?? null,
 
     trialDaysRemaining,

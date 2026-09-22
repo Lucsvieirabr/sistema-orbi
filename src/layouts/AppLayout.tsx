@@ -7,6 +7,8 @@ import { MfaSecurityReminder } from "@/components/auth/MfaSecurityReminder";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useIsCompact } from "@/hooks/use-mobile";
+import { useSpace } from "@/hooks/use-space";
+import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
   onLogout: () => void;
@@ -44,6 +46,9 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
   const { toast } = useToast();
   const isCompact = useIsCompact();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  // Chave pela PREFERÊNCIA (síncrona, localStorage): o palco não remonta
+  // quando o vínculo do Casal termina de carregar, só quando o usuário troca.
+  const { mode } = useSpace();
 
   useEffect(() => {
     if (searchParams.get("payment") !== "success") return;
@@ -99,7 +104,17 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
             tabIndex={-1}
             className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain px-4 py-5 outline-none md:px-6 md:py-8 lg:px-8 lg:py-10"
           >
-            <div className="mx-auto w-full min-w-0 max-w-[88rem]">
+            {/* Troca de espaço remonta o palco: o conteúdo assenta vindo do
+                lado escolhido (eu ← | → nós). `key` garante a animação uma
+                vez por troca, nunca em re-render comum. */}
+            <div
+              key={mode}
+              data-space={mode === "couple" ? "we" : "me"}
+              className={cn(
+                "mx-auto w-full min-w-0 max-w-[88rem]",
+                mode === "couple" ? "motion-safe:animate-space-in-we" : "motion-safe:animate-space-in-me",
+              )}
+            >
               <Outlet />
             </div>
 

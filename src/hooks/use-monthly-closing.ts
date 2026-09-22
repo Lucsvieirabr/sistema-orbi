@@ -193,3 +193,57 @@ export function useMonthlyClosing(month: string, excludeProjects = true) {
     placeholderData: (previous) => previous,
   });
 }
+
+/** Nosso espaço — quem gastou o quê no mês (RPC `orbi_couple_expense_split`). */
+export interface CoupleExpenseShare {
+  userId: string;
+  isSelf: boolean;
+  name: string;
+  total: number;
+  count: number;
+  /** % das despesas do casal no mês (0–100, inteiro; soma 100). */
+  pct: number;
+}
+
+export interface CoupleExpenseSplit {
+  total: number;
+  people: CoupleExpenseShare[];
+}
+
+export function useCoupleExpenseSplit(month: string, excludeProjects = true, enabled = true) {
+  return useQuery({
+    queryKey: ["couple-expense-split", month, excludeProjects],
+    enabled,
+    queryFn: async (): Promise<CoupleExpenseSplit | null> => {
+      const { data, error } = await (supabase as any).rpc("orbi_couple_expense_split", {
+        p_month: month,
+        p_exclude_projects: excludeProjects,
+      });
+      if (error) throw error;
+      if (!data?.linked) return null;
+
+      const total = toNumber(data.total);
+      const rows: any[] = Array.isArray(data.people) ? data.people : [];
+      const people = rows.map((row) => {
+        const isSelf = Boolean(row.is_self);
+        const value = toNumber(row.total);
+        return {
+          userId: String(row.user_id),
+          isSelf,
+          name: (row.name as string | null)?.trim() || (isSelf ? "Você" : "Parceiro(a)"),
+          total: value,
+          count: toNumber(row.count),
+          pct: total > 0 ? Math.round((Math.max(0, value) / total) * 100) : 0,
+        };
+      });
+      // Arredondamento nunca deixa a soma ≠ 100: o resíduo vai para o último.
+      if (total > 0 && people.length > 1) {
+        const rest = people.slice(0, -1).reduce((sum, person) => sum + person.pct, 0);
+        people[people.length - 1].pct = Math.max(0, 100 - rest);
+      }
+      return { total, people };
+    },
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+}

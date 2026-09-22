@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { getCurrentUserId, isOwnRow, PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
+import { SHARED_EDIT_DENIED_MESSAGE, TRANSACTION_NOT_FOUND_MESSAGE } from "@/lib/family-access";
 
 export type TransactionStatus = 'PENDING' | 'PAID';
 
@@ -25,21 +25,20 @@ export function useStatusSync() {
    */
   const syncStatus = useCallback(async (transactionId: string, newStatus: TransactionStatus) => {
     try {
-      // Buscar a transação atual para obter o series_id e person_id
+      // Buscar a transação atual para obter o series_id e person_id.
+      // Sem filtro de user_id: o RLS (dono + Plano Casal) decide o que é
+      // visível. `maybeSingle` evita o 406/PGRST116 de linha invisível.
       const { data: currentTransaction, error: fetchError } = await supabase
         .from('transactions')
         .select('series_id, linked_txn_id, person_id, user_id')
         .eq('id', transactionId)
-        .single();
+        .maybeSingle();
 
       if (fetchError) {
         throw new Error(`Erro ao buscar transação: ${fetchError.message}`);
       }
-
-      // Plano Casal: bloqueia escrita em transação do parceiro
-      const currentUserId = await getCurrentUserId();
-      if (!isOwnRow((currentTransaction as any)?.user_id, currentUserId)) {
-        throw new Error(PARTNER_READ_ONLY_MESSAGE);
+      if (!currentTransaction) {
+        throw new Error(TRANSACTION_NOT_FOUND_MESSAGE);
       }
 
       // Preparar dados de atualização
@@ -74,14 +73,16 @@ export function useStatusSync() {
       }
       // Caso contrário, atualizar apenas a transação atual
       else {
-        const { error: singleError } = await supabase
+        const { data: updated, error: singleError } = await supabase
           .from('transactions')
           .update(updateData)
-          .eq('id', transactionId);
+          .eq('id', transactionId)
+          .select('id');
 
         if (singleError) {
           throw new Error(`Erro ao atualizar transação: ${singleError.message}`);
         }
+        if (!updated?.length) throw new Error(SHARED_EDIT_DENIED_MESSAGE);
       }
 
       // Invalidar queries relacionadas para atualizar a UI

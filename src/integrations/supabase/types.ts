@@ -1121,6 +1121,7 @@ export type Database = {
           ledger_id: string | null
           linked_txn_id: string | null
           liquidation_date: string | null
+          paid_by_user_id: string | null
           payment_method: string | null
           person_id: string | null
           project_id: string | null
@@ -1147,6 +1148,7 @@ export type Database = {
           ledger_id?: string | null
           linked_txn_id?: string | null
           liquidation_date?: string | null
+          paid_by_user_id?: string | null
           payment_method?: string | null
           person_id?: string | null
           project_id?: string | null
@@ -1173,6 +1175,7 @@ export type Database = {
           ledger_id?: string | null
           linked_txn_id?: string | null
           liquidation_date?: string | null
+          paid_by_user_id?: string | null
           payment_method?: string | null
           person_id?: string | null
           project_id?: string | null

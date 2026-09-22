@@ -19,6 +19,7 @@ import { LayoutGrid, List, Plus, CreditCard, Receipt, Edit, Trash2, Search } fro
 import { FeaturePageGuard, FeatureGuard, LimitGuard, LimitWarningBanner } from "@/components/guards/FeatureGuard";
 import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { OwnerMark } from "@/components/family/OwnerMark";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
 import { cn } from "@/lib/utils";
 import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
@@ -234,12 +235,15 @@ function CardsContent() {
             <div className="flex min-w-0 items-center gap-2.5">
               <span className="shrink-0">{getBrandIcon(card.brand)}</span>
               <div className="min-w-0">
-                <h2
-                  className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
-                  title={card.name}
-                >
-                  {card.name}
-                </h2>
+                <div className="flex min-w-0 items-center gap-2">
+                  <OwnerMark userId={card.user_id} />
+                  <h2
+                    className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
+                    title={card.name}
+                  >
+                    {card.name}
+                  </h2>
+                </div>
                 {card.brand && <p className="label-eyebrow mt-0.5">{card.brand}</p>}
               </div>
             </div>
@@ -313,6 +317,7 @@ function CardsContent() {
           <span className="shrink-0">{getBrandIcon(card.brand)}</span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2">
+              <OwnerMark userId={card.user_id} />
               <p className="truncate text-sm font-medium text-foreground" title={card.name}>
                 {card.name}
               </p>

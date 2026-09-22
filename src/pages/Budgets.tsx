@@ -2,7 +2,6 @@ import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import { Copy, Gauge, Pencil, Plus, RotateCw, Sparkles, Trash2 } from "lucide-react";
 
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { BudgetInflationAlerts } from "@/components/inflation/BudgetInflationAlerts";
 import { LedgerStrip, UsageBar, usageTone, type LedgerTone } from "@/components/planning/LedgerStrip";
 import { MonthSwitcher, useMonthParam } from "@/components/planning/MonthSwitcher";
@@ -36,6 +35,7 @@ import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { useBudgets, type BudgetOverview, type BudgetRow, type BudgetSuggestion } from "@/hooks/use-budgets";
 import { useCategories } from "@/hooks/use-categories";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { OwnerMark } from "@/components/family/OwnerMark";
 import { useNotifications } from "@/hooks/use-notifications";
 import { toAlert } from "@/hooks/use-personal-inflation";
 import { cn } from "@/lib/utils";
@@ -125,7 +125,6 @@ export default function Budgets() {
         <div className="flex items-center gap-3">
           {isFetching && !isLoading && <Spinner className="h-4 w-4" />}
           {budgets.length > 0 && copyButton}
-          <ViewModeToggle />
         </div>
       </PageToolbar>
 
@@ -325,6 +324,7 @@ function BudgetItem({
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
             <p className="flex min-w-0 items-center gap-2">
+              <OwnerMark userId={budget.user_id} />
               <span className="truncate text-sm font-medium text-foreground" title={budget.category_name}>
                 {budget.category_name}
               </span>

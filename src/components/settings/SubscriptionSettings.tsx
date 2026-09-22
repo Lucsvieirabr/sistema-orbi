@@ -86,6 +86,53 @@ export function SubscriptionSettings() {
     );
   }
 
+  // Plano Casal: parceiro vinculado usa a assinatura do dono. Sem cobrança,
+  // troca ou cancelamento aqui — o backend nem devolve os dados de cobrança.
+  if (status.inherited) {
+    const sharedUntil = status.cancel_at_period_end ? formatShortDate(status.current_period_end) : null;
+
+    return (
+      <Card>
+        <CardHeader className="gap-3 space-y-0">
+          <p className="label-eyebrow">Plano atual</p>
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5">
+            <h2 className="font-display text-xl font-semibold leading-tight tracking-[-0.02em] text-foreground">
+              {status.plan_name ?? "Casal"}
+            </h2>
+            <Badge variant="info">Compartilhado</Badge>
+          </div>
+          <p className="max-w-prose text-sm leading-relaxed text-pretty text-muted-foreground">
+            Você usa este plano pelo Plano Casal. Cobrança, troca de plano e cancelamento ficam com quem assina.
+          </p>
+        </CardHeader>
+
+        <CardContent className="space-y-6 pt-0">
+          {sharedUntil && (
+            <dl className="border-t border-border-subtle">
+              <LedgerRow label="Compartilhado até">{sharedUntil}</LedgerRow>
+            </dl>
+          )}
+
+          {highlights && highlights.lines.length > 0 && (
+            <section aria-labelledby="plan-includes-shared">
+              <h3 id="plan-includes-shared" className="label-eyebrow">
+                Incluído no plano
+              </h3>
+              <ul className="mt-3 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+                {highlights.lines.map((line) => (
+                  <li key={line.text} className="flex items-start gap-2 text-sm text-foreground">
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden />
+                    {line.text}
+                  </li>
+                ))}
+              </ul>
+            </section>
+          )}
+        </CardContent>
+      </Card>
+    );
+  }
+
   const planName = status.plan_name ?? "atual";
   const isYearly = status.billing_cycle === "yearly" || (status.billing_cycle as string) === "annual";
   const price = plan ? Number(isYearly ? plan.price_yearly : plan.price_monthly) : null;

@@ -130,7 +130,7 @@ export function FamilyGroupSettings() {
                   <div className="min-w-0">
                     <p className="truncate text-sm font-medium">{member.email}</p>
                     <Badge variant={member.user_id ? "secondary" : "outline"} className="mt-1 text-xs">
-                      {member.user_id ? "Ativo" : "Aguardando primeiro acesso"}
+                      {member.user_id ? "Ativo" : "Aguardando acesso com e-mail confirmado"}
                     </Badge>
                   </div>
                   <Button
@@ -146,7 +146,7 @@ export function FamilyGroupSettings() {
               ))}
               {members.length === 0 && (
                 <p className="text-xs text-muted-foreground">
-                  O parceiro precisa ter (ou criar) uma conta no Orbi com este mesmo e-mail.
+                  O parceiro precisa ter (ou criar) uma conta no Orbi com este mesmo e-mail e confirmá-lo.
                 </p>
               )}
             </div>

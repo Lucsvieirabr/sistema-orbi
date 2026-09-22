@@ -232,6 +232,16 @@ export default {
           from: { transform: "rotate(0deg)" },
           to: { transform: "rotate(360deg)" },
         },
+        /* Troca Meu Espaço <-> Nosso Espaço: o conteúdo assenta vindo do lado
+           do espaço escolhido. Só transform/opacity/filter — compositor. */
+        "space-in-me": {
+          from: { opacity: "0", transform: "translateX(-10px)", filter: "blur(3px)" },
+          to: { opacity: "1", transform: "none", filter: "none" },
+        },
+        "space-in-we": {
+          from: { opacity: "0", transform: "translateX(10px)", filter: "blur(3px)" },
+          to: { opacity: "1", transform: "none", filter: "none" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -245,6 +255,8 @@ export default {
         "caret-blink": "caret-blink 1.2s ease-out infinite",
         halo: "halo 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite",
         "orbit-ring": "orbit-ring 9s linear infinite",
+        "space-in-me": "space-in-me 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
+        "space-in-we": "space-in-we 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",

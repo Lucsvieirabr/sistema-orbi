@@ -3,6 +3,8 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { NotificationsBell } from "./NotificationsBell";
 import { SearchPopover } from "./SearchPopover";
+import { SpaceSwitch } from "@/components/family/ViewModeToggle";
+import { useSpace } from "@/hooks/use-space";
 
 interface HeaderProps {
   title: string;
@@ -31,10 +33,13 @@ export function AppHeader({
   onMenuClick,
   menuOpen = false,
 }: HeaderProps) {
+  const { isWeSpace } = useSpace();
+
   return (
     <header
+      data-space={isWeSpace ? "we" : "me"}
       className={cn(
-        "sticky top-0 z-header flex h-header shrink-0 items-center justify-between gap-2 lg:h-header-lg lg:gap-4",
+        "relative sticky top-0 z-header flex h-header shrink-0 items-center justify-between gap-2 lg:h-header-lg lg:gap-4",
         "border-b border-border-subtle bg-background/90 px-2 backdrop-blur-[2px] md:px-4 lg:px-8",
         className,
       )}
@@ -61,7 +66,19 @@ export function AppHeader({
         </div>
       </div>
 
+      {/* We-Space: um fio de identidade (chart-6) se abre do centro sob o
+          header. É o lembrete periférico de que a tela mostra dados dos dois. */}
+      <span
+        aria-hidden
+        className={cn(
+          "pointer-events-none absolute inset-x-0 -bottom-px h-px origin-center bg-gradient-to-r from-transparent via-chart-6/70 to-transparent",
+          "transition-[transform,opacity] duration-500 ease-entrance",
+          isWeSpace ? "scale-x-100 opacity-100" : "scale-x-0 opacity-0",
+        )}
+      />
+
       <div className="flex shrink-0 items-center gap-0.5 md:gap-1 lg:gap-2">
+        <SpaceSwitch className="mr-0.5 md:mr-1" />
         <SearchPopover />
         <NotificationsBell />
         {rightSlot}

@@ -2,7 +2,6 @@ import { FormEvent, type ReactNode, useEffect, useMemo, useRef, useState } from 
 import { Link } from "react-router-dom";
 import { ArrowDownLeft, ArrowUpRight, CircleCheck, FolderKanban, Pencil, Plus, Rocket, RotateCw, Target, Trash2 } from "lucide-react";
 
-import { ViewModeToggle } from "@/components/family/ViewModeToggle";
 import { ExecuteGoalDialog } from "@/components/projects/ExecuteGoalDialog";
 import { UsageBar } from "@/components/planning/LedgerStrip";
 import { notifyPlanningError, notifyPlanningSuccess } from "@/components/planning/notify";
@@ -33,10 +32,11 @@ import { IconRenderer } from "@/components/ui/icon-renderer";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
-import { EmptyState, PageBody, PageHeader, PageToolbar, SectionHeader, ToolbarSpacer } from "@/components/ui/page";
+import { EmptyState, PageBody, PageHeader, PageToolbar, SectionHeader } from "@/components/ui/page";
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { useFamilyGroup } from "@/hooks/use-family-group";
+import { OwnerMark } from "@/components/family/OwnerMark";
 import { useFeature } from "@/hooks/use-feature";
 import { useGoalAllocations, useGoals, type GoalInput, type GoalProgress } from "@/hooks/use-goals";
 import { cn, getCurrentDateString } from "@/lib/utils";
@@ -67,7 +67,7 @@ type GoalEditorState = { mode: "create" } | { mode: "edit"; goal: GoalProgress }
 export default function Goals() {
   const { goals, isLoading, error, refetch, createGoal, updateGoal, deleteGoal, addAllocation, deleteAllocation } =
     useGoals();
-  const { isMine, isLinked } = useFamilyGroup();
+  const { isMine } = useFamilyGroup();
   const [editor, setEditor] = useState<GoalEditorState | null>(null);
   const [movingGoalId, setMovingGoalId] = useState<string | null>(null);
   const [executingGoalId, setExecutingGoalId] = useState<string | null>(null);
@@ -122,10 +122,9 @@ export default function Goals() {
         }
       />
 
-      {(goals.length > 0 || isLinked) && (
+      {goals.length > 0 && (
         <PageToolbar>
-          {goals.length > 0 ? (
-            <p className="text-sm tabular text-muted-foreground">
+          <p className="text-sm tabular text-muted-foreground">
               <span className="font-medium text-foreground">{formatMoney(totalSaved)}</span> guardados de{" "}
               {formatMoney(totalTarget)} em {plural(goals.length, "meta", "metas")}
               {monthlyNeeded > 0 && (
@@ -135,11 +134,6 @@ export default function Goals() {
                 </>
               )}
             </p>
-          ) : (
-            <span />
-          )}
-          <ToolbarSpacer />
-          <ViewModeToggle />
         </PageToolbar>
       )}
 
@@ -276,12 +270,15 @@ function GoalCard({
               <IconRenderer iconName={goal.icon} className="h-4 w-4 text-muted-foreground" fallbackIcon={Target} />
             </span>
             <div className="min-w-0 flex-1">
-              <h2
-                className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
-                title={goal.name}
-              >
-                {goal.name}
-              </h2>
+              <div className="flex min-w-0 items-center gap-2">
+                <OwnerMark userId={goal.user_id} />
+                <h2
+                  className="truncate font-display text-[0.9375rem] font-semibold tracking-[-0.015em] text-foreground"
+                  title={goal.name}
+                >
+                  {goal.name}
+                </h2>
+              </div>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                 {goal.deadline ? <span>Até {formatDateMedium(goal.deadline)}</span> : <span>Sem prazo</span>}
                 {readOnly && <Badge variant="outline">Parceiro</Badge>}

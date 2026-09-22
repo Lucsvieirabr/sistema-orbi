@@ -10,6 +10,7 @@ import { assuranceFromSession } from "@/lib/auth/assurance";
 import { AUTH_ROUTES, mfaChallengePath, readNextParam, safeInternalPath } from "@/lib/auth/redirect";
 import { confirmationRedirectUrl, forgetPendingEmail, rememberPendingEmail } from "@/services/auth/email-confirmation";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { claimFamilyInvites } from "@/lib/family-access";
 
 /**
  * Resolve a rota de destino a partir do status validado no backend.
@@ -21,6 +22,11 @@ import { useCurrentUser } from "@/hooks/use-current-user";
  */
 export async function resolvePostAuthRoute(preferred?: string | null): Promise<string> {
   await syncSubscriptionStatus();
+
+  // Parceiro do Plano Casal herda o plano do dono. O vínculo do convite
+  // precisa existir ANTES da leitura do status, senão o primeiro login do
+  // convidado cai em `no_plan` e é ejetado para /pricing.
+  await claimFamilyInvites();
 
   // Falha transitória da RPC não pode rebaixar uma conta ativa para /pricing.
   // Uma retentativa e, persistindo o erro, o usuário segue para /sistema —
