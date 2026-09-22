@@ -140,9 +140,15 @@ export function AuthForm() {
   const { errors: registerErrors } = registerForm.formState;
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
       <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-safe pt-safe">
-        <header className="flex h-14 shrink-0 items-center justify-end" aria-label="Preferências de aparência">
+        {/* Mobile: no fluxo, alinhado à borda do card. md+: fixo no canto
+            superior direito da VIEWPORT (fora da coluna max-w-md), sem mexer
+            na centralização do card. */}
+        <header
+          className="flex h-14 shrink-0 items-center justify-end md:absolute md:right-8 md:top-6 md:z-10 md:h-auto"
+          aria-label="Preferências de aparência"
+        >
           <ThemeToggle />
         </header>
 

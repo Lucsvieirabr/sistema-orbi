@@ -6,7 +6,12 @@ import { PRIVACY_POLICY, TERMS_OF_USE, type LegalDocument } from "@/lib/legal";
 
 import { LegalDialog } from "./LegalDialog";
 
-/** Botão-link inline: abre o documento em modal sem descartar o formulário. */
+/**
+ * Link inline: abre o documento em modal sem descartar o formulário.
+ * `<a>` (e não `<button>`): botão é `inline-block` e salta INTEIRO para a linha
+ * seguinte, quebrando o parágrafo no meio; âncora é inline e flui palavra a
+ * palavra. Ctrl/⌘/Shift/botão do meio mantêm o comportamento nativo (nova aba).
+ */
 function LegalInlineLink({
   document: doc,
   onOpen,
@@ -15,13 +20,17 @@ function LegalInlineLink({
   onOpen: (doc: LegalDocument) => void;
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onOpen(doc)}
-      className="rounded-sm font-medium text-primary underline underline-offset-4 hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    <a
+      href={doc.path}
+      onClick={(event) => {
+        if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        onOpen(doc);
+      }}
+      className="rounded-sm font-medium text-primary underline underline-offset-4 [box-decoration-break:clone] hover:text-primary-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
     >
       {doc.shortTitle}
-    </button>
+    </a>
   );
 }
 
@@ -74,7 +83,7 @@ export function LegalConsentCheckbox({
           impede que o quadrado seja esmagado quando o texto quebra; `min-w-0
           flex-1` faz o texto FLUIR ao lado em coluna própria em vez de
           transbordar por baixo da caixa. */}
-      <div className="flex items-start gap-2">
+      <div className="flex w-full items-start gap-2.5">
         <Checkbox
           id={id}
           checked={checked}
@@ -88,10 +97,10 @@ export function LegalConsentCheckbox({
         />
         <label
           htmlFor={id}
-          className="min-w-0 flex-1 cursor-pointer text-2xs leading-4 text-muted-foreground"
+          className="block min-w-0 flex-1 cursor-pointer text-xs leading-5 text-muted-foreground"
         >
           {label ?? (
-            <span className="text-pretty">
+            <span>
               Li e concordo com os <LegalInlineLink document={TERMS_OF_USE} onOpen={open} /> e a{" "}
               <LegalInlineLink document={PRIVACY_POLICY} onOpen={open} />.
             </span>
@@ -99,10 +108,10 @@ export function LegalConsentCheckbox({
         </label>
       </div>
 
-      {/* Recuo = largura da caixa (1rem) + gap (0.5rem): o erro nasce sob o
+      {/* Recuo = largura da caixa (1rem) + gap (0.625rem): o erro nasce sob o
           texto, não sob o checkbox. */}
       {error && (
-        <p id={errorId} role="alert" className="pl-6 text-xs font-medium text-destructive">
+        <p id={errorId} role="alert" className="pl-[1.625rem] text-xs font-medium text-destructive">
           {error}
         </p>
       )}

@@ -25,7 +25,7 @@ export function AuthShell({ title, description, children, aside, className }: Au
 
   return (
     <main className="relative flex min-h-screen flex-col items-center justify-center bg-background px-4 pb-16 pt-20">
-      <div className="absolute right-4 top-4">
+      <div className="absolute right-4 top-4 md:right-8 md:top-6">
         <ThemeToggle />
       </div>
 
