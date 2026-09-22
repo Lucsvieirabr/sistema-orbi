@@ -42,15 +42,44 @@ function fail(error: { code?: string; status?: number } | null | undefined, fall
 }
 
 /**
- * O GoTrue devolve o QR como SVG cru ou já como `data:image/svg+xml;utf-8,<svg…>`
- * (varia por versão). Normaliza para data URI com o SVG percent-encoded — `#` e
- * espaços crus quebram a URI. Aceita SÓ SVG: nada de URL remota em `<img src>`.
+ * O endpoint do GoTrue devolve SVG cru e o supabase-js normalmente acrescenta
+ * o prefixo de data URI. Entre versões/self-hosted, porém, o valor também pode
+ * chegar percent-encoded, em base64 ou até com o prefixo acrescentado duas
+ * vezes. Além disso, alguns geradores incluem BOM, declaração XML e DOCTYPE
+ * antes do `<svg>` — o validador antigo rejeitava esse SVG válido.
+ *
+ * Extraímos apenas o elemento `<svg>...</svg>` e o codificamos de novo. Assim
+ * `#`, `%` e espaços não quebram a URL e uma URL remota nunca chega ao `<img>`.
  */
 function toSvgDataUri(raw: string): string | null {
-  const value = raw.trim();
-  const markup = /^data:image\/svg\+xml/i.test(value) ? safeDecode(value.slice(value.indexOf(",") + 1)) : value;
-  if (!markup || !/^(<\?xml[^>]*>\s*)?<svg[\s>]/i.test(markup)) return null;
+  let value = raw.trim().replace(/^\uFEFF/, "");
+
+  // O SDK 2.71 acrescenta o prefixo incondicionalmente. Aceitar dois níveis
+  // também cobre um backend que já tenha devolvido uma data URI completa.
+  for (let depth = 0; depth < 2; depth += 1) {
+    const match = value.match(/^data:image\/svg\+xml([^,]*),(.*)$/is);
+    if (!match) break;
+
+    try {
+      value = /;base64/i.test(match[1]) ? decodeBase64(match[2]) : safeDecode(match[2]);
+    } catch {
+      return null;
+    }
+    value = value.trim().replace(/^\uFEFF/, "");
+  }
+
+  const start = value.search(/<svg(?:\s|>)/i);
+  const closingTag = value.toLowerCase().lastIndexOf("</svg>");
+  if (start < 0 || closingTag < start) return null;
+
+  const markup = value.slice(start, closingTag + "</svg>".length);
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(markup)}`;
+}
+
+function decodeBase64(value: string): string {
+  const binary = atob(value.replace(/\s/g, ""));
+  const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
 }
 
 function safeDecode(value: string): string {

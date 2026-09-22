@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { preflight, jsonFor } from '../_shared/cors.ts'
+import { preflight, jsonFor, requestOrigin } from '../_shared/cors.ts'
 import { adminClient } from '../_shared/auth.ts'
 import { gateUser, gateFailure } from '../_shared/gate.ts'
 import { badRequest, conflict, notFound, unprocessable } from '../_shared/errors.ts'
@@ -31,6 +31,24 @@ const bodySchema = z
   .strict()
 
 const ACTIVE_STATUSES = ['pending', 'trial', 'active', 'past_due']
+
+function paymentReturnUrl(req: Request): string {
+  const configuredOrigin = (Deno.env.get('APP_URL') ?? '').trim().replace(/\/+$/, '')
+  const origin = configuredOrigin || requestOrigin(req)
+
+  try {
+    const url = new URL('/billing?status=success', origin)
+    const isLocal = ['localhost', '127.0.0.1', '[::1]'].includes(url.hostname)
+
+    if ((url.protocol !== 'https:' && !(isLocal && url.protocol === 'http:')) || url.username || url.password) {
+      throw new Error('invalid return URL')
+    }
+
+    return url.toString()
+  } catch {
+    throw unprocessable('URL de retorno do pagamento não configurada.')
+  }
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') return preflight(req)
@@ -213,6 +231,10 @@ serve(async (req) => {
     const periodEnd = resumeWithinPeriod ? new Date(current!.current_period_end) : null
     const nextDueDate = toIsoDate(periodEnd ? (periodEnd > tomorrow ? periodEnd : tomorrow) : new Date())
     const externalReference = `orbi:${user.id}:${plan.id}:${billingCycle}`
+    const callback = {
+      successUrl: paymentReturnUrl(req),
+      autoRedirect: true,
+    }
 
     let asaasSubscription: AsaasSubscription
 
@@ -229,6 +251,7 @@ serve(async (req) => {
             externalReference,
             updatePendingPayments: true,
             billingType: 'UNDEFINED',
+            callback,
           },
         },
       )
@@ -243,6 +266,7 @@ serve(async (req) => {
           cycle,
           description: `Orbi - ${plan.name}`,
           externalReference,
+          callback,
         },
       })
     }
