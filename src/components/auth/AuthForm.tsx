@@ -14,7 +14,7 @@ import orbiLogoLight from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { useTheme } from "@/hooks/use-theme";
 import { useAuth } from "@/hooks/use-auth";
-import { LegalConsentCheckbox, LegalConsentNotice, LegalLinksInline } from "@/components/legal";
+import { LegalConsentCheckbox, LegalConsentNotice } from "@/components/legal";
 import { cn } from "@/lib/utils";
 import { AUTH_ROUTES } from "@/lib/auth/redirect";
 import { TurnstileField } from "@/components/auth/TurnstileField";
@@ -140,19 +140,21 @@ export function AuthForm() {
   const { errors: registerErrors } = registerForm.formState;
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-background p-4">
-      <div className="absolute right-4 top-4">
-        <ThemeToggle />
-      </div>
+    <div className="min-h-screen bg-background">
+      <div className="mx-auto flex min-h-screen w-full max-w-md flex-col px-4 pb-safe pt-safe">
+        <header className="flex h-14 shrink-0 items-center justify-end" aria-label="Preferências de aparência">
+          <ThemeToggle />
+        </header>
 
-      <EmailNotConfirmedDialog
-        open={unconfirmedEmail !== null}
-        onOpenChange={(open) => !open && setUnconfirmedEmail(null)}
-        email={unconfirmedEmail ?? ""}
-        captchaToken={loginCaptcha.captchaToken}
-      />
+        <EmailNotConfirmedDialog
+          open={unconfirmedEmail !== null}
+          onOpenChange={(open) => !open && setUnconfirmedEmail(null)}
+          email={unconfirmedEmail ?? ""}
+          captchaToken={loginCaptcha.captchaToken}
+        />
 
-      <Card variant="elevated" className="w-full max-w-md animate-rise">
+        <main className="flex flex-1 items-center justify-center pb-4">
+          <Card variant="elevated" className="w-full animate-rise">
         <CardHeader className="items-center gap-1 pb-5 text-center">
           <h1 className="sr-only">Entrar ou criar conta no Orbi</h1>
           <img
@@ -367,11 +369,9 @@ export function AuthForm() {
             </TabsContent>
           </Tabs>
         </CardContent>
-      </Card>
-
-      <p className="absolute bottom-4 left-0 right-0 text-center text-[0.6875rem] text-muted-foreground">
-        <LegalLinksInline />
-      </p>
+          </Card>
+        </main>
+      </div>
     </div>
   );
 }

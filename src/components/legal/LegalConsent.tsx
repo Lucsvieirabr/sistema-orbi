@@ -91,13 +91,9 @@ export function LegalConsentCheckbox({
           className="min-w-0 flex-1 cursor-pointer text-2xs leading-4 text-muted-foreground"
         >
           {label ?? (
-            <span className="inline-flex flex-wrap gap-x-1">
-              <span className="whitespace-nowrap">
-                Li e concordo com os <LegalInlineLink document={TERMS_OF_USE} onOpen={open} />
-              </span>
-              <span className="whitespace-nowrap">
-                e a <LegalInlineLink document={PRIVACY_POLICY} onOpen={open} />.
-              </span>
+            <span className="text-pretty">
+              Li e concordo com os <LegalInlineLink document={TERMS_OF_USE} onOpen={open} /> e a{" "}
+              <LegalInlineLink document={PRIVACY_POLICY} onOpen={open} />.
             </span>
           )}
         </label>
