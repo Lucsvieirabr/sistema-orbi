@@ -70,6 +70,7 @@ export interface MerchantMatch {
   entryKey: string;
   entryType: string;
   institution: boolean;
+  ambiguous?: boolean;
 }
 
 const TARIFAS = 'Tarifas Bancárias / Juros / Impostos / Taxas';
@@ -97,6 +98,9 @@ const TYPE_BASE: Record<Entry['entryType'], number> = {
 
 const MAX_PHRASE_TOKENS = 5;
 const MIN_COMPACT_LENGTH = 5;
+// These identify a payment intermediary, not the purpose of the expense.
+const INTERMEDIARIES = new Set(['mp', 'mercado pago', 'mercadopago', 'pagseguro', 'pag seguro', 'paypal', 'pay pal', 'picpay', 'pic pay', '99pay', '99 pay', 'stone', 'cielo', 'sumup', 'pagar me', 'pagarme', 'asaas']);
+const AMBIGUOUS_BANK_WORDS = new Set(['credito', 'debito', 'pagamento', 'recebimento', 'automatico', 'aut', 'servico', 'servicos']);
 
 function toEntryType(value: string): Entry['entryType'] {
   return value === 'utility' || value === 'banking_pattern' || value === 'keyword' ? value : 'merchant';
@@ -143,6 +147,9 @@ export class MerchantIndex {
     for (const row of rows) {
       if (!row?.merchant_key || !row?.category) continue;
       const entryType = toEntryType(row.entry_type);
+      // Banking rules require direction/context; their free-floating aliases
+      // must not compete with merchants (e.g. "credito" inside a store name).
+      if (entryType === 'banking_pattern') continue;
       const entry: Entry = {
         id: row.id,
         key: row.merchant_key,
@@ -168,7 +175,7 @@ export class MerchantIndex {
       // `keywords` descrevem a CATEGORIA — só valem como frase em entradas
       // genéricas (keyword/banking_pattern). Em merchant ("restaurante",
       // "mercado") fariam qualquer mercado virar o Atacadão.
-      if (entryType === 'keyword' || entryType === 'banking_pattern') {
+      if (entryType === 'keyword') {
         for (const kw of row.keywords ?? []) this.addPhrase(kw, entry, true);
       }
       count++;
@@ -180,6 +187,8 @@ export class MerchantIndex {
     const tokens = tokenizePhrase(raw ?? '');
     if (tokens.length === 0 || tokens.length > MAX_PHRASE_TOKENS) return;
     const phrase = tokens.join(' ');
+    if (INTERMEDIARIES.has(phrase)) return;
+    if (AMBIGUOUS_BANK_WORDS.has(phrase)) return;
     // Frase de 1 caractere ou só número ("99" é tratado pela normalização).
     if (phrase.length < 2) return;
     if (tokens.length === 1 && LOCATION_TOKENS.has(phrase)) return;
@@ -202,7 +211,7 @@ export class MerchantIndex {
    * Melhor entidade para os tokens. `hints` vêm do prefixo do gateway
    * (IFD* -> ifood) e entram como tokens prioritários.
    */
-  match(tokens: string[], options: { hints?: string[]; location?: string; feeContext?: boolean } = {}): MerchantMatch | null {
+  match(tokens: string[], options: { hints?: string[]; location?: string; feeContext?: boolean; acceptsCategory?: (category: string) => boolean } = {}): MerchantMatch | null {
     const location = options.location?.toLowerCase();
     const meaningful = tokens.filter((t) => !LOCATION_TOKENS.has(t));
     const totalChars = Math.max(meaningful.join('').length, 1);
@@ -210,9 +219,16 @@ export class MerchantIndex {
 
     const consider = (postings: Posting[] | undefined, matched: string, n: number, position: number, similarity: number, method: MerchantMatch['method']) => {
       if (!postings?.length) return;
-      const phraseCategories = new Set(postings.map((p) => p.entry.category));
+      const compatible = postings.filter(({ entry }) =>
+        (!entry.states || !location || entry.states.has(location)) &&
+        (!options.acceptsCategory || options.acceptsCategory(entry.category)));
+      // A named merchant is more specific than the same word translated as a
+      // generic keyword (Subway restaurant versus English transport keyword).
+      const hasMerchant = compatible.some(p => p.entry.entryType === 'merchant' || p.entry.entryType === 'utility');
+      const eligible = compatible.filter(p => !hasMerchant || p.entry.entryType !== 'keyword');
+      const phraseCategories = new Set(eligible.map((p) => p.entry.category));
 
-      for (const posting of postings) {
+      for (const posting of eligible) {
         const { entry } = posting;
         if (entry.states && location && !entry.states.has(location)) continue;
 
@@ -227,7 +243,7 @@ export class MerchantIndex {
         else if (len === 3) specificity = meaningful.length <= 2 ? 0.86 : 0.74;
         else specificity = meaningful.length === 1 ? 0.8 : 0.55;
 
-        if (single && GENERIC_TOKENS.has(matched)) specificity *= meaningful.length <= 1 ? 0.9 : 0.7;
+        if (single && GENERIC_TOKENS.has(matched)) specificity *= meaningful.length <= 1 ? 0.9 : 0.55;
         if (matchedTokens.every((t) => LOCATION_TOKENS.has(t))) continue;
 
         const coverage = Math.min(len / totalChars, 1);
@@ -243,7 +259,9 @@ export class MerchantIndex {
         if (phraseCategories.size > 1) score *= 0.88;
         score += Math.min(entry.priority, 100) / 10_000; // desempate estável
 
-        const confidence = Math.round(Math.min(score, 0.97) * 100);
+        const confidence = phraseCategories.size > 1
+          ? Math.min(59, Math.round(score * 100))
+          : Math.round(Math.min(score, 0.97) * 100);
         const current = scored.get(entry.id);
         if (!current || score > current.score) {
           scored.set(entry.id, {
@@ -264,6 +282,7 @@ export class MerchantIndex {
               entryKey: entry.key,
               entryType: entry.entryType,
               institution: entry.institution,
+              ambiguous: phraseCategories.size > 1,
             },
           });
         }
@@ -309,7 +328,10 @@ export class MerchantIndex {
       }
       for (let cut = token.length - 1; cut >= MIN_COMPACT_LENGTH; cut--) {
         const postings = this.compactMap.get(token.slice(0, cut));
-        if (postings) {
+        // An arbitrary prefix was matching "restaurante" in "restaurantesilva"
+        // and "amazon" in "amazonas". Only known statement suffixes are noise.
+        const suffix = token.slice(cut);
+        if (postings && /^(com|combr|br|brasil|rides?|trip|help|digital)$/.test(suffix)) {
           consider(postings, token.slice(0, cut), 2, i, 0.93, 'merchant_entity');
           matchedPositions.add(i);
           break;
@@ -321,28 +343,37 @@ export class MerchantIndex {
     const bestSoFar = Math.max(0, ...[...scored.values()].map((s) => s.match.confidence));
     if (bestSoFar < 80) {
       tokens.forEach((token, i) => {
-        if (matchedPositions.has(i) || token.length < 6 || LOCATION_TOKENS.has(token)) return;
-        const fuzzy = this.fuzzyLookup(token);
-        if (fuzzy) consider(this.compactMap.get(fuzzy.term), fuzzy.term, 2, i, fuzzy.similarity * 0.92, 'merchant_fuzzy');
+        if (matchedPositions.has(i) || token.length < 6 || token.length > 48 || LOCATION_TOKENS.has(token)) return;
+        for (const fuzzy of this.fuzzyLookup(token)) {
+          consider(this.compactMap.get(fuzzy.term), fuzzy.term, 2, i, fuzzy.similarity * 0.92, 'merchant_fuzzy');
+        }
       });
     }
 
     if (scored.size === 0) return null;
 
-    const ranked = [...scored.values()].sort((a, b) => b.score - a.score);
+    // "Uber Eats" is evidence for food, not a tie with its substring "Uber".
+    // Only an exact, longer phrase can suppress a shorter phrase.
+    const candidates = [...scored.values()];
+    const ranked = candidates.filter(candidate => !candidates.some(other =>
+      other !== candidate && !other.match.ambiguous && other.match.method !== 'merchant_fuzzy' &&
+      other.match.confidence >= 60 && other.match.matched.length > candidate.match.matched.length &&
+      (` ${other.match.matched} `).includes(` ${candidate.match.matched} `),
+    )).sort((a, b) => b.score - a.score || a.match.entryKey.localeCompare(b.match.entryKey));
     const best = ranked[0];
 
     // Ambiguidade: 2º colocado quase empatado apontando outra categoria.
     const rival = ranked.find((r) => r.match.category !== best.match.category);
     if (rival && rival.score >= best.score * 0.97) {
-      best.match.confidence = Math.round(best.match.confidence * 0.85);
+      best.match.confidence = Math.min(best.match.confidence, 59);
+      best.match.ambiguous = true;
     }
 
     return best.match;
   }
 
   /** Termo compacto do vocabulário mais próximo (Dice de trigramas + edição). */
-  private fuzzyLookup(token: string): { term: string; similarity: number } | null {
+  private fuzzyLookup(token: string): { term: string; similarity: number }[] {
     const grams = trigrams(token);
     const counts = new Map<string, number>();
     for (const gram of grams) {
@@ -351,10 +382,12 @@ export class MerchantIndex {
       for (const term of set) counts.set(term, (counts.get(term) ?? 0) + 1);
     }
 
-    let best: { term: string; similarity: number } | null = null;
+    const candidates: { term: string; similarity: number }[] = [];
     const maxEdits = token.length >= 9 ? 2 : 1;
     for (const [term, shared] of counts) {
       if (Math.abs(term.length - token.length) > maxEdits) continue;
+      // Do not re-introduce arbitrary prefix matching through fuzzy search.
+      if (term !== token && (token.startsWith(term) || term.startsWith(token))) continue;
       const dice = (2 * shared) / (grams.length + trigrams(term).length);
       if (dice < 0.5) continue;
       const distance = editDistance(token, term, maxEdits);
@@ -362,9 +395,9 @@ export class MerchantIndex {
       // Primeira letra errada é raro em OCR/digitação e gera falso positivo.
       if (term[0] !== token[0]) continue;
       const similarity = 1 - distance / Math.max(term.length, token.length);
-      if (!best || similarity > best.similarity) best = { term, similarity };
+      if (similarity >= 0.84) candidates.push({ term, similarity });
     }
-    return best && best.similarity >= 0.84 ? best : null;
+    return candidates.sort((a, b) => b.similarity - a.similarity || a.term.localeCompare(b.term)).slice(0, 10);
   }
 }
 

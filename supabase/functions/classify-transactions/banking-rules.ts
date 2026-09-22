@@ -67,6 +67,27 @@ const INVEST_PRODUCTS =
  * Regras TERMINAIS. Ordem = precedência.
  */
 const TERMINAL_RULES: BankingRule[] = [
+  // Reversals take precedence over the original operation mentioned afterwards.
+  {
+    id: 'estorno_explicito', kind: 'terminal', direction: 'income',
+    re: /\b(estorno|estornado|cashback|reembolso|devolucao|devol|chargeback|contestacao|credito\s+(de\s+)?ajuste|ajuste\s+(a\s+)?credito|cancelamento\s+(de\s+)?compra)\b/,
+    category: CAT.OUTRAS_RECEITAS, subcategory: 'Estornos e Reembolsos', confidence: 94,
+  },
+  {
+    id: 'aluguel_veiculo', kind: 'terminal', direction: 'expense',
+    re: /\b(aluguel|locacao)\s+(de\s+)?(carro|veiculo|automovel|moto)s?\b/,
+    category: CAT.TRANSPORTE, subcategory: 'Aluguel de Veículo', confidence: 93,
+  },
+  {
+    id: 'posto_saude', kind: 'terminal', direction: 'expense',
+    re: /\b(posto\s+(de\s+)?saude|unidade\s+basica\s+(de\s+)?saude)\b/,
+    category: 'Proteção Pessoal / Saúde / Farmácia', subcategory: 'Saúde', confidence: 90,
+  },
+  {
+    id: 'conta_consumo', kind: 'terminal', direction: 'expense',
+    re: /\b((pag(to|amento)?|pgto|deb(ito)?\s+aut(omatico)?)\s+(de\s+)?(conta\s+(de\s+)?)?(luz|energia(\s+eletrica)?|agua|gas)|conta\s+(de\s+)?(luz|energia|agua|gas))\b/,
+    category: CAT.CASA, subcategory: 'Contas de Consumo', confidence: 89,
+  },
   // ---------------------------------------------------------------- tarifas
   {
     id: 'tarifa_sigla',
@@ -107,7 +128,7 @@ const TERMINAL_RULES: BankingRule[] = [
     kind: 'terminal',
     re: /\b(juros?|encargos?|mora|juros\s+lis|juros\s+cheque\s+esp(ecial)?|rotativo|multa|multas|anuidade|encargo\s+limite|adiant(amento)?\s+(a\s+)?depositante|seguro\s+(prestamista|protecao\s+(de\s+)?cartao|cartao))\b/,
     direction: 'expense',
-    unless: /\bjuros\s+(s\s+)?(sobre\s+)?cap(ital)?\b|\brotativo\s+digital\b/,
+    unless: /\bjuros\s+(s\s+)?(sobre\s+)?cap(ital)?\b|\brotativo\s+digital\b|\bsem\s+juros\b/,
     category: CAT.TARIFAS,
     subcategory: 'Juros e Encargos',
     confidence: 92,
@@ -171,6 +192,11 @@ const TERMINAL_RULES: BankingRule[] = [
   },
 
   // --------------------------------------------------------- investimentos
+  {
+    id: 'resgate_automatico', kind: 'terminal', direction: 'income',
+    re: /\b(resgate|resg)\s+aut(omatico)?\b/,
+    category: CAT.OUTRAS_RECEITAS, subcategory: 'Resgate de Investimento', confidence: 90,
+  },
   {
     id: 'resgate_investimento',
     kind: 'terminal',
@@ -270,6 +296,7 @@ const TERMINAL_RULES: BankingRule[] = [
     id: 'condominio_aluguel',
     kind: 'terminal',
     re: /\b(condominio|cond\s+(edif|resid)|taxa\s+condominial|aluguel|locacao\s+(de\s+)?imovel)\b/,
+    unless: /\b(carro|veiculo|automovel|moto|equipamento|ferramenta|traje)s?\b/,
     direction: 'expense',
     category: CAT.CASA,
     subcategory: 'Moradia',

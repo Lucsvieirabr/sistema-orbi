@@ -100,7 +100,9 @@ function MyAIContent() {
 
   const handleEdit = (pattern: LearnedPattern) => {
     setEditingPattern(pattern);
-    setEditCategory(pattern.category);
+    setEditCategory(pattern.metadata?.category_id ?? categories?.find(cat =>
+      cat.name === pattern.category && (!pattern.metadata?.transaction_type || cat.category_type === pattern.metadata.transaction_type)
+    )?.id ?? '');
   };
 
   const handleSaveEdit = () => {
@@ -108,11 +110,8 @@ function MyAIContent() {
 
     updatePattern.mutate({
       id: editingPattern.id,
-      category: editCategory,
-      subcategory: editingPattern.subcategory, // Mantém a subcategoria original
-    });
-
-    setEditingPattern(null);
+      categoryId: editCategory,
+    }, { onSuccess: () => setEditingPattern(null) });
   };
 
   const handleDelete = (id: string) => {
@@ -430,7 +429,7 @@ function MyAIContent() {
         )}
       </section>
 
-      <Dialog open={!!editingPattern} onOpenChange={() => setEditingPattern(null)}>
+      <Dialog open={!!editingPattern} onOpenChange={() => { if (!updatePattern.isPending) setEditingPattern(null); }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Editar regra</DialogTitle>
@@ -448,19 +447,19 @@ function MyAIContent() {
               onValueChange={setEditCategory}
               placeholder="Selecione a categoria"
             >
-              {categories?.map((cat) => (
-                <SelectItem key={cat.id} value={cat.name}>
-                  {cat.name}
+              {categories?.filter(cat => !editingPattern?.metadata?.transaction_type || cat.category_type === editingPattern.metadata.transaction_type).map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.name} ({cat.category_type === 'income' ? 'Receita' : 'Despesa'})
                 </SelectItem>
               ))}
             </SelectWithAddButton>
           </div>
 
           <DialogFooter>
-            <Button variant="ghost" onClick={() => setEditingPattern(null)}>
+            <Button variant="ghost" disabled={updatePattern.isPending} onClick={() => setEditingPattern(null)}>
               Cancelar
             </Button>
-            <Button onClick={handleSaveEdit} disabled={!editCategory}>
+            <Button onClick={handleSaveEdit} disabled={!editCategory || updatePattern.isPending}>
               <CheckCircle2 className="h-4 w-4" />
               Salvar regra
             </Button>
@@ -476,7 +475,7 @@ function MyAIContent() {
           queryClient.invalidateQueries({ queryKey: ['learned-patterns-stats'] });
           toast({
             title: 'Importação concluída',
-            description: 'As correções que você fez viraram regras aqui.',
+            description: 'Os lançamentos foram salvos. Confira no resumo da importação o resultado do aprendizado.',
           });
         }}
       />

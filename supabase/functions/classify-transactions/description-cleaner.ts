@@ -68,7 +68,7 @@ const GATEWAY_PREFIXES = new Set([
   'ec', 'ebanx', 'ebn', 'dl', 'dlocal', 'paypal', 'pp', 'sumup', 'sq', 'hna',
   'zp', 'zoop', 'iz', 'izettle', 'cielo', 'stone', 'getnet', 'rede', 'safrapay',
   'ton', 'infinitepay', 'picpay', 'pic', 'asaas', 'pagarme', 'iugu', 'vindi',
-  'adyen', 'stripe', 'moip', 'wirecard', 'payu', 'paghiper', 'juno', 'pix',
+  'adyen', 'stripe', 'moip', 'wirecard', 'payu', 'paghiper', 'juno',
   'htm', 'lp', 'bpg', 'cpg', 'sympla',
 ]);
 
@@ -102,12 +102,14 @@ export function foldAccents(value: string): string {
  */
 function stripStructuralNoise(value: string): string {
   return value
-    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, ' ')      // datas e parcelas 02/10
-    .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, ' ')              // horários
     .replace(/\bparc(ela)?\.?\s*\d+\s*(de|\/)\s*\d+\b/g, ' ') // "parcela 2 de 10"
+    .replace(/\b\d{1,2}\/\d{1,2}(\/\d{2,4})?\b/g, ' ')
+    .replace(/\b\d{4}-\d{2}-\d{2}\b/g, ' ')
+    .replace(/\b\d{1,2}:\d{2}(:\d{2})?\b/g, ' ')
+    .replace(/\bparc(ela)?\b/g, ' ')
     .replace(/[x•*.]{2,}\s*\d{2,4}\b/g, ' ')                  // máscara "•••• 0040"
     .replace(/\b\d{2,3}\.\d{3}\.\d{3}[-/]?\d{0,4}[-]?\d{0,2}\b/g, ' ') // CPF/CNPJ
-    .replace(/\b[a-z]*\d[a-z\d]{7,}\b/g, ' ')                 // códigos alfanuméricos longos
+    .replace(/\b(?!99(?:tecnologia|taxi|app|food)\b)[a-z]*\d[a-z\d]{7,}\b/g, ' ') // códigos, preservando a marca 99
     .replace(/\b\d{4,}\b/g, ' ');                              // números longos
 }
 
@@ -128,14 +130,14 @@ function extractGatewayPrefixes(text: string): { text: string; hints: string[]; 
   const gateways: string[] = [];
 
   const out = text.replace(/(^|\s)([a-z0-9]{2,14})\s?\*\s?/g, (_m, lead: string, prefix: string) => {
-    if (GATEWAY_PREFIXES.has(prefix)) {
-      gateways.push(prefix);
-      return `${lead} `;
-    }
     const hint = MERCHANT_PREFIX_HINTS[prefix];
     if (hint) {
       hints.push(hint);
-      return `${lead}${prefix} `;
+      return `${lead}${hint} `;
+    }
+    if (GATEWAY_PREFIXES.has(prefix)) {
+      gateways.push(prefix);
+      return `${lead} `;
     }
     return `${lead}${prefix} `;
   });
@@ -159,7 +161,7 @@ export function tokenize(text: string): string[] {
   return text
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((t) => t.length >= 2 && !STOPWORDS.has(t) && !DESCRIPTION_NOISE.has(t) && !/^\d+$/.test(t));
+    .filter((t) => (t.length >= 2 || /^\d$/.test(t)) && !STOPWORDS.has(t) && !DESCRIPTION_NOISE.has(t) && (!/^\d+$/.test(t) || t.length <= 2));
 }
 
 /** Tokeniza uma frase do dicionário (mantém números curtos como "99"). */
@@ -167,11 +169,14 @@ export function tokenizePhrase(raw: string): string[] {
   return normalizeText(raw)
     .replace(/[^a-z0-9\s]/g, ' ')
     .split(/\s+/)
-    .filter((t) => t.length >= 1 && !STOPWORDS.has(t));
+    .filter((t) => (t.length >= 2 || /^\d$/.test(t)) && !STOPWORDS.has(t) && !DESCRIPTION_NOISE.has(t));
 }
 
 export function normalizeDescription(description: string): NormalizedDescription {
-  const base = normalizeText(description);
+  // Brand casing must not change gateway recognition (iFood*, PayPal*, PagSeguro*).
+  const prefixes = (description ?? '').replace(/\b([a-zA-Z0-9]{2,14})\s*\*/g,
+    (_match, prefix: string) => `${prefix.toLowerCase()}*`);
+  const base = normalizeText(prefixes);
   const { text: noGateway, hints, gateways } = extractGatewayPrefixes(base);
   const cleaned = stripStructuralNoise(noGateway)
     .replace(/\.(com|net|org)(\.br)?\b/g, ' ')
@@ -182,7 +187,7 @@ export function normalizeDescription(description: string): NormalizedDescription
   // "99" é o único número curto com significado de merchant; preserva quando
   // aparece junto de pistas de mobilidade (99app, 99 pop, 99 taxi, 99food).
   const tokens = tokenize(cleaned);
-  if (/(^|\s)99(\s|$)/.test(cleaned) && /\b(app|pop|taxi|moto|food|pay|corrida|tecnologia)\b/.test(cleaned)) {
+  if (/(^|\s)99(\s|$)/.test(cleaned) && /\b(app|pop|taxi|moto|food|corrida|tecnologia)\b/.test(cleaned)) {
     hints.push('99');
   }
 
