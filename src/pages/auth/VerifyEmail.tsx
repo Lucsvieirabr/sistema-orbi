@@ -72,12 +72,12 @@ export default function VerifyEmail() {
     setPhase("confirmed");
   }, [queryClient]);
 
-  const salvageWithActiveSession = useCallback(async () => {
+  const salvageWithAuthenticatedUser = useCallback(async () => {
     const {
-      data: { session },
-    } = await supabase.auth.getSession();
+      data: { user },
+    } = await supabase.auth.getUser();
 
-    if (!session) return false;
+    if (!user) return false;
     settleAsConfirmed();
     return true;
   }, [settleAsConfirmed]);
@@ -104,7 +104,7 @@ export default function VerifyEmail() {
     void (async () => {
       if (link.kind === "error") {
         scrubConfirmationUrl();
-        if (await salvageWithActiveSession()) return;
+        if (await salvageWithAuthenticatedUser()) return;
         setInvalidReason(describeAuthError({ code: link.code }, "reset_link"));
         setPhase("invalid");
         return;
@@ -117,7 +117,7 @@ export default function VerifyEmail() {
         scrubConfirmationUrl();
 
         if (!session) {
-          if (await salvageWithActiveSession()) return;
+          if (await salvageWithAuthenticatedUser()) return;
           setInvalidReason(
             "Abra o link no mesmo navegador em que você criou a conta, ou entre com seu e-mail e senha.",
           );
@@ -128,12 +128,12 @@ export default function VerifyEmail() {
         settleAsConfirmed();
       } catch (error) {
         scrubConfirmationUrl();
-        if (await salvageWithActiveSession()) return;
+        if (await salvageWithAuthenticatedUser()) return;
         setInvalidReason(describeAuthError(error, "reset_link"));
         setPhase("invalid");
       }
     })();
-  }, [link, salvageWithActiveSession, settleAsConfirmed]);
+  }, [link, salvageWithAuthenticatedUser, settleAsConfirmed]);
 
   /**
    * Confirmou em outra aba? Esta volta sozinha para o fluxo, sem F5.
