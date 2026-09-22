@@ -88,13 +88,17 @@ export function LegalConsentCheckbox({
         />
         <label
           htmlFor={id}
-          className="min-w-0 flex-1 cursor-pointer text-pretty text-xs leading-relaxed text-muted-foreground"
+          className="min-w-0 flex-1 cursor-pointer text-balance text-xs leading-relaxed text-muted-foreground"
         >
           {label ?? (
-            <>
-              Li e concordo com os <LegalInlineLink document={TERMS_OF_USE} onOpen={open} /> e a{" "}
-              <LegalInlineLink document={PRIVACY_POLICY} onOpen={open} />.
-            </>
+            <span className="inline-flex flex-wrap gap-x-1">
+              <span className="whitespace-nowrap">
+                Li e concordo com os <LegalInlineLink document={TERMS_OF_USE} onOpen={open} />
+              </span>
+              <span className="whitespace-nowrap">
+                e a <LegalInlineLink document={PRIVACY_POLICY} onOpen={open} />.
+              </span>
+            </span>
           )}
         </label>
       </div>

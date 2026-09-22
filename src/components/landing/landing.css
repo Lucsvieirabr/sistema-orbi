@@ -2421,6 +2421,209 @@
   color: hsl(var(--muted-foreground));
 }
 
+.lp-plan__more {
+  padding-left: 1.75rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+  color: hsl(var(--muted-foreground));
+}
+
+.lp-comparison {
+  margin-top: 1.25rem;
+}
+
+.lp-comparison__trigger {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.875rem 1rem 0.875rem 1.25rem;
+  border: 0;
+  border-radius: 1rem;
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+  text-align: left;
+  cursor: pointer;
+  transition:
+    box-shadow 300ms var(--lp-ease-out),
+    transform 300ms var(--lp-ease-out);
+}
+
+.lp-comparison__trigger:hover {
+  box-shadow: inset 0 0 0 1px hsl(var(--ring) / 0.5);
+  transform: translateY(-1px);
+}
+
+.lp-comparison__trigger:active {
+  transform: scale(0.995);
+}
+
+.lp-comparison__trigger:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
+}
+
+.lp-comparison__trigger > span:first-child {
+  display: grid;
+  gap: 0.1875rem;
+}
+
+.lp-comparison__trigger strong {
+  font-family: var(--font-display);
+  font-size: 0.9375rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.lp-comparison__trigger small {
+  font-size: 0.75rem;
+  color: hsl(var(--muted-foreground));
+}
+
+.lp-comparison__icon {
+  display: grid;
+  place-items: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: hsl(var(--foreground) / 0.06);
+  transition: transform 500ms var(--lp-ease-out);
+}
+
+.lp-comparison__icon svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.lp-comparison__trigger[aria-expanded="true"] .lp-comparison__icon {
+  transform: rotate(180deg);
+}
+
+.lp-comparison__reveal {
+  display: grid;
+  grid-template-rows: 0fr;
+  opacity: 0;
+  transition:
+    grid-template-rows 700ms var(--lp-ease-out),
+    opacity 400ms var(--lp-ease-out);
+}
+
+.lp-comparison__reveal[data-open="true"] {
+  grid-template-rows: 1fr;
+  opacity: 1;
+}
+
+.lp-comparison__clip {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.lp-comparison__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0;
+  margin-top: 1rem;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: hsl(var(--card));
+  box-shadow: inset 0 0 0 1px hsl(var(--border));
+}
+
+@media (min-width: 768px) {
+  .lp-comparison__grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+.lp-comparison__plan {
+  min-width: 0;
+  padding: 1.25rem;
+}
+
+.lp-comparison__plan + .lp-comparison__plan {
+  border-top: 1px solid hsl(var(--border-subtle));
+}
+
+@media (min-width: 768px) {
+  .lp-comparison__plan {
+    padding: 1.5rem;
+  }
+
+  .lp-comparison__plan + .lp-comparison__plan {
+    border-top: 0;
+    border-left: 1px solid hsl(var(--border-subtle));
+  }
+}
+
+.lp-comparison__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid hsl(var(--border-subtle));
+}
+
+.lp-comparison__head h3 {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+}
+
+.lp-comparison__head span {
+  padding: 0.1875rem 0.5rem;
+  border-radius: 999px;
+  background: hsl(var(--primary) / 0.12);
+  color: hsl(var(--primary));
+  font-size: 0.6875rem;
+  font-weight: 600;
+}
+
+.lp-comparison__lead {
+  margin: 1rem 0 0;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: hsl(var(--muted-foreground));
+}
+
+.lp-comparison__plan ul {
+  display: grid;
+  gap: 0.625rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lp-comparison__plan li {
+  display: grid;
+  grid-template-columns: 0.875rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.625rem;
+  font-size: 0.75rem;
+  line-height: 1.45;
+}
+
+.lp-comparison__plan li svg {
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-top: 0.0625rem;
+  color: hsl(var(--success));
+}
+
+.lp-comparison__plan li[data-included="false"] {
+  color: hsl(var(--muted-foreground));
+}
+
+.lp-comparison__plan li[data-included="false"] svg {
+  color: hsl(var(--muted-foreground));
+}
+
 .lp-plans__foot {
   display: flex;
   flex-direction: column;
