@@ -30,21 +30,21 @@ export function LegalDialog({ document: doc, open, onOpenChange }: LegalDialogPr
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="flex max-h-[85vh] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[42rem]">
-        <DialogHeader className="border-b border-border-subtle px-5 py-4 text-left md:px-6">
+      <DialogContent className="flex h-[85svh] max-h-[48rem] w-[95vw] flex-col gap-0 overflow-hidden p-0 sm:max-w-[42rem]">
+        <DialogHeader className="shrink-0 border-b border-border-subtle px-5 py-4 text-left md:px-6">
           <DialogTitle className="text-base md:text-lg">{doc.title}</DialogTitle>
           <DialogDescription className="text-xs tabular">
             Versão {doc.version} · Vigente desde {formatLegalDate(doc.updatedAt)}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="min-h-0 flex-1">
+        <ScrollArea className="min-h-0 flex-1 [&_[data-radix-scroll-area-viewport]]:overscroll-contain">
           <div className="px-5 py-5 md:px-6">
             <LegalDocumentView document={doc} hideHeader />
           </div>
         </ScrollArea>
 
-        <DialogFooter className="border-t border-border-subtle px-5 py-3 md:px-6">
+        <DialogFooter className="shrink-0 border-t border-border-subtle px-5 py-3 md:px-6">
           <Button variant="outline" size="sm" asChild>
             <a href={doc.path} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-2 h-4 w-4" />

@@ -69,7 +69,7 @@ export function LegalConsentCheckbox({
   const errorId = `${id}-error`;
 
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("w-full space-y-2", className)}>
       {/* `items-start` alinha a caixa pela primeira linha do texto; `shrink-0`
           impede que o quadrado seja esmagado quando o texto quebra; `min-w-0
           flex-1` faz o texto FLUIR ao lado em coluna própria em vez de
@@ -88,7 +88,7 @@ export function LegalConsentCheckbox({
         />
         <label
           htmlFor={id}
-          className="min-w-0 flex-1 cursor-pointer text-pretty text-xs leading-relaxed text-muted-foreground"
+          className="min-w-0 flex-1 cursor-pointer text-2xs leading-4 text-muted-foreground"
         >
           {label ?? (
             <>
