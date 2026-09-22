@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
@@ -20,7 +21,7 @@ export function useCardTransactions({ cardId, startDate, endDate }: CardTransact
   return useQuery<CardTransaction[]>({
     queryKey: ["card_transactions", cardId, startDate, endDate],
     queryFn: async () => {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      const { data: { user }, error: userError } = await getCachedAuthUser();
       if (userError) throw userError;
 
       const { data, error } = await supabase

@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,7 +41,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
   const endDate = new Date(year, month, 0).toISOString().slice(0, 10); // Last day of month
 
   const fetchTransactionsAndDebts = async (): Promise<Transaction[]> => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Usuário não autenticado");
 
     // Escopo de leitura: [eu] no modo Pessoal, [eu, parceiro] no modo Casal

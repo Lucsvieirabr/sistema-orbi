@@ -18,6 +18,7 @@ import { useTheme } from "@/hooks/use-theme";
 import PixIconDark from "@/assets/pix-dark.svg";
 import PixIconWhite from "@/assets/pix-white.svg";
 import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
+import { isValidPixKey, normalizePixKey } from "@/lib/pix";
 
 export default function People() {
   return (
@@ -59,12 +60,21 @@ function PeopleContent() {
 
   const onSubmit = async () => {
     if (!name.trim()) return;
+    const pixValue = pix.trim();
+    if (pixValue && !isValidPixKey(pixValue)) {
+      toast({
+        title: "Chave PIX inválida",
+        description: "Use e-mail, CPF, CNPJ, celular com DDI ou uma chave aleatória.",
+        variant: "destructive",
+      });
+      return;
+    }
     toast({ title: "Salvando...", description: "Aguarde" });
     try {
       if (editingId) {
-        await updatePerson(editingId, { name, pix: pix.trim() || null });
+        await updatePerson(editingId, { name, pix: pixValue ? normalizePixKey(pixValue).key : null });
       } else {
-        await createPerson({ name, pix: pix.trim() || null });
+        await createPerson({ name, pix: pixValue ? normalizePixKey(pixValue).key : null });
       }
       toast({ title: "Sucesso", description: "Pessoa salva" });
     } catch (e: any) {

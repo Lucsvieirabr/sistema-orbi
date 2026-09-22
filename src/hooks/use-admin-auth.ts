@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -17,7 +18,7 @@ export function useAdminAuth() {
   const { data: adminUser, isLoading, error } = useQuery<AdminUser | null>({
     queryKey: ['admin-auth'],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) return null;
 
       // Usar função RPC que bypassa RLS para evitar recursão infinita

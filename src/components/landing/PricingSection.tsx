@@ -1,11 +1,11 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowUpRight, Check, Minus, ShieldCheck, Sparkles } from "lucide-react";
+import { ArrowUpRight, Check, ChevronDown, Minus, ShieldCheck, Sparkles } from "lucide-react";
 
 import { useSubscriptionPlans, type SubscriptionPlan } from "@/hooks/use-subscription";
 import { cn } from "@/lib/utils";
 
-import { buildPlanHighlights, FALLBACK_PLANS } from "./plan-highlights";
+import { buildPlanHighlights, FALLBACK_PLANS, getPlanCardHighlights } from "./plan-highlights";
 import { Reveal } from "./Reveal";
 
 type Cycle = "monthly" | "yearly";
@@ -33,6 +33,7 @@ export function PricingSection({ isAuthenticated = false }: { isAuthenticated?: 
   const navigate = useNavigate();
   const { data } = useSubscriptionPlans();
   const [cycle, setCycle] = useState<Cycle>("yearly");
+  const [showComparison, setShowComparison] = useState(false);
 
   const plans = useMemo(() => {
     const source = data && data.length > 0 ? data : FALLBACK_PLANS;
@@ -111,6 +112,8 @@ export function PricingSection({ isAuthenticated = false }: { isAuthenticated?: 
             const perMonth = cycle === "yearly" ? Number(plan.price_yearly) / 12 : Number(plan.price_monthly);
             const [whole, cents] = money.format(perMonth).split(",");
             const highlights = buildPlanHighlights(plan, plans);
+            const cardHighlights = getPlanCardHighlights(highlights);
+            const remainingCount = Math.max(0, highlights.lines.length - cardHighlights.length);
 
             return (
               <Reveal as="li" key={plan.slug} delay={index * 110} style={{ display: "flex" }}>
@@ -175,25 +178,78 @@ export function PricingSection({ isAuthenticated = false }: { isAuthenticated?: 
 
                   <ul className="lp-plan__list">
                     {highlights.lead && <li className="lp-plan__lead">{highlights.lead}</li>}
-                    {highlights.lines.map((line) => (
+                    {cardHighlights.map((line) => (
                       <li key={line.text} className="lp-plan__item" data-included={line.included}>
-                        {line.included ? (
-                          <Check strokeWidth={2} aria-hidden />
-                        ) : (
-                          <Minus strokeWidth={2} aria-hidden />
-                        )}
-                        <span>
-                          {line.text}
-                          {!line.included && <span className="lp-sr"> (não incluído)</span>}
-                        </span>
+                        <Check strokeWidth={2} aria-hidden />
+                        <span>{line.text}</span>
                       </li>
                     ))}
+                    {remainingCount > 0 && (
+                      <li className="lp-plan__more">+ {remainingCount} recursos na comparação completa</li>
+                    )}
                   </ul>
                 </article>
               </Reveal>
             );
           })}
         </ul>
+
+        <div className="lp-comparison">
+          <button
+            type="button"
+            className="lp-comparison__trigger"
+            aria-expanded={showComparison}
+            aria-controls="plan-comparison-details"
+            onClick={() => setShowComparison((visible) => !visible)}
+          >
+            <span>
+              <strong>{showComparison ? "Ocultar comparação completa" : "Comparar todos os recursos"}</strong>
+              <small>Veja cada recurso incluído antes de escolher.</small>
+            </span>
+            <span className="lp-comparison__icon" aria-hidden>
+              <ChevronDown strokeWidth={1.75} />
+            </span>
+          </button>
+
+          <div
+            id="plan-comparison-details"
+            className="lp-comparison__reveal"
+            data-open={showComparison}
+          >
+            <div className="lp-comparison__clip">
+              <div className="lp-comparison__grid">
+                {plans.map((plan) => {
+                  const highlights = buildPlanHighlights(plan, plans);
+
+                  return (
+                    <section key={plan.slug} className="lp-comparison__plan" aria-labelledby={`compare-${plan.slug}`}>
+                      <div className="lp-comparison__head">
+                        <h3 id={`compare-${plan.slug}`}>{plan.name}</h3>
+                        {plan.is_featured && <span>Recomendado</span>}
+                      </div>
+                      {highlights.lead && <p className="lp-comparison__lead">{highlights.lead}</p>}
+                      <ul>
+                        {highlights.lines.map((line) => (
+                          <li key={line.text} data-included={line.included}>
+                            {line.included ? (
+                              <Check strokeWidth={2} aria-hidden />
+                            ) : (
+                              <Minus strokeWidth={2} aria-hidden />
+                            )}
+                            <span>
+                              {line.text}
+                              <span className="lp-sr"> ({line.included ? "incluído" : "não incluído"})</span>
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </div>
 
         <div className="lp-plans__foot">
           <p>

@@ -16,7 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { LedgerTransfer } from "@/hooks/use-ledgers";
-import { buildPixPayload, normalizePixKey } from "@/lib/pix";
+import { buildPixPayload, isValidPixKey, normalizePixKey } from "@/lib/pix";
 
 const KIND_HINT: Record<string, string> = {
   email: "Chave de e-mail",
@@ -69,8 +69,9 @@ export function PixDialog({
   }, [transfer, ownerPixKey, ownerPixName]);
 
   const normalized = normalizePixKey(key);
+  const keyIsValid = !key.trim() || isValidPixKey(key);
   const payload = useMemo(() => {
-    if (!transfer || !normalized.key) return "";
+    if (!transfer || !normalized.key || !keyIsValid) return "";
     try {
       return buildPixPayload({
         key: normalized.key,
@@ -81,7 +82,7 @@ export function PixDialog({
     } catch {
       return "";
     }
-  }, [transfer, normalized.key, name, ledgerName]);
+  }, [transfer, normalized.key, keyIsValid, name, ledgerName]);
 
   const copy = async () => {
     if (!payload) return;
@@ -138,11 +139,17 @@ export function PixDialog({
                 spellCheck={false}
                 placeholder="+5511999998888, e-mail ou CPF"
                 onChange={(event) => setKey(event.target.value)}
-                aria-describedby="pix-key-hint"
+                aria-describedby="pix-key-hint pix-key-error"
+                aria-invalid={!keyIsValid}
               />
               <p id="pix-key-hint" className="text-xs text-muted-foreground">
                 {key.trim() ? KIND_HINT[normalized.kind] : KIND_HINT.unknown}
               </p>
+              {!keyIsValid && (
+                <p id="pix-key-error" className="text-xs text-destructive">
+                  Chave inválida. Confira o formato e os dígitos verificadores.
+                </p>
+              )}
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="pix-name">Nome do recebedor</Label>
@@ -172,7 +179,7 @@ export function PixDialog({
 
         <DialogFooter className="mt-6 gap-2 sm:gap-2">
           {toOwner && canSaveOwnerPix && (
-            <Button variant="ghost" onClick={save} disabled={!keyChanged || saving} className="sm:mr-auto">
+            <Button variant="ghost" onClick={save} disabled={!keyChanged || saving || !keyIsValid} className="sm:mr-auto">
               {saving ? "Salvando…" : "Salvar chave no evento"}
             </Button>
           )}

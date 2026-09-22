@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from './use-toast';
-import { SUBSCRIPTION_QUERY_KEY } from './use-subscription';
+import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from './use-subscription';
 import { QUOTA_QUERY_KEY } from './use-quota';
 
 export interface PaymentData {
@@ -35,6 +35,13 @@ export interface ManageSubscriptionResponse {
   /** true = encerrada na hora (cobrança pendente/em atraso); false = vale até o fim do período. */
   immediate?: boolean;
   access_until?: string | null;
+}
+
+export interface SyncSubscriptionResponse {
+  success: boolean;
+  synced: boolean;
+  payment_confirmed?: boolean;
+  status: SubscriptionStatusPayload;
 }
 
 async function invoke<T>(fn: string, body?: unknown): Promise<T> {
@@ -99,14 +106,16 @@ export function usePayment() {
     }
   };
 
-  const fetchOpenInvoice = async (): Promise<PaymentData | null> => {
+  const fetchOpenInvoice = async (options: { silent?: boolean } = {}): Promise<PaymentData | null> => {
     setIsLoading(true);
     try {
       const data = await invoke<{ payment: PaymentData }>('asaas-manage-subscription', { action: 'invoice' });
       setPaymentData(data.payment);
       return data.payment;
     } catch (error: any) {
-      toast({ title: 'Nenhuma cobrança disponível', description: error.message, variant: 'destructive' });
+      if (!options.silent) {
+        toast({ title: 'Nenhuma cobrança disponível', description: error.message, variant: 'destructive' });
+      }
       return null;
     } finally {
       setIsLoading(false);
@@ -174,10 +183,14 @@ export function usePayment() {
 }
 
 /** Reconciliação com o Asaas — backend é a autoridade sobre o status. */
-export async function syncSubscriptionStatus(): Promise<void> {
+export async function syncSubscriptionStatus(paymentId?: string): Promise<SyncSubscriptionResponse | null> {
   try {
-    await invoke('asaas-sync-subscription');
+    return await invoke<SyncSubscriptionResponse>(
+      'asaas-sync-subscription',
+      paymentId ? { paymentId } : {},
+    );
   } catch (error) {
     console.error('Falha ao sincronizar assinatura:', error);
+    return null;
   }
 }

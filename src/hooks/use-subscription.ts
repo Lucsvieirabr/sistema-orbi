@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -57,7 +58,7 @@ export function useSubscriptionStatus() {
   return useQuery<SubscriptionStatusPayload>({
     queryKey: SUBSCRIPTION_QUERY_KEY,
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) return { access: "unauthenticated", has_subscription: false };
 
       const { data, error } = await supabase.rpc("get_my_subscription_status");

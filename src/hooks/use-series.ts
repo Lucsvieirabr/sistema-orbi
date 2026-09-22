@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Tables, TablesInsert, TablesUpdate } from '@/integrations/supabase/types';
@@ -49,7 +50,7 @@ export function useSeries() {
       setLoading(true);
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error('Usuário não autenticado');
 
       const { data, error } = await supabase
@@ -96,7 +97,7 @@ export function useSeries() {
     try {
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error('Usuário não autenticado');
 
       // Calcular valor preciso das parcelas
@@ -240,7 +241,7 @@ export function useSeries() {
     try {
       setError(null);
 
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error('Usuário não autenticado');
 
       const { error } = await supabase.rpc('delete_installment_series', {

@@ -2100,6 +2100,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      learn_transaction_classification: {
+        Args: { p_transaction_id: string }
+        Returns: undefined
+      }
       user_active_plan_limits: { Args: { p_user_id: string }; Returns: Json }
       user_has_feature: { Args: { feature_name: string }; Returns: boolean }
     }

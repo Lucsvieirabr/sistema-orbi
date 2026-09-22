@@ -1,3 +1,4 @@
+import { getCachedAuthUser, getImmediateSessionUser } from "@/hooks/use-current-user";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +12,7 @@ export function usePeople() {
   const queryClient = useQueryClient();
 
   const fetchPeople = async (): Promise<Person[]> => {
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await getCachedAuthUser();
     if (userError) throw userError;
     const { data, error } = await supabase
       .from("people")
@@ -41,7 +42,7 @@ export function usePeople() {
   }, [queryClient]);
 
   const createPerson = async (values: Pick<TablesInsert<"people">, "name"> & { pix?: string | null }) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const safe = parseOrThrow(personSchema, values);
     const payload: TablesInsert<"people"> = {
@@ -55,7 +56,7 @@ export function usePeople() {
   };
 
   const updatePerson = async (id: string, values: Pick<TablesUpdate<"people">, "name"> & { pix?: string | null }) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const safe = parseOrThrow(personSchema, values);
     const { error } = await supabase
@@ -68,7 +69,7 @@ export function usePeople() {
 
   const deletePerson = async (id: string) => {
     // A exclusão é permitida pois as transações têm ON DELETE SET NULL
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const { error } = await supabase
       .from("people")

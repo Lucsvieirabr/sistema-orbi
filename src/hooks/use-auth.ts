@@ -1,9 +1,7 @@
-import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { User } from "@supabase/supabase-js";
 import { SUBSCRIPTION_QUERY_KEY, SubscriptionStatusPayload } from "@/hooks/use-subscription";
 import { syncSubscriptionStatus } from "@/hooks/use-payment";
 import { buildSignupConsentMetadata } from "@/lib/legal";
@@ -11,12 +9,7 @@ import { describeAuthError, hasAuthErrorCode } from "@/lib/auth/auth-errors";
 import { assuranceFromSession } from "@/lib/auth/assurance";
 import { AUTH_ROUTES, mfaChallengePath, readNextParam, safeInternalPath } from "@/lib/auth/redirect";
 import { confirmationRedirectUrl, forgetPendingEmail, rememberPendingEmail } from "@/services/auth/email-confirmation";
-
-interface AuthState {
-  user: User | null;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-}
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 /**
  * Resolve a rota de destino a partir do status validado no backend.
@@ -88,36 +81,10 @@ export interface LoginHandlers {
 }
 
 export function useAuth() {
-  const [authState, setAuthState] = useState<AuthState>({
-    user: null,
-    isAuthenticated: false,
-    isLoading: true,
-  });
+  const { data: user = null, isPending: isLoading } = useCurrentUser();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setAuthState({
-        user: session?.user ?? null,
-        isAuthenticated: !!session,
-        isLoading: false,
-      });
-    });
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setAuthState({
-        user: session?.user ?? null,
-        isAuthenticated: !!session,
-        isLoading: false,
-      });
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
 
   /** `captchaToken`: Turnstile, uso único — o formulário reseta o widget após cada tentativa. */
   const login = async (email: string, password: string, captchaToken?: string, handlers?: LoginHandlers) => {
@@ -250,9 +217,9 @@ export function useAuth() {
   };
 
   return {
-    user: authState.user,
-    isAuthenticated: authState.isAuthenticated,
-    isLoading: authState.isLoading,
+    user,
+    isAuthenticated: Boolean(user),
+    isLoading,
     login,
     register,
     logout,

@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { assertUuid } from "@/lib/utils";
@@ -15,7 +16,7 @@ export function useSubscriptions() {
   return useQuery({
     queryKey: ["subscriptions"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("User not authenticated");
 
       // Find the "Assinaturas" category (global or user-specific)

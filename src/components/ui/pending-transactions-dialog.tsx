@@ -194,8 +194,8 @@ export function PendingTransactionsDialog({
                           onClick={() => onMarkAsPaid(transaction.id)}
                           className="h-8 px-3 text-success hover:text-success hover:bg-success-soft"
                         >
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Marcar Pago
+                          <CheckCircle className="mr-1 h-3 w-3" aria-hidden />
+                          {type === 'income' ? 'Marcar recebida' : 'Marcar paga'}
                         </Button>
                       ) : (
                         <Button

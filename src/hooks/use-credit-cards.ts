@@ -1,3 +1,4 @@
+import { getCachedAuthUser, getImmediateSessionUser } from "@/hooks/use-current-user";
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +43,7 @@ export function useCreditCards() {
   }, [queryClient]);
 
   const createCreditCard = async (values: Pick<TablesInsert<"credit_cards">, "name" | "brand" | "limit" | "statement_date" | "due_date" | "connected_account_id">) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) throw new Error("Usuario nao autenticado");
     // SEGURANCA: dia de fechamento/vencimento preso a 1..31 e limite dentro de
     // faixa — fora disso o periodo de fatura era calculado sobre lixo.
@@ -62,7 +63,7 @@ export function useCreditCards() {
   };
 
   const updateCreditCard = async (id: string, values: Pick<TablesUpdate<"credit_cards">, "name" | "brand" | "limit" | "statement_date" | "due_date" | "connected_account_id">) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     if (!user) throw new Error("Usuario nao autenticado");
     const safe = parseOrThrow(creditCardSchema, values);
     const { error } = await supabase
@@ -75,7 +76,7 @@ export function useCreditCards() {
 
   const deleteCreditCard = async (id: string) => {
     // Verificar se há transações vinculadas ao cartão
-    const { data: { user } } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
     const { data: transactions, error: checkError } = await supabase
       .from("transactions")
       .select("id")

@@ -10,6 +10,42 @@ export interface PlanHighlights {
   lines: PlanLine[];
 }
 
+const CARD_HIGHLIGHT_COUNT = 5;
+
+const CARD_HIGHLIGHT_PRIORITY = [
+  "acessos com uma única assinatura",
+  "Contas, cartões e lançamentos compartilhados",
+  "Contas, cartões e lançamentos ilimitados",
+  "IA classificadora de extratos",
+  "Motor Preditivo",
+  "Projetos de Vida",
+  "Inflação Pessoal",
+  "Orçamentos Inteligentes",
+  "Metas Financeiras",
+  "Extrato mensal",
+] as const;
+
+/**
+ * Mantém o card orientado à decisão: cinco benefícios incluídos e de maior
+ * valor percebido. A matriz completa continua disponível logo abaixo da grade.
+ */
+export function getPlanCardHighlights(highlights: PlanHighlights): PlanLine[] {
+  return highlights.lines
+    .filter((line) => line.included)
+    .map((line, index) => ({
+      line,
+      index,
+      priority: CARD_HIGHLIGHT_PRIORITY.findIndex((term) => line.text.includes(term)),
+    }))
+    .sort((a, b) => {
+      const aPriority = a.priority === -1 ? Number.MAX_SAFE_INTEGER : a.priority;
+      const bPriority = b.priority === -1 ? Number.MAX_SAFE_INTEGER : b.priority;
+      return aPriority - bPriority || a.index - b.index;
+    })
+    .slice(0, CARD_HIGHLIGHT_COUNT)
+    .map(({ line }) => line);
+}
+
 const CAPACITY_KEYS = ["max_contas", "max_cartoes", "max_transacoes_mes", "max_categorias", "max_pessoas"] as const;
 
 const numberFormat = new Intl.NumberFormat("pt-BR");

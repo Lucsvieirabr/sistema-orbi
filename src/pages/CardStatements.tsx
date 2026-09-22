@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useState, useMemo, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -167,13 +168,13 @@ export default function CardStatements() {
   const getStatusIcon = (status: string) => {
     switch (status) {
       case "PAID":
-        return <CheckCircle className="h-4 w-4 text-success" />;
+        return <CheckCircle className="h-4 w-4 text-success" aria-label="Pago" />;
       case "PENDING":
-        return <Clock className="h-4 w-4 text-warning" />;
+        return <Clock className="h-4 w-4 text-warning" aria-label="Pendente" />;
       case "CANCELED":
-        return <AlertTriangle className="h-4 w-4 text-destructive" />;
+        return <AlertTriangle className="h-4 w-4 text-destructive" aria-label="Cancelado" />;
       default:
-        return <Clock className="h-4 w-4 text-muted-foreground" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" aria-label="Status desconhecido" />;
     }
   };
 
@@ -240,7 +241,7 @@ export default function CardStatements() {
     
     setPayingStatement(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Buscar todas as transações do período
@@ -322,7 +323,8 @@ export default function CardStatements() {
     );
   }
 
-  const monthLabel = new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric" }).format(currentDate);
+  const rawMonthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
   const periodLabel = `${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
     statementPeriod.startDate,
   )} até ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(statementPeriod.endDate)}`;
@@ -352,7 +354,7 @@ export default function CardStatements() {
               <ChevronLeft className="h-4 w-4" />
             </Button>
             <div className="min-w-0 flex-1 px-2 text-center lg:min-w-[9rem] lg:flex-none">
-              <p className="truncate text-sm font-medium capitalize text-foreground">{monthLabel}</p>
+              <p className="truncate text-sm font-medium text-foreground">{monthLabel}</p>
               <p className="truncate text-2xs tabular text-muted-foreground">{periodLabel}</p>
             </div>
             <Button variant="ghost" size="icon-sm" onClick={() => handleMonthChange("next")} aria-label="Próximo mês">
