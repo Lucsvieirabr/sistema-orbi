@@ -7,6 +7,7 @@ import { PaceMeter } from "@/components/projects/PaceMeter";
 import { ProjectDetail } from "@/components/projects/ProjectDetail";
 import { ProjectEditor, type ProjectEditorState } from "@/components/projects/ProjectEditor";
 import { kindLabel, reportSentence } from "@/components/projects/project-meta";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -228,7 +229,7 @@ function ProjectCard({
                 Com acerto
               </Badge>
             )}
-            {!project.isOwner && <Badge variant="outline">Parceiro</Badge>}
+            {!project.isOwner && <PartnerBadge userId={project.userId} />}
           </div>
         </CardHeader>
 

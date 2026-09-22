@@ -1,3 +1,4 @@
+import { AuthorAvatar } from "@/components/family/AuthorTag";
 import { Label } from "@/components/ui/label";
 import { useSpace } from "@/hooks/use-space";
 import { cn } from "@/lib/utils";
@@ -51,15 +52,7 @@ export function PayerPicker({ value, onChange, ownerId }: PayerPickerProps) {
                   : "border-border text-muted-foreground hover:text-foreground",
               )}
             >
-              <span
-                aria-hidden
-                className={cn(
-                  "grid h-7 w-7 place-items-center rounded-full text-xs font-semibold md:h-6 md:w-6",
-                  person.isSelf ? "bg-foreground/10 text-foreground" : "bg-chart-6 text-background",
-                )}
-              >
-                {person.initial}
-              </span>
+              <AuthorAvatar author={person} className="h-7 w-7 text-[0.6875rem] md:h-6 md:w-6 md:text-[0.625rem]" />
               {person.isSelf ? "Eu" : person.name}
             </button>
           );

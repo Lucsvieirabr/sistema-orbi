@@ -31,6 +31,7 @@ import {
   formatSignedMoney,
   plural,
 } from "@/components/planning/planning-utils";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -182,7 +183,7 @@ export function ProjectDetail({ projectId, onDeleted }: { projectId: string; onD
           <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span className="min-w-0 break-words">{project.name}</span>
             <Badge variant={archived ? "outline" : "success"}>{archived ? "Arquivado" : "Em andamento"}</Badge>
-            {readOnly && <Badge variant="outline">Parceiro</Badge>}
+            {readOnly && <PartnerBadge userId={project.userId} />}
           </span>
         }
         description={

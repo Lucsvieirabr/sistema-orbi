@@ -15,6 +15,7 @@ import {
   formatSignedMoney,
   plural,
 } from "@/components/planning/planning-utils";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -281,7 +282,7 @@ function GoalCard({
               </div>
               <p className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-muted-foreground">
                 {goal.deadline ? <span>Até {formatDateMedium(goal.deadline)}</span> : <span>Sem prazo</span>}
-                {readOnly && <Badge variant="outline">Parceiro</Badge>}
+                {readOnly && <PartnerBadge userId={goal.user_id} />}
               </p>
             </div>
             <div className="-mr-2 -mt-1 flex shrink-0 items-center gap-0.5 md:mr-0">

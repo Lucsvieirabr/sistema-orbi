@@ -26,6 +26,7 @@ import {
   formatSignedMoney,
   plural,
 } from "@/components/planning/planning-utils";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -195,7 +196,7 @@ export function LedgerDetail({
             <Badge variant={settled ? "success" : "outline"} className="align-middle">
               {settled ? "Liquidado" : "Em aberto"}
             </Badge>
-            {readOnly && <Badge variant="outline">Parceiro</Badge>}
+            {readOnly && <PartnerBadge userId={ledger.user_id} />}
           </span>
         }
         description={ledger.description ? `${period} · ${ledger.description}` : period}

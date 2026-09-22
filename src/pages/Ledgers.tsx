@@ -6,6 +6,7 @@ import { LedgerDetail } from "@/components/ledgers/LedgerDetail";
 import { SplitContractsPanel, type ContractEditorState } from "@/components/ledgers/SplitContractsPanel";
 import { notifyPlanningError, notifyPlanningSuccess } from "@/components/planning/notify";
 import { describePlanningError, formatDateMedium, plural } from "@/components/planning/planning-utils";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
@@ -211,7 +212,7 @@ function LedgerGrid({ ledgers, isMine }: { ledgers: Ledger[]; isMine: (id?: stri
                     {ledger.name}
                   </h3>
                   <div className="flex shrink-0 items-center gap-1.5">
-                    {!isMine(ledger.user_id) && <Badge variant="outline">Parceiro</Badge>}
+                    {!isMine(ledger.user_id) && <PartnerBadge userId={ledger.user_id} />}
                     <Badge variant={settled ? "success" : "outline"}>{settled ? "Liquidado" : "Em aberto"}</Badge>
                   </div>
                 </div>

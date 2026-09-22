@@ -1,3 +1,4 @@
+import { AuthorAvatar } from "@/components/family/AuthorTag";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 
 /**
@@ -15,12 +16,7 @@ export function SharedAuthorNotice({ ownerId }: { ownerId?: string | null }) {
       role="note"
       className="flex items-start gap-2 rounded-lg bg-chart-6/[0.07] px-2.5 py-2 text-xs text-muted-foreground ring-1 ring-inset ring-chart-6/15"
     >
-      <span
-        aria-hidden
-        className="mt-px grid h-5 w-5 shrink-0 place-items-center rounded-full bg-chart-6 text-[0.625rem] font-semibold text-background"
-      >
-        {author.initial}
-      </span>
+      <AuthorAvatar author={author} className="mt-px h-5 w-5 text-[0.5625rem]" />
       <span className="text-pretty">
         Criado por <span className="font-medium text-foreground">{author.name}</span>. Você pode ajustar descrição,
         valor, data, categoria, status e quem pagou — conta, cartão e rateio ficam com quem lançou.

@@ -8,6 +8,7 @@ import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isOwnRow } from "@/lib/family-access";
+import { initialsOf, isAvatarPath } from "@/lib/avatar";
 import { SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
 import { QUOTA_QUERY_KEY } from "@/hooks/use-quota";
 
@@ -21,10 +22,14 @@ export interface FamilyMember {
 /** Pessoa do grupo visível no modo Casal (RPC `orbi_family_directory`). */
 export interface FamilyAuthor {
   userId: string;
-  /** Primeiro nome; "Parceiro(a)" quando a conta não tem nome cadastrado. */
+  /** Apelido (display_name) ou primeiro nome; "Parceiro(a)" sem nome algum. */
   name: string;
-  /** Inicial para o avatar. */
+  /** Primeira letra do nome (glifos minúsculos). */
   initial: string;
+  /** Até 2 iniciais ("João Silva" → "JS"); vazio quando não há nome real. */
+  initials: string;
+  /** Caminho no bucket privado `avatars` (resolvido por signed URL no `<UserAvatar>`). */
+  avatarPath: string | null;
   isSelf: boolean;
 }
 
@@ -61,14 +66,18 @@ interface DirectoryRow {
   user_id: string;
   is_self: boolean;
   name: string | null;
+  avatar_path?: string | null;
 }
 
 function toAuthor(row: DirectoryRow): FamilyAuthor {
-  const name = row.name?.trim() || (row.is_self ? "Você" : "Parceiro(a)");
+  const realName = row.name?.trim() || "";
+  const name = realName || (row.is_self ? "Você" : "Parceiro(a)");
   return {
     userId: row.user_id,
     name,
     initial: name.charAt(0).toLocaleUpperCase("pt-BR"),
+    initials: initialsOf(realName),
+    avatarPath: isAvatarPath(row.avatar_path) ? row.avatar_path : null,
     isSelf: row.is_self,
   };
 }

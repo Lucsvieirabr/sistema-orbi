@@ -1,5 +1,21 @@
 import type { FamilyAuthor } from "@/hooks/use-family-group";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { cn } from "@/lib/utils";
+
+/**
+ * Avatar de uma pessoa do casal: foto → iniciais do apelido → glifo.
+ * Parceiro no tom de identidade (chart-6), você no navy do Orbi.
+ */
+export function AuthorAvatar({ author, className }: { author: FamilyAuthor; className?: string }) {
+  return (
+    <UserAvatar
+      name={author.initials ? author.name : null}
+      avatarPath={author.avatarPath}
+      tone={author.isSelf ? "self" : "partner"}
+      className={className}
+    />
+  );
+}
 
 interface AuthorTagProps {
   author: FamilyAuthor;
@@ -21,15 +37,8 @@ export function AuthorTag({ author, className, compact = false }: AuthorTagProps
 
   if (compact) {
     return (
-      <span
-        title={author.isSelf ? "Seu" : `De ${author.name}`}
-        className={cn(
-          "grid h-5 w-5 shrink-0 place-items-center rounded-full text-[0.625rem] font-semibold leading-none ring-2 ring-background",
-          author.isSelf ? "bg-foreground/10 text-foreground" : "bg-chart-6 text-background",
-          className,
-        )}
-      >
-        <span aria-hidden>{author.initial}</span>
+      <span title={author.isSelf ? "Seu" : `De ${author.name}`} className={cn("inline-flex shrink-0", className)}>
+        <AuthorAvatar author={author} className="h-5 w-5 text-[0.5625rem] ring-2 ring-background" />
         <span className="sr-only">{author.isSelf ? "Seu" : `De ${author.name}`}</span>
       </span>
     );
@@ -46,15 +55,7 @@ export function AuthorTag({ author, className, compact = false }: AuthorTagProps
         className,
       )}
     >
-      <span
-        aria-hidden
-        className={cn(
-          "grid h-4 w-4 shrink-0 place-items-center rounded-full text-[0.625rem] font-semibold leading-none",
-          author.isSelf ? "bg-foreground/10 text-foreground" : "bg-chart-6 text-background",
-        )}
-      >
-        {author.initial}
-      </span>
+      <AuthorAvatar author={author} className="h-4 w-4 text-[0.5rem]" />
       <span className="sr-only">Lançado por </span>
       <span className="truncate">{label}</span>
     </span>

@@ -1,5 +1,7 @@
 import { useRef, type KeyboardEvent } from "react";
 import { User } from "lucide-react";
+import { AuthorAvatar } from "@/components/family/AuthorTag";
+import type { FamilyAuthor } from "@/hooks/use-family-group";
 import { useSpace } from "@/hooks/use-space";
 import type { ViewMode } from "@/hooks/use-view-mode";
 import { cn } from "@/lib/utils";
@@ -78,7 +80,7 @@ export function ViewModeToggle({ className }: { className?: string }) {
             {option.value === "personal" ? (
               <User className="h-3.5 w-3.5 shrink-0" aria-hidden />
             ) : (
-              <CoupleGlyph me={me?.initial} partner={partner?.initial} active={active} />
+              <CoupleGlyph me={me} partner={partner} active={active} />
             )}
             <span className="hidden sm:inline">{option.label}</span>
             <span className="sm:hidden">{option.short}</span>
@@ -89,21 +91,18 @@ export function ViewModeToggle({ className }: { className?: string }) {
   );
 }
 
-/** Duas iniciais sobrepostas: o "nós" em forma de glifo. */
-function CoupleGlyph({ me, partner, active }: { me?: string; partner?: string; active: boolean }) {
+/** Dois avatares sobrepostos (foto → iniciais → glifo): o "nós" em forma de glifo. */
+function CoupleGlyph({ me, partner, active }: { me: FamilyAuthor | null; partner: FamilyAuthor | null; active: boolean }) {
+  const face = "h-4 w-4 text-[0.4375rem] ring-2 ring-background";
   return (
     <span aria-hidden className="flex shrink-0 -space-x-1.5">
-      <span className="grid h-4 w-4 place-items-center rounded-full bg-foreground/10 text-[0.5625rem] font-semibold leading-none text-foreground ring-2 ring-background">
-        {me ?? "E"}
-      </span>
-      <span
-        className={cn(
-          "grid h-4 w-4 place-items-center rounded-full text-[0.5625rem] font-semibold leading-none ring-2 ring-background transition-colors duration-300",
-          active ? "bg-chart-6 text-background" : "bg-chart-6/20 text-chart-6",
-        )}
-      >
-        {partner ?? "P"}
-      </span>
+      {me && <AuthorAvatar author={me} className={face} />}
+      {partner && (
+        <AuthorAvatar
+          author={partner}
+          className={cn(face, "transition-opacity duration-300", active ? "opacity-100" : "opacity-60")}
+        />
+      )}
     </span>
   );
 }

@@ -1373,8 +1373,10 @@ export type Database = {
       user_profiles: {
         Row: {
           asaas_customer_id: string | null
+          avatar_path: string | null
           avatar_url: string | null
           created_at: string | null
+          display_name: string | null
           email: string | null
           full_name: string | null
           id: string
@@ -1386,8 +1388,10 @@ export type Database = {
         }
         Insert: {
           asaas_customer_id?: string | null
+          avatar_path?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string
@@ -1399,8 +1403,10 @@ export type Database = {
         }
         Update: {
           asaas_customer_id?: string | null
+          avatar_path?: string | null
           avatar_url?: string | null
           created_at?: string | null
+          display_name?: string | null
           email?: string | null
           full_name?: string | null
           id?: string

@@ -14,6 +14,7 @@ import {
   formatPct,
   plural,
 } from "@/components/planning/planning-utils";
+import { PartnerBadge } from "@/components/family/PartnerBadge";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -328,7 +329,7 @@ function BudgetItem({
               <span className="truncate text-sm font-medium text-foreground" title={budget.category_name}>
                 {budget.category_name}
               </span>
-              {readOnly && <Badge variant="outline">Parceiro</Badge>}
+              {readOnly && <PartnerBadge userId={budget.user_id} />}
             </p>
             <p className="shrink-0 text-sm tabular text-foreground">
               {formatMoney(budget.spent)}
