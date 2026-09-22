@@ -88,11 +88,7 @@ export function LegalConsentCheckbox({
         />
         <label
           htmlFor={id}
-<<<<<<< HEAD
           className="min-w-0 flex-1 cursor-pointer text-2xs leading-4 text-muted-foreground"
-=======
-          className="min-w-0 flex-1 cursor-pointer text-balance text-xs leading-relaxed text-muted-foreground"
->>>>>>> 6adcf9558d22522987ecb4d1fae1976c09a728ff
         >
           {label ?? (
             <span className="inline-flex flex-wrap gap-x-1">
