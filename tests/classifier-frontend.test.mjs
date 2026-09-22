@@ -114,7 +114,7 @@ test('learning rejects categories from other users, wrong types and invalid desc
   }
 });
 
-test('existing description-only RPC receives no contradictory or duplicate training examples', () => {
+test('same-direction corrections reject contradictory or duplicate training examples', () => {
   const originals = [tx('1', { description: 'Mesmo fornecedor' }), tx('2', { description: 'Mesmo fornecedor' })];
   const source = new Map(originals.map(t => [t.id, t]));
   const saved = new Set(['1', '2']);

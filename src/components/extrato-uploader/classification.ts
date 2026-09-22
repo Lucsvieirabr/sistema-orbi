@@ -145,6 +145,7 @@ export function partitionDuplicates<T extends Parameters<typeof duplicateKey>[0]
 
 export interface LearningCorrection {
   id: string;
+  transaction_type: 'income' | 'expense';
   p_description: string;
   p_category: string;
   p_subcategory?: string;
@@ -166,14 +167,14 @@ export function prepareCorrections(items: ReviewTransaction[], originals: Readon
     }
     // A subcategory inferred for the old category is no longer applicable.
     const subcategory = item.subcategory?.trim();
-    corrections.push({ id: item.id, p_description: description, p_category: category.name,
+    corrections.push({ id: item.id, transaction_type: item.type, p_description: description, p_category: category.name,
       p_subcategory: subcategory && subcategory !== original.subcategory && subcategory.length <= 120 && !/[\p{Cc}]/u.test(subcategory) ? subcategory : undefined,
       p_confidence: 95 });
   }
-  // The existing RPC is keyed only by description, not type. Do not train contradictory examples.
+  // Same-direction conflicting corrections need review; income and expense are independent.
   const groups = new Map<string, LearningCorrection[]>();
   for (const correction of corrections) {
-    const key = correction.p_description.toLowerCase();
+    const key = `${correction.transaction_type}:${correction.p_description.toLowerCase()}`;
     groups.set(key, [...(groups.get(key) ?? []), correction]);
   }
   const unique: LearningCorrection[] = [];

@@ -106,7 +106,7 @@ export function supplementDictionary(rows: DictionaryRow[]): DictionaryRow[] {
     const key = keyOf(example.merchant_key);
     const current = byKey.get(key);
     if (!current && !knownNames.has(tokenizePhrase(example.merchant_key).join(' '))) byKey.set(key, example);
-    else if (keyOf(current.category) === keyOf(example.category)) {
+    else if (current && keyOf(current.category) === keyOf(example.category)) {
       byKey.set(key, { ...current, aliases: [...new Set([...(current.aliases ?? []), ...(example.aliases ?? [])])] });
     }
   }

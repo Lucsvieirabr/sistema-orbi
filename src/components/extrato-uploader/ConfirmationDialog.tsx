@@ -118,6 +118,11 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
   const [saveReport, setSaveReport] = useState<SaveReport | null>(null);
   const [skipDuplicates, setSkipDuplicates] = useState(true);
   const originals = useRef(new Map<string, ParsedTransaction>());
+  const databaseIds = useRef(new Map<string, string>());
+  const databaseIdFor = (sourceId: string) => {
+    if (!databaseIds.current.has(sourceId)) databaseIds.current.set(sourceId, crypto.randomUUID());
+    return databaseIds.current.get(sourceId)!;
+  };
   const handledTransactions = useRef(new Map<string, ParsedTransaction>());
   const persistenceWarnings = useRef<string[]>([]);
   const [learningErrors, setLearningErrors] = useState<string[]>([]);
@@ -158,6 +163,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       // Limpar dados quando fechar
       setEditedTransactions([]);
       originals.current.clear();
+      databaseIds.current.clear();
       handledTransactions.current.clear();
       setLearningErrors([]);
       setOnlyReview(false);
@@ -228,6 +234,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
 
   /** Monta a linha de INSERT a partir da transação revisada. */
   const buildRow = (transaction: ParsedTransaction, userId: string, seriesId?: string) => ({
+    id: databaseIdFor(transaction.id),
     user_id: userId,
     description: transaction.description.trim().slice(0, 300),
     value: Math.abs(roundCurrency(transaction.value)),
@@ -400,7 +407,7 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
     // Atual + futuras numa única chamada: menos ida-e-volta e nada de série
     // pela metade quando a segunda chamada falhava.
     const rows = [
-      { ...base, date: transaction.date, installment_number: 1 },
+      { ...base, id: databaseIdFor(transaction.id), date: transaction.date, installment_number: 1 },
       ...Array.from({ length: monthsToGenerate }, (_, i) => ({
         ...base,
         date: addMonthsISO(transaction.date, i + 1),
@@ -498,12 +505,14 @@ export function ConfirmationDialog({ open, onOpenChange, transactions, onTransac
       // Prepare examples from persisted IDs only. An unchanged/reverted category is not feedback.
       const learning = prepareCorrections(novas, originals.current, savedIds, categories, user.id);
       const failedLearning = [...learning.errors];
-      for (const { id, ...args } of learning.corrections) {
+      for (const correction of learning.corrections) {
         try {
-          const { error } = await supabase.rpc('update_user_learned_pattern', args);
+          const transactionId = databaseIds.current.get(correction.id);
+          if (!transactionId) throw new Error('Identificador persistido não encontrado.');
+          const { error } = await supabase.rpc('learn_transaction_classification', { p_transaction_id: transactionId });
           if (error) throw error;
         } catch (error) {
-          failedLearning.push(`Transação salva, mas a correção de "${args.p_description}" não foi aprendida: ${describeSaveError(error)}`);
+          failedLearning.push(`Transação salva, mas a correção de "${correction.p_description}" não foi aprendida: ${describeSaveError(error)}`);
         }
       }
       if (failedLearning.length) {

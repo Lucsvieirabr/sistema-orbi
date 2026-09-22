@@ -475,7 +475,7 @@ function MyAIContent() {
           queryClient.invalidateQueries({ queryKey: ['learned-patterns-stats'] });
           toast({
             title: 'Importação concluída',
-            description: 'As correções que você fez viraram regras aqui.',
+            description: 'Os lançamentos foram salvos. Confira no resumo da importação o resultado do aprendizado.',
           });
         }}
       />

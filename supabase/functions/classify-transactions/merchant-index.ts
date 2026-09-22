@@ -175,7 +175,7 @@ export class MerchantIndex {
       // `keywords` descrevem a CATEGORIA — só valem como frase em entradas
       // genéricas (keyword/banking_pattern). Em merchant ("restaurante",
       // "mercado") fariam qualquer mercado virar o Atacadão.
-      if (entryType === 'keyword' || entryType === 'banking_pattern') {
+      if (entryType === 'keyword') {
         for (const kw of row.keywords ?? []) this.addPhrase(kw, entry, true);
       }
       count++;
