@@ -3,6 +3,8 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { AuthFlowError, describeAuthError } from "@/lib/auth/auth-errors";
 import { authRedirectUrl, AUTH_ROUTES } from "@/lib/auth/redirect";
+export { readConfirmationLink } from "@/services/auth/email-confirmation-link";
+export type { ConfirmationLink } from "@/services/auth/email-confirmation-link";
 
 /**
  * ============================================================================
@@ -64,38 +66,6 @@ export async function resendConfirmationEmail(email: string, captchaToken?: stri
   }
 }
 
-// ---------------------------------------------------------------------------
-// Leitura do link de volta
-// ---------------------------------------------------------------------------
-
-export type ConfirmationLink =
-  | { kind: "code"; code: string }
-  | { kind: "token_hash"; tokenHash: string }
-  | { kind: "error"; code: string }
-  | { kind: "none" };
-
-/**
- * Identifica o que o link do e-mail trouxe.
- *
- * PKCE entrega `?code=`; templates customizados entregam `?token_hash=&type=`;
- * link expirado ou já usado volta com `error`/`error_code` (query ou fragmento).
- */
-export function readConfirmationLink(location: Location): ConfirmationLink {
-  const query = new URLSearchParams(location.search);
-  const hash = new URLSearchParams(location.hash.startsWith("#") ? location.hash.slice(1) : location.hash);
-
-  const errorCode = query.get("error_code") ?? query.get("error") ?? hash.get("error_code") ?? hash.get("error");
-  if (errorCode) return { kind: "error", code: errorCode };
-
-  const tokenHash = query.get("token_hash") ?? hash.get("token_hash");
-  if (tokenHash) return { kind: "token_hash", tokenHash };
-
-  const code = query.get("code") ?? hash.get("code");
-  if (code) return { kind: "code", code };
-
-  return { kind: "none" };
-}
-
 /** Tira `code`/`token_hash` da barra de endereço: fora do histórico e do Referer. */
 export function scrubConfirmationUrl() {
   window.history.replaceState(window.history.state, "", window.location.pathname);
@@ -108,23 +78,22 @@ export function scrubConfirmationUrl() {
 export function awaitConfirmedSession(timeoutMs = 8000): Promise<Session | null> {
   return new Promise((resolve) => {
     let settled = false;
-    let timer: number | undefined;
-    let unsubscribe: (() => void) | undefined;
+    const pending: { timer?: number; unsubscribe?: () => void } = {};
 
     const finish = (session: Session | null) => {
       if (settled) return;
       settled = true;
-      if (timer !== undefined) window.clearTimeout(timer);
-      unsubscribe?.();
+      if (pending.timer !== undefined) window.clearTimeout(pending.timer);
+      pending.unsubscribe?.();
       resolve(session);
     };
 
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
       if (session) finish(session);
     });
-    unsubscribe = () => data.subscription.unsubscribe();
+    pending.unsubscribe = () => data.subscription.unsubscribe();
 
-    timer = window.setTimeout(() => finish(null), timeoutMs);
+    pending.timer = window.setTimeout(() => finish(null), timeoutMs);
 
     // `getSession()` fora do callback: dentro dele a chamada disputaria o Web
     // Lock interno de auth com a própria troca PKCE em andamento.

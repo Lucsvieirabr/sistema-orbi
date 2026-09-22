@@ -14,7 +14,8 @@ import { SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
 import { useTurnstile } from "@/hooks/use-turnstile";
 import { supabase } from "@/integrations/supabase/client";
 import { describeAuthError } from "@/lib/auth/auth-errors";
-import { AUTH_ROUTES } from "@/lib/auth/redirect";
+import { AUTH_ROUTES, loginPath } from "@/lib/auth/redirect";
+import { callbackAlreadyConfirmedEmail } from "@/services/auth/email-confirmation-link";
 import {
   awaitConfirmedSession,
   forgetPendingEmail,
@@ -52,6 +53,7 @@ export default function VerifyEmail() {
 
   const [link] = useState(() => readConfirmationLink(window.location));
   const [phase, setPhase] = useState<Phase>(link.kind === "none" ? "waiting" : "confirming");
+  const [hasAuthenticatedSession, setHasAuthenticatedSession] = useState(false);
   const [invalidReason, setInvalidReason] = useState("Este link de confirmação não vale mais.");
   const [isLeaving, setIsLeaving] = useState(false);
   const handledRef = useRef(false);
@@ -67,18 +69,25 @@ export default function VerifyEmail() {
   }, [location.state]);
 
   /** Sessão de pé = o link já cumpriu o papel. Promove a tela e engole o erro. */
-  const settleAsConfirmed = useCallback(() => {
+  const settleAsConfirmed = useCallback((withSession = true) => {
     forgetPendingEmail();
     queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
+    // Monotônico: uma tentativa PKCE atrasada não pode rebaixar uma sessão que
+    // já chegou pelo listener de autenticação.
+    setHasAuthenticatedSession((current) => current || withSession);
     setPhase("confirmed");
   }, [queryClient]);
 
   const salvageWithAuthenticatedUser = useCallback(async () => {
-    const user = await getImmediateSessionUser();
+    try {
+      const user = await getImmediateSessionUser();
 
-    if (!user) return false;
-    settleAsConfirmed();
-    return true;
+      if (!user) return false;
+      settleAsConfirmed(true);
+      return true;
+    } catch {
+      return false;
+    }
   }, [settleAsConfirmed]);
 
   /**
@@ -117,17 +126,31 @@ export default function VerifyEmail() {
 
         if (!session) {
           if (await salvageWithAuthenticatedUser()) return;
-          setInvalidReason(
-            "Abra o link no mesmo navegador em que você criou a conta, ou entre com seu e-mail e senha.",
-          );
-          setPhase("invalid");
+
+          // O servidor já confirmou o e-mail antes de emitir o `code`. O que
+          // falhou foi apenas a abertura automática da sessão (comum quando o
+          // link abre em outro navegador ou aparelho).
+          if (callbackAlreadyConfirmedEmail(link)) {
+            settleAsConfirmed(false);
+            return;
+          }
+
+          // `verifyOtp` respondeu sem sessão, mas sem erro: o token_hash foi
+          // aceito e a confirmação também terminou no servidor.
+          settleAsConfirmed(false);
           return;
         }
 
-        settleAsConfirmed();
+        settleAsConfirmed(true);
       } catch (error) {
         scrubConfirmationUrl();
         if (await salvageWithAuthenticatedUser()) return;
+
+        if (callbackAlreadyConfirmedEmail(link)) {
+          settleAsConfirmed(false);
+          return;
+        }
+
         setInvalidReason(describeAuthError(error, "reset_link"));
         setPhase("invalid");
       }
@@ -141,15 +164,36 @@ export default function VerifyEmail() {
   useEffect(() => {
     if (phase !== "waiting") return;
 
+    let active = true;
+
+    // O supabase-js pode trocar o `code` e removê-lo da URL durante a
+    // inicialização, antes desta rota montar. Nesse caso a sessão inicial é a
+    // evidência de que o retorno do e-mail terminou com sucesso.
+    void getImmediateSessionUser()
+      .then((user) => {
+        if (active && user) settleAsConfirmed(true);
+      })
+      .catch(() => {
+        // Sem sessão, esta continua sendo a tela normal pós-cadastro.
+      });
+
     const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session) settleAsConfirmed();
+      if (session) settleAsConfirmed(true);
     });
 
-    return () => data.subscription.unsubscribe();
+    return () => {
+      active = false;
+      data.subscription.unsubscribe();
+    };
   }, [phase, settleAsConfirmed]);
 
   /** Conta ativa e sessão aberta: o backend decide entre planos, sistema e cobrança. */
-  const continueToApp = async () => {
+  const continueAfterConfirmation = async () => {
+    if (!hasAuthenticatedSession) {
+      navigate(loginPath(AUTH_ROUTES.pricing), { replace: true });
+      return;
+    }
+
     setIsLeaving(true);
     queryClient.removeQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
     const route = await resolvePostAuthRoute();
@@ -187,13 +231,22 @@ export default function VerifyEmail() {
     return (
       <AuthShell
         title="E-mail confirmado"
-        description="Sua conta está ativa. Agora é só escolher o plano que combina com você."
+        description={
+          hasAuthenticatedSession
+            ? "Sua conta está ativa. Agora é só escolher o plano que combina com você."
+            : "Sua conta está ativa. Entre com seu e-mail e senha para continuar."
+        }
       >
         <div className="flex flex-col items-center gap-5">
           <EnvelopeBeacon tone="success" />
-          <Button type="button" className="w-full" onClick={() => void continueToApp()} disabled={isLeaving}>
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() => void continueAfterConfirmation()}
+            disabled={isLeaving}
+          >
             {isLeaving && <Loader2 className="animate-spin" aria-hidden />}
-            {isLeaving ? "Abrindo…" : "Escolher meu plano"}
+            {isLeaving ? "Abrindo…" : hasAuthenticatedSession ? "Escolher meu plano" : "Entrar na minha conta"}
           </Button>
         </div>
       </AuthShell>
