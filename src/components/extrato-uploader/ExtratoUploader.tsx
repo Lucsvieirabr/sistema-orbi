@@ -1,6 +1,4 @@
 import React, { useState, useCallback } from 'react';
-import { getCachedAuthUser } from "@/hooks/use-current-user";
-import React, { useState, useCallback, useEffect } from 'react';
 import { FileText, AlertCircle, CheckCircle, Brain } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
@@ -123,68 +121,6 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, us
 
   const processFile = async (file: File) => {
     if (isProcessing) return;
-  // Inicializa o classificador inteligente
-  useEffect(() => {
-    const initializeClassifier = async () => {
-      setIsInitializingClassifier(true);
-      try {
-        const { data: { user }, error: userError } = await getCachedAuthUser();
-
-        if (userError) {
-          console.error('Erro ao buscar usuário:', userError);
-          toast({
-            title: "Erro de autenticação",
-            description: "Não foi possível verificar o usuário. Faça login novamente.",
-            variant: "destructive"
-          });
-          setIsInitializingClassifier(false);
-          return;
-        }
-
-        if (!user) {
-          console.error('Usuário não autenticado');
-          toast({
-            title: "Erro de autenticação",
-            description: "Você precisa estar autenticado para importar transações.",
-            variant: "destructive"
-          });
-          setIsInitializingClassifier(false);
-          return;
-        }
-
-        const intelligentClassifier = new IntelligentTransactionClassifier('SP', user.id, true, true);
-
-        // Pré-carrega padrões frequentes
-        await intelligentClassifier.preloadFrequentPatterns();
-
-        setClassifier(intelligentClassifier);
-      } catch (error) {
-        console.error('Erro ao inicializar classificador:', error);
-        toast({
-          title: "Erro na inicialização",
-          description: "Não foi possível inicializar o sistema de classificação. Tente recarregar a página.",
-          variant: "destructive"
-        });
-      } finally {
-        setIsInitializingClassifier(false);
-      }
-    };
-
-    if (open) {
-      initializeClassifier();
-    }
-  }, [open, toast]);
-
-  const processFile = useCallback(async (file: File) => {
-    if (!classifier) {
-      toast({
-        title: "Erro",
-        description: "Classificador não inicializado. Tente novamente.",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsProcessing(true);
     setStage('reading');
     setProgress(0);
