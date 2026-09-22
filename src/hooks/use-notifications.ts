@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -24,7 +25,7 @@ export function useNotifications() {
   const query = useQuery({
     queryKey: NOTIFICATIONS_QUERY_KEY,
     queryFn: async (): Promise<UserNotification[]> => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) return [];
       const { data, error } = await supabase
         .from("user_notifications")
@@ -64,7 +65,7 @@ export function useNotifications() {
   };
 
   const markAllRead = async () => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) return;
     const { error } = await supabase
       .from("user_notifications")

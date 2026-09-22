@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useState, useMemo, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -241,6 +242,27 @@ function MonthlyStatementContent() {
   const { creditCards } = useCreditCards();
   const { people } = usePeople();
 
+  /**
+   * Uma unica fonte para os tres selects. Transacao fixa usa seu subtipo real;
+   * transferencia nao possui categoria.
+   */
+  const currentCategoryType = type === "fixed" ? fixedType : type;
+  const compatibleCategories = useMemo(
+    () =>
+      currentCategoryType === "income" || currentCategoryType === "expense"
+        ? categories.filter((category) => category.category_type === currentCategoryType)
+        : [],
+    [categories, currentCategoryType],
+  );
+
+  // Impede que a troca Ganho <-> Gasto preserve um category_id incompatível.
+  useEffect(() => {
+    if (!categoryId || categories.length === 0) return;
+    if (!compatibleCategories.some((category) => category.id === categoryId)) {
+      setCategoryId(undefined);
+    }
+  }, [categories.length, categoryId, compatibleCategories]);
+
   // Pessoas filtradas para busca
   const filteredPeople = useMemo(() => {
     if (!peopleSearchTerm.trim()) return people;
@@ -282,10 +304,10 @@ function MonthlyStatementContent() {
   // Initialize default values
   useEffect(() => {
     setAccountId((prev) => prev ?? accountsWithBalance[0]?.id);
-    setCategoryId((prev) => prev ?? categories[0]?.id);
+    setCategoryId((prev) => prev ?? compatibleCategories[0]?.id);
     setFromAccountId((prev) => prev ?? accountsWithBalance[0]?.id);
     setToAccountId((prev) => prev ?? accountsWithBalance[1]?.id);
-  }, [accountsWithBalance, categories]);
+  }, [accountsWithBalance, compatibleCategories]);
 
   const title = useMemo(
     () => (editingId ? "Editar Transação" : "Nova Transação"),
@@ -343,7 +365,7 @@ function MonthlyStatementContent() {
         // 1. Manutenção geral de séries fixas (para períodos futuros)
         const {
           data: { user },
-        } = await supabase.auth.getUser();
+        } = await getCachedAuthUser();
         if (!user) return;
 
         const { data: fixedSeries, error } = await supabase
@@ -379,7 +401,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       const { data, error } = await supabase
         .from("transactions")
         .select(
@@ -537,7 +559,7 @@ function MonthlyStatementContent() {
     setEditingId(null);
     setType("income");
     setAccountId(accountsWithBalance[0]?.id);
-    setCategoryId(categories[0]?.id);
+    setCategoryId(categories.find((category) => category.category_type === "income")?.id);
     setValue(0);
     setDescription("");
     setDate(getCurrentDateString());
@@ -1308,7 +1330,7 @@ function MonthlyStatementContent() {
           }
         } else {
           // Transação única
-          const { data: user } = await supabase.auth.getUser();
+          const { data: user } = await getCachedAuthUser();
           if (!user.user) throw new Error("Usuário não autenticado");
 
           if (type === "transfer") {
@@ -1427,7 +1449,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Plano Casal: transação do parceiro é somente leitura
@@ -1654,7 +1676,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Gerar um series_id único para as parcelas
@@ -1715,7 +1737,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Sistema inteligente: criar série de transações fixas que se auto-renova
@@ -1972,7 +1994,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       if (!user) return;
 
       // Buscar todas as séries fixas do usuário
@@ -2169,7 +2191,7 @@ function MonthlyStatementContent() {
     setShowMonthSelector(false);
   };
 
-  const markAsPaid = async (transactionId: string) => {
+  const markAsPaid = async (transactionId: string, transactionType: string) => {
     const toastInstance = toast({
       title: "Atualizando...",
       description: "Aguarde",
@@ -2188,7 +2210,10 @@ function MonthlyStatementContent() {
 
       toast({
         title: "Sucesso",
-        description: "Transação marcada como paga",
+        description:
+          transactionType === "income"
+            ? "Transação marcada como recebida"
+            : "Transação marcada como paga",
         duration: 2000,
       });
       refetch();
@@ -2302,7 +2327,7 @@ function MonthlyStatementContent() {
     try {
       const {
         data: { user },
-      } = await supabase.auth.getUser();
+      } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Buscar a série atual da transação e verificar se é fixa
@@ -2465,7 +2490,8 @@ function MonthlyStatementContent() {
     );
   }
 
-  const monthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const rawMonthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
+  const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
 
   return (
     /* Respiro extra no rodapé: a última linha do extrato nunca fica embaixo
@@ -2478,7 +2504,7 @@ function MonthlyStatementContent() {
       />
 
       <PageHeader
-        eyebrow={<span className="capitalize">{monthLabel}</span>}
+        eyebrow={<span>{monthLabel}</span>}
         title="Extrato"
         description="Tudo que entrou e saiu no mês, dia a dia. Marque como pago para o saldo acompanhar."
         actions={
@@ -2495,7 +2521,7 @@ function MonthlyStatementContent() {
                 size="sm"
                 onClick={() => setShowMonthSelector(!showMonthSelector)}
                 aria-expanded={showMonthSelector}
-                className="min-w-0 flex-1 justify-center capitalize lg:min-w-[8.5rem]"
+                className="min-w-0 flex-1 justify-center lg:min-w-[8.5rem]"
               >
                 <Calendar className="h-4 w-4 shrink-0" />
                 <span className="truncate">
@@ -2765,7 +2791,10 @@ function MonthlyStatementContent() {
                             <div className="flex items-start gap-3 flex-1">
                               {isPendingIncome ? (
                                 <div className="p-1.5 lg:p-2 rounded-full bg-warning-soft flex-shrink-0">
-                                  <BanknoteXIcon className="h-3 w-3 lg:h-4 lg:w-4 text-warning" />
+                                  <BanknoteXIcon
+                                    className="h-3 w-3 text-warning lg:h-4 lg:w-4"
+                                    aria-label="A receber"
+                                  />
                                 </div>
                               ) : (
                                 <div className="flex-shrink-0">
@@ -2860,8 +2889,12 @@ function MonthlyStatementContent() {
                                   <Button
                                     size="icon"
                                     variant="outline"
-                                    onClick={() => markAsPaid(transaction.id)}
-                                    aria-label="Marcar como paga"
+                                    onClick={() => markAsPaid(transaction.id, transaction.type)}
+                                    aria-label={
+                                      transaction.type === "income"
+                                        ? "Marcar como recebida"
+                                        : "Marcar como paga"
+                                    }
                                     className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
                                     <CheckCircle className="h-4 w-4 lg:h-4 lg:w-4" />
@@ -2979,7 +3012,7 @@ function MonthlyStatementContent() {
                       className="flex items-center gap-1 lg:gap-2 h-11 flex-1 text-xs lg:h-9 lg:text-sm"
                     >
                       <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
-                      <span className="hidden sm:inline">Transfer</span>
+                      <span className="hidden sm:inline">Transferência</span>
                     </Button>
                     <Button
                       type="button"
@@ -3039,7 +3072,7 @@ function MonthlyStatementContent() {
                     }`}
                   >
                     <ArrowUpCircle className="h-3 w-3 lg:h-4 lg:w-4" />
-                    <span className="hidden sm:inline">Transfer</span>
+                    <span className="hidden sm:inline">Transferência</span>
                     <span className="sm:hidden">Transf</span>
                   </Button>
                   <Button
@@ -3271,7 +3304,7 @@ function MonthlyStatementContent() {
                     onValueChange={setCategoryId}
                     placeholder="Categoria"
                   >
-                    {categories.map((c) => (
+                    {compatibleCategories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -3315,7 +3348,7 @@ function MonthlyStatementContent() {
                     onValueChange={setCategoryId}
                     placeholder="Categoria"
                   >
-                    {categories.map((c) => (
+                    {compatibleCategories.map((c) => (
                       <SelectItem key={c.id} value={c.id}>
                         {c.name}
                       </SelectItem>
@@ -3417,7 +3450,7 @@ function MonthlyStatementContent() {
                       onValueChange={setCategoryId}
                       placeholder="Categoria"
                     >
-                      {categories.map((c) => (
+                      {compatibleCategories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
                           {c.name}
                         </SelectItem>
@@ -3561,8 +3594,17 @@ function MonthlyStatementContent() {
                         onCheckedChange={(checked) =>
                           setStatus(checked ? "PAID" : "PENDING")
                         }
+                        aria-label={
+                          fixedType === "income"
+                            ? status === "PAID" ? "Recebido" : "A receber"
+                            : status === "PAID" ? "Pago" : "A pagar"
+                        }
                       />
-                      <Label className="text-sm">Paga</Label>
+                      <Label className="text-sm">
+                        {fixedType === "income"
+                          ? status === "PAID" ? "Recebido" : "A receber"
+                          : status === "PAID" ? "Pago" : "A pagar"}
+                      </Label>
                     </div>
                   </div>
                 </div>
@@ -3888,9 +3930,16 @@ function MonthlyStatementContent() {
                         onCheckedChange={(checked) =>
                           setStatus(checked ? "PAID" : "PENDING")
                         }
+                        aria-label={
+                          type === "income"
+                            ? status === "PAID" ? "Recebido" : "A receber"
+                            : status === "PAID" ? "Pago" : "A pagar"
+                        }
                       />
                       <Label className="text-sm">
-                        {type === "income" ? "Recebido" : "Paga"}
+                        {type === "income"
+                          ? status === "PAID" ? "Recebido" : "A receber"
+                          : status === "PAID" ? "Pago" : "A pagar"}
                       </Label>
                     </div>
                   </div>
@@ -4144,7 +4193,7 @@ function MonthlyStatementContent() {
         transactions={pendingIncomeTransactions}
         title="Contas a Receber"
         type="income"
-        onMarkAsPaid={markAsPaid}
+        onMarkAsPaid={(id) => markAsPaid(id, "income")}
         onMarkAsPending={markAsPending}
         onEdit={(id) => {
           setEditingId(id);
@@ -4160,7 +4209,7 @@ function MonthlyStatementContent() {
         transactions={pendingExpenseTransactions}
         title="Contas a Pagar"
         type="expense"
-        onMarkAsPaid={markAsPaid}
+        onMarkAsPaid={(id) => markAsPaid(id, "expense")}
         onMarkAsPending={markAsPending}
         onEdit={(id) => {
           setEditingId(id);

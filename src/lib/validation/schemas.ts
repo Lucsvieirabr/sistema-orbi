@@ -19,6 +19,7 @@
 // ============================================================================
 
 import { z } from "zod";
+import { isValidPixKey } from "@/lib/pix";
 
 // Caracteres de controle U+0000..U+001F e U+007F.
 // CONTROL_ALL remove todos (campos de uma linha).
@@ -148,7 +149,9 @@ export const creditCardSchema = z.object({
 
 export const personSchema = z.object({
   name: requiredText(120, "Nome da pessoa"),
-  pix: optionalText(140).optional(),
+  pix: optionalText(140)
+    .refine((value) => !value || isValidPixKey(value), "Chave PIX inválida")
+    .optional(),
 });
 
 export const categorySchema = z.object({

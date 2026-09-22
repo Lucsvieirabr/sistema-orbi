@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -182,7 +183,7 @@ export function useApplyInflationAlert() {
   };
 
   const apply = async (alert: BudgetInflationAlert) => {
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user } } = await getCachedAuthUser();
     if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
     const limit = parseOrThrow(budgetLimitSchema, roundCurrency(alert.suggestedLimit));
     const { error } = await supabase

@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import React, { useState, useCallback, useEffect } from 'react';
 import { FileText, AlertCircle, CheckCircle, Brain } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -124,7 +125,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported }: 
     const initializeClassifier = async () => {
       setIsInitializingClassifier(true);
       try {
-        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await getCachedAuthUser();
 
         if (userError) {
           console.error('Erro ao buscar usuário:', userError);

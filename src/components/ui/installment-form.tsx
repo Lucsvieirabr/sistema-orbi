@@ -533,11 +533,12 @@ export function InstallmentForm({
                       }
                       disabled={disabled}
                       className="scale-75"
+                      aria-label={installment.status === 'PAID' ? 'Parcela paga' : 'Parcela pendente'}
                     />
                     {installment.status === 'PAID' ? (
-                      <CheckCircle className="h-3 w-3 text-success" />
+                      <CheckCircle className="h-3 w-3 text-success" aria-label="Paga" />
                     ) : (
-                      <BanknoteXIcon className="h-3 w-3 text-warning" />
+                      <BanknoteXIcon className="h-3 w-3 text-warning" aria-label="Pendente" />
                     )}
                     <span className="text-xs font-medium">
                       {installment.status === 'PAID' ? 'Paga' : 'Pendente'}

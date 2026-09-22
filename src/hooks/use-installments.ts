@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
@@ -34,7 +35,7 @@ export function useInstallments() {
   // Criar série de parcelas
   const createInstallmentSeries = useMutation({
     mutationFn: async (params: CreateInstallmentSeriesParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Preparar dados das parcelas para o backend
@@ -93,7 +94,7 @@ export function useInstallments() {
   // Atualizar série de parcelas
   const updateInstallmentSeries = useMutation({
     mutationFn: async (params: UpdateInstallmentSeriesParams) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       // Preparar dados das parcelas para o backend
@@ -135,7 +136,7 @@ export function useInstallments() {
   // Deletar série de parcelas
   const deleteInstallmentSeries = useMutation({
     mutationFn: async (seriesId: string) => {
-      const { data: { user } } = await supabase.auth.getUser();
+      const { data: { user } } = await getCachedAuthUser();
       if (!user) throw new Error("Usuário não autenticado");
 
       const { data, error } = await supabase.rpc('delete_installment_series', {

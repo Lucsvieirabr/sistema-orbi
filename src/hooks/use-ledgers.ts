@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Acertos de viagem / Mini-ledgers (módulo premium — Pro/Casal).
  *
@@ -111,7 +112,7 @@ export interface LedgerSummary {
 export const LEDGERS_QUERY_KEY = ["ledgers"] as const;
 
 async function requireUserId(): Promise<string> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   if (!user) throw new Error("Sessão expirada. Entre de novo para continuar.");
   return user.id;
 }

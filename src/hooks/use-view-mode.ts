@@ -1,3 +1,4 @@
+import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
  * Modo de visualização: Pessoal (só seus dados) x Casal (você + parceiro).
  * Store externo simples (sem Context/Redux) + persistência em localStorage.
@@ -51,7 +52,7 @@ export function useViewMode(): ViewMode {
  * Pessoal: [eu]. Casal: [eu, parceiro] (via RPC orbi_family_user_ids).
  */
 export async function getScopeUserIds(): Promise<string[]> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await getCachedAuthUser();
   const me = user?.id ? [user.id] : [];
   if (currentMode !== "couple" || me.length === 0) return me;
 

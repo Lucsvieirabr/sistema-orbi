@@ -1,3 +1,4 @@
+import { getImmediateSessionUser } from "@/hooks/use-current-user";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -73,9 +74,7 @@ export default function VerifyEmail() {
   }, [queryClient]);
 
   const salvageWithAuthenticatedUser = useCallback(async () => {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    const user = await getImmediateSessionUser();
 
     if (!user) return false;
     settleAsConfirmed();

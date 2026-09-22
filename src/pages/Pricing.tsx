@@ -1,11 +1,15 @@
 import { useState, useEffect, useCallback } from "react";
-import { useSubscriptionPlans, SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
+import {
+  useSubscriptionPlans,
+  SUBSCRIPTION_QUERY_KEY,
+  type SubscriptionStatusPayload,
+} from "@/hooks/use-subscription";
 import { useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Minus, Sparkles } from "lucide-react";
+import { Check, ChevronDown, Minus, Sparkles } from "lucide-react";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import orbiLogo from "@/assets/orbi-logo_white.png";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
@@ -19,6 +23,7 @@ import { recordLegalConsent } from "@/lib/legal";
 import { AUTH_ROUTES, loginPath } from "@/lib/auth/redirect";
 import { requireSession } from "@/lib/auth/session";
 import { cn } from "@/lib/utils";
+import { useCurrentUser } from "@/hooks/use-current-user";
 
 /**
  * Pagina de Planos.
@@ -72,8 +77,118 @@ const FEATURE_ROWS = [
   { key: "contratos_rateio", label: "Contratos de Rateio e Acertos de Viagem" },
   { key: "projetos_vida", label: "Projetos de Vida com mini-DRE" },
   { key: "inflacao_pessoal", label: "Inflação Pessoal por categoria" },
-  { key: "familia_compartilhada", label: "2 acessos (Plano Casal)" },
+  { key: "familia_compartilhada", label: "2 acessos e finanças compartilhadas" },
 ] as const;
+
+type FeatureKey = (typeof FEATURE_ROWS)[number]['key'];
+
+const PRIMARY_FEATURE_COUNT = 5;
+
+/**
+ * Prioriza os diferenciais que ajudam a decidir pelo plano. Recursos basicos
+ * continuam acessiveis no expansor, sem competir com a proposta principal.
+ */
+const KILLER_FEATURE_PRIORITY: readonly FeatureKey[] = [
+  'familia_compartilhada',
+  'motor_preditivo',
+  'projetos_vida',
+  'inflacao_pessoal',
+  'orcamentos',
+  'metas',
+  'dre_pessoal',
+  'contratos_rateio',
+  'ia_classificacao_automatica',
+  'ia_classificador',
+  'transacoes_importar_csv',
+  'dashboard_assinaturas',
+  'cartoes',
+  'contas',
+  'categorias',
+  'pessoas',
+  'extrato',
+];
+
+function PlanFeatureList({ planId, features }: { planId: string; features: Record<string, boolean> }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const contentId = `plan-features-${planId}`;
+
+  const priority = new Map(KILLER_FEATURE_PRIORITY.map((key, index) => [key, index]));
+  const orderedRows = [...FEATURE_ROWS].sort((a, b) => {
+    const enabledDifference = Number(features[b.key] === true) - Number(features[a.key] === true);
+    if (enabledDifference !== 0) return enabledDifference;
+    return (priority.get(a.key) ?? Number.MAX_SAFE_INTEGER) - (priority.get(b.key) ?? Number.MAX_SAFE_INTEGER);
+  });
+  const primaryRows = orderedRows.slice(0, PRIMARY_FEATURE_COUNT);
+  const remainingRows = orderedRows.slice(PRIMARY_FEATURE_COUNT);
+
+  const renderFeature = ({ key, label }: (typeof FEATURE_ROWS)[number]) => {
+    const enabled = features[key] === true;
+
+    return (
+      <li key={key} className="flex items-start gap-2">
+        {enabled ? (
+          <Check className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
+        ) : (
+          <Minus className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
+        )}
+        <span
+          className={cn(
+            "min-w-0 text-xs leading-[1.35]",
+            enabled ? "text-foreground" : "text-muted-foreground",
+          )}
+        >
+          {label}
+        </span>
+        <span className="sr-only">{enabled ? "incluído" : "não incluído"}</span>
+      </li>
+    );
+  };
+
+  return (
+    <div>
+      <p className="label-eyebrow">Recursos principais</p>
+      <ul className="mt-3 grid grid-cols-1 gap-y-2 xs:grid-cols-2 xs:gap-x-4">
+        {primaryRows.map(renderFeature)}
+      </ul>
+
+      <div
+        id={contentId}
+        aria-hidden={!isExpanded}
+        className={cn(
+          "grid transition-[grid-template-rows,opacity] duration-500 ease-swift motion-reduce:transition-none",
+          isExpanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+        )}
+      >
+        <div className="overflow-hidden">
+          <ul className="grid grid-cols-1 gap-y-2 pt-2 xs:grid-cols-2 xs:gap-x-4">
+            {remainingRows.map(renderFeature)}
+          </ul>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        aria-expanded={isExpanded}
+        aria-controls={contentId}
+        onClick={() => setIsExpanded((expanded) => !expanded)}
+        className={cn(
+          "group mt-3 flex min-h-11 w-full touch-manipulation items-center justify-between rounded-lg px-2 text-left text-xs font-medium text-muted-foreground",
+          "transition-[background-color,color] duration-300 ease-swift hover:bg-accent hover:text-foreground",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        )}
+      >
+        <span>{isExpanded ? 'Mostrar menos recursos' : `Ver todos os ${FEATURE_ROWS.length} recursos`}</span>
+        <ChevronDown
+          aria-hidden
+          className={cn(
+            "h-4 w-4 transition-transform duration-500 ease-swift motion-reduce:transition-none",
+            isExpanded && "rotate-180",
+          )}
+        />
+      </button>
+    </div>
+  );
+}
 
 const LIMIT_ROWS = [
   { key: "max_contas", label: "Contas" },
@@ -96,7 +211,8 @@ export default function Pricing() {
    * para quem queria trocar mensal <-> anual do mesmo plano.
    */
   const [userBillingCycle, setUserBillingCycle] = useState<'monthly' | 'yearly' | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const { data: currentUser = null, isPending: isAuthLoading } = useCurrentUser();
+  const isAuthenticated = Boolean(currentUser);
   const [showPaymentDialog, setShowPaymentDialog] = useState(false);
   /** `requireSession()` pode ir à rede (refresh/getUser): o botão diz isso. */
   const [isCheckingSession, setIsCheckingSession] = useState(false);
@@ -296,10 +412,10 @@ export default function Pricing() {
         setShowPaymentDialog(true);
         await queryClient.invalidateQueries({ queryKey: SUBSCRIPTION_QUERY_KEY });
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({
         title: "Erro ao processar",
-        description: error.message || "Tente novamente mais tarde.",
+        description: error instanceof Error ? error.message : "Tente novamente mais tarde.",
         variant: "destructive",
       });
     } finally {
@@ -380,10 +496,9 @@ export default function Pricing() {
   /**
    * Estado do usuario na tela.
    *
-   * Uma leitura unica na montagem envelhecia: logar em outra aba, renovar o
-   * token ou sair deixava esta tela mostrando o cabecalho errado e decidindo
-   * por um `isAuthenticated` de minutos atras. Agora a fonte e o proprio fluxo
-   * de eventos do supabase-js, com `requireSession()` para o primeiro valor.
+   * O cache global de Auth é preenchido antes das rotas e sincronizado por
+   * `onAuthStateChange` no App. Assim esta rota híbrida não renderiza o header
+   * público por um frame quando a pessoa autenticada clica em "Trocar de plano".
    */
   useEffect(() => {
     let active = true;
@@ -392,7 +507,7 @@ export default function Pricing() {
       const { data, error } = await supabase.rpc('get_my_subscription_status');
       if (!active || error) return;
 
-      const status = data as any;
+      const status = data as unknown as SubscriptionStatusPayload;
       const allowed = status?.access === 'allowed' && status?.plan_id;
       setUserActivePlan(allowed ? status.plan_id : null);
       // 'annual' é aceito pelo backend como sinônimo de 'yearly'; null = sem ciclo.
@@ -403,34 +518,16 @@ export default function Pricing() {
       );
     };
 
-    void requireSession().then((session) => {
-      if (!active) return;
-      setIsAuthenticated(Boolean(session));
-      if (session) void loadActivePlan();
-    });
-
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!active) return;
-      setIsAuthenticated(Boolean(session));
-
-      if (!session) {
-        setUserActivePlan(null);
-        setUserBillingCycle(null);
-        return;
-      }
-
-      // Fora do callback: qualquer chamada ao supabase-js aqui dentro disputa
-      // o Web Lock interno de auth e pode travar a propria renovacao do token.
-      window.setTimeout(() => {
-        if (active) void loadActivePlan();
-      }, 0);
-    });
+    if (isAuthenticated) void loadActivePlan();
+    else {
+      setUserActivePlan(null);
+      setUserBillingCycle(null);
+    }
 
     return () => {
       active = false;
-      listener.subscription.unsubscribe();
     };
-  }, []);
+  }, [isAuthenticated]);
 
   /** Processar plano salvo apos login */
   useEffect(() => {
@@ -483,7 +580,7 @@ export default function Pricing() {
     processStoredPlan();
   }, [isAuthenticated, plans, requestPlan]);
 
-  if (isLoading) {
+  if (isLoading || isAuthLoading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-background">
         <div className="h-8 w-8 animate-spin rounded-full border border-border border-t-primary" />
@@ -626,7 +723,7 @@ export default function Pricing() {
                   key={plan.id}
                   interactive
                   className={cn(
-                    "flex animate-rise flex-col overflow-hidden",
+                    "flex h-full animate-rise flex-col overflow-hidden",
                     isUserCurrentPlan && "border-success/45",
                     featured && "border-primary/45",
                   )}
@@ -691,34 +788,8 @@ export default function Pricing() {
                       </div>
                     </div>
 
-                    {/* Recursos: incluido em tinta cheia, ausente em muted.
-                        Sem X vermelho — ausencia nao e erro. */}
-                    <div>
-                      <p className="label-eyebrow">Recursos</p>
-                      <ul className="mt-3 grid grid-cols-1 gap-y-2 xs:grid-cols-2 xs:gap-x-4">
-                        {FEATURE_ROWS.map(({ key, label }) => {
-                          const enabled = plan.features?.[key] === true;
-                          return (
-                            <li key={key} className="flex items-start gap-2">
-                              {enabled ? (
-                                <Check className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-success" aria-hidden />
-                              ) : (
-                                <Minus className="mt-[0.1875rem] h-3.5 w-3.5 shrink-0 text-muted-foreground/60" aria-hidden />
-                              )}
-                              <span
-                                className={cn(
-                                  "min-w-0 text-xs leading-[1.35]",
-                                  enabled ? "text-foreground" : "text-muted-foreground",
-                                )}
-                              >
-                                {label}
-                              </span>
-                              <span className="sr-only">{enabled ? "incluído" : "não incluído"}</span>
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
+                    {/* Cinco diferenciais primeiro; a matriz completa fica sob demanda. */}
+                    <PlanFeatureList planId={plan.id} features={plan.features ?? {}} />
 
                     {/* Limites: lista de definicao com hairline entre linhas. */}
                     <div className="mt-auto">
@@ -744,7 +815,7 @@ export default function Pricing() {
                     </div>
                   </CardContent>
 
-                  <CardFooter>
+                  <CardFooter className="mt-auto">
                     <Button
                       className="w-full"
                       size="lg"
