@@ -331,7 +331,7 @@ function GoalCard({
           {executed ? (
             goal.project_id ? (
               <Button variant="outline" size="sm" className="w-full sm:w-auto" asChild>
-                <Link to={`/sistema/projects?projeto=${goal.project_id}`}>
+                <Link to={`/sistema/projects?projeto=${goal.project_id}`} aria-label={`Abrir projeto da meta ${goal.name}`}>
                   <FolderKanban aria-hidden />
                   Abrir projeto
                 </Link>
@@ -597,6 +597,13 @@ function AllocationDialog({
     setError(null);
   }, [goal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Aporte que passa do alvo não é bloqueado (sobra é dinheiro guardado), mas avisa antes.
+  const overshoot =
+    goal && kind === "deposit" && amount && amount > 0
+      ? Math.round((goal.saved_value + amount - goal.target_value) * 100) / 100
+      : 0;
+  const projectedPct = goal && goal.target_value > 0 && amount ? ((goal.saved_value + amount) / goal.target_value) * 100 : 0;
+
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     if (!goal) return;
@@ -740,10 +747,19 @@ function AllocationDialog({
                   </p>
                 )}
 
+                {!error && overshoot > 0 && (
+                  <p role="status" className="rounded-lg bg-warning-soft px-3 py-2 text-xs text-warning">
+                    {goal.saved_value >= goal.target_value
+                      ? "Esta meta já foi atingida. "
+                      : `Este aporte passa do alvo em ${formatMoney(overshoot)}. `}
+                    A meta ficará em {formatPct(projectedPct, { digits: 0 })}.
+                  </p>
+                )}
+
                 <DialogFooter>
                   <Button type="submit" disabled={saving} className="w-full sm:w-auto">
                     {saving && <Spinner className="h-4 w-4 text-primary-foreground" />}
-                    {kind === "deposit" ? "Registrar aporte" : "Registrar resgate"}
+                    {kind === "deposit" ? (overshoot > 0 ? "Registrar mesmo assim" : "Registrar aporte") : "Registrar resgate"}
                   </Button>
                 </DialogFooter>
               </form>

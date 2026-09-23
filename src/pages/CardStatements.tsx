@@ -33,7 +33,7 @@ import {
   TableView,
 } from "@/components/ui/record-card";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
-import { cn } from "@/lib/utils";
+import { cn, deleteErrorMessage, toDateKey } from "@/lib/utils";
 import {
   CreditCard,
   Receipt,
@@ -71,6 +71,17 @@ import {
   roundCurrency,
   getCardStatementPeriod,
 } from "@/lib/utils";
+
+/** "1/3" para parcela de compra parcelada; nada para avulsa ou recorrente fixa. */
+function installmentLabel(transaction: { installment_number?: number | null; series?: unknown }): string | null {
+  const series = (Array.isArray(transaction.series) ? transaction.series[0] : transaction.series) as
+    | { total_installments?: number; is_fixed?: boolean }
+    | null
+    | undefined;
+  const total = series?.total_installments ?? 0;
+  if (!transaction.installment_number || total <= 1 || series?.is_fixed) return null;
+  return `${transaction.installment_number}/${total}`;
+}
 
 export default function CardStatements() {
   const { cardId } = useParams<{ cardId: string }>();
@@ -115,8 +126,8 @@ export default function CardStatements() {
   // Custom hook for card transactions - filter by credit_card_id and statement period
   const { data: cardTransactions = [], isLoading } = useCardTransactions({
     cardId: cardId!,
-    startDate: statementPeriod.startDate.toISOString().split("T")[0],
-    endDate: statementPeriod.endDate.toISOString().split("T")[0],
+    startDate: toDateKey(statementPeriod.startDate),
+    endDate: toDateKey(statementPeriod.endDate),
   });
 
   const filteredTransactions = useMemo(() => {
@@ -270,6 +281,7 @@ export default function CardStatements() {
       });
       
       queryClient.invalidateQueries({ queryKey: ["card_transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["card_usage"] });
     } catch (e: any) {
       toast({ 
         title: "Erro", 
@@ -291,13 +303,14 @@ export default function CardStatements() {
 
       if (error) throw error;
 
-      toast({ title: "Sucesso", description: "Transação excluída" });
+      toast({ title: "Transação excluída" });
       
       queryClient.invalidateQueries({ queryKey: ["card_transactions"] });
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível excluir",
+        title: "Não foi possível excluir",
+        description: deleteErrorMessage(e),
+        duration: 8000,
         variant: "destructive"
       });
     } finally {
@@ -325,9 +338,10 @@ export default function CardStatements() {
 
   const rawMonthLabel = currentDate.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
   const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
-  const periodLabel = `${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(
-    statementPeriod.startDate,
-  )} até ${new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(statementPeriod.endDate)}`;
+  // "04 de out." sem o ponto da abreviação: a frase da descrição já termina em ponto.
+  const shortDay = (date: Date) =>
+    new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "short" }).format(date).replace(/\./g, "");
+  const periodLabel = `${shortDay(statementPeriod.startDate)} até ${shortDay(statementPeriod.endDate)}`;
   const categoryTotal = categoryExpenses.reduce((sum, cat) => sum + cat.amount, 0);
 
   return (
@@ -541,6 +555,9 @@ export default function CardStatements() {
                       <span className="flex items-center gap-1.5">
                         {getTypeIcon(transaction.type)}
                         {formatDateForDisplay(transaction.date)}
+                        {installmentLabel(transaction) && (
+                          <Badge variant="outline" className="tabular">{installmentLabel(transaction)}</Badge>
+                        )}
                       </span>
                     }
                     value={`${transaction.type === "income" ? "+" : "−"}${formatCurrency(transaction.value)}`}
@@ -611,8 +628,13 @@ export default function CardStatements() {
                         </span>
                       </TableCell>
                       <TableCell>
-                        <div className="max-w-xs truncate font-medium" title={transaction.description}>
-                          {transaction.description}
+                        <div className="flex max-w-xs items-center gap-2">
+                          <span className="truncate font-medium" title={transaction.description}>
+                            {transaction.description}
+                          </span>
+                          {installmentLabel(transaction) && (
+                            <Badge variant="outline" className="shrink-0 tabular">{installmentLabel(transaction)}</Badge>
+                          )}
                         </div>
                         {transaction.person_id && (
                           <div className="mt-0.5 text-xs text-muted-foreground">Rateado com outra pessoa</div>

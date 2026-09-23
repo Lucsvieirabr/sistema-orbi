@@ -166,13 +166,13 @@ export function FabHint({ open, onDismiss, eyebrow, title, description }: FabHin
           type="button"
           onClick={onDismiss}
           aria-label="Dispensar aviso"
-          className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors duration-200 ease-swift hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="absolute right-0 top-0 flex h-11 w-11 items-center justify-center rounded-md text-muted-foreground md:right-1.5 md:top-1.5 md:h-7 md:w-7 transition-colors duration-200 ease-swift hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <X className="h-3.5 w-3.5" aria-hidden />
         </button>
 
         {eyebrow && <p className="label-eyebrow">{eyebrow}</p>}
-        <p className={cn("pr-7 text-sm font-medium leading-snug text-foreground", eyebrow && "mt-1")}>{title}</p>
+        <p className={cn("pr-9 text-sm font-medium leading-snug text-foreground md:pr-7", eyebrow && "mt-1")}>{title}</p>
         {description && (
           <p className="mt-1.5 text-xs leading-relaxed text-pretty text-muted-foreground">{description}</p>
         )}

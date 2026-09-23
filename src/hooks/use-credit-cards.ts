@@ -75,23 +75,18 @@ export function useCreditCards() {
   };
 
   const deleteCreditCard = async (id: string) => {
-    // Verificar se há transações vinculadas ao cartão
+    // FK transactions.credit_card_id é ON DELETE SET NULL: os lançamentos ficam,
+    // só perdem o vínculo com a fatura (o que o diálogo de confirmação promete).
     const user = await getImmediateSessionUser();
-    const { data: transactions, error: checkError } = await supabase
-      .from("transactions")
-      .select("id")
-      .eq("user_id", user?.id ?? "")
-      .eq("credit_card_id", id)
-      .limit(1);
-    
-    if (checkError) throw checkError;
-    
-    if (transactions && transactions.length > 0) {
-      throw new Error("Não é possível excluir o cartão pois existem transações vinculadas a ele.");
-    }
-
-    const { error } = await supabase.from("credit_cards").delete().eq("id", id);
+    if (!user) throw new Error("Sessão expirada. Entre de novo.");
+    const { data, error } = await supabase
+      .from("credit_cards")
+      .delete()
+      .eq("id", assertUuid(id, "credit_card_id"))
+      .eq("user_id", user.id)
+      .select("id");
     if (error) throw error;
+    if (!data?.length) throw new Error("Cartão não encontrado ou sem permissão para excluir.");
   };
 
   return {

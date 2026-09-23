@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Sheet,
@@ -65,7 +66,7 @@ import { formatCurrencyBRL,
   formatDateForDisplay,
   roundCurrency,
   getMinAllowedDate,
-  getMaxAllowedDate, cn } from "@/lib/utils";
+  getMaxAllowedDate, cn, deleteErrorMessage, toDateKey, fromDateKey } from "@/lib/utils";
 import { PendingTransactionsDialog } from "@/components/ui/pending-transactions-dialog";
 import { InstallmentForm } from "@/components/ui/installment-form";
 import { useInstallments } from "@/hooks/use-installments";
@@ -291,7 +292,7 @@ function MonthlyStatementContent() {
 
   // Plano Casal: no modo Casal cada linha mostra quem lançou.
   const viewMode = useViewMode();
-  const { isLinked: isCoupleLinked, authorOf } = useFamilyGroup();
+  const { isLinked: isCoupleLinked, authorOf, isMine } = useFamilyGroup();
   const showAuthor = viewMode === "couple" && isCoupleLinked;
   const {
     transactions,
@@ -319,16 +320,32 @@ function MonthlyStatementContent() {
     return roundCurrency(value / installments);
   }, [value, installments]);
 
+  // Padrões de conta: SEMPRE do próprio usuário. No Nosso espaço a lista traz
+  // também as contas do parceiro, e o 1º item podia ser dele.
+  const ownAccounts = useMemo(
+    () => accountsWithBalance.filter((account) => isMine(account.user_id)),
+    [accountsWithBalance, isMine],
+  );
+
   // Initialize default values
   useEffect(() => {
-    setAccountId((prev) => prev ?? accountsWithBalance[0]?.id);
+    setAccountId((prev) => prev ?? ownAccounts[0]?.id);
     setCategoryId((prev) => prev ?? compatibleCategories[0]?.id);
-    setFromAccountId((prev) => prev ?? accountsWithBalance[0]?.id);
-    setToAccountId((prev) => prev ?? accountsWithBalance[1]?.id);
-  }, [accountsWithBalance, compatibleCategories]);
+    setFromAccountId((prev) => prev ?? ownAccounts[0]?.id);
+    setToAccountId((prev) => prev ?? ownAccounts[1]?.id);
+  }, [ownAccounts, compatibleCategories]);
+
+  // O padrão pode ter sido escolhido antes de o grupo familiar carregar (aí
+  // toda conta parece "minha"). Com o diálogo fechado, realinha para a própria.
+  useEffect(() => {
+    if (open || editingId || ownAccounts.length === 0) return;
+    const own = (id?: string | null) => !!id && ownAccounts.some((account) => account.id === id);
+    if (accountId && !own(accountId)) setAccountId(ownAccounts[0].id);
+    if (fromAccountId && !own(fromAccountId)) setFromAccountId(ownAccounts[0].id);
+  }, [open, editingId, ownAccounts, accountId, fromAccountId]);
 
   const title = useMemo(
-    () => (editingId ? "Editar Transação" : "Nova Transação"),
+    () => (editingId ? "Editar transação" : "Nova transação"),
     [editingId]
   );
 
@@ -564,8 +581,8 @@ function MonthlyStatementContent() {
           );
         } else if ((data as any).type === "transfer") {
           // Para transferências, definir contas padrão já que os campos específicos não vêm na query
-          setFromAccountId(accountsWithBalance[0]?.id);
-          setToAccountId(accountsWithBalance[1]?.id);
+          setFromAccountId(ownAccounts[0]?.id);
+          setToAccountId(ownAccounts[1]?.id);
           setPaymentMethod("debit");
           setCreditCardId(null);
           setInstallments(null);
@@ -585,7 +602,7 @@ function MonthlyStatementContent() {
   const resetForm = () => {
     setEditingId(null);
     setType("income");
-    setAccountId(accountsWithBalance[0]?.id);
+    setAccountId(ownAccounts[0]?.id);
     setCategoryId(categories.find((category) => category.category_type === "income")?.id);
     setValue(0);
     setDescription("");
@@ -600,8 +617,8 @@ function MonthlyStatementContent() {
     setPaidByUserId(null);
     setEditingOwnerId(null);
     setInstallments(null);
-    setFromAccountId(accountsWithBalance[0]?.id);
-    setToAccountId(accountsWithBalance[1]?.id);
+    setFromAccountId(ownAccounts[0]?.id);
+    setToAccountId(ownAccounts[1]?.id);
     setStatus("PAID");
     setEditScope("current");
     setEditCurrentTransaction(false);
@@ -698,7 +715,7 @@ function MonthlyStatementContent() {
     }
 
     const newInstallments: Installment[] = [];
-    const startDateObj = new Date(date);
+    const startDateObj = fromDateKey(date);
 
     // Calcular valor base para cada parcela
     const baseValue = value / installments;
@@ -718,8 +735,9 @@ function MonthlyStatementContent() {
           i === installments - 1
             ? roundCurrency(roundedBaseValue + difference)
             : roundedBaseValue,
-        date: installmentDate.toISOString().slice(0, 10),
-        status: i === 0 ? "PAID" : "PENDING",
+        date: toDateKey(installmentDate),
+        // Cartão: todas pendentes até a fatura ser paga.
+        status: i === 0 && paymentMethod !== "credit" ? status : "PENDING",
         installment_number: i + 1,
       });
     }
@@ -1721,7 +1739,7 @@ function MonthlyStatementContent() {
       const seriesId = crypto.randomUUID();
 
       // Data inicial
-      const startDate = new Date(payload.date);
+      const startDate = fromDateKey(payload.date);
 
       // Criar array de transações para todas as parcelas
       const transactionsToInsert = [];
@@ -1731,7 +1749,7 @@ function MonthlyStatementContent() {
         transactionDate.setMonth(transactionDate.getMonth() + i);
 
         // Formatar data como YYYY-MM-DD
-        const formattedDate = transactionDate.toISOString().slice(0, 10);
+        const formattedDate = toDateKey(transactionDate);
 
         transactionsToInsert.push({
           user_id: user.id,
@@ -1746,7 +1764,8 @@ function MonthlyStatementContent() {
           person_id: payload.person_id,
           series_id: seriesId,
           installment_number: i + 1, // Número da parcela (1, 2, 3, etc.)
-          status: i === 0 ? "PAID" : "PENDING", // Primeira parcela como PAID, outras como PENDING
+          // 1ª parcela segue o switch; no cartão, todas pendentes até a fatura.
+          status: i === 0 && payload.payment_method !== "credit" ? payload.status : "PENDING",
         });
       }
 
@@ -1780,10 +1799,10 @@ function MonthlyStatementContent() {
 
       // Sistema inteligente: criar série de transações fixas que se auto-renova
       const seriesId = crypto.randomUUID();
-      const startDate = new Date(payload.date);
+      const startDate = fromDateKey(payload.date);
 
       // Calcular data final se fornecida
-      const endDateObj = payload.endDate ? new Date(payload.endDate) : null;
+      const endDateObj = payload.endDate ? fromDateKey(payload.endDate) : null;
 
       // Criar registro na tabela series para controle inteligente
       const { error: seriesError } = await supabase.from("series").insert({
@@ -1825,7 +1844,7 @@ function MonthlyStatementContent() {
 
       // Gerar próximas transações baseadas na frequência (sistema inteligente)
       const futureTransactions = [];
-      const startDateObj = new Date(payload.date);
+      const startDateObj = fromDateKey(payload.date);
 
       // Gerar até 6 meses de transações futuras inicialmente
       const monthsToGenerate = 6;
@@ -1855,7 +1874,7 @@ function MonthlyStatementContent() {
           break;
         }
 
-        const formattedDate = futureDate.toISOString().slice(0, 10);
+        const formattedDate = toDateKey(futureDate);
 
         futureTransactions.push({
           user_id: user.id,
@@ -1940,7 +1959,7 @@ function MonthlyStatementContent() {
       const lastTransaction = lastTransactions[0];
 
       const currentDate = new Date();
-      const lastTransactionDate = new Date(lastTransaction.date);
+      const lastTransactionDate = fromDateKey(lastTransaction.date);
       const monthsSinceLast = Math.floor(
         (currentDate.getTime() - lastTransactionDate.getTime()) /
           (1000 * 60 * 60 * 24 * 30)
@@ -1973,7 +1992,7 @@ function MonthlyStatementContent() {
         }
 
         // Verificar se a data está dentro do limite
-        if (seriesData.end_date && nextDate > new Date(seriesData.end_date)) {
+        if (seriesData.end_date && nextDate > fromDateKey(seriesData.end_date)) {
           break;
         }
 
@@ -1982,7 +2001,7 @@ function MonthlyStatementContent() {
           .from("transactions")
           .select("id")
           .eq("series_id", seriesIdToCheck)
-          .eq("date", nextDate.toISOString().slice(0, 10))
+          .eq("date", toDateKey(nextDate))
           .maybeSingle();
 
         if (!existingTransaction) {
@@ -1993,7 +2012,7 @@ function MonthlyStatementContent() {
             category_id: lastTransaction.category_id,
             value: seriesData.total_value,
             description: lastTransaction.description,
-            date: nextDate.toISOString().slice(0, 10),
+            date: toDateKey(nextDate),
             payment_method: lastTransaction.payment_method,
             credit_card_id: lastTransaction.credit_card_id,
             person_id: lastTransaction.person_id,
@@ -2064,10 +2083,10 @@ function MonthlyStatementContent() {
 
         if (lastTransactions && lastTransactions.length > 0) {
           lastTransaction = lastTransactions[0];
-          nextDate = new Date(lastTransaction.date);
+          nextDate = fromDateKey(lastTransaction.date);
         } else {
           // Se não há transações ainda, usar a data de início da série
-          nextDate = new Date(series.start_date);
+          nextDate = fromDateKey(series.start_date);
         }
 
         // Gerar transações para o período alvo
@@ -2092,7 +2111,7 @@ function MonthlyStatementContent() {
 
           // Verificar se a data está no período alvo e dentro do limite da série
           if (nextDate >= periodStart && nextDate <= periodEnd) {
-            if (series.end_date && nextDate > new Date(series.end_date)) {
+            if (series.end_date && nextDate > fromDateKey(series.end_date)) {
               break;
             }
 
@@ -2101,7 +2120,7 @@ function MonthlyStatementContent() {
               .from("transactions")
               .select("id")
               .eq("series_id", series.id)
-              .eq("date", nextDate.toISOString().slice(0, 10))
+              .eq("date", toDateKey(nextDate))
               .maybeSingle();
 
             if (!existingTransaction) {
@@ -2129,7 +2148,7 @@ function MonthlyStatementContent() {
                 category_id: series.category_id,
                 value: correctValue, // Usar o valor correto da primeira transação
                 description: series.description,
-                date: nextDate.toISOString().slice(0, 10),
+                date: toDateKey(nextDate),
                 payment_method: "debit",
                 credit_card_id: null,
                 person_id: null, // Será definido quando a transação for editada
@@ -2344,13 +2363,15 @@ function MonthlyStatementContent() {
         duration: 2000,
       });
       refetch();
+      return true;
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível excluir",
-        duration: 3000,
+        title: "Não foi possível excluir",
+        description: deleteErrorMessage(e),
+        duration: 8000,
         variant: "destructive" as any,
       });
+      return false;
     }
   };
 
@@ -2382,7 +2403,7 @@ function MonthlyStatementContent() {
 
       // Se for transação fixa, remover series_id das transações passadas para mantê-las como histórico
       if (currentTransaction.is_fixed) {
-        const currentDate = new Date(currentTransaction.date);
+        const currentDate = fromDateKey(currentTransaction.date);
         
         // Atualizar transações passadas para remover series_id (torná-las independentes)
         await supabase
@@ -2390,7 +2411,7 @@ function MonthlyStatementContent() {
           .update({ series_id: null })
           .eq("series_id", currentTransaction.series_id)
           .eq("user_id", user.id)
-          .lt("date", currentDate.toISOString().slice(0, 10));
+          .lt("date", toDateKey(currentDate));
 
         // Excluir transações atuais e futuras (incluindo a data atual)
         const { error: deleteError } = await supabase
@@ -2398,7 +2419,7 @@ function MonthlyStatementContent() {
           .delete()
           .eq("series_id", currentTransaction.series_id)
           .eq("user_id", user.id)
-          .gte("date", currentDate.toISOString().slice(0, 10));
+          .gte("date", toDateKey(currentDate));
 
         if (deleteError) throw deleteError;
 
@@ -2426,12 +2447,15 @@ function MonthlyStatementContent() {
 
         if (error) throw error;
 
-        // Excluir a série
-        await supabase
+        // A série some sozinha (trigger update_series_total_value) quando a
+        // última parcela sai; este delete é só garantia.
+        const { error: seriesError } = await supabase
           .from("series")
           .delete()
           .eq("id", currentTransaction.series_id)
           .eq("user_id", user.id);
+
+        if (seriesError) throw seriesError;
 
         toast({
           title: "Sucesso",
@@ -2445,9 +2469,9 @@ function MonthlyStatementContent() {
       refetch();
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível excluir a série",
-        duration: 3000,
+        title: "Não foi possível excluir a série",
+        description: deleteErrorMessage(e),
+        duration: 8000,
         variant: "destructive" as any,
       });
     }
@@ -2484,7 +2508,7 @@ function MonthlyStatementContent() {
   const overdueExpenseTransactions = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    return pendingExpenseTransactions.filter((t) => new Date(t.date) < today);
+    return pendingExpenseTransactions.filter((t) => fromDateKey(t.date) < today);
   }, [pendingExpenseTransactions]);
 
   const getAccountName = (transaction: any) => {
@@ -2494,7 +2518,10 @@ function MonthlyStatementContent() {
     if (transaction.credit_card_id && transaction.credit_cards?.name) {
       return transaction.credit_cards.name;
     }
-    return "N/A";
+    // Conta/cartão do parceiro não é legível (RLS) e conta excluída zera o vínculo.
+    if (transaction.credit_card_id) return "Cartão privado";
+    if (transaction.account_id) return "Conta privada";
+    return "Sem conta";
   };
 
   // Loading screen while fetching data
@@ -2665,7 +2692,7 @@ function MonthlyStatementContent() {
         <StatCard
           dense
           className="col-span-2 lg:col-span-1"
-          label="Saldo Líquido"
+          label="Saldo líquido"
           value={formatCurrencyBRL(indicators.netBalance)}
           tone={indicators.netBalance >= 0 ? "positive" : "negative"}
           icon={indicators.netBalance >= 0 ? TrendingUp : TrendingDown}
@@ -2798,6 +2825,13 @@ function MonthlyStatementContent() {
                           );
                         })()}
                       </span>
+                      {/* Compra no cartão de outro mês: entra aqui pelo período da fatura, não pela data. */}
+                      {date.slice(0, 7) !== `${year}-${String(month).padStart(2, "0")}` && (
+                        <Badge variant="outline" className="text-2xs lg:text-xs">
+                          Na fatura de{" "}
+                          {currentDate.toLocaleDateString("pt-BR", { month: "long" })}
+                        </Badge>
+                      )}
                     </div>
 
                     <div className="space-y-2">
@@ -2820,7 +2854,15 @@ function MonthlyStatementContent() {
                         return (
                           <div
                             key={transaction.id}
-                            className={`flex flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 md:gap-3 md:p-4 lg:flex-row lg:items-center lg:justify-between ${
+                            onClick={(event) => {
+                              // Linha inteira abre a edição. Ignora cliques em controles da própria
+                              // linha e em portais (diálogos), que borbulham pela árvore React.
+                              const target = event.target as HTMLElement;
+                              if (!event.currentTarget.contains(target)) return;
+                              if (target.closest("button, a, input, select, textarea, label, [role='checkbox'], [role='switch']")) return;
+                              event.currentTarget.querySelector<HTMLButtonElement>("[data-row-edit]")?.click();
+                            }}
+                            className={`flex cursor-pointer flex-col gap-2.5 rounded-lg border bg-card p-3 transition-colors hover:bg-accent/50 md:gap-3 md:p-4 lg:flex-row lg:items-center lg:justify-between ${
                               transaction.status === "PAID" && isPendingIncome
                                 ? "opacity-60"
                                 : ""
@@ -2982,7 +3024,8 @@ function MonthlyStatementContent() {
                                       setEditingId(transaction.id);
                                       setOpen(true);
                                     }}
-                                    aria-label="Editar transação"
+                                    aria-label={`Editar ${transaction.description}`}
+                                    data-row-edit
                                     className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
                                     <Edit className="h-4 w-4" />
@@ -2990,7 +3033,7 @@ function MonthlyStatementContent() {
                                 </FeatureGuard>
                                 <FeatureGuard feature="transacoes_excluir">
                                   <ConfirmationDialog
-                                    title="Confirmar Exclusão"
+                                    title="Confirmar exclusão"
                                     description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
                                     confirmText="Excluir"
                                     onConfirm={() =>
@@ -3001,7 +3044,7 @@ function MonthlyStatementContent() {
                                     <Button
                                       size="icon"
                                       variant="outline"
-                                      aria-label="Excluir transação"
+                                      aria-label={`Excluir ${transaction.description}`}
                                       className="h-11 w-11 text-destructive hover:bg-destructive-soft hover:text-destructive lg:h-8 lg:w-8"
                                     >
                                       <Trash2 className="h-4 w-4" />
@@ -3027,6 +3070,7 @@ function MonthlyStatementContent() {
         <DialogContent className="lg:max-w-2xl">
           <DialogHeader>
             <DialogTitle className="text-base lg:text-lg">{title}</DialogTitle>
+            <DialogDescription className="sr-only">Informe descrição, data, valor e categoria da transação.</DialogDescription>
             {editingId && <SharedAuthorNotice ownerId={editingOwnerId} />}
           </DialogHeader>
           <div className="space-y-4 lg:space-y-6">
@@ -3238,8 +3282,9 @@ function MonthlyStatementContent() {
                 {/* Campo de Descrição */}
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs lg:text-sm">Descrição</Label>
+                    <Label className="text-xs lg:text-sm" htmlFor="tx-descricao-1">Descrição</Label>
                     <Input
+                      id="tx-descricao-1"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Ex: Salário, Aluguel..."
@@ -3247,8 +3292,9 @@ function MonthlyStatementContent() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs lg:text-sm">Data</Label>
+                    <Label className="text-xs lg:text-sm" htmlFor="tx-data-2">Data</Label>
                     <Input
+                      id="tx-data-2"
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
@@ -3266,8 +3312,9 @@ function MonthlyStatementContent() {
               /* Transferência: Descrição + Conta Origem + Conta Destino + Valor */
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Descrição</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-descricao-3">Descrição</Label>
                   <Input
+                    id="tx-descricao-3"
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
                     placeholder="Ex: Transferência para poupança"
@@ -3275,8 +3322,9 @@ function MonthlyStatementContent() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Conta de Origem</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-de-origem-4">Conta de Origem</Label>
                   <SelectWithAddButton
+                    id="tx-conta-de-origem-4"
                     entityType="accounts"
                     value={fromAccountId}
                     onValueChange={setFromAccountId}
@@ -3290,8 +3338,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Conta de Destino</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-de-destino-5">Conta de Destino</Label>
                   <SelectWithAddButton
+                    id="tx-conta-de-destino-5"
                     entityType="accounts"
                     value={toAccountId}
                     onValueChange={setToAccountId}
@@ -3305,8 +3354,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Valor</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-valor-6">Valor</Label>
                   <NumericInput
+                    id="tx-valor-6"
                     currency
                     value={value}
                     onChange={setValue}
@@ -3315,8 +3365,9 @@ function MonthlyStatementContent() {
                   />
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Data</Label>
+                  <Label className="text-sm" htmlFor="tx-data-7">Data</Label>
                   <Input
+                    id="tx-data-7"
                     type="date"
                     value={date}
                     onChange={(e) => setDate(e.target.value)}
@@ -3330,8 +3381,9 @@ function MonthlyStatementContent() {
               /* Ganho: Conta + Categoria + Valor */
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Conta</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-8">Conta</Label>
                   <SelectWithAddButton
+                    id="tx-conta-8"
                     entityType="accounts"
                     value={accountId}
                     onValueChange={setAccountId}
@@ -3345,8 +3397,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Categoria</Label>
+                  <Label className="text-sm" htmlFor="tx-categoria-9">Categoria</Label>
                   <SelectWithAddButton
+                    id="tx-categoria-9"
                     entityType="categories"
                     value={categoryId}
                     onValueChange={setCategoryId}
@@ -3360,8 +3413,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Valor</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-valor-10">Valor</Label>
                   <NumericInput
+                    id="tx-valor-10"
                     currency
                     value={value}
                     onChange={setValue}
@@ -3374,8 +3428,9 @@ function MonthlyStatementContent() {
               /* Gasto: Conta + Categoria + Valor (método de pagamento será tratado abaixo) */
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm">Conta</Label>
+                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-11">Conta</Label>
                   <SelectWithAddButton
+                    id="tx-conta-11"
                     entityType="accounts"
                     value={accountId}
                     onValueChange={setAccountId}
@@ -3389,8 +3444,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Categoria</Label>
+                  <Label className="text-sm" htmlFor="tx-categoria-12">Categoria</Label>
                   <SelectWithAddButton
+                    id="tx-categoria-12"
                     entityType="categories"
                     value={categoryId}
                     onValueChange={setCategoryId}
@@ -3404,8 +3460,9 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-sm">Valor</Label>
+                  <Label className="text-sm" htmlFor="tx-valor-13">Valor</Label>
                   <NumericInput
+                    id="tx-valor-13"
                     currency
                     value={value}
                     onChange={setValue}
@@ -3422,13 +3479,14 @@ function MonthlyStatementContent() {
                 {fixedType === "expense" && (
                   <div className="space-y-1">
                     <Label className="text-sm">Método de Pagamento</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2" role="group" aria-label="Método de pagamento">
                       <Button
                         type="button"
                         variant={paymentMethod === "debit" ? "default" : "outline"}
                         onClick={() => {
                           setPaymentMethod("debit");
                           setCreditCardId(null);
+                          setStatus("PAID");
                         }}
                         className="h-11 flex-1 text-xs lg:h-9"
                       >
@@ -3440,6 +3498,8 @@ function MonthlyStatementContent() {
                         onClick={() => {
                           setPaymentMethod("credit");
                           setAccountId(undefined);
+                          // Compra no cartão nasce pendente: só vira paga com a fatura.
+                          setStatus("PENDING");
                         }}
                         className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
                       >
@@ -3454,8 +3514,9 @@ function MonthlyStatementContent() {
                   {/* Mostrar Conta apenas se método de pagamento for débito */}
                   {paymentMethod === "debit" && (
                     <div className="space-y-1">
-                      <Label className="text-sm">Conta</Label>
+                      <Label className="text-sm" htmlFor="tx-conta-14">Conta</Label>
                       <SelectWithAddButton
+                        id="tx-conta-14"
                         entityType="accounts"
                         value={accountId}
                         onValueChange={setAccountId}
@@ -3472,8 +3533,9 @@ function MonthlyStatementContent() {
                   {/* Mostrar Cartão apenas se método de pagamento for crédito */}
                   {paymentMethod === "credit" && (
                     <div className="space-y-1">
-                      <Label className="text-sm">Cartão de Crédito</Label>
+                      <Label className="text-sm" htmlFor="tx-cartao-de-credito-15">Cartão de Crédito</Label>
                       <SelectWithAddButton
+                        id="tx-cartao-de-credito-15"
                         entityType="creditCards"
                         value={creditCardId || "none"}
                         onValueChange={(value) =>
@@ -3491,8 +3553,9 @@ function MonthlyStatementContent() {
                     </div>
                   )}
                   <div className="space-y-1">
-                    <Label className="text-sm">Categoria</Label>
+                    <Label className="text-sm" htmlFor="tx-categoria-16">Categoria</Label>
                     <SelectWithAddButton
+                      id="tx-categoria-16"
                       entityType="categories"
                       value={categoryId}
                       onValueChange={setCategoryId}
@@ -3506,8 +3569,9 @@ function MonthlyStatementContent() {
                     </SelectWithAddButton>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Valor</Label>
+                    <Label className="text-sm" htmlFor="tx-valor-17">Valor</Label>
                     <NumericInput
+                      id="tx-valor-17"
                       currency
                       value={value}
                       onChange={setValue}
@@ -3520,8 +3584,9 @@ function MonthlyStatementContent() {
                 {/* Terceira linha: Descrição, Pessoa, Frequência */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-sm">Descrição</Label>
+                    <Label className="text-sm" htmlFor="tx-descricao-18">Descrição</Label>
                     <Input
+                      id="tx-descricao-18"
                       value={description}
                       onChange={(e) => setDescription(e.target.value)}
                       placeholder="Ex: Salário, Aluguel, etc..."
@@ -3529,8 +3594,9 @@ function MonthlyStatementContent() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Pessoa</Label>
+                    <Label className="text-sm" htmlFor="tx-pessoa-19">Pessoa</Label>
                     <SelectWithAddButton
+                      id="tx-pessoa-19"
                       entityType="people"
                       value={personId || "none"}
                       onValueChange={(value) =>
@@ -3547,14 +3613,14 @@ function MonthlyStatementContent() {
                     </SelectWithAddButton>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Frequência</Label>
+                    <Label className="text-sm" htmlFor="tx-frequencia">Frequência</Label>
                     <Select
                       value={frequency}
                       onValueChange={(value: "weekly" | "monthly" | "yearly") =>
                         setFrequency(value)
                       }
                     >
-                      <SelectTrigger className="h-9">
+                      <SelectTrigger id="tx-frequencia" className="h-9">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -3569,8 +3635,9 @@ function MonthlyStatementContent() {
                 {/* Quarta linha: Data, Data Final */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-sm">Data</Label>
+                    <Label className="text-sm" htmlFor="tx-data-20">Data</Label>
                     <Input
+                      id="tx-data-20"
                       type="date"
                       value={date}
                       onChange={(e) => setDate(e.target.value)}
@@ -3580,8 +3647,9 @@ function MonthlyStatementContent() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Data Final (opcional)</Label>
+                    <Label className="text-sm" htmlFor="tx-data-final-opcional-21">Data Final (opcional)</Label>
                     <Input
+                      id="tx-data-final-opcional-21"
                       type="date"
                       value={endDate}
                       onChange={(e) => setEndDate(e.target.value)}
@@ -3596,7 +3664,7 @@ function MonthlyStatementContent() {
                   {/* Toggle para tipo de transação fixa (ganho/gasto) */}
                   <div className="space-y-3">
                     <Label className="text-sm">Tipo de Transação</Label>
-                    <div className="flex gap-2">
+                    <div className="flex gap-2" role="group" aria-label="Tipo de transação">
                       <Button
                         type="button"
                         variant={fixedType === "income" ? "default" : "outline"}
@@ -3700,6 +3768,7 @@ function MonthlyStatementContent() {
                         setPaymentMethod("debit");
                         setCreditCardId(null);
                         setInstallments(null);
+                        setStatus("PAID");
                       }}
                       className="h-11 flex-1 text-xs lg:h-9"
                     >
@@ -3713,6 +3782,8 @@ function MonthlyStatementContent() {
                       onClick={() => {
                         setPaymentMethod("credit");
                         setAccountId(undefined);
+                        // Compra no cartão nasce pendente: só vira paga com a fatura.
+                        setStatus("PENDING");
                       }}
                       className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
                     >
@@ -3728,8 +3799,9 @@ function MonthlyStatementContent() {
             {type === "expense" && paymentMethod === "credit" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">Cartão de Crédito</Label>
+                  <Label className="text-sm" htmlFor="tx-cartao-de-credito-22">Cartão de Crédito</Label>
                   <SelectWithAddButton
+                    id="tx-cartao-de-credito-22"
                     entityType="creditCards"
                     value={creditCardId || "none"}
                     onValueChange={(value) =>
@@ -3747,8 +3819,9 @@ function MonthlyStatementContent() {
                 </div>
 
                 <div className="space-y-1">
-                  <Label className="text-sm">Parcelas</Label>
+                  <Label className="text-sm" htmlFor="tx-parcelas-23">Parcelas</Label>
                   <NumericInput
+                    id="tx-parcelas-23"
                     value={installments}
                     onChange={(value) => setInstallments(value)}
                     placeholder="Ex: 12"
@@ -3829,7 +3902,7 @@ function MonthlyStatementContent() {
                     >
                       <Edit className="h-4 w-4" />
                       {installmentData.installments.length > 0
-                        ? "Editar Parcelas"
+                        ? "Editar parcelas"
                         : "Gerar Série de Parcelas Personalizada"}
                     </Button>
                   </div>
@@ -3840,10 +3913,11 @@ function MonthlyStatementContent() {
             {type === "expense" && isRateio && (
               <div className="space-y-3">
                 <div className="space-y-1">
-                  <Label className="text-sm">
+                  <Label className="text-sm" htmlFor="tx-pessoas-envolvidas-no-rateio-24">
                     Pessoas Envolvidas no Rateio
                   </Label>
                   <Input
+                    id="tx-pessoas-envolvidas-no-rateio-24"
                     placeholder="Buscar pessoa por nome..."
                     className="h-9"
                     value={peopleSearchTerm}
@@ -3915,7 +3989,7 @@ function MonthlyStatementContent() {
                   </div>
                 )}
 
-                {/* Botão para Personalizar Rateio */}
+                {/* Botão para Personalizar rateio */}
                 <div className="mt-3">
                   <Button
                     type="button"
@@ -3924,7 +3998,7 @@ function MonthlyStatementContent() {
                     className="w-full border-border hover:bg-secondary"
                   >
                     <Receipt className="h-4 w-4 mr-2" />
-                    Personalizar Rateio
+                    Personalizar rateio
                     {compositionItems.length > 0 && (
                       <Badge variant="secondary" className="ml-2">
                         {compositionItems.length}{" "}
@@ -3942,8 +4016,9 @@ function MonthlyStatementContent() {
                 {/* Campo de Pessoa - Oculto para Rateio */}
                 {!isRateio && (
                   <div className="space-y-1">
-                    <Label className="text-sm">Pessoa</Label>
+                    <Label className="text-sm" htmlFor="tx-pessoa-25">Pessoa</Label>
                     <SelectWithAddButton
+                      id="tx-pessoa-25"
                       entityType="people"
                       value={personId || "none"}
                       onValueChange={(value) =>
@@ -4030,7 +4105,7 @@ function MonthlyStatementContent() {
 
                     {/* Botão de exclusão */}
                     <ConfirmationDialog
-                      title={`Confirmar Exclusão ${
+                      title={`Confirmar exclusão ${
                         isFixedSeries ? "da Transação Fixa" : "de Parcelas"
                       }`}
                       description={`Tem certeza que deseja excluir ${
@@ -4197,13 +4272,14 @@ function MonthlyStatementContent() {
           <DialogFooter>
             {editingId && (
               <ConfirmationDialog
-                title="Confirmar Exclusão"
+                title="Confirmar exclusão"
                 description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
                 confirmText="Excluir"
-                onConfirm={() => {
-                  deleteTransaction(editingId);
-                  setOpen(false);
-                  resetForm();
+                onConfirm={async () => {
+                  if (await deleteTransaction(editingId)) {
+                    setOpen(false);
+                    resetForm();
+                  }
                 }}
                 variant="destructive"
               >
@@ -4322,9 +4398,10 @@ function MonthlyStatementContent() {
           <DialogHeader>
             <DialogTitle>
               {editingId
-                ? "Editar Parcelas Individualmente"
-                : "Gerenciar Parcelas"}
+                ? "Editar parcelas individualmente"
+                : "Gerenciar parcelas"}
             </DialogTitle>
+            <DialogDescription className="sr-only">Ajuste o valor e a data de cada parcela.</DialogDescription>
           </DialogHeader>
 
           <InstallmentForm

@@ -14,7 +14,9 @@ import {
   redistributeInstallmentValues,
   isValidCurrencyValue,
   getMinAllowedDate,
-  getMaxAllowedDate
+  getMaxAllowedDate,
+  toDateKey,
+  fromDateKey,
 } from "@/lib/utils";
 import { Plus, Trash2, Calendar, DollarSign, CheckCircle, BanknoteXIcon } from "lucide-react";
 
@@ -91,7 +93,7 @@ export function InstallmentForm({
     if (installments <= 0) return;
 
     const newInstallments: Installment[] = [];
-    const startDateObj = new Date(startDate);
+    const startDateObj = fromDateKey(startDate);
 
     // Calcular valor base para cada parcela
     const baseValue = totalValue / installments;
@@ -110,7 +112,7 @@ export function InstallmentForm({
         value: i === installments - 1 
           ? roundCurrency(roundedBaseValue + difference)
           : roundedBaseValue,
-        date: installmentDate.toISOString().slice(0, 10),
+        date: toDateKey(installmentDate),
         status: i === 0 ? 'PAID' : 'PENDING',
         installment_number: i + 1
       });
@@ -282,13 +284,13 @@ export function InstallmentForm({
         const difference = safeAvailableValue - totalDistributed;
 
         // Encontrar a última parcela editada para usar como referência de data
-        let lastEditedDate = new Date(startDate);
+        let lastEditedDate = fromDateKey(startDate);
         let lastEditedIndex = -1;
         
         // Percorrer da primeira até a última parcela editada
         for (let i = 0; i < reorderedInstallments.length; i++) {
           if (reorderedInstallments[i].isEdited) {
-            lastEditedDate = new Date(reorderedInstallments[i].date);
+            lastEditedDate = fromDateKey(reorderedInstallments[i].date);
             lastEditedIndex = i;
           }
         }
@@ -314,7 +316,7 @@ export function InstallmentForm({
               value: isLastNonEdited 
                 ? roundCurrency(roundedBaseValue + difference)
                 : roundedBaseValue,
-              date: newDate.toISOString().slice(0, 10)
+              date: toDateKey(newDate)
             };
           }
           
@@ -343,7 +345,7 @@ export function InstallmentForm({
   // Adicionar nova parcela preservando parcelas editadas
   const addInstallment = () => {
     const lastInstallment = installmentsList[installmentsList.length - 1];
-    const lastDate = new Date(lastInstallment.date);
+    const lastDate = fromDateKey(lastInstallment.date);
     const nextDate = new Date(lastDate);
     nextDate.setMonth(nextDate.getMonth() + 1);
 
@@ -367,7 +369,7 @@ export function InstallmentForm({
     const newInstallment: Installment = {
       id: `installment-${Date.now()}`,
       value: roundedBaseValue + difference, // Aplicar diferença na nova parcela
-      date: nextDate.toISOString().slice(0, 10),
+      date: toDateKey(nextDate),
       status: 'PENDING',
       installment_number: installmentsList.length + 1,
       isEdited: false
@@ -551,6 +553,7 @@ export function InstallmentForm({
                   variant="outline"
                   size="sm"
                   onClick={() => removeInstallment(installment.id)}
+                  aria-label="Remover parcela"
                   disabled={disabled || installmentsList.length <= 1}
                   className="text-destructive hover:text-destructive hover:bg-destructive-soft h-6 w-6 p-0"
                 >

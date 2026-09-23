@@ -65,6 +65,11 @@ export interface Projection {
   end: ProjectionPoint;
   /** Soma do ralo aplicado no horizonte. */
   drainTotal: number;
+  /**
+   * Composição do saldo final real: saldo de hoje + soma por tipo − ralo
+   * = `end.baseline`. Só compromissos reais (fantasmas ficam fora).
+   */
+  breakdown: Record<Exclude<ForecastEventKind, "ghost">, number>;
 }
 
 const DAY_MS = 86_400_000;
@@ -131,6 +136,7 @@ export function buildProjection({
   ghosts: GhostEvent[];
 }): Projection {
   const byDay = new Map<number, { scheduled: number; ghosts: number }>();
+  const breakdown: Projection["breakdown"] = { scheduled: 0, invoice: 0, recurring: 0, project: 0 };
   const bump = (event: ForecastEvent, field: "scheduled" | "ghosts") => {
     const day = daysBetween(today, event.date);
     // Compromisso real de hoje já está no saldo real; fantasma de hoje ainda não.
@@ -138,6 +144,7 @@ export function buildProjection({
     const slot = byDay.get(day) ?? { scheduled: 0, ghosts: 0 };
     slot[field] += event.amount;
     byDay.set(day, slot);
+    if (event.kind !== "ghost") breakdown[event.kind] += event.amount;
   };
 
   events.forEach((event) => bump(event, "scheduled"));
@@ -184,5 +191,11 @@ export function buildProjection({
     baselineLowest,
     end: points[points.length - 1],
     drainTotal: roundCurrency(drain * horizonDays),
+    breakdown: {
+      scheduled: roundCurrency(breakdown.scheduled),
+      invoice: roundCurrency(breakdown.invoice),
+      recurring: roundCurrency(breakdown.recurring),
+      project: roundCurrency(breakdown.project),
+    },
   };
 }

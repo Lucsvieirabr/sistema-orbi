@@ -13,7 +13,7 @@ import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
 import { Plus, Trash2 } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
-import { getMinAllowedDate, getMaxAllowedDate } from "@/lib/utils";
+import { getMinAllowedDate, getMaxAllowedDate, toDateKey } from "@/lib/utils";
 
 export interface CompositionItem {
   value: number;
@@ -39,7 +39,7 @@ export function CompositionDialog({
   const [currentItem, setCurrentItem] = useState<Partial<CompositionItem>>({
     value: 0,
     description: "",
-    date: new Date().toISOString().split("T")[0],
+    date: toDateKey(new Date()),
   });
 
   useEffect(() => {
@@ -49,7 +49,7 @@ export function CompositionDialog({
       setCurrentItem({
         value: 0,
         description: "",
-        date: new Date().toISOString().split("T")[0],
+        date: toDateKey(new Date()),
       });
     }
   }, [open, initialItems]);
@@ -79,7 +79,7 @@ export function CompositionDialog({
     setCurrentItem({
       value: 0,
       description: "",
-      date: new Date().toISOString().split("T")[0],
+      date: toDateKey(new Date()),
     });
   };
 
@@ -106,7 +106,7 @@ export function CompositionDialog({
     setCurrentItem({
       value: 0,
       description: "",
-      date: new Date().toISOString().split("T")[0],
+      date: toDateKey(new Date()),
     });
     onOpenChange(false);
   };
@@ -115,7 +115,7 @@ export function CompositionDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader className="pb-2">
-          <DialogTitle>Personalizar Rateio</DialogTitle>
+          <DialogTitle>Personalizar rateio</DialogTitle>
           <DialogDescription>
             Adicione os itens que compõem este rateio. O valor total será calculado automaticamente.
           </DialogDescription>
@@ -202,6 +202,7 @@ export function CompositionDialog({
                       variant="ghost"
                       size="icon"
                       onClick={() => handleRemoveItem(index)}
+                      aria-label={`Remover ${item.description}`}
                       className="ml-2 h-7 w-7 text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-3 w-3" />

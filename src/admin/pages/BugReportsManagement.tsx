@@ -249,6 +249,7 @@ export default function BugReportsManagement() {
               <Bug className="h-5 w-5 text-warning" />
               Detalhes do Relatório
             </DialogTitle>
+            <DialogDescription className="sr-only">Informações e status do relatório de bug.</DialogDescription>
           </DialogHeader>
 
           {selectedReport && (

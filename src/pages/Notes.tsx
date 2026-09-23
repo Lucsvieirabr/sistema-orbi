@@ -289,7 +289,7 @@ export default function Notes() {
             onClick={() => setActiveTab(f.value)}
             aria-pressed={activeTab === f.value}
             className={cn(
-              "inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium",
+              "inline-flex h-11 shrink-0 items-center gap-1.5 rounded-md px-3 text-sm font-medium md:h-9",
               "transition-[background-color,color,box-shadow,transform] duration-200 ease-swift",
               "motion-safe:active:scale-[0.97]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",

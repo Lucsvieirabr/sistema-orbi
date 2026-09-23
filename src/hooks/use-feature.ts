@@ -183,7 +183,8 @@ export function useLimit(limitKey: string, currentValue: number): {
   const limitDef = featureRegistry.getLimit(limitKey);
   
   if (!limitDef) {
-    console.warn(`Limite "${limitKey}" não encontrado no registry`);
+    // Chave vazia = entidade sem limite (ex.: cartões); só avisa chave desconhecida.
+    if (limitKey) console.warn(`Limite "${limitKey}" não encontrado no registry`);
     return {
       canUse: false,
       limit: 0,

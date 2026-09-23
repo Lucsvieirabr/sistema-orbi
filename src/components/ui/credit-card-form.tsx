@@ -41,6 +41,8 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   const [connectedAccountId, setConnectedAccountId] = React.useState<string>(
     initialData?.connectedAccountId || "none"
   );
+  const [errors, setErrors] = React.useState<{ name?: string; limit?: string; statementDate?: string; dueDate?: string }>({});
+  const clearError = (key: keyof typeof errors) => setErrors((prev) => ({ ...prev, [key]: undefined }));
   const { createCreditCard, updateCreditCard } = useCreditCards();
   const queryClient = useQueryClient();
 
@@ -56,38 +58,13 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   }, [initialData]);
 
   const onSubmit = async () => {
-    if (!name.trim()) {
-      toast({
-        title: "Erro",
-        description: "O nome do cartão é obrigatório",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (limit <= 0) {
-      toast({
-        title: "Erro",
-        description: "O limite deve ser maior que zero",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (statementDate < 1 || statementDate > 31) {
-      toast({
-        title: "Erro",
-        description: "A data de fechamento deve estar entre 1 e 31",
-        variant: "destructive",
-      });
-      return;
-    }
-    if (dueDate < 1 || dueDate > 31) {
-      toast({
-        title: "Erro",
-        description: "A data de vencimento deve estar entre 1 e 31",
-        variant: "destructive",
-      });
-      return;
-    }
+    const next: typeof errors = {};
+    if (!name.trim()) next.name = "Dê um nome ao cartão.";
+    if (!limit || limit <= 0) next.limit = "Informe um limite maior que zero.";
+    if (!statementDate || statementDate < 1 || statementDate > 31) next.statementDate = "Escolha um dia entre 1 e 31.";
+    if (!dueDate || dueDate < 1 || dueDate > 31) next.dueDate = "Escolha um dia entre 1 e 31.";
+    setErrors(next);
+    if (Object.keys(next).length > 0) return;
     if (dueDate < statementDate) {
       toast({
         title: "Vencimento após a virada do mês",
@@ -104,7 +81,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       connected_account_id: connectedAccountId === "none" ? null : connectedAccountId,
     };
 
-    const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+    const t = toast({ title: "Salvando…", duration: 2000 });
     try {
       let createdId: string | undefined;
       if (editingId) {
@@ -113,7 +90,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
         const newCard = await createCreditCard(payload);
         createdId = newCard.id;
       }
-      t.update({ title: "Sucesso", description: "Cartão salvo", duration: 2000 });
+      t.update({ title: "Cartão salvo", duration: 2000 });
       
       // Reset form
       setName("");
@@ -122,6 +99,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       setStatementDate(1);
       setDueDate(1);
       setConnectedAccountId("none");
+      setErrors({});
       
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
       onSuccess?.(createdId);
@@ -143,9 +121,20 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
           <Input
             id="name"
             value={name}
-            onChange={(e) => setName(e.target.value)}
+            onChange={(e) => {
+              setName(e.target.value);
+              clearError("name");
+            }}
             placeholder="Ex: Visa Nubank"
+            required
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={errors.name ? "name-error" : undefined}
           />
+          {errors.name && (
+            <p id="name-error" className="text-xs text-destructive">
+              {errors.name}
+            </p>
+          )}
         </div>
         <div className="space-y-2">
           <Label htmlFor="brand">Bandeira</Label>
@@ -162,30 +151,54 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             id="limit"
             currency
             value={limit}
-            onChange={setLimit}
+            onChange={(v) => {
+              setLimit(v ?? 0);
+              clearError("limit");
+            }}
             placeholder="0,00"
+            required
+            aria-invalid={Boolean(errors.limit)}
+            aria-describedby={errors.limit ? "limit-error" : undefined}
           />
+          {errors.limit && (
+            <p id="limit-error" className="text-xs text-destructive">
+              {errors.limit}
+            </p>
+          )}
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
-          <DaySelector
-            id="statement_date"
-            label="Dia de Fechamento"
-            value={statementDate}
-            onChange={setStatementDate}
-            placeholder="1"
-          />
-          <DaySelector
-            id="due_date"
-            label="Dia de Vencimento"
-            value={dueDate}
-            onChange={setDueDate}
-            placeholder="1"
-          />
+          <div>
+            <DaySelector
+              id="statement_date"
+              label="Dia de fechamento"
+              value={statementDate}
+              onChange={(v) => {
+                setStatementDate(v);
+                clearError("statementDate");
+              }}
+              placeholder="1"
+            />
+            {errors.statementDate && <p className="mt-1 text-xs text-destructive" role="alert">{errors.statementDate}</p>}
+          </div>
+          <div>
+            <DaySelector
+              id="due_date"
+              label="Dia de vencimento"
+              value={dueDate}
+              onChange={(v) => {
+                setDueDate(v);
+                clearError("dueDate");
+              }}
+              placeholder="1"
+            />
+            {errors.dueDate && <p className="mt-1 text-xs text-destructive" role="alert">{errors.dueDate}</p>}
+          </div>
         </div>
         {accountSelector && (
           <div className="space-y-2">
             <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
             {React.cloneElement(accountSelector as React.ReactElement, {
+              id: "connected_account",
               value: connectedAccountId,
               onValueChange: setConnectedAccountId,
             })}

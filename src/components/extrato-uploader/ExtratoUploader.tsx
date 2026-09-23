@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { FileText, AlertCircle, CheckCircle, Brain } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { mapClassification, type ReviewTransaction } from './classification';
 import { assertUuid } from '@/lib/utils';
 import { ConfirmationDialog } from './ConfirmationDialog';
@@ -324,9 +324,9 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, us
             <Brain className="h-5 w-5 text-primary" />
             Importar Extrato Bancário com IA
           </DialogTitle>
-          <p className="text-xs lg:text-sm text-muted-foreground">
+          <DialogDescription className="text-xs lg:text-sm text-muted-foreground">
             Selecione o extrato ou a fatura do seu banco em CSV, OFX, PDF ou imagem. Nossa IA analisará e categorizará automaticamente as transações.
-          </p>
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 lg:space-y-4">

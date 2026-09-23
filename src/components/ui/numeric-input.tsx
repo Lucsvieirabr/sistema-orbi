@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Input } from "./input";
 import { cn } from "@/lib/utils";
+import { parseDecimalBR, toEditable } from "@/lib/money-input";
 
 interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "value" | "onChange" | "type"> {
   value?: number | null;
@@ -11,10 +12,12 @@ interface NumericInputProps extends Omit<React.ComponentProps<typeof Input>, "va
   min?: number;
   max?: number;
   step?: number;
+  /** Aceita "-" à esquerda (ex.: saldo inicial de conta no negativo). */
+  allowNegative?: boolean;
 }
 
 const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
-  ({ className, value, onChange, currency = true, integer = false, placeholder, min, max, step, ...props }, ref) => {
+  ({ className, value, onChange, currency = true, integer = false, placeholder, min, max, step, allowNegative = false, onFocus, onBlur, ...props }, ref) => {
     // Definir placeholder padrão baseado no tipo
     const defaultPlaceholder = integer ? "0" : currency ? "0,00" : "0";
     const finalPlaceholder = placeholder || defaultPlaceholder;
@@ -45,20 +48,12 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
 
       if (integer) {
         // Para números inteiros, apenas remover caracteres não numéricos
-        const cleaned = str.replace(/\D/g, "");
+        const cleaned = str.replace(/[^\d-]/g, "");
         const parsed = parseInt(cleaned, 10);
         return isNaN(parsed) ? null : parsed;
       }
 
-      // Remove formatação de moeda e converte
-      const cleaned = str
-        .replace(/R\$\s?/g, "")
-        .replace(/\./g, "")
-        .replace(",", ".")
-        .trim();
-
-      const parsed = parseFloat(cleaned);
-      return isNaN(parsed) ? null : parsed;
+      return parseDecimalBR(str);
     }, [integer]);
 
     // Atualizar display quando o valor muda (apenas se não estiver focado)
@@ -72,8 +67,8 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       const inputValue = e.target.value;
 
       // Se o campo está vazio, definir valor como null
-      if (inputValue === "") {
-        setDisplayValue("");
+      if (inputValue === "" || (allowNegative && inputValue === "-")) {
+        setDisplayValue(inputValue);
         onChange?.(null);
         return;
       }
@@ -81,13 +76,13 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       // Validar entrada baseado no tipo
       if (integer) {
         // Para números inteiros, apenas dígitos
-        const integerRegex = /^[0-9]*$/;
+        const integerRegex = allowNegative ? /^-?[0-9]*$/ : /^[0-9]*$/;
         if (!integerRegex.test(inputValue)) {
           return;
         }
       } else {
         // Para moeda, permitir dígitos, vírgula e ponto
-        const numberRegex = /^[0-9.,]*$/;
+        const numberRegex = allowNegative ? /^-?[0-9.,]*$/ : /^[0-9.,]*$/;
         if (!numberRegex.test(inputValue)) {
           return;
         }
@@ -99,35 +94,23 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       onChange?.(parsedValue);
     };
 
-    const handleBlur = () => {
+    const handleBlur = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(false);
-      // Ao sair do campo, formatar o valor se houver um valor numérico
-      if (value !== null && value !== undefined && value !== 0) {
-        setDisplayValue(formatValue(value));
-      } else {
-        // Se o valor for 0, null ou undefined, manter o campo vazio
-        setDisplayValue("");
-      }
+      setDisplayValue(formatValue(value));
+      onBlur?.(e);
     };
 
-    const handleFocus = () => {
+    const handleFocus = (e: React.FocusEvent<HTMLInputElement>) => {
       setIsFocused(true);
-      // Ao focar, mostrar o valor sem formatação para facilitar edição
-      if (value !== null && value !== undefined && value !== 0) {
-        if (currency) {
-          // Para moeda, mostrar apenas os números (removendo R$ e formatação)
-          const numericValue = value.toString();
-          setDisplayValue(numericValue);
-        } else if (integer) {
-          // Para números inteiros, mostrar apenas o número
-          setDisplayValue(Math.floor(value).toString());
-        } else {
-          setDisplayValue(value.toString());
-        }
-      } else {
-        // Se o valor for 0, null ou undefined, limpar o campo para digitação
-        setDisplayValue("");
-      }
+      // Mostra o valor cru (vírgula decimal, sem milhar) e SELECIONA TUDO:
+      // digitar substitui o valor em vez de concatenar no fim (antes
+      // R$ 5.000,00 + "800" virava 50.000.800,00).
+      setDisplayValue(value ? toEditable(value, currency, integer) : "");
+      const input = e.currentTarget;
+      requestAnimationFrame(() => {
+        if (document.activeElement === input) input.select();
+      });
+      onFocus?.(e);
     };
 
     return (
@@ -139,11 +122,9 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
         onChange={handleChange}
         onBlur={handleBlur}
         onFocus={handleFocus}
+        inputMode={allowNegative ? "text" : integer ? "numeric" : "decimal"}
         placeholder={finalPlaceholder}
-        className={cn(
-          "text-center",
-          className
-        )}
+        className={cn("tabular", className)}
         min={min}
         max={max}
         step={step}

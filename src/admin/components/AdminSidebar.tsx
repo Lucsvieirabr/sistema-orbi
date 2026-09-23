@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
-import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { VisuallyHidden } from "@/components/ui/visually-hidden";
 import { useIsCompact } from "@/hooks/use-mobile";
 import orbiLogo from "@/assets/orbi-logo_white.png";
@@ -118,6 +118,7 @@ export function AdminSidebar({ open, onOpenChange }: AdminSidebarProps = {}) {
         >
           <VisuallyHidden>
             <SheetTitle>Navegação administrativa</SheetTitle>
+            <SheetDescription>Links para as seções do sistema.</SheetDescription>
           </VisuallyHidden>
           <Nav drawer />
         </SheetContent>

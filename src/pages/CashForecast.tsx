@@ -211,6 +211,7 @@ export default function CashForecast() {
                   : `Já descontado ${formatMoney(projection.drainTotal)} de ralo no período.`,
               },
             ]}
+            footer={<CompositionFooter forecast={forecast} projection={projection} />}
           />
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)] lg:gap-6">
@@ -238,6 +239,39 @@ export default function CashForecast() {
         </>
       )}
     </PageBody>
+  );
+}
+
+/**
+ * Conta que fecha o saldo final real: hoje + cada tipo de compromisso − ralo.
+ * Sem ela, a queda da curva (ex.: projetos espalhados por semana) fica sem
+ * explicação na tela.
+ */
+function CompositionFooter({ forecast, projection }: { forecast: CashForecastData; projection: Projection }) {
+  const { breakdown } = projection;
+  const parts: Array<{ label: string; value: number }> = [
+    { label: "Saldo hoje", value: forecast.currentBalance },
+    { label: "Agendados", value: breakdown.scheduled },
+    { label: "Faturas", value: breakdown.invoice },
+    { label: "Recorrentes", value: breakdown.recurring },
+    { label: "Projetos", value: breakdown.project },
+    { label: "Ralo", value: -projection.drainTotal },
+  ].filter((part, index) => index === 0 || part.value !== 0);
+
+  return (
+    <div className="border-t border-border-subtle px-4 py-3 text-xs text-muted-foreground md:px-5 lg:px-6">
+      <p className="label-eyebrow mb-1.5">Como chegamos em {formatMoney(projection.end.baseline)}</p>
+      <ul className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+        {parts.map((part, index) => (
+          <li key={part.label} className="tabular">
+            {part.label}{" "}
+            <span className="font-medium text-foreground">
+              {index === 0 ? formatMoney(part.value) : formatSignedMoney(part.value)}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -853,12 +887,14 @@ function ProjectsDrainCard({ forecast }: { forecast: CashForecastData }) {
         <ul className="divide-y divide-border-subtle">
           {forecast.projects.map((project) => (
             <li key={project.id} className="py-3 first:pt-0 last:pb-0">
-              <div className="flex items-baseline justify-between gap-3">
+              <div className="flex items-center justify-between gap-3">
                 <Link
                   to={`/sistema/projects?projeto=${project.id}`}
-                  className="min-w-0 truncate text-sm font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className="group flex min-h-touch min-w-0 items-center rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:min-h-0"
                 >
-                  {project.name}
+                  <span className="truncate text-sm font-medium text-foreground underline-offset-4 group-hover:underline">
+                    {project.name}
+                  </span>
                 </Link>
                 <span className="shrink-0 text-sm tabular text-foreground">{formatMoney(project.remaining)}</span>
               </div>

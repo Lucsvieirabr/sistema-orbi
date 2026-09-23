@@ -1,9 +1,9 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { formatCurrencyBRL, formatDateForDisplay } from "@/lib/utils";
+import { formatCurrencyBRL, formatDateForDisplay, getCurrentDateString } from "@/lib/utils";
 import { CheckCircle, BanknoteXIcon, Edit, Trash2, TrendingUp, TrendingDown, Calendar, CreditCard, User, AlertTriangle } from "lucide-react";
 
 interface Transaction {
@@ -64,18 +64,19 @@ export function PendingTransactionsDialog({
     if (transaction.credit_card_id && transaction.credit_cards?.name) {
       return transaction.credit_cards.name;
     }
-    return 'N/A';
+    // Conta/cartão do parceiro não é legível (RLS) e conta excluída zera o vínculo.
+    if (transaction.credit_card_id) return 'Cartão privado';
+    if (transaction.account_id) return 'Conta privada';
+    return 'Sem conta';
   };
 
   const getTotalValue = () => {
     return transactions.reduce((sum, t) => sum + t.value, 0);
   };
 
-  const isOverdue = (transaction: Transaction) => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return new Date(transaction.date) < today;
-  };
+  // Comparação de chave YYYY-MM-DD no dia local (new Date("YYYY-MM-DD") é UTC
+  // e marcava como vencido o que vence hoje).
+  const isOverdue = (transaction: Transaction) => transaction.date.slice(0, 10) < getCurrentDateString();
 
   const overdueTransactionsCount = transactions.filter(isOverdue).length;
 
@@ -94,6 +95,7 @@ export function PendingTransactionsDialog({
             )}
             {title}
           </DialogTitle>
+          <DialogDescription className="sr-only">Lista de transações pendentes para confirmar.</DialogDescription>
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <span>{transactions.length} transações pendentes</span>
             {overdueTransactionsCount > 0 && (
@@ -173,6 +175,7 @@ export function PendingTransactionsDialog({
                         size="sm"
                         variant="outline"
                         onClick={() => onEdit(transaction.id)}
+                        aria-label={`Editar ${transaction.description}`}
                         className="h-8 w-8 p-0"
                       >
                         <Edit className="h-3 w-3" />
@@ -182,6 +185,7 @@ export function PendingTransactionsDialog({
                         size="sm"
                         variant="outline"
                         onClick={() => onDelete(transaction.id)}
+                        aria-label={`Excluir ${transaction.description}`}
                         className="h-8 w-8 p-0 text-destructive hover:text-destructive hover:bg-destructive-soft"
                       >
                         <Trash2 className="h-3 w-3" />

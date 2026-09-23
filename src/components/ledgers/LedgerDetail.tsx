@@ -105,6 +105,26 @@ export function LedgerDetail({
     );
   }
 
+  if (!error && data === null) {
+    return (
+      <PageBody>
+        <EmptyState
+          icon={Receipt}
+          title="Evento não encontrado"
+          description="Este evento foi excluído ou o link está incorreto."
+          action={
+            <Button variant="outline" asChild>
+              <Link to={backHref}>
+                <ArrowLeft aria-hidden />
+                Voltar aos eventos
+              </Link>
+            </Button>
+          }
+        />
+      </PageBody>
+    );
+  }
+
   if (error || !data) {
     return (
       <PageBody>

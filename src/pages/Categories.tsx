@@ -2,7 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -10,6 +10,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { IconRenderer } from "@/components/ui/icon-renderer";
 import { IconSelector } from "@/components/ui/icon-selector";
 import { useCategories } from "@/hooks/use-categories";
+import { supabase } from "@/integrations/supabase/client";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { LayoutGrid, List, Plus, Tag, Edit, Trash2, Search } from "lucide-react";
@@ -26,6 +27,21 @@ export default function Categories() {
       <CategoriesContent />
     </FeaturePageGuard>
   );
+}
+
+type CategoryDeleteImpact = { transactions: number; budgets: number; contracts: number };
+
+function deleteImpactText(impact: CategoryDeleteImpact | undefined): string {
+  if (!impact) return "Verificando o que usa esta categoria…";
+  const parts: string[] = [];
+  if (impact.transactions > 0)
+    parts.push(`${impact.transactions} ${impact.transactions === 1 ? "transação fica" : "transações ficam"} sem categoria`);
+  if (impact.budgets > 0)
+    parts.push(`${impact.budgets} ${impact.budgets === 1 ? "orçamento será apagado" : "orçamentos serão apagados"}`);
+  if (impact.contracts > 0)
+    parts.push(`${impact.contracts} ${impact.contracts === 1 ? "contrato de rateio será apagado" : "contratos de rateio serão apagados"}`);
+  const summary = parts.length ? `${parts.join("; ")}.` : "Nada usa esta categoria.";
+  return `${summary} Não dá para desfazer.`;
 }
 
 function CategoriesContent() {
@@ -63,9 +79,12 @@ function CategoriesContent() {
     localStorage.setItem("categories:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Categoria" : "Nova Categoria"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar categoria" : "Nova categoria"), [editingId]);
+
+  const [nameError, setNameError] = useState<string | undefined>();
 
   const resetForm = () => {
+    setNameError(undefined);
     setName("");
     setCategoryType("expense");
     setIcon("");
@@ -73,17 +92,21 @@ function CategoriesContent() {
   };
 
   const onSubmit = async () => {
-    if (!name.trim()) return;
-    toast({ title: "Salvando...", description: "Aguarde" });
+    if (!name.trim()) {
+      setNameError("Dê um nome à categoria.");
+      return;
+    }
+    toast({ title: "Salvando…" });
     try {
       if (editingId) {
         await updateCategory(editingId, { name, category_type: categoryType, icon });
       } else {
         await createCategory({ name, category_type: categoryType, icon });
       }
-      toast({ title: "Sucesso", description: "Categoria salva" });
+      toast({ title: "Categoria salva" });
     } catch (e) {
       toast({ title: "Erro", description: "Não foi possível salvar", variant: "destructive" });
+      return;
     }
     setOpen(false);
     resetForm();
@@ -98,11 +121,32 @@ function CategoriesContent() {
     setOpen(true);
   };
 
+  // Impacto real da exclusão, contado quando o diálogo abre. Orçamento e
+  // contrato de rateio da categoria são apagados em cascata (FK ON DELETE
+  // CASCADE); transações e séries só perdem a categoria.
+  const [impact, setImpact] = useState<Record<string, CategoryDeleteImpact | undefined>>({});
+  const loadImpact = async (id: string) => {
+    setImpact((prev) => ({ ...prev, [id]: undefined }));
+    const count = async (table: "transactions" | "budgets" | "split_contracts") => {
+      const { count: n, error } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("category_id", id);
+      return error ? 0 : n ?? 0;
+    };
+    const [transactions, budgets, contracts] = await Promise.all([
+      count("transactions"),
+      count("budgets"),
+      count("split_contracts"),
+    ]);
+    setImpact((prev) => ({ ...prev, [id]: { transactions, budgets, contracts } }));
+  };
+
   const onDelete = async (id: string) => {
     try {
       await deleteCategory(id);
-      toast({ title: "Sucesso", description: "Categoria excluída" });
+      toast({ title: "Categoria excluída" });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: ["budgets"] });
+      queryClient.invalidateQueries({ queryKey: ["split-contracts"] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions"] });
     } catch (error: any) {
       toast({ 
         title: "Erro", 
@@ -122,7 +166,13 @@ function CategoriesContent() {
   const incomeCategories = filteredCategories.filter((c) => c.category_type === "income");
 
   const categoryDialog = (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) resetForm();
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
@@ -132,17 +182,34 @@ function CategoriesContent() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">Preencha os campos abaixo e salve para confirmar.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Mercado" />
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              placeholder="Mercado"
+              required
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? "name-error" : undefined}
+            />
+            {nameError && (
+              <p id="name-error" className="text-xs text-destructive">
+                {nameError}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="categoryType">Tipo</Label>
               <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
-                <SelectTrigger>
+                <SelectTrigger id="categoryType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -180,9 +247,10 @@ function CategoriesContent() {
         <FeatureGuard feature="categorias_excluir">
           <ConfirmationDialog
             title="Excluir categoria"
-            description="As transações já classificadas ficam sem categoria. Não dá para desfazer."
+            description={deleteImpactText(impact[c.id])}
             confirmText="Excluir categoria"
             onConfirm={() => onDelete(c.id)}
+            onOpenChange={(next) => next && loadImpact(c.id)}
             variant="destructive"
           >
             <Button

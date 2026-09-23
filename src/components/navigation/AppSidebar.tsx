@@ -9,7 +9,7 @@ import {
 import { cn } from "@/lib/utils";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { Sidebar } from "@/components/ui/sidebar";
-import { Sheet, SheetClose, SheetContent, SheetTitle } from "@/components/ui/sheet";
+import { Sheet, SheetClose, SheetContent, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { ReportBugDialog } from "@/components/bugs/ReportBugDialog";
 import { useIsCompact } from "@/hooks/use-mobile";
@@ -290,6 +290,7 @@ export function AppSidebar({ open, onOpenChange }: AppSidebarProps = {}) {
         >
           <VisuallyHidden>
             <SheetTitle>Navegação principal</SheetTitle>
+            <SheetDescription>Links para as seções do sistema.</SheetDescription>
           </VisuallyHidden>
           {renderNav(true)}
         </SheetContent>

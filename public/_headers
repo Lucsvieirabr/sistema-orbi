@@ -1,6 +1,7 @@
 # Cloudflare Workers static assets — espelho EXATO dos headers de netlify.toml / vercel.json / nginx.conf.
 # Mudou a CSP em um, muda em todos.
 # challenges.cloudflare.com (script-src + frame-src): widget Cloudflare Turnstile das telas de auth.
+# static.cloudflareinsights.com (script-src) + cloudflareinsights.com (connect-src): beacon do Cloudflare Web Analytics.
 
 /*
   Strict-Transport-Security: max-age=31536000; includeSubDomains; preload
@@ -10,7 +11,7 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=(), interest-cohort=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-site
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://challenges.cloudflare.com https://static.cloudflareinsights.com; worker-src 'self' blob:; child-src 'self' blob:; frame-src 'self' https://challenges.cloudflare.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' data: https://fonts.gstatic.com; img-src 'self' data: blob: https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cloudflareinsights.com blob: data:; media-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; manifest-src 'self'; upgrade-insecure-requests
 
 /sistema/*
   X-Robots-Tag: noindex, nofollow

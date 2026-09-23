@@ -13,7 +13,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert } from "@/integrations/supabase/types";
 import { toNumber } from "@/components/planning/planning-utils";
-import { assertUuid, roundCurrency } from "@/lib/utils";
+import { assertUuid, isUuid, roundCurrency } from "@/lib/utils";
 import {
   ledgerEntrySchema,
   ledgerParticipantSchema,
@@ -201,9 +201,15 @@ export function useLedger(ledgerId: string | null) {
     queryKey: key,
     enabled: Boolean(ledgerId),
     queryFn: async () => {
-      const id = assertUuid(ledgerId, "ledger_id");
-      const [ledgerRes, participantsRes, entriesRes, transactionsRes, summaryRes] = await Promise.all([
-        supabase.from("ledgers").select(LEDGER_COLUMNS).eq("id", id).single(),
+      // Link quebrado/antigo (?evento=<uuid inexistente> ou lixo): `null` = estado
+      // "evento não encontrado", sem disparar summary (403) nem retry.
+      if (!isUuid(ledgerId)) return null;
+      const id = ledgerId;
+      const ledgerRes = await supabase.from("ledgers").select(LEDGER_COLUMNS).eq("id", id).maybeSingle();
+      if (ledgerRes.error) throw ledgerRes.error;
+      if (!ledgerRes.data) return null;
+
+      const [participantsRes, entriesRes, transactionsRes, summaryRes] = await Promise.all([
         supabase
           .from("ledger_participants")
           .select("id, person_id, weight, people(name, pix)")
@@ -223,7 +229,6 @@ export function useLedger(ledgerId: string | null) {
         supabase.rpc("orbi_ledger_summary", { p_ledger_id: id }),
       ]);
 
-      if (ledgerRes.error) throw ledgerRes.error;
       if (participantsRes.error) throw participantsRes.error;
       if (entriesRes.error) throw entriesRes.error;
       if (transactionsRes.error) throw transactionsRes.error;

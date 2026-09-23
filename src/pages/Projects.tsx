@@ -266,7 +266,13 @@ function ProjectCard({
         </CardContent>
 
         <CardFooter>
-          <Button variant="outline" size="sm" className="w-full" onClick={() => onOpen(project.id)}>
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => onOpen(project.id)}
+            aria-label={`${archived ? "Ver relatório de" : "Abrir projeto"} ${project.name}`}
+          >
             {archived ? "Ver relatório" : "Abrir projeto"}
           </Button>
         </CardFooter>

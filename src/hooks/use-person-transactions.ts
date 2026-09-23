@@ -3,6 +3,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { toDateKey } from "@/lib/utils";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
@@ -172,7 +173,7 @@ export function useCreatePaymentTransaction() {
         user_id: user.id,
         description: `Pagamento de dívida: ${debtTransaction.description}`,
         value: paymentValue,
-        date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
+        date: toDateKey(new Date()),
         type: 'expense',
         status: 'PAID',
         person_id: debtTransaction.person_id,

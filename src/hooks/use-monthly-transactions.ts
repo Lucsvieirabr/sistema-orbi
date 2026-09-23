@@ -3,7 +3,7 @@ import { useEffect, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { isTransactionInBillingPeriod } from "@/lib/utils";
+import { isTransactionInBillingPeriod, toDateKey } from "@/lib/utils";
 import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 
 type Transaction = Tables<"transactions"> & {
@@ -38,7 +38,7 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
 
   // Calculate month range
   const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endDate = new Date(year, month, 0).toISOString().slice(0, 10); // Last day of month
+  const endDate = toDateKey(new Date(year, month, 0)); // Last day of month
 
   const fetchTransactionsAndDebts = async (): Promise<Transaction[]> => {
     const { data: { user } } = await getCachedAuthUser();
@@ -62,8 +62,8 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
 
     // Buscar transações com uma janela maior para incluir transações de cartão
     // que podem pertencer a este mês mesmo estando em datas diferentes
-    const searchStartDate = new Date(year, month - 2, 1).toISOString().slice(0, 10);
-    const searchEndDate = new Date(year, month + 1, 0).toISOString().slice(0, 10);
+    const searchStartDate = toDateKey(new Date(year, month - 2, 1));
+    const searchEndDate = toDateKey(new Date(year, month + 1, 0));
 
     // Fetch transactions with liquidation_date
     const { data: allTransactions, error: transactionsError } = await supabase

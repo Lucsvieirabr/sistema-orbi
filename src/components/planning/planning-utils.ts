@@ -125,6 +125,11 @@ export function describePlanningError(error: unknown): { message: string; sugges
     case "23514":
     case "23503":
       return { message: err.message || "Algum valor não passou na validação.", suggestUpgrade: false };
+    // PostgREST cru ("Cannot coerce the result to a single JSON object",
+    // "invalid input syntax for type uuid") nunca vai para a tela.
+    case "PGRST116":
+    case "22P02":
+      return { message: "Registro não encontrado. Ele pode ter sido excluído ou o link está incorreto.", suggestUpgrade: false };
     default:
       return {
         message: err.message || "Não foi possível concluir agora. Verifique sua conexão e tente de novo.",

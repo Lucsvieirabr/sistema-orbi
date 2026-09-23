@@ -2,6 +2,7 @@ import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
+import { isUuid } from "@/lib/utils";
 
 interface CardTransactionFilters {
   cardId: string;
@@ -46,6 +47,7 @@ export function useCardTransactions({ cardId, startDate, endDate }: CardTransact
       if (error) throw error;
       return (data ?? []) as CardTransaction[];
     },
-    enabled: !!cardId && !!startDate && !!endDate,
+    // UUID invalido na URL (ex.: /cards/abc) geraria 400/22P02 no Postgres.
+    enabled: isUuid(cardId) && !!startDate && !!endDate,
   });
 }

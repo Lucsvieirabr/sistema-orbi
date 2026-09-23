@@ -14,11 +14,13 @@ import {
 interface ConfirmationDialogProps {
   children: React.ReactNode;
   title: string;
-  description: string;
+  description: React.ReactNode;
   confirmText?: string;
   cancelText?: string;
   onConfirm: () => void;
   variant?: "default" | "destructive";
+  /** Ex.: buscar o impacto da exclusão só quando o diálogo abre. */
+  onOpenChange?: (open: boolean) => void;
 }
 
 export function ConfirmationDialog({
@@ -29,9 +31,10 @@ export function ConfirmationDialog({
   cancelText = "Cancelar",
   onConfirm,
   variant = "default",
+  onOpenChange,
 }: ConfirmationDialogProps) {
   return (
-    <AlertDialog>
+    <AlertDialog onOpenChange={onOpenChange}>
       <AlertDialogTrigger asChild>
         {children}
       </AlertDialogTrigger>

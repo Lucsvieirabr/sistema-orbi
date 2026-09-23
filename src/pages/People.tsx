@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
@@ -35,6 +35,7 @@ function PeopleContent() {
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [pix, setPix] = useState("");
+  const [errors, setErrors] = useState<{ name?: string; pix?: string }>({});
   const [editingId, setEditingId] = useState<string | null>(null);
   const [view, setView] = useState<"list" | "cards">("list");
   const [searchTerm, setSearchTerm] = useState("");
@@ -56,35 +57,37 @@ function PeopleContent() {
     localStorage.setItem("people:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Pessoa" : "Nova Pessoa"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar pessoa" : "Nova pessoa"), [editingId]);
 
   const onSubmit = async () => {
-    if (!name.trim()) return;
     const pixValue = pix.trim();
-    if (pixValue && !isValidPixKey(pixValue)) {
-      toast({
-        title: "Chave PIX inválida",
-        description: "Use e-mail, CPF, CNPJ, celular com DDI ou uma chave aleatória.",
-        variant: "destructive",
-      });
-      return;
-    }
-    toast({ title: "Salvando...", description: "Aguarde" });
+    const next: { name?: string; pix?: string } = {};
+    if (!name.trim()) next.name = "Dê um nome à pessoa.";
+    if (pixValue && !isValidPixKey(pixValue)) next.pix = "Chave PIX inválida. Use e-mail, CPF, CNPJ, celular com DDI ou chave aleatória.";
+    setErrors(next);
+    if (next.name || next.pix) return;
+    toast({ title: "Salvando…" });
     try {
       if (editingId) {
         await updatePerson(editingId, { name, pix: pixValue ? normalizePixKey(pixValue).key : null });
       } else {
         await createPerson({ name, pix: pixValue ? normalizePixKey(pixValue).key : null });
       }
-      toast({ title: "Sucesso", description: "Pessoa salva" });
+      toast({ title: "Pessoa salva" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message || "Não foi possível salvar", variant: "destructive" });
+      return;
     }
     setOpen(false);
+    resetForm();
+    queryClient.invalidateQueries({ queryKey: ["people"] });
+  };
+
+  const resetForm = () => {
+    setErrors({});
     setName("");
     setPix("");
     setEditingId(null);
-    queryClient.invalidateQueries({ queryKey: ["people"] });
   };
 
   const onEdit = (id: string, currentName: string, currentPix?: string | null) => {
@@ -95,10 +98,10 @@ function PeopleContent() {
   };
 
   const onDelete = async (id: string) => {
-    toast({ title: "Excluindo...", description: "Aguarde" });
+    toast({ title: "Excluindo…" });
     try {
       await deletePerson(id);
-      toast({ title: "Sucesso", description: "Pessoa excluída" });
+      toast({ title: "Pessoa excluída" });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message || "Não foi possível excluir", variant: "destructive" });
     }
@@ -124,7 +127,13 @@ function PeopleContent() {
   ) || [];
 
   const personDialog = (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next);
+        if (!next) resetForm();
+      }}
+    >
       <DialogTrigger asChild>
         <Button className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
@@ -134,21 +143,49 @@ function PeopleContent() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">Preencha os campos abaixo e salve para confirmar.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Maria" />
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setErrors((prev) => ({ ...prev, name: undefined }));
+              }}
+              placeholder="Maria"
+              required
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? "name-error" : undefined}
+            />
+            {errors.name && (
+              <p id="name-error" className="text-xs text-destructive">
+                {errors.name}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
             <Label htmlFor="pix">Chave PIX (opcional)</Label>
             <Input
               id="pix"
               value={pix}
-              onChange={(e) => setPix(e.target.value)}
+              onChange={(e) => {
+                setPix(e.target.value);
+                setErrors((prev) => ({ ...prev, pix: undefined }));
+              }}
               placeholder="E-mail, telefone, CPF ou chave aleatória"
+              aria-invalid={Boolean(errors.pix)}
+              aria-describedby={errors.pix ? "pix-error" : "pix-hint"}
             />
-            <p className="text-xs text-muted-foreground">Fica a um clique quando você for acertar as contas.</p>
+            {errors.pix ? (
+              <p id="pix-error" className="text-xs text-destructive">
+                {errors.pix}
+              </p>
+            ) : (
+              <p id="pix-hint" className="text-xs text-muted-foreground">Fica a um clique quando você for acertar as contas.</p>
+            )}
           </div>
         </div>
         <DialogFooter>

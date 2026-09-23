@@ -71,12 +71,23 @@ export function isValidCurrencyValue(value: number): boolean {
   return !isNaN(value) && isFinite(value) && value >= 0;
 }
 
-// Função para obter data atual no formato YYYY-MM-DD sem problemas de fuso horário
+/**
+ * `YYYY-MM-DD` no fuso LOCAL. Nunca use `toISOString().slice(0, 10)` para data:
+ * ele converte para UTC e, entre 21h e 00h BRT, devolve o dia seguinte.
+ */
+export function toDateKey(date: Date): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+/** `YYYY-MM-DD` → Date à meia-noite LOCAL (`new Date("YYYY-MM-DD")` é UTC). */
+export function fromDateKey(key: string): Date {
+  const [year, month, day] = key.slice(0, 10).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+// Data atual (local) no formato YYYY-MM-DD
 export function getCurrentDateString(): string {
-  const now = new Date();
-  // Ajustar para o fuso horário local para evitar problemas de UTC
-  const localDate = new Date(now.getTime() - now.getTimezoneOffset() * 60000);
-  return localDate.toISOString().split('T')[0];
+  return toDateKey(new Date());
 }
 
 // Função para formatar data para exibição sem problemas de fuso horário
@@ -231,4 +242,22 @@ export function assertUuid(value: unknown, field = "id"): string {
     throw new Error(`Identificador inválido para ${field}`);
   }
   return value;
+}
+
+/**
+ * Mensagem de falha de exclusão pronta para toast (pt-BR, nunca vazia).
+ * Postgres/PostgREST mandam o texto cru em inglês; aqui vira frase acionável.
+ */
+export function deleteErrorMessage(error: unknown): string {
+  const err = (error ?? {}) as { code?: string; message?: string };
+  switch (err.code) {
+    case "23514":
+      return "O banco recusou a exclusão porque ela deixaria um registro inválido. Nada foi apagado.";
+    case "23503":
+      return "Existem registros vinculados a este item. Exclua ou desvincule-os antes.";
+    case "42501":
+      return "Você não tem permissão para excluir este registro.";
+    default:
+      return err.message || "Verifique sua conexão e tente de novo.";
+  }
 }

@@ -1,6 +1,7 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isUuid, roundCurrency, toDateKey } from "@/lib/utils";
 
 interface CardUsageParams {
   cardId: string;
@@ -42,38 +43,45 @@ export function useCardUsage({ cardId, statementDay }: CardUsageParams) {
       if (userError) throw userError;
 
       const period = getCurrentStatementPeriod(statementDay);
-      const startDate = period.startDate.toISOString().split('T')[0];
-      const endDate = period.endDate.toISOString().split('T')[0];
+      const startDate = toDateKey(period.startDate);
+      const endDate = toDateKey(period.endDate);
 
-      // Buscar transações do período
-      const { data, error } = await supabase
-        .from("transactions")
-        .select("value, type, status")
-        .eq("user_id", user?.id ?? "")
-        .eq("credit_card_id", cardId)
-        .gte("date", startDate)
-        .lte("date", endDate)
-        .neq("status", "CANCELED");
+      const net = (rows: Array<{ value: number; type: string }> | null) =>
+        (rows ?? []).reduce(
+          (sum, t) => (t.type === "expense" ? sum + t.value : t.type === "income" ? sum - t.value : sum),
+          0,
+        );
 
-      if (error) throw error;
-
-      // Calcular total usado (despesas - receitas/estornos)
-      const total = (data || []).reduce((sum, transaction) => {
-        if (transaction.type === "expense") {
-          return sum + transaction.value;
-        } else if (transaction.type === "income") {
-          return sum - transaction.value;
-        }
-        return sum;
-      }, 0);
+      const [periodRes, pendingRes] = await Promise.all([
+        // Fatura em aberto: lançamentos do período corrente.
+        supabase
+          .from("transactions")
+          .select("value, type")
+          .eq("user_id", user?.id ?? "")
+          .eq("credit_card_id", cardId)
+          .gte("date", startDate)
+          .lte("date", endDate)
+          .neq("status", "CANCELED"),
+        // Limite comprometido: TUDO que ainda não foi pago no cartão, inclusive
+        // parcelas futuras (3x R$ 100 prende R$ 300 do limite, não R$ 100).
+        supabase
+          .from("transactions")
+          .select("value, type")
+          .eq("user_id", user?.id ?? "")
+          .eq("credit_card_id", cardId)
+          .eq("status", "PENDING"),
+      ]);
+      if (periodRes.error) throw periodRes.error;
+      if (pendingRes.error) throw pendingRes.error;
 
       return {
-        used: Math.max(0, total),
+        used: Math.max(0, roundCurrency(net(periodRes.data))),
+        committed: Math.max(0, roundCurrency(net(pendingRes.data))),
         periodStart: period.startDate,
         periodEnd: period.endDate,
       };
     },
-    enabled: !!cardId && !!statementDay,
+    enabled: isUuid(cardId) && !!statementDay,
   });
 }
 

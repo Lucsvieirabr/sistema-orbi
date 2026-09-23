@@ -27,7 +27,7 @@ export function CompositionViewDialog({
         <DialogHeader>
           <div className="flex items-center gap-2">
             <Receipt className="h-5 w-5 text-primary" />
-            <DialogTitle>Detalhes da Composição</DialogTitle>
+            <DialogTitle>Detalhes da composição</DialogTitle>
           </div>
           <DialogDescription>
             Itens que compõem este rateio

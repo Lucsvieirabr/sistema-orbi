@@ -5,6 +5,7 @@ import { AVATAR_SIGNED_URL_TTL, initialsOf, isAvatarPath } from "@/lib/avatar";
 import { signAvatarPath } from "@/lib/avatar-storage";
 import { safeImageSrc } from "@/lib/safe-url";
 import { cn } from "@/lib/utils";
+import { isClientError } from "@/lib/query-client";
 
 type Tone = "self" | "partner";
 
@@ -33,7 +34,7 @@ export function useAvatarSrc(path?: string | null) {
     enabled,
     staleTime: SIGNED_STALE_MS,
     gcTime: SIGNED_STALE_MS,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
   });
   return enabled ? safeImageSrc(data) : null;
 }

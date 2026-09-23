@@ -19,6 +19,9 @@ interface DaySelectorProps {
 export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
   ({ id, label, value, onChange, placeholder = "1", className, disabled, ...props }, ref) => {
     const [open, setOpen] = React.useState(false);
+    const uid = React.useId();
+    const labelId = `${uid}-label`;
+    const valueId = `${uid}-value`;
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       const inputValue = e.target.value;
@@ -38,7 +41,7 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
 
     return (
       <div className={cn("space-y-2", className)}>
-        {label && <Label htmlFor={id}>{label}</Label>}
+        {label && <Label id={labelId}>{label}</Label>}
         <div className="relative">
           <Popover open={open} onOpenChange={setOpen}>
             <PopoverTrigger asChild>
@@ -49,9 +52,10 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
                   !value && "text-muted-foreground"
                 )}
                 disabled={disabled}
+                aria-labelledby={label ? `${labelId} ${valueId}` : undefined}
               >
-                <span>{value || placeholder}</span>
-                <ChevronDown className="h-4 w-4 opacity-50" />
+                <span id={valueId}>{value || placeholder}</span>
+                <ChevronDown className="h-4 w-4 opacity-50" aria-hidden />
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-[295px] p-0 border border-border bg-background" align="start" side="bottom" sideOffset={4}>
@@ -63,6 +67,8 @@ export const DaySelector = React.forwardRef<HTMLInputElement, DaySelectorProps>(
                     size="sm"
                     className="h-8 w-8 p-0 text-xs border border-border hover:border-primary/50"
                     onClick={() => handleDaySelect(day)}
+                    aria-label={`Dia ${day}`}
+                    aria-pressed={value === day}
                   >
                     {day}
                   </Button>

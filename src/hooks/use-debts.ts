@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import { toDateKey } from "@/lib/utils";
 
 export type Debt = Tables<"debts"> & {
   people?: Tables<"people">;
@@ -198,7 +199,7 @@ export function useMarkDebtAsPaid() {
           type: "income",
           value: data.amount,
           description: `Recebimento de ${data.people?.name || "pessoa"}`,
-          date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
+          date: toDateKey(new Date()),
           status: "PAID",
         });
       } else if (data.type === "TO_PAY") {
@@ -208,7 +209,7 @@ export function useMarkDebtAsPaid() {
           type: "expense",
           value: data.amount,
           description: `Pagamento para ${data.people?.name || "pessoa"}`,
-          date: new Date(new Date().getTime() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0],
+          date: toDateKey(new Date()),
           status: "PAID",
         });
       }

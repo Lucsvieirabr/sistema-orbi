@@ -26,7 +26,7 @@ import { useDebtStats } from "@/hooks/use-debts";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip } from "recharts";
-import { formatDateForDisplay, cn } from "@/lib/utils";
+import { formatDateForDisplay, cn, toDateKey } from "@/lib/utils";
 import { useChartPalette } from "@/lib/chart-colors";
 import { SubscriptionChart } from "./SubscriptionChart";
 import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
@@ -92,7 +92,7 @@ function Segmented<T extends string | number>({
             aria-pressed={isActive}
             onClick={() => onChange(option.value)}
             className={cn(
-              "inline-flex h-8 items-center gap-1.5 rounded-md px-2.5 text-xs font-medium",
+              "inline-flex h-11 items-center gap-1.5 rounded-md px-3 text-xs font-medium md:h-8 md:px-2.5",
               "transition-[background-color,color,box-shadow,transform] duration-200 ease-swift motion-safe:active:scale-[0.97]",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
               isActive ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground",
@@ -160,12 +160,13 @@ export function Dashboard({ onLogout }: DashboardProps) {
   );
 
   const upcomingTransactions = useMemo(() => {
-    const today = new Date();
-    const futureDate = new Date(today.getTime() + upcomingPeriod * 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const todayKey = toDateKey(now);
+    const limitKey = toDateKey(new Date(now.getFullYear(), now.getMonth(), now.getDate() + upcomingPeriod));
 
     return transactions
-      .filter((t) => t.status === "PENDING" && new Date(t.date) >= today && new Date(t.date) <= futureDate)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .filter((t) => t.status === "PENDING" && t.date.slice(0, 10) >= todayKey && t.date.slice(0, 10) <= limitKey)
+      .sort((a, b) => a.date.localeCompare(b.date))
       .slice(0, 10);
   }, [transactions, upcomingPeriod]);
 
@@ -242,7 +243,9 @@ export function Dashboard({ onLogout }: DashboardProps) {
   };
 
   const getAccountName = (transaction: any) =>
-    transaction.accounts?.name ?? transaction.credit_cards?.name ?? "—";
+    transaction.accounts?.name ??
+    transaction.credit_cards?.name ??
+    (transaction.credit_card_id ? "Cartão privado" : transaction.account_id ? "Conta privada" : "Sem conta");
 
   /* ---------------------------------------------------------------- loading */
 
@@ -274,7 +277,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
   return (
     <PageBody className="animate-fade-in space-y-6 md:space-y-8 lg:space-y-10">
       <PageHeader
-        eyebrow={<span className="capitalize">{monthLabel}</span>}
+        eyebrow={<span className="inline-block first-letter:uppercase">{monthLabel}</span>}
         title="Visão geral"
         description="Como o mês está fechando: o que já entrou, o que já saiu e o que ainda está por vir."
       />
@@ -444,7 +447,7 @@ export function Dashboard({ onLogout }: DashboardProps) {
             ) : (
               <ul className="divide-y divide-border-subtle">
                 {upcomingTransactions.map((transaction) => (
-                  <li key={transaction.id} className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[auto_1fr_auto_auto]">
+                  <li key={transaction.id} className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-3 first:pt-0 last:pb-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]">
                     <span
                       aria-hidden
                       className={cn(
@@ -555,13 +558,13 @@ export function Dashboard({ onLogout }: DashboardProps) {
                   return (
                     <li
                       key={transaction.id}
-                      className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[auto_1fr_auto_auto]"
+                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 py-4 first:pt-0 last:pb-0 sm:grid-cols-[auto_minmax(0,1fr)_auto_auto]"
                     >
                       <TransactionIcon type={transaction.type} />
 
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="truncate text-sm font-medium text-foreground" title={transaction.description}>
+                          <span className="min-w-0 max-w-full truncate text-sm font-medium text-foreground" title={transaction.description}>
                             {transaction.description}
                           </span>
                           {transaction.series_id && transaction.is_shared && <Badge variant="secondary">Rateio</Badge>}
@@ -574,13 +577,18 @@ export function Dashboard({ onLogout }: DashboardProps) {
                         </div>
                         <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
                           {author && <AuthorTag author={author} />}
-                          <p className="min-w-0 truncate text-xs text-muted-foreground">
-                            {truncateText(getAccountName(transaction), 18)}
-                            {transaction.categories?.name && ` · ${truncateText(transaction.categories.name, 18)}`}
-                            {transaction.people?.name && ` · ${truncateText(transaction.people.name, 18)}`}
-                            {" · "}
-                            <time dateTime={transaction.date}>{formatDateForDisplay(transaction.date)}</time>
-                            {isPaidSharedExpense && ` · minha parte ${formatCurrency(transaction.value)}`}
+                          {/* Data primeiro e fora do truncate: no telefone ela era cortada no fim da linha. */}
+                          <p className="flex min-w-0 items-center gap-1.5 text-xs text-muted-foreground">
+                            <time dateTime={transaction.date} className="shrink-0 tabular">
+                              {formatDateForDisplay(transaction.date)}
+                            </time>
+                            <span aria-hidden>·</span>
+                            <span className="min-w-0 truncate">
+                              {truncateText(getAccountName(transaction), 18)}
+                              {transaction.categories?.name && ` · ${truncateText(transaction.categories.name, 18)}`}
+                              {transaction.people?.name && ` · ${truncateText(transaction.people.name, 18)}`}
+                              {isPaidSharedExpense && ` · minha parte ${formatCurrency(transaction.value)}`}
+                            </span>
                           </p>
                         </div>
                       </div>

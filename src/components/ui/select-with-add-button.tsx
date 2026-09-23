@@ -3,7 +3,7 @@ import * as SelectPrimitive from "@radix-ui/react-select";
 import { Plus, ChevronDown, Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
@@ -30,7 +30,16 @@ export interface SelectWithAddButtonProps {
   placeholder?: string;
   children?: React.ReactNode;
   disabled?: boolean;
+  /** id do trigger, para associar um <Label htmlFor>. */
+  id?: string;
 }
+
+const ADD_LABELS: Record<SelectWithAddButtonProps["entityType"], string> = {
+  accounts: "Adicionar conta",
+  categories: "Adicionar categoria",
+  creditCards: "Adicionar cartão",
+  people: "Adicionar pessoa",
+};
 
 const EntityForms = {
   accounts: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
@@ -43,10 +52,10 @@ const EntityForms = {
 
     const onSubmit = async () => {
       if (!name.trim()) return;
-      const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+      const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newAccount = await createAccount({ name, type, initial_balance: initialBalance, color });
-        t.update({ title: "Sucesso", description: "Conta salva", duration: 2000 });
+        t.update({ title: "Conta salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setType("Corrente");
@@ -63,7 +72,8 @@ const EntityForms = {
     return (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova Conta</DialogTitle>
+          <DialogTitle>Nova conta</DialogTitle>
+          <DialogDescription className="sr-only">Informe nome e tipo da nova conta.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -71,9 +81,9 @@ const EntityForms = {
             <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
           </div>
           <div className="space-y-2">
-            <Label>Tipo</Label>
+            <Label htmlFor="account_type">Tipo</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
+              <SelectTrigger id="account_type">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -115,10 +125,10 @@ const EntityForms = {
 
     const onSubmit = async () => {
       if (!name.trim()) return;
-      const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+      const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newCategory = await createCategory({ name, category_type: categoryType, icon });
-        t.update({ title: "Sucesso", description: "Categoria salva", duration: 2000 });
+        t.update({ title: "Categoria salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         setCategoryType("expense");
@@ -133,7 +143,8 @@ const EntityForms = {
     return (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova Categoria</DialogTitle>
+          <DialogTitle>Nova categoria</DialogTitle>
+          <DialogDescription className="sr-only">Informe nome e tipo da nova categoria.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -144,7 +155,7 @@ const EntityForms = {
             <div className="space-y-2">
               <Label htmlFor="categoryType">Tipo</Label>
               <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
-                <SelectTrigger>
+                <SelectTrigger id="categoryType">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -177,7 +188,7 @@ const EntityForms = {
 
     const accountSelector = (
       <Select>
-        <SelectTrigger>
+        <SelectTrigger id="connected_account">
           <SelectValue placeholder="Selecione uma conta" />
         </SelectTrigger>
         <SelectContent>
@@ -194,7 +205,8 @@ const EntityForms = {
     return (
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Novo Cartão</DialogTitle>
+          <DialogTitle>Novo cartão</DialogTitle>
+          <DialogDescription className="sr-only">Informe os dados do novo cartão de crédito.</DialogDescription>
         </DialogHeader>
         <CreditCardForm
           onSuccess={(id) => {
@@ -215,10 +227,10 @@ const EntityForms = {
 
     const onSubmit = async () => {
       if (!name.trim()) return;
-      const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+      const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newPerson = await createPerson({ name });
-        t.update({ title: "Sucesso", description: "Pessoa salva", duration: 2000 });
+        t.update({ title: "Pessoa salva", duration: 2000 });
         onOpenChange(false);
         setName("");
         queryClient.invalidateQueries({ queryKey: ["people"] });
@@ -231,7 +243,8 @@ const EntityForms = {
     return (
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Nova Pessoa</DialogTitle>
+          <DialogTitle>Nova pessoa</DialogTitle>
+          <DialogDescription className="sr-only">Informe o nome da nova pessoa.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
@@ -253,7 +266,8 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   onValueChange,
   placeholder,
   children,
-  disabled
+  disabled,
+  id,
 }) => {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
@@ -408,6 +422,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
       }}>
         <PopoverTrigger asChild>
           <Button
+            id={id}
             variant="outline"
             role="combobox"
             aria-expanded={open}
@@ -474,8 +489,9 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
         className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
         onClick={handleAddClick}
         disabled={disabled}
+        aria-label={ADD_LABELS[entityType]}
       >
-        <Plus className="h-3 w-3" />
+        <Plus className="h-3 w-3" aria-hidden />
       </button>
 
       {/* Dialog separado */}

@@ -72,7 +72,9 @@ export function ViewModeToggle({ className }: { className?: string }) {
             tabIndex={active ? 0 : -1}
             onClick={() => setSpace(option.value)}
             className={cn(
-              "press relative z-10 inline-flex h-8 items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-medium sm:px-3",
+              "press relative z-10 inline-flex h-8 min-w-touch items-center justify-center gap-1.5 rounded-full px-2.5 text-xs font-medium sm:px-3",
+              // Área de toque de 44px sem engordar o trilho visual (WCAG 2.5.5).
+              "before:absolute before:inset-x-0 before:-inset-y-1.5 before:content-['']",
               "outline-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1",
               active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
             )}

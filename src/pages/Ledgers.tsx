@@ -247,7 +247,12 @@ function LedgerGrid({ ledgers, isMine }: { ledgers: Ledger[]; isMine: (id?: stri
               </CardContent>
               <CardFooter>
                 <Button variant="outline" size="sm" asChild className="w-full">
-                  <Link to={`/sistema/ledgers?evento=${ledger.id}`}>{settled ? "Ver fechamento" : "Abrir fechamento"}</Link>
+                  <Link
+                    to={`/sistema/ledgers?evento=${ledger.id}`}
+                    aria-label={`${settled ? "Ver fechamento" : "Abrir fechamento"} ${ledger.name}`}
+                  >
+                    {settled ? "Ver fechamento" : "Abrir fechamento"}
+                  </Link>
                 </Button>
               </CardFooter>
             </Card>

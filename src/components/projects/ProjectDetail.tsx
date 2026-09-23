@@ -624,7 +624,10 @@ function SplitCard({
               </span>
             </span>
             <Button variant="outline" size="sm" asChild>
-              <Link to={`/sistema/ledgers?evento=${project.ledgerId}`}>
+              <Link
+                to={`/sistema/ledgers?evento=${project.ledgerId}`}
+                aria-label={`Abrir fechamento ${project.ledgerName ?? project.name}`}
+              >
                 Abrir fechamento
                 <ArrowUpRight aria-hidden />
               </Link>

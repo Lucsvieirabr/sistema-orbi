@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useSubscriptions } from "@/hooks/use-subscriptions";
 import { Smartphone, Building2, Captions, Loader2, ExternalLink, Lock, Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useFeature } from "@/hooks/use-feature";
@@ -214,6 +214,7 @@ export function SubscriptionChart({ className }: SubscriptionChartProps) {
                <Captions className="h-4 w-4 text-muted-foreground" aria-hidden />
                Todas as assinaturas
              </DialogTitle>
+             <DialogDescription className="sr-only">Lista de assinaturas ativas e total mensal.</DialogDescription>
            </DialogHeader>
            <div className="flex-1 overflow-hidden flex flex-col gap-3 lg:gap-4">
              {/* Total */}

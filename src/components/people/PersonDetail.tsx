@@ -84,7 +84,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const handleMarkAsPaid = async (transactionId: string) => {
     try {
       await updateTransactionStatus(transactionId, 'PAID');
-      toast({ title: "Sucesso", description: "Transação marcada como paga", duration: 2000 });
+      toast({ title: "Transação marcada como paga", duration: 2000 });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message || "Não foi possível atualizar", duration: 3000, variant: "destructive" as any });
     }
@@ -93,7 +93,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const handlePayDebt = async (transactionId: string) => {
     try {
       await updateTransactionStatus(transactionId, 'PAID');
-      toast({ title: "Sucesso", description: "Dívida marcada como paga", duration: 2000 });
+      toast({ title: "Dívida marcada como paga", duration: 2000 });
     } catch (e: any) {
       toast({ title: "Erro", description: e.message || "Não foi possível marcar como paga", duration: 3000, variant: "destructive" as any });
     }
@@ -183,17 +183,19 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
                 variant="ghost"
                 size="sm"
                 onClick={handlePreviousMonth}
+                aria-label="Mês anterior"
                 className="h-7 w-7 p-0"
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="text-sm font-medium min-w-[160px] text-center capitalize">
+              <span className="text-sm font-medium min-w-[160px] text-center first-letter:uppercase">
                 {periodDisplay}
               </span>
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={handleNextMonth}
+                aria-label="Próximo mês"
                 className="h-7 w-7 p-0"
               >
                 <ChevronRight className="h-4 w-4" />

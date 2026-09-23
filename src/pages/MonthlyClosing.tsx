@@ -98,7 +98,12 @@ export default function MonthlyClosing() {
           {isFetching && !isLoading && <Spinner className="h-4 w-4" />}
           {hasProjects && (
             <div className="flex items-center gap-2 rounded-xl border border-border-subtle bg-surface-sunken px-3 py-2">
-              <Switch id="closing-include-projects" checked={includeProjects} onCheckedChange={toggleProjects} />
+              <Switch
+                id="closing-include-projects"
+                checked={includeProjects}
+                onCheckedChange={toggleProjects}
+                aria-label="Incluir projetos de vida"
+              />
               <Label htmlFor="closing-include-projects" className="cursor-pointer text-xs font-medium">
                 Incluir projetos de vida
               </Label>
@@ -300,10 +305,10 @@ function DreCard({ closing }: { closing: Closing }) {
               <th scope="col" className="px-5 py-2.5 text-left font-medium lg:px-6">
                 Linha
               </th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium capitalize">
+              <th scope="col" className="px-3 py-2.5 text-right font-medium first-letter:uppercase">
                 {monthName}
               </th>
-              <th scope="col" className="px-3 py-2.5 text-right font-medium capitalize">
+              <th scope="col" className="px-3 py-2.5 text-right font-medium first-letter:uppercase">
                 {previousName}
               </th>
               <th scope="col" className="px-3 py-2.5 text-right font-medium">
@@ -722,7 +727,7 @@ function TrendTooltip({ active, payload }: TooltipProps<number, string>) {
 
   return (
     <div className="min-w-[11rem] rounded-lg border border-border bg-popover px-3 py-2 text-xs shadow-md">
-      <p className="mb-1.5 font-medium capitalize text-foreground">{formatMonthName(point.month)}</p>
+      <p className="mb-1.5 font-medium text-foreground first-letter:uppercase">{formatMonthName(point.month)}</p>
       <dl className="space-y-1 tabular">
         <div className="flex justify-between gap-4">
           <dt className="text-muted-foreground">Receitas</dt>
@@ -771,7 +776,10 @@ function ProjectsIsolationNote({ closing }: { closing: Closing }) {
         </span>
       </p>
       <Button asChild variant="ghost" size="sm" className="shrink-0 self-start sm:self-auto">
-        <Link to={projects.items.length === 1 ? `/sistema/projects?projeto=${projects.items[0].id}` : "/sistema/projects"}>
+        <Link
+          to={projects.items.length === 1 ? `/sistema/projects?projeto=${projects.items[0].id}` : "/sistema/projects"}
+          aria-label={projects.items.length === 1 ? `Abrir projeto ${projects.items[0].name}` : undefined}
+        >
           {projects.items.length === 1 ? "Abrir projeto" : "Ver projetos"}
         </Link>
       </Button>

@@ -205,9 +205,19 @@ function toPayload(input: ProjectInput) {
 
 function useInvalidateProjects() {
   const queryClient = useQueryClient();
-  return (touchTransactions = false) => {
+  return (touchTransactions = false, deletedProjectId: string | null = null) => {
+    if (deletedProjectId) {
+      // Detalhe do projeto excluído não pode ser refeito: o overview devolve 403
+      // ("Projeto inexistente") e prendia a tela no projeto apagado.
+      const detailKey = [...PROJECTS_QUERY_KEY, "detail", deletedProjectId];
+      queryClient.cancelQueries({ queryKey: detailKey, exact: true });
+    }
     const tasks = [
-      queryClient.invalidateQueries({ queryKey: PROJECTS_QUERY_KEY }),
+      queryClient.invalidateQueries({
+        queryKey: PROJECTS_QUERY_KEY,
+        predicate: (query) =>
+          !deletedProjectId || !(query.queryKey[1] === "detail" && query.queryKey[2] === deletedProjectId),
+      }),
       queryClient.invalidateQueries({ queryKey: ["cash-forecast"] }),
       queryClient.invalidateQueries({ queryKey: ["monthly-closing"] }),
       queryClient.invalidateQueries({ queryKey: ["user-notifications"] }),
@@ -348,9 +358,12 @@ export function useProject(projectId: string | null) {
 
   const deleteProject = async () => {
     const userId = await requireUserId();
-    const { error } = await supabase.from("projects").delete().eq("id", requireId()).eq("user_id", userId);
+    const id = requireId();
+    const { data, error } = await supabase.from("projects").delete().eq("id", id).eq("user_id", userId).select("id");
     if (error) throw error;
-    await invalidate(true);
+    if (!data?.length) throw new Error("Projeto não encontrado ou sem permissão para excluir.");
+    // Sem await: a tela sai do detalhe já; as listas se atualizam em segundo plano.
+    void invalidate(true, id);
   };
 
   const archiveProject = async (): Promise<ProjectReport | null> => {

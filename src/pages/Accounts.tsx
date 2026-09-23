@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { Label } from "@/components/ui/label";
@@ -58,28 +58,47 @@ function AccountsContent() {
     localStorage.setItem("accounts:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Conta" : "Nova Conta"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar conta" : "Nova conta"), [editingId]);
+
+  const [nameError, setNameError] = useState<string | undefined>();
+
+  // Estado de edição é limpo em TODO fechamento (Esc, X, overlay, save).
+  // Sem isso, "Nova conta" depois de cancelar uma edição reabria "Editar conta"
+  // e o save sobrescrevia a conta anterior.
+  const resetForm = () => {
+    setNameError(undefined);
+    setEditingId(null);
+    setName("");
+    setType("Corrente");
+    setInitialBalance(0);
+    setColor("#4f46e5");
+  };
+
+  const onOpenChange = (next: boolean) => {
+    setOpen(next);
+    if (!next) resetForm();
+  };
 
   const onSubmit = async () => {
-    if (!name.trim()) return;
+    if (!name.trim()) {
+      setNameError("Dê um nome à conta.");
+      return;
+    }
     const payload = { name, type, initial_balance: initialBalance, color };
-    const t = toast({ title: "Salvando...", description: "Aguarde", duration: 2000 });
+    const t = toast({ title: "Salvando…", duration: 2000 });
     try {
       if (editingId) {
         await updateAccount(editingId, payload);
       } else {
         await createAccount(payload);
       }
-      t.update({ title: "Sucesso", description: "Conta salva", duration: 2000 });
+      t.update({ title: editingId ? "Conta atualizada" : "Conta criada", description: undefined, duration: 2500 });
     } catch (e) {
       t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+      return;
     }
     setOpen(false);
-    setEditingId(null);
-    setName("");
-    setType("Corrente");
-    setInitialBalance(0);
-    setColor("#4f46e5");
+    resetForm();
     queryClient.invalidateQueries({ queryKey: ["accounts"] });
     queryClient.invalidateQueries({ queryKey: ["balances"] });
   };
@@ -105,8 +124,13 @@ function AccountsContent() {
       toast({ title: "Somente leitura", description: PARTNER_READ_ONLY_MESSAGE, variant: "destructive" as any });
       return;
     }
-    // show custom modal in real app; MVP direct
-    await deleteAccount(id);
+    try {
+      await deleteAccount(id);
+      toast({ title: "Conta excluída", duration: 2500 });
+    } catch {
+      toast({ title: "Erro", description: "Não foi possível excluir a conta", variant: "destructive" as any });
+      return;
+    }
     queryClient.invalidateQueries({ queryKey: ["accounts"] });
     queryClient.invalidateQueries({ queryKey: ["balances"] });
   };
@@ -120,7 +144,7 @@ function AccountsContent() {
   ) || [];
 
   const accountDialog = (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogTrigger asChild>
         <Button className="w-full sm:w-auto">
           <Plus className="h-4 w-4" />
@@ -130,16 +154,33 @@ function AccountsContent() {
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
+          <DialogDescription className="sr-only">Preencha os campos abaixo e salve para confirmar.</DialogDescription>
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Conta corrente" />
+            <Input
+              id="name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              placeholder="Conta corrente"
+              required
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? "name-error" : undefined}
+            />
+            {nameError && (
+              <p id="name-error" className="text-xs text-destructive">
+                {nameError}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label>Tipo</Label>
+            <Label htmlFor="account_type">Tipo</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger>
+              <SelectTrigger id="account_type">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -155,8 +196,9 @@ function AccountsContent() {
             <NumericInput
               id="initial_balance"
               currency
+              allowNegative
               value={initialBalance}
-              onChange={setInitialBalance}
+              onChange={(v) => setInitialBalance(v ?? 0)}
               placeholder="0,00"
             />
           </div>

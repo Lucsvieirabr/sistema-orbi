@@ -3,7 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { SelectItem } from "@/components/ui/select";
 import { SelectWithAddButton } from "@/components/ui/select-with-add-button";
@@ -21,7 +21,8 @@ import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { OwnerMark } from "@/components/family/OwnerMark";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
-import { cn } from "@/lib/utils";
+import { cn, deleteErrorMessage } from "@/lib/utils";
+import { formatPct } from "@/components/planning/planning-utils";
 import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 
 export default function Cards() {
@@ -31,6 +32,9 @@ export default function Cards() {
     </FeaturePageGuard>
   );
 }
+
+/** 0,2% em vez de "0%" quando há algo comprometido num limite alto. */
+const limitPct = (pct: number) => formatPct(pct, { digits: pct > 0 && pct < 10 ? 1 : 0 });
 
 function CardsContent() {
   const { isMine } = useFamilyGroup();
@@ -66,7 +70,7 @@ function CardsContent() {
     localStorage.setItem("credit_cards:view", v);
   };
 
-  const title = useMemo(() => (editingId ? "Editar Cartão" : "Novo Cartão"), [editingId]);
+  const title = useMemo(() => (editingId ? "Editar cartão" : "Novo cartão"), [editingId]);
 
   const onEdit = (id: string) => {
     const card = creditCards.find((c) => c.id === id);
@@ -104,12 +108,13 @@ function CardsContent() {
       return;
     }
     try {
-      toast({ title: "Excluindo...", description: "Aguarde" });
       await deleteCreditCard(id);
-      toast({ title: "Sucesso", description: "Cartão excluído" });
+      toast({ title: "Cartão excluído", description: card ? `"${card.name}" foi removido.` : undefined });
       queryClient.invalidateQueries({ queryKey: ["credit_cards"] });
-    } catch (e: any) {
-      toast({ title: "Erro", description: e.message || "Não foi possível excluir", variant: "destructive" });
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      queryClient.invalidateQueries({ queryKey: ["monthly-transactions"] });
+    } catch (e: unknown) {
+      toast({ title: "Não foi possível excluir", description: deleteErrorMessage(e), variant: "destructive" });
     }
   };
 
@@ -222,7 +227,8 @@ function CardsContent() {
   const CreditCardItem = ({ card }: { card: any }) => {
     const { data: usageData } = useCardUsage({ cardId: card.id, statementDay: card.statement_date });
     const usage = usageData?.used || 0;
-    const pct = card.limit > 0 ? (usage / card.limit) * 100 : 0;
+    const committed = usageData?.committed || 0;
+    const pct = card.limit > 0 ? (committed / card.limit) * 100 : 0;
     const tone = usageTone(pct);
     const linkedAccount = accountsWithBalance.find((acc) => acc.id === card.connected_account_id);
 
@@ -261,9 +267,9 @@ function CardsContent() {
               <div className={cn(meterBar, meterColor[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
             </div>
             <div className="mt-1.5 flex items-baseline justify-between gap-3 text-xs">
-              <span className={cn("tabular font-medium", meterText[tone])}>{pct.toFixed(0)}% do limite</span>
+              <span className={cn("tabular font-medium", meterText[tone])}>{limitPct(pct)} do limite</span>
               <span className="tabular text-muted-foreground">
-                {formatCurrency(Math.max(card.limit - usage, 0))} disponível
+                {formatCurrency(Math.max(card.limit - committed, 0))} disponível
               </span>
             </div>
           </div>
@@ -308,7 +314,8 @@ function CardsContent() {
   const CreditCardListItem = ({ card }: { card: any }) => {
     const { data: usageData } = useCardUsage({ cardId: card.id, statementDay: card.statement_date });
     const usage = usageData?.used || 0;
-    const pct = card.limit > 0 ? (usage / card.limit) * 100 : 0;
+    const committed = usageData?.committed || 0;
+    const pct = card.limit > 0 ? (committed / card.limit) * 100 : 0;
     const tone = usageTone(pct);
 
     return (
@@ -327,7 +334,7 @@ function CardsContent() {
               <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-sunken">
                 <div className={cn(meterBar, meterColor[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
               </div>
-              <span className={cn("text-xs tabular font-medium", meterText[tone])}>{pct.toFixed(0)}%</span>
+              <span className={cn("text-xs tabular font-medium", meterText[tone])}>{limitPct(pct)}</span>
               <span className="hidden text-xs tabular text-muted-foreground sm:inline">
                 de {formatCurrency(card.limit)}
               </span>
@@ -463,6 +470,7 @@ function CardsContent() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>{title}</DialogTitle>
+            <DialogDescription className="sr-only">Preencha os campos abaixo e salve para confirmar.</DialogDescription>
           </DialogHeader>
           <CreditCardForm
             editingId={editingId}

@@ -106,6 +106,12 @@ function SignedOutRedirect({ stage }: { stage: SessionStage }) {
   return <Navigate to={loginPath(`${location.pathname}${location.search}`)} replace />;
 }
 
+/** Atalho legado (`/ledgers?aba=contratos`) sem perder query nem hash no caminho. */
+function RedirectKeepQuery({ to }: { to: string }) {
+  const { search, hash } = useLocation();
+  return <Navigate to={`${to}${search}${hash}`} replace />;
+}
+
 function LoginRoute({ stage }: { stage: SessionStage }) {
   const [searchParams] = useSearchParams();
 
@@ -241,13 +247,13 @@ const App = () => {
               <Route path={AUTH_ROUTES.login} element={<LoginRoute stage={stage} />} />
 
               {/* Atalhos curtos dos módulos de planejamento. */}
-              <Route path="/budgets" element={<Navigate to="/sistema/budgets" replace />} />
-              <Route path="/goals" element={<Navigate to="/sistema/goals" replace />} />
-              <Route path="/analytics" element={<Navigate to="/sistema/analytics" replace />} />
-              <Route path="/forecast" element={<Navigate to="/sistema/forecast" replace />} />
-              <Route path="/ledgers" element={<Navigate to="/sistema/ledgers" replace />} />
-              <Route path="/projects" element={<Navigate to="/sistema/projects" replace />} />
-              <Route path="/inflation" element={<Navigate to="/sistema/inflation" replace />} />
+              <Route path="/budgets" element={<RedirectKeepQuery to="/sistema/budgets" />} />
+              <Route path="/goals" element={<RedirectKeepQuery to="/sistema/goals" />} />
+              <Route path="/analytics" element={<RedirectKeepQuery to="/sistema/analytics" />} />
+              <Route path="/forecast" element={<RedirectKeepQuery to="/sistema/forecast" />} />
+              <Route path="/ledgers" element={<RedirectKeepQuery to="/sistema/ledgers" />} />
+              <Route path="/projects" element={<RedirectKeepQuery to="/sistema/projects" />} />
+              <Route path="/inflation" element={<RedirectKeepQuery to="/sistema/inflation" />} />
 
               {/* Rota de login admin */}
               <Route 

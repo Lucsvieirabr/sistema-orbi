@@ -1,6 +1,7 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { isClientError } from "@/lib/query-client";
 import { claimFamilyInvites } from "@/lib/family-access";
 
 export type SubscriptionAccess = "allowed" | "blocked" | "pending_payment" | "no_plan" | "unauthenticated";
@@ -78,7 +79,7 @@ export function useSubscriptionStatus() {
       return (data as unknown as SubscriptionStatusPayload) ?? EMPTY;
     },
     staleTime: 60 * 1000,
-    retry: 1,
+    retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
   });
 }
 
