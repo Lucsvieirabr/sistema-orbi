@@ -110,6 +110,26 @@ export function ProjectDetail({ projectId, onDeleted }: { projectId: string; onD
     );
   }
 
+  if (!error && data === null) {
+    return (
+      <PageBody>
+        <EmptyState
+          icon={FolderKanban}
+          title="Projeto não encontrado"
+          description="Este projeto foi excluído ou o link está incorreto."
+          action={
+            <Button variant="outline" asChild>
+              <Link to="/sistema/projects">
+                <ArrowLeft aria-hidden />
+                Voltar aos projetos
+              </Link>
+            </Button>
+          }
+        />
+      </PageBody>
+    );
+  }
+
   if (error || !data) {
     return (
       <PageBody>

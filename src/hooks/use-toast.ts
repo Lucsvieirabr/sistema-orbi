@@ -3,6 +3,10 @@ import * as React from "react";
 import type { ToastActionElement, ToastProps } from "@/components/ui/toast";
 
 const TOAST_LIMIT = 1;
+// Piso de leitura: vários fluxos passavam 2000ms e o feedback sumia antes de
+// ser visto. Erros e ações seguem o valor pedido se for maior.
+const MIN_DURATION = 4000;
+const readable = (duration?: number) => (duration === undefined ? undefined : Math.max(duration, MIN_DURATION));
 const TOAST_REMOVE_DELAY = 1000000;
 
 type ToasterToast = ToastProps & {
@@ -140,7 +144,10 @@ function toast({ ...props }: Toast) {
   const update = (props: ToasterToast) =>
     dispatch({
       type: "UPDATE_TOAST",
-      toast: { ...props, id },
+      // open: true — o "Salvando…" (2s) já podia ter expirado quando a
+      // requisição volta; sem reabrir, o update de sucesso caía num toast
+      // fechado e nunca aparecia.
+      toast: { ...props, ...(props.duration !== undefined && { duration: readable(props.duration) }), id, open: true },
     });
   const dismiss = () => dispatch({ type: "DISMISS_TOAST", toastId: id });
 
@@ -148,6 +155,7 @@ function toast({ ...props }: Toast) {
     type: "ADD_TOAST",
     toast: {
       ...props,
+      duration: readable(props.duration),
       id,
       open: true,
       onOpenChange: (open) => {

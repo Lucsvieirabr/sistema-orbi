@@ -6,12 +6,16 @@ import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
 
+// date-fns ptBR abrevia sábado como "sab"; nomes curtos fixos com acento.
+const WEEKDAYS_SHORT = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
+
 export type CalendarProps = React.ComponentProps<typeof DayPicker>;
 
 function Calendar({ className, classNames, showOutsideDays = true, ...props }: CalendarProps) {
   return (
     <DayPicker
       locale={ptBR}
+      formatters={{ formatWeekdayName: (date) => WEEKDAYS_SHORT[date.getDay()] }}
       showOutsideDays={showOutsideDays}
       className={cn("p-3", className)}
       classNames={{

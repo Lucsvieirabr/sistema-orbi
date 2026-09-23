@@ -56,6 +56,7 @@ import ResetPassword from "@/pages/auth/ResetPassword";
 import MfaChallenge from "@/pages/auth/MfaChallenge";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
 import { stageFromSession, type SessionStage } from "@/lib/auth/assurance";
+import { bootSession } from "@/lib/auth/session";
 import { AUTH_ROUTES, loginPath, mfaChallengePath, safeInternalPath } from "@/lib/auth/redirect";
 import { syncAuthUser } from "@/hooks/use-current-user";
 import { queryClient } from "@/lib/query-client";
@@ -163,11 +164,12 @@ const App = () => {
   useEffect(() => {
     let isMounted = true;
     
-    // Verificar sessão inicial
-    supabase.auth.getSession().then(({ data }) => {
+    // Sessão inicial CONFIRMADA no servidor (e renovada se preciso) antes de
+    // montar qualquer rota: nenhuma query sai com token vencido/recusado.
+    bootSession().then((session) => {
       if (!isMounted) return;
-      syncAuthUser(data.session);
-      setStage(stageFromSession(data.session));
+      syncAuthUser(session);
+      setStage(stageFromSession(session));
       setAuthReady(true);
     });
 

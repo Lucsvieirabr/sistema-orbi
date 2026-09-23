@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { useViewMode } from "@/hooks/use-view-mode";
 import { toNullableNumber, toNumber } from "@/components/planning/planning-utils";
-import { assertUuid, roundCurrency } from "@/lib/utils";
+import { assertUuid, isUuid, roundCurrency } from "@/lib/utils";
 import { goalExecuteSchema, parseOrThrow, projectSchema, uuidSchema } from "@/lib/validation/schemas";
 
 export type ProjectKind = "event" | "trip" | "purchase" | "home" | "family" | "other";
@@ -294,11 +294,15 @@ export function useProject(projectId: string | null) {
   const query = useQuery({
     queryKey: [...PROJECTS_QUERY_KEY, "detail", projectId],
     enabled: Boolean(projectId),
-    queryFn: async (): Promise<ProjectOverview> => {
-      const { data, error } = await supabase.rpc("orbi_project_overview", {
-        p_project_id: assertUuid(projectId, "project_id"),
-      });
-      if (error) throw error;
+    queryFn: async (): Promise<ProjectOverview | null> => {
+      // Link quebrado/antigo (?projeto=<uuid inexistente>): `null` = estado
+      // "projeto não encontrado", sem retry (igual Cartão e Evento).
+      if (!isUuid(projectId)) return null;
+      const { data, error } = await supabase.rpc("orbi_project_overview", { p_project_id: projectId });
+      if (error) {
+        if (error.code === "42501" && /inexistente/i.test(error.message ?? "")) return null;
+        throw error;
+      }
       const raw: any = data ?? {};
       const project = raw.project ?? {};
       return {

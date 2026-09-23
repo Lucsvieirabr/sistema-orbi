@@ -604,7 +604,7 @@ export function InstallmentForm({
             <div className="flex items-center gap-2 mb-2">
               <DollarSign className="h-4 w-4 text-primary" />
               <span className="text-sm font-medium text-primary">
-                Resumo das Parcelas
+                Resumo das parcelas
               </span>
             </div>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-center">
@@ -624,13 +624,13 @@ export function InstallmentForm({
                 <div className="text-lg font-semibold text-primary">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PAID').reduce((sum, i) => sum + i.value, 0))}
                 </div>
-                <div className="text-xs text-muted-foreground">Valor Pago</div>
+                <div className="text-xs text-muted-foreground">Valor pago</div>
               </div>
               <div className="bg-card rounded-lg p-2 border border-info-soft">
                 <div className="text-lg font-semibold text-warning">
                   {formatCurrencyBRL(installmentsList.filter(i => i.status === 'PENDING').reduce((sum, i) => sum + i.value, 0))}
                 </div>
-                <div className="text-xs text-muted-foreground">Valor Pendente</div>
+                <div className="text-xs text-muted-foreground">Valor pendente</div>
               </div>
             </div>
           </CardContent>

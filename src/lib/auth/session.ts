@@ -1,4 +1,4 @@
-import type { Session } from "@supabase/supabase-js";
+import { isAuthRetryableFetchError, type Session } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 
@@ -69,4 +69,32 @@ export async function requireSession(): Promise<Session | null> {
 /** `true` quando existe sessão utilizável agora. */
 export async function hasLiveSession(): Promise<boolean> {
   return (await requireSession()) !== null;
+}
+
+/**
+ * Sessão pronta para a PRIMEIRA query do app (boot e recuperação de 401).
+ *
+ * `getSession()` só renova quando o `expires_at` local diz que venceu. De um
+ * dia para o outro isso não basta: relógio da máquina adiantado/atrasado,
+ * sessão revogada no GoTrue ou chave de assinatura rotacionada deixam um JWT
+ * que o cliente acha válido e o PostgREST recusa (401). O shell montava,
+ * disparava as queries com esse token e só depois caía no /login.
+ *
+ * Aqui o servidor confirma o token (`getUser`) e, se ele for recusado, a
+ * renovação acontece ANTES de liberar as rotas. Refresh recusado = sessão
+ * morta de verdade → `null` (login direto, sem rajada de 401). Falha de rede
+ * não derruba ninguém: segue com a sessão local.
+ */
+export async function bootSession(): Promise<Session | null> {
+  const session = await requireSession();
+  if (!session) return null;
+
+  const { error } = await supabase.auth.getUser(session.access_token);
+  if (!error) return (await readSession()) ?? session;
+  if (isAuthRetryableFetchError(error)) return session;
+
+  // `getUser` pode ter limpado o storage (session_not_found): o refresh token
+  // vai explícito.
+  const { data } = await supabase.auth.refreshSession({ refresh_token: session.refresh_token });
+  return data.session ?? null;
 }

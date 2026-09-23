@@ -40,7 +40,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
 import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui/page";
 import { useMonthlyTransactions } from "@/hooks/use-monthly-transactions";
-import { assertOwnTransaction, SHARED_EDIT_DENIED_MESSAGE, TRANSACTION_NOT_FOUND_MESSAGE } from "@/lib/family-access";
+import { assertOwnTransaction, PARTNER_DELETE_MESSAGE, SHARED_EDIT_DENIED_MESSAGE, TRANSACTION_NOT_FOUND_MESSAGE } from "@/lib/family-access";
 import {
   sanitizeSingleLine,
   moneySchema,
@@ -3032,24 +3032,39 @@ function MonthlyStatementContent() {
                                   </Button>
                                 </FeatureGuard>
                                 <FeatureGuard feature="transacoes_excluir">
-                                  <ConfirmationDialog
-                                    title="Confirmar exclusão"
-                                    description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
-                                    confirmText="Excluir"
-                                    onConfirm={() =>
-                                      deleteTransaction(transaction.id)
-                                    }
-                                    variant="destructive"
-                                  >
-                                    <Button
-                                      size="icon"
-                                      variant="outline"
-                                      aria-label={`Excluir ${transaction.description}`}
-                                      className="h-11 w-11 text-destructive hover:bg-destructive-soft hover:text-destructive lg:h-8 lg:w-8"
+                                  {isMine(transaction.user_id) ? (
+                                    <ConfirmationDialog
+                                      title="Confirmar exclusão"
+                                      description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
+                                      confirmText="Excluir"
+                                      onConfirm={() =>
+                                        deleteTransaction(transaction.id)
+                                      }
+                                      variant="destructive"
                                     >
-                                      <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                  </ConfirmationDialog>
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        aria-label={`Excluir ${transaction.description}`}
+                                        className="h-11 w-11 text-destructive hover:bg-destructive-soft hover:text-destructive lg:h-8 lg:w-8"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </ConfirmationDialog>
+                                  ) : (
+                                    // Plano Casal: excluir é só de quem lançou (RLS). Igual a Cartões.
+                                    <span title={PARTNER_DELETE_MESSAGE} onClick={(event) => event.stopPropagation()}>
+                                      <Button
+                                        size="icon"
+                                        variant="outline"
+                                        disabled
+                                        aria-label={`Excluir ${transaction.description} (só quem lançou pode excluir)`}
+                                        className="h-11 w-11 text-destructive lg:h-8 lg:w-8"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </span>
+                                  )}
                                 </FeatureGuard>
                               </div>
                             </div>
@@ -3478,7 +3493,7 @@ function MonthlyStatementContent() {
                 {/* Primeira linha: Método de Pagamento (apenas para gastos fixos) */}
                 {fixedType === "expense" && (
                   <div className="space-y-1">
-                    <Label className="text-sm">Método de Pagamento</Label>
+                    <Label className="text-sm">Método de pagamento</Label>
                     <div className="flex gap-2" role="group" aria-label="Método de pagamento">
                       <Button
                         type="button"
@@ -3730,7 +3745,7 @@ function MonthlyStatementContent() {
             {/* Método de Pagamento (apenas para gastos) */}
             {type === "expense" && (
               <div className="space-y-1">
-                <Label className="text-sm">Método de Pagamento</Label>
+                <Label className="text-sm">Método de pagamento</Label>
                 {editingId ? (
                   <div className="bg-surface-sunken border border-border rounded-lg p-3">
                     <div className="flex gap-2 mt-3">
@@ -3845,7 +3860,7 @@ function MonthlyStatementContent() {
                     <>
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-destructive font-medium">
-                          Parcelas Configuradas:
+                          Parcelas configuradas:
                         </span>
                         <span className="text-destructive font-semibold">
                           {installmentData.installments.length} parcelas
@@ -3880,7 +3895,7 @@ function MonthlyStatementContent() {
                     <>
                       <div className="flex items-center justify-between text-sm mb-2">
                         <span className="text-destructive font-medium">
-                          Valor por Parcela:
+                          Valor por parcela:
                         </span>
                         <span className="text-destructive font-semibold">
                           {formatCurrencyBRL(installmentValue)}
@@ -3903,7 +3918,7 @@ function MonthlyStatementContent() {
                       <Edit className="h-4 w-4" />
                       {installmentData.installments.length > 0
                         ? "Editar parcelas"
-                        : "Gerar Série de Parcelas Personalizada"}
+                        : "Gerar série de parcelas personalizada"}
                     </Button>
                   </div>
                 </div>
@@ -4093,7 +4108,7 @@ function MonthlyStatementContent() {
                         <h3 className="text-sm font-semibold text-foreground">
                           {isFixedSeries
                             ? "Edição geral"
-                            : "Edição de Parcelas"}
+                            : "Edição de parcelas"}
                         </h3>
                         {!isFixedSeries && (
                           <p className="text-xs text-muted-foreground">
@@ -4106,7 +4121,7 @@ function MonthlyStatementContent() {
                     {/* Botão de exclusão */}
                     <ConfirmationDialog
                       title={`Confirmar exclusão ${
-                        isFixedSeries ? "da Transação Fixa" : "de Parcelas"
+                        isFixedSeries ? "da transação fixa" : "de parcelas"
                       }`}
                       description={`Tem certeza que deseja excluir ${
                         isFixedSeries
@@ -4270,7 +4285,7 @@ function MonthlyStatementContent() {
             )}
           </div>
           <DialogFooter>
-            {editingId && (
+            {editingId && isMine(editingOwnerId) && (
               <ConfirmationDialog
                 title="Confirmar exclusão"
                 description="Tem certeza que deseja excluir esta transação? Esta ação não pode ser desfeita."
@@ -4504,7 +4519,7 @@ function MonthlyStatementContent() {
               >
                 {createInstallmentSeriesMutation.isPending
                   ? "Salvando..."
-                  : "Salvar Parcelas"}
+                  : "Salvar parcelas"}
               </Button>
             )}
           </DialogFooter>

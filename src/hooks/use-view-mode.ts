@@ -5,6 +5,7 @@ import { getCachedAuthUser } from "@/hooks/use-current-user";
  */
 import { useSyncExternalStore } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { queryClient } from "@/lib/query-client";
 
 export type ViewMode = "personal" | "couple";
 
@@ -56,7 +57,19 @@ export async function getScopeUserIds(): Promise<string[]> {
   const me = user?.id ? [user.id] : [];
   if (currentMode !== "couple" || me.length === 0) return me;
 
-  const { data, error } = await (supabase as any).rpc("orbi_family_user_ids");
-  if (error || !Array.isArray(data) || data.length === 0) return me;
-  return data as string[];
+  // Mesmo resultado a cada mês navegado: cacheia. Prefixo "family-group" faz
+  // entrar/sair do grupo (invalidate em use-family-group) renovar a lista.
+  try {
+    return await queryClient.fetchQuery({
+      queryKey: ["family-group", "user-ids", me[0]],
+      queryFn: async () => {
+        const { data, error } = await (supabase as any).rpc("orbi_family_user_ids");
+        if (error) throw error;
+        return Array.isArray(data) && data.length > 0 ? (data as string[]) : me;
+      },
+      staleTime: 5 * 60 * 1000,
+    });
+  } catch {
+    return me;
+  }
 }

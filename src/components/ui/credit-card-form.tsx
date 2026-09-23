@@ -117,7 +117,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
     <>
       <div className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="name">Nome do Cartão</Label>
+          <Label htmlFor="name">Nome do cartão</Label>
           <Input
             id="name"
             value={name}
@@ -196,7 +196,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
         </div>
         {accountSelector && (
           <div className="space-y-2">
-            <Label htmlFor="connected_account">Conta Conectada (Opcional)</Label>
+            <Label htmlFor="connected_account">Conta conectada (opcional)</Label>
             {React.cloneElement(accountSelector as React.ReactElement, {
               id: "connected_account",
               value: connectedAccountId,
