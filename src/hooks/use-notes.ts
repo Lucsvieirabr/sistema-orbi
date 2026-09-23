@@ -150,9 +150,15 @@ export const useNotes = () => {
       if (error) throw error;
       return data;
     },
-    onSuccess: async () => {
+    onSuccess: async (_data, { is_completed }) => {
       await queryClient.invalidateQueries({ queryKey: ["notes"] });
       await queryClient.refetchQueries({ queryKey: ["notes"] });
+      toast({
+        title: is_completed ? "Nota concluída" : "Nota reaberta",
+        description: is_completed
+          ? "A nota foi marcada como feita."
+          : "A nota voltou para pendentes.",
+      });
     },
     onError: (error: Error) => {
       toast({

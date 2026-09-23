@@ -266,7 +266,7 @@ function AccountsContent() {
         eyebrow="Saldos"
         icon={Wallet}
         title="Contas"
-        description="Onde o dinheiro está. Cada conta soma seu saldo inicial às transações já lançadas."
+        description="Onde o dinheiro está. Cada conta soma seu saldo inicial às transações já pagas. Pendentes só entram quando marcadas como pagas."
         actions={
           <FeatureGuard feature="contas_criar">
             <LimitGuard limit="max_contas" currentValue={accountsWithBalance?.length || 0}>

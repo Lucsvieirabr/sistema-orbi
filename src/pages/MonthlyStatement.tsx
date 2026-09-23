@@ -1353,7 +1353,7 @@ function MonthlyStatementContent() {
             await createInstallmentSeriesMutation.mutateAsync({
               description,
               type: type as "income" | "expense",
-              account_id: accountId,
+              account_id: paymentMethod === "credit" && type === "expense" ? null : accountId,
               category_id: categoryId,
               payment_method: paymentMethod,
               credit_card_id: creditCardId,
@@ -1369,7 +1369,7 @@ function MonthlyStatementContent() {
             await createInstallmentSeriesMutation.mutateAsync({
               description,
               type: type as "income" | "expense",
-              account_id: accountId,
+              account_id: paymentMethod === "credit" && type === "expense" ? null : accountId,
               category_id: categoryId,
               payment_method: paymentMethod,
               credit_card_id: creditCardId,
@@ -1615,7 +1615,7 @@ function MonthlyStatementContent() {
           // Campos críticos (com recálculo de saldo)
           value: newData.value,
           date: newData.date,
-          account_id: newData.account_id,
+          account_id: immutableFields.credit_card_id ? null : newData.account_id,
 
           // Campos imutáveis preservados
           type: immutableFields.type,
@@ -2512,14 +2512,15 @@ function MonthlyStatementContent() {
   }, [pendingExpenseTransactions]);
 
   const getAccountName = (transaction: any) => {
-    if (transaction.account_id && transaction.accounts?.name) {
-      return transaction.accounts.name;
-    }
+    // Compra no cartão: o cartão manda (linhas antigas podem ter account_id sobrando).
     if (transaction.credit_card_id && transaction.credit_cards?.name) {
       return transaction.credit_cards.name;
     }
-    // Conta/cartão do parceiro não é legível (RLS) e conta excluída zera o vínculo.
     if (transaction.credit_card_id) return "Cartão privado";
+    if (transaction.account_id && transaction.accounts?.name) {
+      return transaction.accounts.name;
+    }
+    // Conta/cartão do parceiro não é legível (RLS) e conta excluída zera o vínculo.
     if (transaction.account_id) return "Conta privada";
     return "Sem conta";
   };
@@ -3442,6 +3443,7 @@ function MonthlyStatementContent() {
             ) : type === "expense" ? (
               /* Gasto: Conta + Categoria + Valor (método de pagamento será tratado abaixo) */
               <div className="grid grid-cols-1 gap-3">
+                {paymentMethod !== "credit" && (
                 <div className="space-y-1">
                   <Label className="text-xs lg:text-sm" htmlFor="tx-conta-11">Conta</Label>
                   <SelectWithAddButton
@@ -3458,6 +3460,7 @@ function MonthlyStatementContent() {
                     ))}
                   </SelectWithAddButton>
                 </div>
+                )}
                 <div className="space-y-1">
                   <Label className="text-sm" htmlFor="tx-categoria-12">Categoria</Label>
                   <SelectWithAddButton
@@ -3784,6 +3787,7 @@ function MonthlyStatementContent() {
                         setCreditCardId(null);
                         setInstallments(null);
                         setStatus("PAID");
+                        setAccountId((prev) => prev ?? ownAccounts[0]?.id);
                       }}
                       className="h-11 flex-1 text-xs lg:h-9"
                     >

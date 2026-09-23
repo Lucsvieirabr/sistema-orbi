@@ -454,6 +454,8 @@ function ParticipantsCard({
     setAdding(true);
     try {
       await onAdd(personId, 1);
+      const name = available.find((person) => person.id === personId)?.name;
+      notifyPlanningSuccess("Participante adicionado", name ? `${name} entrou no evento.` : undefined);
       setPersonId("");
     } catch (err) {
       notifyPlanningError("Não foi possível adicionar", err);
@@ -636,6 +638,7 @@ function EntriesCard({
     setSaving(true);
     try {
       await onAdd({ personId, description: description.trim(), value, date });
+      notifyPlanningSuccess("Gasto registrado", description.trim());
       setDescription("");
       setValue(null);
     } catch (err) {
