@@ -303,7 +303,9 @@ export function useProject(projectId: string | null) {
         if (error.code === "42501" && /inexistente/i.test(error.message ?? "")) return null;
         throw error;
       }
-      const raw: any = data ?? {};
+      // RPC nova devolve NULL (200) para projeto excluído/de outro grupo.
+      if (data == null) return null;
+      const raw: any = data;
       const project = raw.project ?? {};
       return {
         project: {

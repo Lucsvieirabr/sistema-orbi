@@ -82,12 +82,15 @@ export function AppHeader({
         <SearchPopover />
         <NotificationsBell />
         {rightSlot}
-        <Button variant="ghost" size="icon" onClick={onLogout} aria-label="Sair" className="lg:hidden">
-          <LogOut className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={onLogout} className="hidden gap-2 lg:inline-flex">
-          <LogOut className="h-4 w-4" />
-          Sair
+        {/* Um botão só: ícone abaixo de `lg`, ícone + texto a partir dele. */}
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLogout}
+          className="gap-2 lg:h-9 lg:w-auto lg:rounded-md lg:px-3 lg:text-[0.8125rem]"
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          <span className="sr-only lg:not-sr-only">Sair</span>
         </Button>
       </div>
     </header>

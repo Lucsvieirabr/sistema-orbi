@@ -322,7 +322,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, us
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2 text-base lg:text-lg">
             <Brain className="h-5 w-5 text-primary" />
-            Importar Extrato Bancário com IA
+            Importar extrato bancário com IA
           </DialogTitle>
           <DialogDescription className="text-xs lg:text-sm text-muted-foreground">
             Selecione o extrato ou a fatura do seu banco em CSV, OFX, PDF ou imagem. Nossa IA analisará e categorizará automaticamente as transações.

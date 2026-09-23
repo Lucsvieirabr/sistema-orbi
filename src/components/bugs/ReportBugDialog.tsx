@@ -102,7 +102,7 @@ export function ReportBugDialog({ variant = "full" }: ReportBugDialogProps = {})
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Bug className="h-5 w-5 text-warning" />
-            Reportar Defeito ou Sugestão
+            Reportar defeito ou sugestão
           </DialogTitle>
           <DialogDescription>
             Ajude-nos a melhorar! Descreva o problema ou sua sugestão.

@@ -317,7 +317,7 @@ function ContractEditor({
     }
   };
 
-  const personName = people?.find((person) => person.id === personId)?.name ?? "a pessoa";
+  const personName = people?.find((person) => person.id === personId)?.name ?? null;
 
   return (
     <Dialog open={state !== null} onOpenChange={(next) => !next && !saving && onClose()}>
@@ -386,7 +386,7 @@ function ContractEditor({
             </div>
 
             <fieldset className="space-y-2.5">
-              <legend className="text-sm font-medium leading-none text-foreground">Proporção (você / {personName})</legend>
+              <legend className="text-sm font-medium leading-none text-foreground">Proporção (você / {personName ?? "pessoa"})</legend>
               <ToggleGroup
                 type="single"
                 value={PRESETS.find((preset) => preset.person === pct)?.label ?? ""}
@@ -414,7 +414,7 @@ function ContractEditor({
               <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="contract-pct" className="text-xs font-normal text-muted-foreground">
-                    Parte de {personName} (%)
+                    {personName ? `Parte de ${personName}` : "Parte da pessoa"} (%)
                   </Label>
                   <Input
                     id="contract-pct"

@@ -6,7 +6,22 @@ import { cn } from "@/lib/utils";
 const Switch = React.forwardRef<
   React.ElementRef<typeof SwitchPrimitives.Root>,
   React.ComponentPropsWithoutRef<typeof SwitchPrimitives.Root>
->(({ className, ...props }, ref) => (
+>(({ className, ...props }, ref) => {
+  const rootRef = React.useRef<HTMLButtonElement>(null);
+  React.useImperativeHandle(ref, () => rootRef.current as HTMLButtonElement);
+
+  // Dentro de <form> o Radix renderiza um <input type="checkbox"> espelho
+  // (aria-hidden, sem label) ao lado do botao. Auditorias de a11y o acusam
+  // como "campo sem rotulo"; herdamos o nome acessivel do proprio switch.
+  React.useEffect(() => {
+    const root = rootRef.current;
+    const mirror = root?.nextElementSibling;
+    if (!root || !(mirror instanceof HTMLInputElement)) return;
+    const name = root.getAttribute("aria-label") || root.labels?.[0]?.textContent?.trim();
+    if (name) mirror.setAttribute("aria-label", name);
+  });
+
+  return (
   <SwitchPrimitives.Root
     className={cn(
       // Caixa real de 44×44 (alvo de toque WCAG 2.5.5); o trilho visível de
@@ -18,7 +33,7 @@ const Switch = React.forwardRef<
       className,
     )}
     {...props}
-    ref={ref}
+    ref={rootRef}
   >
     <SwitchPrimitives.Thumb
       className={cn(
@@ -26,7 +41,8 @@ const Switch = React.forwardRef<
       )}
     />
   </SwitchPrimitives.Root>
-));
+  );
+});
 Switch.displayName = SwitchPrimitives.Root.displayName;
 
 export { Switch };

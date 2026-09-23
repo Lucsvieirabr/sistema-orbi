@@ -22,6 +22,7 @@ const SelectTrigger = React.forwardRef<
       "placeholder:text-muted-foreground hover:border-ring/45",
       "focus:outline-none focus:border-ring focus:ring-2 focus:ring-ring/25",
       "data-[state=open]:border-ring data-[state=open]:ring-2 data-[state=open]:ring-ring/25",
+      "aria-[invalid=true]:border-destructive aria-[invalid=true]:focus:ring-destructive/25",
       "disabled:cursor-not-allowed disabled:bg-muted disabled:opacity-60 [&>span]:truncate",
       className,
     )}

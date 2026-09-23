@@ -58,12 +58,19 @@ const NumericInput = React.forwardRef<HTMLInputElement, NumericInputProps>(
       return parseDecimalBR(str);
     }, [integer]);
 
-    // Atualizar display quando o valor muda (apenas se não estiver focado)
+    // Atualizar display quando o valor muda. Focado, só quando a mudança veio
+    // de fora (o texto digitado já não representa `value`): o Dialog foca o
+    // campo ao abrir, ANTES do form carregar o valor do item — sem isso o
+    // campo ficava com o valor do item aberto anteriormente.
     React.useEffect(() => {
       if (!isFocused) {
         setDisplayValue(formatValue(value));
+        return;
       }
-    }, [value, formatValue, isFocused]);
+      setDisplayValue((current) =>
+        parseValue(current) === (value ?? null) ? current : value ? toEditable(value, currency, integer) : "",
+      );
+    }, [value, formatValue, isFocused, parseValue, currency, integer]);
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
       selectOnFocusRef.current = false;

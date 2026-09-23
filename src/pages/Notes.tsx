@@ -69,6 +69,12 @@ const priorityLabels = {
   3: "Baixa",
 };
 
+/** Trecho curto da nota para nomes acessíveis únicos ("Editar nota: Pagar IPVA…"). */
+const noteLabel = (content: string) => {
+  const text = content.replace(/\s+/g, " ").trim();
+  return text.length > 40 ? `${text.slice(0, 40)}…` : text || "sem texto";
+};
+
 export default function Notes() {
   const { notes, isLoading, createNote, updateNote, toggleNote, deleteNote } = useNotes();
   const isMobile = useIsMobile();
@@ -427,7 +433,7 @@ export default function Notes() {
                       <Button
                         size="icon-sm"
                         variant="ghost"
-                        aria-label="Editar nota"
+                        aria-label={`Editar nota: ${noteLabel(note.content)}`}
                         onClick={() => handleStartEdit(note)}
                       >
                         <Edit2 className="h-4 w-4" />
@@ -436,7 +442,7 @@ export default function Notes() {
                         size="icon-sm"
                         variant="ghost"
                         onClick={() => handleDeleteClick(note.id)}
-                        aria-label="Excluir nota"
+                        aria-label={`Excluir nota: ${noteLabel(note.content)}`}
                         className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -99,12 +99,14 @@ export function AdminHeader({ onMenuClick, menuOpen = false }: AdminHeaderProps 
 
       <div className="flex shrink-0 items-center gap-0.5 md:gap-2 lg:gap-4">
         <AdminSearchPopover />
-        <Button variant="ghost" size="icon" onClick={handleLogout} aria-label="Sair" className="md:hidden">
-          <LogOut className="h-4 w-4" />
-        </Button>
-        <Button variant="ghost" size="sm" onClick={handleLogout} className="hidden gap-2 md:inline-flex">
-          <LogOut className="h-4 w-4" />
-          Sair
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={handleLogout}
+          className="gap-2 md:h-9 md:w-auto md:rounded-md md:px-3 md:text-[0.8125rem]"
+        >
+          <LogOut className="h-4 w-4" aria-hidden />
+          <span className="sr-only md:not-sr-only">Sair</span>
         </Button>
       </div>
     </header>

@@ -59,6 +59,8 @@ export interface PersonalInflation {
   idx: Record<InflationBasis, number | null>;
   headlinePct: number | null;
   headlineBasis: InflationBasis | null;
+  /** true = havia número, mas sem base estatística (headline zerada de propósito). */
+  insufficientBase: boolean;
   matchedMerchants: number;
   sampleSize: number;
   categories: InflationCategory[];
@@ -96,16 +98,30 @@ export function toAlert(row: any): BudgetInflationAlert {
   };
 }
 
+/**
+ * Piso para afirmar variação de PREÇO. Sem estabelecimento pareado o índice é
+ * razão de gasto mensal (volume, não preço) — ex.: "caíram 50%" vindo de uma
+ * única categoria de R$ 6/mês. Abaixo do piso a manchete não é mostrada.
+ * ponytail: limiar fixo no front; mover para o RPC se outro cliente consumir.
+ */
+export const MIN_PAIRED_MERCHANTS = 3;
+export const MIN_ESSENTIAL_MONTHLY = 100;
+
 function normalize(raw: any): PersonalInflation {
+  const matchedMerchants = toNumber(raw?.matched_merchants);
+  const essentialMonthly = toNumber(raw?.essential_monthly);
+  const rawHeadline = toNullableNumber(raw?.headline_pct);
+  const reliable = matchedMerchants >= MIN_PAIRED_MERCHANTS && essentialMonthly >= MIN_ESSENTIAL_MONTHLY;
   return {
     referenceMonth: String(raw?.reference_month ?? "").slice(0, 10),
     windowStart: String(raw?.window_start ?? "").slice(0, 10),
     computedAt: raw?.computed_at ?? null,
-    essentialMonthly: toNumber(raw?.essential_monthly),
+    essentialMonthly,
     idx: toIdx(raw),
-    headlinePct: toNullableNumber(raw?.headline_pct),
-    headlineBasis: toBasis(raw?.headline_basis),
-    matchedMerchants: toNumber(raw?.matched_merchants),
+    headlinePct: reliable ? rawHeadline : null,
+    headlineBasis: reliable ? toBasis(raw?.headline_basis) : null,
+    insufficientBase: !reliable && rawHeadline !== null,
+    matchedMerchants,
     sampleSize: toNumber(raw?.sample_size),
     categories: (raw?.categories ?? []).map((row: any) => ({
       categoryId: String(row.category_id),

@@ -36,8 +36,10 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
   const [name, setName] = React.useState(initialData?.name || "");
   const [brand, setBrand] = React.useState(initialData?.brand || "");
   const [limit, setLimit] = React.useState(initialData?.limit || 0);
-  const [statementDate, setStatementDate] = React.useState(initialData?.statementDate || 1);
-  const [dueDate, setDueDate] = React.useState(initialData?.dueDate || 1);
+  // Sem padrão: fechamento e vencimento no mesmo dia é combinação inválida, e
+  // "dia 1 / dia 1" pré-preenchido passava despercebido.
+  const [statementDate, setStatementDate] = React.useState(initialData?.statementDate || 0);
+  const [dueDate, setDueDate] = React.useState(initialData?.dueDate || 0);
   const [connectedAccountId, setConnectedAccountId] = React.useState<string>(
     initialData?.connectedAccountId || "none"
   );
@@ -63,13 +65,12 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
     if (!limit || limit <= 0) next.limit = "Informe um limite maior que zero.";
     if (!statementDate || statementDate < 1 || statementDate > 31) next.statementDate = "Escolha um dia entre 1 e 31.";
     if (!dueDate || dueDate < 1 || dueDate > 31) next.dueDate = "Escolha um dia entre 1 e 31.";
+    else if (dueDate === statementDate) next.dueDate = "O vencimento precisa cair em outro dia, depois do fechamento.";
     setErrors(next);
-    if (Object.keys(next).length > 0) return;
-    if (dueDate < statementDate) {
-      toast({
-        title: "Vencimento após a virada do mês",
-        description: `O dia ${dueDate} vem antes do fechamento no dia ${statementDate}; ele será tratado como vencimento no mês seguinte.`,
-      });
+    if (Object.keys(next).length > 0) {
+      const first = next.name ? "name" : next.limit ? "limit" : null;
+      if (first) document.getElementById(first)?.focus();
+      return;
     }
 
     const payload = {
@@ -96,8 +97,8 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       setName("");
       setBrand("");
       setLimit(0);
-      setStatementDate(1);
-      setDueDate(1);
+      setStatementDate(0);
+      setDueDate(0);
       setConnectedAccountId("none");
       setErrors({});
       
@@ -131,7 +132,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             aria-describedby={errors.name ? "name-error" : undefined}
           />
           {errors.name && (
-            <p id="name-error" className="text-xs text-destructive">
+            <p id="name-error" className="text-xs text-destructive" role="alert">
               {errors.name}
             </p>
           )}
@@ -161,7 +162,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
             aria-describedby={errors.limit ? "limit-error" : undefined}
           />
           {errors.limit && (
-            <p id="limit-error" className="text-xs text-destructive">
+            <p id="limit-error" className="text-xs text-destructive" role="alert">
               {errors.limit}
             </p>
           )}
@@ -176,7 +177,7 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
                 setStatementDate(v);
                 clearError("statementDate");
               }}
-              placeholder="1"
+              placeholder="Escolha o dia"
             />
             {errors.statementDate && <p className="mt-1 text-xs text-destructive" role="alert">{errors.statementDate}</p>}
           </div>
@@ -189,11 +190,23 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
                 setDueDate(v);
                 clearError("dueDate");
               }}
-              placeholder="1"
+              placeholder="Escolha o dia"
             />
             {errors.dueDate && <p className="mt-1 text-xs text-destructive" role="alert">{errors.dueDate}</p>}
           </div>
         </div>
+        {!errors.dueDate && statementDate > 0 && dueDate > 0 && (
+          <p
+            className={dueDate === statementDate ? "-mt-1 text-xs font-medium text-warning" : "-mt-1 text-xs text-muted-foreground"}
+            aria-live="polite"
+          >
+            {dueDate === statementDate
+              ? "Fechamento e vencimento no mesmo dia não existe: a fatura fecha antes de vencer."
+              : dueDate < statementDate
+                ? `Fecha no dia ${statementDate} e vence no dia ${dueDate} do mês seguinte.`
+                : `Fecha no dia ${statementDate} e vence no dia ${dueDate} do mesmo mês.`}
+          </p>
+        )}
         {accountSelector && (
           <div className="space-y-2">
             <Label htmlFor="connected_account">Conta conectada (opcional)</Label>

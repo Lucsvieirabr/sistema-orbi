@@ -21,7 +21,7 @@ import { useFeatures, useLimit } from "@/hooks/use-feature";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { OwnerMark } from "@/components/family/OwnerMark";
 import { PARTNER_READ_ONLY_MESSAGE } from "@/lib/family-access";
-import { cn, deleteErrorMessage } from "@/lib/utils";
+import { cn, deleteErrorMessage, roundCurrency } from "@/lib/utils";
 import { formatPct } from "@/components/planning/planning-utils";
 import { EmptyState, PageBody, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 
@@ -229,6 +229,10 @@ function CardsContent() {
     const usage = usageData?.used || 0;
     const committed = usageData?.committed || 0;
     const pct = card.limit > 0 ? (committed / card.limit) * 100 : 0;
+    // "Fatura em aberto" é só o período corrente; o % e o disponível usam o
+    // limite comprometido (todas as PENDING, inclusive parcelas futuras).
+    // A diferença precisa aparecer, senão os números se contradizem.
+    const futureCommitted = Math.max(0, roundCurrency(committed - usage));
     const tone = usageTone(pct);
     const linkedAccount = accountsWithBalance.find((acc) => acc.id === card.connected_account_id);
 
@@ -272,6 +276,11 @@ function CardsContent() {
                 {formatCurrency(Math.max(card.limit - committed, 0))} disponível
               </span>
             </div>
+            {futureCommitted > 0 && (
+              <p className="mt-1 text-xs tabular text-muted-foreground">
+                O limite também desconta {formatCurrency(futureCommitted)} de parcelas das próximas faturas.
+              </p>
+            )}
           </div>
 
           <dl className="mt-auto">
@@ -300,7 +309,12 @@ function CardsContent() {
 
         <FeatureGuard feature="cartoes_faturas">
           <CardFooter>
-            <Button variant="outline" className="w-full" onClick={() => navigateToCardStatements(card.id)}>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => navigateToCardStatements(card.id)}
+              aria-label={`Ver faturas de ${card.name}`}
+            >
               <Receipt className="h-4 w-4" />
               Ver faturas
             </Button>
@@ -334,7 +348,16 @@ function CardsContent() {
               <div className="h-1 w-24 overflow-hidden rounded-full bg-surface-sunken">
                 <div className={cn(meterBar, meterColor[tone])} style={{ width: `${Math.min(pct, 100)}%` }} />
               </div>
-              <span className={cn("text-xs tabular font-medium", meterText[tone])}>{limitPct(pct)}</span>
+              <span
+                className={cn("text-xs tabular font-medium", meterText[tone])}
+                title={
+                  committed > usage
+                    ? `Inclui ${formatCurrency(roundCurrency(committed - usage))} de parcelas das próximas faturas`
+                    : undefined
+                }
+              >
+                {limitPct(pct)}
+              </span>
               <span className="hidden text-xs tabular text-muted-foreground sm:inline">
                 de {formatCurrency(card.limit)}
               </span>

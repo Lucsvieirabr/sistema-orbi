@@ -94,6 +94,7 @@ function CategoriesContent() {
   const onSubmit = async () => {
     if (!name.trim()) {
       setNameError("Dê um nome à categoria.");
+      document.getElementById("name")?.focus();
       return;
     }
     toast({ title: "Salvando…" });
@@ -125,18 +126,31 @@ function CategoriesContent() {
   // contrato de rateio da categoria são apagados em cascata (FK ON DELETE
   // CASCADE); transações e séries só perdem a categoria.
   const [impact, setImpact] = useState<Record<string, CategoryDeleteImpact | undefined>>({});
+  // Uma requisição só (contagem embutida do PostgREST, GET), cacheada por 30s:
+  // abrir/fechar o diálogo várias vezes não refaz nem cancela nada.
   const loadImpact = async (id: string) => {
-    setImpact((prev) => ({ ...prev, [id]: undefined }));
-    const count = async (table: "transactions" | "budgets" | "split_contracts") => {
-      const { count: n, error } = await supabase.from(table).select("id", { count: "exact", head: true }).eq("category_id", id);
-      return error ? 0 : n ?? 0;
-    };
-    const [transactions, budgets, contracts] = await Promise.all([
-      count("transactions"),
-      count("budgets"),
-      count("split_contracts"),
-    ]);
-    setImpact((prev) => ({ ...prev, [id]: { transactions, budgets, contracts } }));
+    const result = await queryClient
+      .fetchQuery({
+        queryKey: ["category-delete-impact", id],
+        staleTime: 30_000,
+        queryFn: async (): Promise<CategoryDeleteImpact> => {
+          const { data, error } = await supabase
+            .from("categories")
+            .select("transactions(count), budgets(count), split_contracts(count)")
+            .eq("id", id)
+            .maybeSingle();
+          if (error) throw error;
+          const n = (rel: unknown) => (Array.isArray(rel) ? Number(rel[0]?.count ?? 0) : 0);
+          const row = data as unknown as Record<string, unknown> | null;
+          return {
+            transactions: n(row?.transactions),
+            budgets: n(row?.budgets),
+            contracts: n(row?.split_contracts),
+          };
+        },
+      })
+      .catch(() => ({ transactions: 0, budgets: 0, contracts: 0 }));
+    setImpact((prev) => ({ ...prev, [id]: result }));
   };
 
   const onDelete = async (id: string) => {
@@ -144,6 +158,7 @@ function CategoriesContent() {
       await deleteCategory(id);
       toast({ title: "Categoria excluída" });
       queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.removeQueries({ queryKey: ["category-delete-impact", id] });
       queryClient.invalidateQueries({ queryKey: ["budgets"] });
       queryClient.invalidateQueries({ queryKey: ["split-contracts"] });
       queryClient.invalidateQueries({ queryKey: ["monthly-transactions"] });
@@ -200,7 +215,7 @@ function CategoriesContent() {
               aria-describedby={nameError ? "name-error" : undefined}
             />
             {nameError && (
-              <p id="name-error" className="text-xs text-destructive">
+              <p id="name-error" className="text-xs text-destructive" role="alert">
                 {nameError}
               </p>
             )}

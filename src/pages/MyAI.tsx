@@ -1,5 +1,5 @@
 /**
- * Página: Minha IA Personalizada
+ * Página: Classificação automática (rota /sistema/my-ai)
  * 
  * Interface para visualizar e gerenciar padrões aprendidos pela IA
  * do usuário. Permite ver, editar e remover padrões de classificação.

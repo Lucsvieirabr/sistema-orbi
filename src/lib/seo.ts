@@ -172,7 +172,7 @@ const PRIVATE_TITLES: Array<[RegExp, string]> = [
   [/^\/sistema\/cards\/[^/]+\/statements/, "Faturas do cartão"],
   [/^\/sistema\/cards/, "Cartões"],
   [/^\/sistema\/people/, "Pessoas"],
-  [/^\/sistema\/my-ai/, "Minha IA"],
+  [/^\/sistema\/my-ai/, "Classificação automática"],
   [/^\/sistema\/notes/, "Notas"],
   [/^\/sistema\/settings/, "Configurações"],
   [/^\/sistema\/budgets/, "Orçamentos"],

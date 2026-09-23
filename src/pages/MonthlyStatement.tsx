@@ -1,5 +1,5 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -122,6 +122,16 @@ import {
 } from "lucide-react";
 
 
+/** Erro inline de campo do formulário de transação (mesmo padrão de Metas/Projetos). */
+const FieldError = ({ id, message }: { id: string; message?: string }) =>
+  message ? (
+    <p id={id} role="alert" className="text-xs text-destructive">
+      {message}
+    </p>
+  ) : null;
+
+type TxField = "description" | "value" | "date" | "endDate" | "fromAccount" | "toAccount" | "account" | "creditCard" | "category";
+
 /** Plano Casal: só grava o pagador quando escolhido (NULL = quem lança). */
 const payerField = (payload: { paid_by_user_id?: string | null }) =>
   payload.paid_by_user_id ? { paid_by_user_id: payload.paid_by_user_id } : {};
@@ -146,6 +156,14 @@ function MonthlyStatementContent() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Partial<Record<TxField, string>>>({});
+  const clearFieldError = (field: TxField) =>
+    setFormErrors((prev) => (prev[field] ? { ...prev, [field]: undefined } : prev));
+  /** Props de a11y de um campo: borda vermelha via aria-invalid + descrição do erro. */
+  const fieldA11y = (field: TxField) => ({
+    "aria-invalid": Boolean(formErrors[field]),
+    "aria-describedby": formErrors[field] ? `tx-error-${field}` : undefined,
+  });
   const isMobile = useIsMobile();
 
   // Form state
@@ -641,6 +659,7 @@ function MonthlyStatementContent() {
 
   const handleDialogOpenChange = (open: boolean) => {
     setOpen(open);
+    setFormErrors({});
     if (!open) {
       // Limpar estado de edição quando dialog é fechado
       setEditingId(null);
@@ -654,6 +673,7 @@ function MonthlyStatementContent() {
     newType: "income" | "expense" | "transfer" | "fixed"
   ) => {
     setType(newType);
+    setFormErrors({});
 
     // Reset campos específicos baseado no tipo
     if (newType === "income") {
@@ -687,7 +707,9 @@ function MonthlyStatementContent() {
       setIsLoan(false);
       setIsRateio(false);
     } else if (newType === "fixed") {
-      // Fixo: configura para transações recorrentes, limpa campos específicos
+      // Fixo: configura para transações recorrentes, limpa campos específicos.
+      // Herda Ganho/Gasto da aba anterior — o usuário não escolhe duas vezes.
+      if (type === "income" || type === "expense") setFixedType(type);
       setPaymentMethod("debit");
       setCreditCardId(null);
       setInstallments(null);
@@ -1079,13 +1101,36 @@ function MonthlyStatementContent() {
     }
   };
 
+  // Trava síncrona contra duplo submit: `disabled={isSubmitting}` só vale no
+  // próximo render — duplo clique/Enter no mesmo frame criava 2 lançamentos.
+  const submitLockRef = useRef(false);
   const onSubmit = async () => {
+    if (submitLockRef.current) return;
+    submitLockRef.current = true;
+    try {
+      await submitTransaction();
+    } finally {
+      submitLockRef.current = false;
+    }
+  };
+
+  const submitTransaction = async () => {
     setIsSubmitting(true);
     const toastInstance = toast({
       title: "Salvando...",
       description: "Aguarde",
       duration: 2000,
     });
+    // Validação de campo: erro inline no próprio campo + foco nele (sem toast).
+    const fail = (field: TxField, message: string) => {
+      toastInstance.dismiss();
+      setFormErrors({ [field]: message });
+      setIsSubmitting(false);
+      requestAnimationFrame(() =>
+        document.querySelector<HTMLElement>('[role="dialog"] [aria-invalid="true"]')?.focus(),
+      );
+    };
+    setFormErrors({});
     try {
       // ----------------------------------------------------------------------
       // SEGURANÇA — validação/sanitização de entrada antes de montar payload
@@ -1098,40 +1143,14 @@ function MonthlyStatementContent() {
       // O servidor repete tudo isso (CHECK constraints + RLS) — aqui é só a
       // primeira barreira, com mensagem legível.
       const safeDescription = sanitizeSingleLine(description);
-      if (!safeDescription) {
-        toast({
-          title: "Erro",
-          description: "Descrição é obrigatória",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-      if (safeDescription.length > 300) {
-        toast({
-          title: "Erro",
-          description: "Descrição excede 300 caracteres",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!value || value <= 0) {
-        toast({
-          title: "Erro",
-          description: "Valor deve ser maior que zero",
-          variant: "destructive",
-        });
-        setIsSubmitting(false);
-        return;
-      }
+      if (!safeDescription) return fail("description", "Descreva a transação.");
+      if (safeDescription.length > 300) return fail("description", "Use até 300 caracteres.");
+      if (!isoDateSchema.safeParse(date).success) return fail("date", "Escolha uma data válida.");
+      if (!value || value <= 0) return fail("value", "Informe um valor maior que zero.");
+      if (!moneySchema.safeParse(value).success) return fail("value", "Valor fora da faixa permitida.");
+      if (isFixed && endDate && !isoDateSchema.safeParse(endDate).success) return fail("endDate", "Escolha uma data final válida.");
 
       const inputCheck = (() => {
-        const v = moneySchema.safeParse(value);
-        if (!v.success) return "Valor fora da faixa permitida";
-        if (!isoDateSchema.safeParse(date).success) return "Data inválida";
-        if (isFixed && endDate && !isoDateSchema.safeParse(endDate).success) return "Data final inválida";
         if (!transactionStatusSchema.safeParse(status).success) return "Status inválido";
         for (const [label, id] of [
           ["Conta", accountId],
@@ -1156,50 +1175,16 @@ function MonthlyStatementContent() {
       // Validação específica por tipo
       if (type === "transfer") {
         // Descrição e valor já foram validados acima (obrigatórios / > 0).
-        if (!fromAccountId || !toAccountId) {
-          toast({
-            title: "Erro",
-            description: "Selecione a conta de origem e a de destino",
-            variant: "destructive",
-          });
-          return;
-        }
-        if (fromAccountId === toAccountId) {
-          toast({
-            title: "Erro",
-            description: "A conta de destino deve ser diferente da de origem",
-            variant: "destructive",
-          });
-          return;
-        }
+        if (!fromAccountId) return fail("fromAccount", "Escolha de qual conta sai o dinheiro.");
+        if (!toAccountId) return fail("toAccount", "Escolha para qual conta vai o dinheiro.");
+        if (fromAccountId === toAccountId) return fail("toAccount", "Escolha uma conta diferente da de origem.");
       }
 
       if (type === "fixed") {
         // Validar método de pagamento para transações fixas
-        if (paymentMethod === "debit" && !accountId) {
-          toast({
-            title: "Erro",
-            description: "Conta é obrigatória para transações fixas com débito",
-            variant: "destructive",
-          });
-          return;
-        }
-        if (paymentMethod === "credit" && !creditCardId) {
-          toast({
-            title: "Erro",
-            description: "Cartão de crédito é obrigatório para transações fixas com crédito",
-            variant: "destructive",
-          });
-          return;
-        }
-        if (!categoryId) {
-          toast({
-            title: "Erro",
-            description: "Categoria é obrigatória para transações fixas",
-            variant: "destructive",
-          });
-          return;
-        }
+        if (paymentMethod === "debit" && !accountId) return fail("account", "Escolha a conta.");
+        if (paymentMethod === "credit" && !creditCardId) return fail("creditCard", "Escolha o cartão.");
+        if (!categoryId) return fail("category", "Escolha a categoria.");
         // Validar que ganho fixo não pode ter cartão de crédito
         if (fixedType === "income" && paymentMethod === "credit") {
           toast({
@@ -2980,11 +2965,11 @@ function MonthlyStatementContent() {
                                     size="icon"
                                     variant="outline"
                                     onClick={() => markAsPaid(transaction.id, transaction.type)}
-                                    aria-label={
+                                    aria-label={`${
                                       transaction.type === "income"
                                         ? "Marcar como recebida"
                                         : "Marcar como paga"
-                                    }
+                                    }: ${transaction.description}`}
                                     className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
                                     <CheckCircle className="h-4 w-4 lg:h-4 lg:w-4" />
@@ -2994,7 +2979,7 @@ function MonthlyStatementContent() {
                                     size="icon"
                                     variant="outline"
                                     onClick={() => markAsPending(transaction.id)}
-                                    aria-label="Reabrir transação"
+                                    aria-label={`Reabrir ${transaction.description}`}
                                     className="h-11 w-11 lg:h-8 lg:w-8"
                                   >
                                     <BanknoteXIcon className="h-4 w-4 lg:h-4 lg:w-4" />
@@ -3295,29 +3280,37 @@ function MonthlyStatementContent() {
                   </div>
                 )}
 
-                {/* Campo de Descrição */}
+                {/* Descrição e Data: mesma ordem em todas as abas */}
                 <div className="grid grid-cols-1 gap-3">
                   <div className="space-y-1">
-                    <Label className="text-xs lg:text-sm" htmlFor="tx-descricao-1">Descrição</Label>
+                    <Label className="text-sm" htmlFor="tx-descricao-1">Descrição</Label>
                     <Input
                       id="tx-descricao-1"
                       value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ex: Salário, Aluguel..."
-                      className="h-8 lg:h-9"
+                      onChange={(e) => {
+                        setDescription(e.target.value);
+                        clearFieldError("description");
+                      }}
+                      placeholder="Ex: Salário, Aluguel…"
+                      {...fieldA11y("description")}
                     />
+                    <FieldError id="tx-error-description" message={formErrors.description} />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-xs lg:text-sm" htmlFor="tx-data-2">Data</Label>
+                    <Label className="text-sm" htmlFor="tx-data-2">Data</Label>
                     <Input
                       id="tx-data-2"
                       type="date"
                       value={date}
-                      onChange={(e) => setDate(e.target.value)}
+                      onChange={(e) => {
+                        setDate(e.target.value);
+                        clearFieldError("date");
+                      }}
                       min={getMinAllowedDate()}
                       max={getMaxAllowedDate()}
-                      className="h-8 lg:h-9"
+                      {...fieldA11y("date")}
                     />
+                    <FieldError id="tx-error-date" message={formErrors.date} />
                   </div>
                 </div>
               </div>
@@ -3325,60 +3318,21 @@ function MonthlyStatementContent() {
 
             {/* Campos principais com lógica de visibilidade dinâmica */}
             {type === "transfer" ? (
-              /* Transferência: Descrição + Conta Origem + Conta Destino + Valor */
+              /* Transferência: Descrição + Data + Conta de origem + Conta de destino + Valor */
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-descricao-3">Descrição</Label>
+                  <Label className="text-sm" htmlFor="tx-descricao-3">Descrição</Label>
                   <Input
                     id="tx-descricao-3"
                     value={description}
-                    onChange={(e) => setDescription(e.target.value)}
+                    onChange={(e) => {
+                      setDescription(e.target.value);
+                      clearFieldError("description");
+                    }}
                     placeholder="Ex: Transferência para poupança"
-                    className="h-8 lg:h-9"
+                    {...fieldA11y("description")}
                   />
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-de-origem-4">Conta de Origem</Label>
-                  <SelectWithAddButton
-                    id="tx-conta-de-origem-4"
-                    entityType="accounts"
-                    value={fromAccountId}
-                    onValueChange={setFromAccountId}
-                    placeholder="Origem"
-                  >
-                    {accountsWithBalance.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectWithAddButton>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-de-destino-5">Conta de Destino</Label>
-                  <SelectWithAddButton
-                    id="tx-conta-de-destino-5"
-                    entityType="accounts"
-                    value={toAccountId}
-                    onValueChange={setToAccountId}
-                    placeholder="Destino"
-                  >
-                    {accountsWithBalance.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
-                  </SelectWithAddButton>
-                </div>
-                <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-valor-6">Valor</Label>
-                  <NumericInput
-                    id="tx-valor-6"
-                    currency
-                    value={value}
-                    onChange={setValue}
-                    placeholder="0,00"
-                    className="h-8 lg:h-9"
-                  />
+                  <FieldError id="tx-error-description" message={formErrors.description} />
                 </div>
                 <div className="space-y-1">
                   <Label className="text-sm" htmlFor="tx-data-7">Data</Label>
@@ -3386,18 +3340,79 @@ function MonthlyStatementContent() {
                     id="tx-data-7"
                     type="date"
                     value={date}
-                    onChange={(e) => setDate(e.target.value)}
+                    onChange={(e) => {
+                      setDate(e.target.value);
+                      clearFieldError("date");
+                    }}
                     min={getMinAllowedDate()}
                     max={getMaxAllowedDate()}
-                    className="h-9"
+                    {...fieldA11y("date")}
                   />
+                  <FieldError id="tx-error-date" message={formErrors.date} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm" htmlFor="tx-conta-de-origem-4">Conta de origem</Label>
+                  <SelectWithAddButton
+                    id="tx-conta-de-origem-4"
+                    entityType="accounts"
+                    value={fromAccountId}
+                    onValueChange={(v) => {
+                      setFromAccountId(v);
+                      clearFieldError("fromAccount");
+                    }}
+                    placeholder="Origem"
+                    {...fieldA11y("fromAccount")}
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectWithAddButton>
+                  <FieldError id="tx-error-fromAccount" message={formErrors.fromAccount} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm" htmlFor="tx-conta-de-destino-5">Conta de destino</Label>
+                  <SelectWithAddButton
+                    id="tx-conta-de-destino-5"
+                    entityType="accounts"
+                    value={toAccountId}
+                    onValueChange={(v) => {
+                      setToAccountId(v);
+                      clearFieldError("toAccount");
+                    }}
+                    placeholder="Destino"
+                    {...fieldA11y("toAccount")}
+                  >
+                    {accountsWithBalance.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {a.name}
+                      </SelectItem>
+                    ))}
+                  </SelectWithAddButton>
+                  <FieldError id="tx-error-toAccount" message={formErrors.toAccount} />
+                </div>
+                <div className="space-y-1">
+                  <Label className="text-sm" htmlFor="tx-valor-6">Valor</Label>
+                  <NumericInput
+                    id="tx-valor-6"
+                    currency
+                    value={value}
+                    onChange={(v) => {
+                      setValue(v);
+                      clearFieldError("value");
+                    }}
+                    placeholder="0,00"
+                    {...fieldA11y("value")}
+                  />
+                  <FieldError id="tx-error-value" message={formErrors.value} />
                 </div>
               </div>
             ) : type === "income" ? (
               /* Ganho: Conta + Categoria + Valor */
               <div className="grid grid-cols-1 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-8">Conta</Label>
+                  <Label className="text-sm" htmlFor="tx-conta-8">Conta</Label>
                   <SelectWithAddButton
                     id="tx-conta-8"
                     entityType="accounts"
@@ -3429,15 +3444,19 @@ function MonthlyStatementContent() {
                   </SelectWithAddButton>
                 </div>
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-valor-10">Valor</Label>
+                  <Label className="text-sm" htmlFor="tx-valor-10">Valor</Label>
                   <NumericInput
                     id="tx-valor-10"
                     currency
                     value={value}
-                    onChange={setValue}
+                    onChange={(v) => {
+                      setValue(v);
+                      clearFieldError("value");
+                    }}
                     placeholder="0,00"
-                    className="h-8 lg:h-9"
+                    {...fieldA11y("value")}
                   />
+                  <FieldError id="tx-error-value" message={formErrors.value} />
                 </div>
               </div>
             ) : type === "expense" ? (
@@ -3445,7 +3464,7 @@ function MonthlyStatementContent() {
               <div className="grid grid-cols-1 gap-3">
                 {paymentMethod !== "credit" && (
                 <div className="space-y-1">
-                  <Label className="text-xs lg:text-sm" htmlFor="tx-conta-11">Conta</Label>
+                  <Label className="text-sm" htmlFor="tx-conta-11">Conta</Label>
                   <SelectWithAddButton
                     id="tx-conta-11"
                     entityType="accounts"
@@ -3483,53 +3502,114 @@ function MonthlyStatementContent() {
                     id="tx-valor-13"
                     currency
                     value={value}
-                    onChange={setValue}
+                    onChange={(v) => {
+                      setValue(v);
+                      clearFieldError("value");
+                    }}
                     placeholder="0,00"
-                    className="h-9"
+                    {...fieldA11y("value")}
                   />
+                  <FieldError id="tx-error-value" message={formErrors.value} />
                 </div>
               </div>
             ) : type === "fixed" ? (
-              /* Fixo: Campos organizados conforme especificação */
+              /*
+               * Fixo: mesma ordem das outras abas — Descrição, Data; Conta/Cartão,
+               * Categoria, Valor; Método de pagamento por último (como em Gasto).
+               * Ganho/Gasto é uma sub-escolha do Fixo (como Normal/Emprést./Rateio
+               * em Gasto), herdada da aba anterior.
+               */
               <div className="space-y-4">
-
-                {/* Primeira linha: Método de Pagamento (apenas para gastos fixos) */}
-                {fixedType === "expense" && (
-                  <div className="space-y-1">
-                    <Label className="text-sm">Método de pagamento</Label>
-                    <div className="flex gap-2" role="group" aria-label="Método de pagamento">
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "debit" ? "default" : "outline"}
-                        onClick={() => {
-                          setPaymentMethod("debit");
-                          setCreditCardId(null);
-                          setStatus("PAID");
-                        }}
-                        className="h-11 flex-1 text-xs lg:h-9"
-                      >
-                        Débito/Dinheiro
-                      </Button>
-                      <Button
-                        type="button"
-                        variant={paymentMethod === "credit" ? "default" : "outline"}
-                        onClick={() => {
-                          setPaymentMethod("credit");
-                          setAccountId(undefined);
-                          // Compra no cartão nasce pendente: só vira paga com a fatura.
-                          setStatus("PENDING");
-                        }}
-                        className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
-                      >
-                        <CreditCard className="h-3 w-3" />
-                        Cartão de Crédito
-                      </Button>
-                    </div>
+                {!editingId && (
+                  <div className="flex gap-2" role="group" aria-label="Fixo de ganho ou de gasto">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={fixedType === "income"}
+                      onClick={() => {
+                        setFixedType("income");
+                        // Ganho fixo não usa cartão: força débito e limpa cartão
+                        setPaymentMethod("debit");
+                        setCreditCardId(null);
+                      }}
+                      className={`h-11 flex-1 text-xs lg:h-9 ${
+                        fixedType === "income"
+                          ? "border-success/50 bg-success-soft text-success hover:bg-success-soft/70"
+                          : "hover:border-success/30 hover:bg-success-soft hover:text-success"
+                      }`}
+                    >
+                      Ganho fixo
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      aria-pressed={fixedType === "expense"}
+                      onClick={() => setFixedType("expense")}
+                      className={`h-11 flex-1 text-xs lg:h-9 ${
+                        fixedType === "expense"
+                          ? "border-destructive/50 bg-destructive-soft text-destructive hover:bg-destructive-soft/70"
+                          : "hover:border-destructive/30 hover:bg-destructive-soft hover:text-destructive"
+                      }`}
+                    >
+                      Gasto fixo
+                    </Button>
                   </div>
                 )}
-                {/* Segunda linha: Conta ou Cartão (dependendo do método), Categoria, Valor */}
+
+                {/* Descrição, Data e Data final */}
+                <div className="grid grid-cols-1 gap-3">
+                  <div className="space-y-1">
+                    <Label className="text-sm" htmlFor="tx-descricao-18">Descrição</Label>
+                    <Input
+                      id="tx-descricao-18"
+                      value={description}
+                      onChange={(e) => {
+                        setDescription(e.target.value);
+                        clearFieldError("description");
+                      }}
+                      placeholder="Ex: Salário, Aluguel…"
+                      {...fieldA11y("description")}
+                    />
+                    <FieldError id="tx-error-description" message={formErrors.description} />
+                  </div>
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                    <div className="space-y-1">
+                      <Label className="text-sm" htmlFor="tx-data-20">Data</Label>
+                      <Input
+                        id="tx-data-20"
+                        type="date"
+                        value={date}
+                        onChange={(e) => {
+                          setDate(e.target.value);
+                          clearFieldError("date");
+                        }}
+                        min={getMinAllowedDate()}
+                        max={getMaxAllowedDate()}
+                        {...fieldA11y("date")}
+                      />
+                      <FieldError id="tx-error-date" message={formErrors.date} />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-sm" htmlFor="tx-data-final-opcional-21">
+                        Data final <span className="font-normal text-muted-foreground">(opcional)</span>
+                      </Label>
+                      <Input
+                        id="tx-data-final-opcional-21"
+                        type="date"
+                        value={endDate}
+                        onChange={(e) => {
+                          setEndDate(e.target.value);
+                          clearFieldError("endDate");
+                        }}
+                        {...fieldA11y("endDate")}
+                      />
+                      <FieldError id="tx-error-endDate" message={formErrors.endDate} />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Conta ou Cartão (conforme o método), Categoria, Valor */}
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {/* Mostrar Conta apenas se método de pagamento for débito */}
                   {paymentMethod === "debit" && (
                     <div className="space-y-1">
                       <Label className="text-sm" htmlFor="tx-conta-14">Conta</Label>
@@ -3537,8 +3617,12 @@ function MonthlyStatementContent() {
                         id="tx-conta-14"
                         entityType="accounts"
                         value={accountId}
-                        onValueChange={setAccountId}
+                        onValueChange={(v) => {
+                          setAccountId(v);
+                          clearFieldError("account");
+                        }}
                         placeholder="Conta"
+                        {...fieldA11y("account")}
                       >
                         {accountsWithBalance.map((a) => (
                           <SelectItem key={a.id} value={a.id}>
@@ -3546,20 +3630,22 @@ function MonthlyStatementContent() {
                           </SelectItem>
                         ))}
                       </SelectWithAddButton>
+                      <FieldError id="tx-error-account" message={formErrors.account} />
                     </div>
                   )}
-                  {/* Mostrar Cartão apenas se método de pagamento for crédito */}
                   {paymentMethod === "credit" && (
                     <div className="space-y-1">
-                      <Label className="text-sm" htmlFor="tx-cartao-de-credito-15">Cartão de Crédito</Label>
+                      <Label className="text-sm" htmlFor="tx-cartao-de-credito-15">Cartão de crédito</Label>
                       <SelectWithAddButton
                         id="tx-cartao-de-credito-15"
                         entityType="creditCards"
                         value={creditCardId || "none"}
-                        onValueChange={(value) =>
-                          setCreditCardId(value === "none" ? null : value)
-                        }
+                        onValueChange={(value) => {
+                          setCreditCardId(value === "none" ? null : value);
+                          clearFieldError("creditCard");
+                        }}
                         placeholder="Selecione"
+                        {...fieldA11y("creditCard")}
                       >
                         <SelectItem value="none">Nenhum</SelectItem>
                         {creditCards.map((card) => (
@@ -3568,6 +3654,7 @@ function MonthlyStatementContent() {
                           </SelectItem>
                         ))}
                       </SelectWithAddButton>
+                      <FieldError id="tx-error-creditCard" message={formErrors.creditCard} />
                     </div>
                   )}
                   <div className="space-y-1">
@@ -3576,8 +3663,12 @@ function MonthlyStatementContent() {
                       id="tx-categoria-16"
                       entityType="categories"
                       value={categoryId}
-                      onValueChange={setCategoryId}
+                      onValueChange={(v) => {
+                        setCategoryId(v);
+                        clearFieldError("category");
+                      }}
                       placeholder="Categoria"
+                      {...fieldA11y("category")}
                     >
                       {compatibleCategories.map((c) => (
                         <SelectItem key={c.id} value={c.id}>
@@ -3585,6 +3676,7 @@ function MonthlyStatementContent() {
                         </SelectItem>
                       ))}
                     </SelectWithAddButton>
+                    <FieldError id="tx-error-category" message={formErrors.category} />
                   </div>
                   <div className="space-y-1">
                     <Label className="text-sm" htmlFor="tx-valor-17">Valor</Label>
@@ -3592,25 +3684,19 @@ function MonthlyStatementContent() {
                       id="tx-valor-17"
                       currency
                       value={value}
-                      onChange={setValue}
+                      onChange={(v) => {
+                        setValue(v);
+                        clearFieldError("value");
+                      }}
                       placeholder="0,00"
-                      className="h-9"
+                      {...fieldA11y("value")}
                     />
+                    <FieldError id="tx-error-value" message={formErrors.value} />
                   </div>
                 </div>
 
-                {/* Terceira linha: Descrição, Pessoa, Frequência */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <Label className="text-sm" htmlFor="tx-descricao-18">Descrição</Label>
-                    <Input
-                      id="tx-descricao-18"
-                      value={description}
-                      onChange={(e) => setDescription(e.target.value)}
-                      placeholder="Ex: Salário, Aluguel, etc..."
-                      className="h-9"
-                    />
-                  </div>
+                {/* Pessoa e Frequência */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <div className="space-y-1">
                     <Label className="text-sm" htmlFor="tx-pessoa-19">Pessoa</Label>
                     <SelectWithAddButton
@@ -3638,7 +3724,7 @@ function MonthlyStatementContent() {
                         setFrequency(value)
                       }
                     >
-                      <SelectTrigger id="tx-frequencia" className="h-9">
+                      <SelectTrigger id="tx-frequencia">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -3650,97 +3736,59 @@ function MonthlyStatementContent() {
                   </div>
                 </div>
 
-                {/* Quarta linha: Data, Data Final */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {/* Método de pagamento: por último, como na aba Gasto (só gastos fixos) */}
+                {fixedType === "expense" && (
                   <div className="space-y-1">
-                    <Label className="text-sm" htmlFor="tx-data-20">Data</Label>
-                    <Input
-                      id="tx-data-20"
-                      type="date"
-                      value={date}
-                      onChange={(e) => setDate(e.target.value)}
-                      min={getMinAllowedDate()}
-                      max={getMaxAllowedDate()}
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm" htmlFor="tx-data-final-opcional-21">Data Final (opcional)</Label>
-                    <Input
-                      id="tx-data-final-opcional-21"
-                      type="date"
-                      value={endDate}
-                      onChange={(e) => setEndDate(e.target.value)}
-                      placeholder="Sem limite"
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-
-                {/* Quinta linha: Tipo de Transação e Configurações */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {/* Toggle para tipo de transação fixa (ganho/gasto) */}
-                  <div className="space-y-3">
-                    <Label className="text-sm">Tipo de Transação</Label>
-                    <div className="flex gap-2" role="group" aria-label="Tipo de transação">
+                    <Label className="text-sm" id="tx-fixed-payment-label">Método de pagamento</Label>
+                    <div className="flex gap-2" role="group" aria-labelledby="tx-fixed-payment-label">
                       <Button
                         type="button"
-                        variant={fixedType === "income" ? "default" : "outline"}
+                        variant={paymentMethod === "debit" ? "default" : "outline"}
+                        aria-pressed={paymentMethod === "debit"}
                         onClick={() => {
-                          setFixedType("income");
-                          // Se for ganho, forçar método débito e limpar cartão
                           setPaymentMethod("debit");
                           setCreditCardId(null);
+                          setStatus("PAID");
+                          clearFieldError("creditCard");
                         }}
-                        className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
-                          fixedType === "income"
-                            ? "border-success/50 bg-success-soft text-success"
-                            : "hover:border-success/30 hover:bg-success-soft hover:text-success"
-                        }`}
+                        className="h-11 flex-1 text-xs lg:h-9"
                       >
-                        <ArrowUpCircle className="h-4 w-4 text-success" />
-                        Ganho
+                        Débito/Dinheiro
                       </Button>
                       <Button
                         type="button"
-                        variant={
-                          fixedType === "expense" ? "default" : "outline"
-                        }
-                        onClick={() => setFixedType("expense")}
-                        className={`flex h-11 flex-1 items-center gap-2 lg:h-9 ${
-                          fixedType === "expense"
-                            ? "border-destructive/50 bg-destructive-soft text-destructive"
-                            : "hover:border-destructive/30 hover:bg-destructive-soft hover:text-destructive"
-                        }`}
+                        variant={paymentMethod === "credit" ? "default" : "outline"}
+                        aria-pressed={paymentMethod === "credit"}
+                        onClick={() => {
+                          setPaymentMethod("credit");
+                          setAccountId(undefined);
+                          // Compra no cartão nasce pendente: só vira paga com a fatura.
+                          setStatus("PENDING");
+                          clearFieldError("account");
+                        }}
+                        className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9"
                       >
-                        <ArrowDownCircle className="h-4 w-4 text-destructive" />
-                        Gasto
+                        <CreditCard className="h-3 w-3" aria-hidden />
+                        Cartão de crédito
                       </Button>
                     </div>
                   </div>
+                )}
 
-                  {/* Configurações */}
-                  <div className="space-y-3">
-                    <Label className="text-sm">Configurações</Label>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        checked={status === "PAID"}
-                        onCheckedChange={(checked) =>
-                          setStatus(checked ? "PAID" : "PENDING")
-                        }
-                        aria-label={
-                          fixedType === "income"
-                            ? status === "PAID" ? "Recebido" : "A receber"
-                            : status === "PAID" ? "Pago" : "A pagar"
-                        }
-                      />
-                      <Label className="text-sm">
-                        {fixedType === "income"
-                          ? status === "PAID" ? "Recebido" : "A receber"
-                          : status === "PAID" ? "Pago" : "A pagar"}
-                      </Label>
-                    </div>
-                  </div>
+                {/* Situação do lançamento */}
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id="tx-fixed-status"
+                    checked={status === "PAID"}
+                    onCheckedChange={(checked) =>
+                      setStatus(checked ? "PAID" : "PENDING")
+                    }
+                  />
+                  <Label className="text-sm" htmlFor="tx-fixed-status">
+                    {fixedType === "income"
+                      ? status === "PAID" ? "Recebido" : "A receber"
+                      : status === "PAID" ? "Pago" : "A pagar"}
+                  </Label>
                 </div>
               </div>
             ) : null}
@@ -3771,7 +3819,7 @@ function MonthlyStatementContent() {
                         className="flex h-11 flex-1 items-center gap-1 text-xs lg:h-9 opacity-60"
                       >
                         <CreditCard className="h-3 w-3" />
-                        Cartão de Crédito
+                        Cartão de crédito
                       </Button>
                     </div>
                   </div>
@@ -3818,7 +3866,7 @@ function MonthlyStatementContent() {
             {type === "expense" && paymentMethod === "credit" && (
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <Label className="text-sm" htmlFor="tx-cartao-de-credito-22">Cartão de Crédito</Label>
+                  <Label className="text-sm" htmlFor="tx-cartao-de-credito-22">Cartão de crédito</Label>
                   <SelectWithAddButton
                     id="tx-cartao-de-credito-22"
                     entityType="creditCards"
@@ -3847,7 +3895,6 @@ function MonthlyStatementContent() {
                     min={2}
                     integer={true}
                     currency={false}
-                    className="h-9"
                   />
                 </div>
               </div>
@@ -3872,7 +3919,7 @@ function MonthlyStatementContent() {
                       </div>
                       <div className="text-xs text-destructive mb-2">
                         <div>
-                          Valor Total:{" "}
+                          Valor total:{" "}
                           {formatCurrencyBRL(installmentData.totalValue)}
                         </div>
                         <div className="flex justify-between mt-1">
@@ -3933,12 +3980,11 @@ function MonthlyStatementContent() {
               <div className="space-y-3">
                 <div className="space-y-1">
                   <Label className="text-sm" htmlFor="tx-pessoas-envolvidas-no-rateio-24">
-                    Pessoas Envolvidas no Rateio
+                    Pessoas envolvidas no rateio
                   </Label>
                   <Input
                     id="tx-pessoas-envolvidas-no-rateio-24"
-                    placeholder="Buscar pessoa por nome..."
-                    className="h-9"
+                    placeholder="Buscar pessoa por nome…"
                     value={peopleSearchTerm}
                     onChange={(e) => setPeopleSearchTerm(e.target.value)}
                   />
@@ -3961,7 +4007,7 @@ function MonthlyStatementContent() {
                             : [...prev, person.id]
                         );
                       }}
-                      className={`h-8 ${
+                      className={`h-11 md:h-8 ${
                         selectedPeople.includes(person.id)
                           ? "bg-secondary text-chart-6 border border-border hover:bg-secondary"
                           : "border border-border hover:bg-transparent"
@@ -4144,7 +4190,7 @@ function MonthlyStatementContent() {
                         type="button"
                         variant="destructive"
                         size="sm"
-                        className="h-8 px-3 text-xs"
+                        className="h-11 px-3 text-xs md:h-8"
                       >
                         <Trash2 className="h-3 w-3 mr-1" />
 
@@ -4276,7 +4322,7 @@ function MonthlyStatementContent() {
                           type="button"
                           variant="outline"
                           size="sm"
-                          className="h-8 px-3 text-xs"
+                          className="h-11 px-3 text-xs md:h-8"
                         >
                           <Edit className="h-3 w-3 mr-1" />
                           Abrir

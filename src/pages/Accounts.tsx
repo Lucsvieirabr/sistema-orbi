@@ -82,6 +82,7 @@ function AccountsContent() {
   const onSubmit = async () => {
     if (!name.trim()) {
       setNameError("Dê um nome à conta.");
+      document.getElementById("name")?.focus();
       return;
     }
     const payload = { name, type, initial_balance: initialBalance, color };
@@ -172,7 +173,7 @@ function AccountsContent() {
               aria-describedby={nameError ? "name-error" : undefined}
             />
             {nameError && (
-              <p id="name-error" className="text-xs text-destructive">
+              <p id="name-error" className="text-xs text-destructive" role="alert">
                 {nameError}
               </p>
             )}

@@ -40,6 +40,7 @@ import { OwnerMark } from "@/components/family/OwnerMark";
 import { useNotifications } from "@/hooks/use-notifications";
 import { toAlert } from "@/hooks/use-personal-inflation";
 import { cn } from "@/lib/utils";
+import { toast } from "@/hooks/use-toast";
 
 /**
  * Orçamentos — teto de gasto por categoria, por mês (Pro/Casal).
@@ -56,6 +57,10 @@ const statusTone: Record<LedgerTone, string> = {
   warning: "text-warning",
   negative: "text-destructive",
 };
+
+/** Nome de categoria comparável: sem acento, caixa e espaços extras. */
+const categoryKey = (name: string) =>
+  name.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().toLowerCase().replace(/\s+/g, " ");
 
 /** Sugestão arredondada para cima na dezena: R$ 333,33 → R$ 340. */
 const suggestedLimit = (avg: number) => Math.max(10, Math.ceil(avg / 10) * 10);
@@ -91,7 +96,15 @@ export default function Budgets() {
   const handleDelete = async (budget: BudgetRow) => {
     try {
       await deleteBudget(budget.id);
-      notifyPlanningSuccess("Orçamento removido", `${budget.category_name} ficou sem teto em ${monthName}.`);
+      // Categoria pode ter mais de um teto (duplicado ou do parceiro no plano
+      // Casal): só diz "ficou sem teto" se de fato não sobrou nenhum.
+      const stillCapped = budgets.some((b) => b.id !== budget.id && b.category_id === budget.category_id);
+      notifyPlanningSuccess(
+        "Orçamento removido",
+        stillCapped
+          ? `${budget.category_name} continua com outro teto ativo em ${monthName}.`
+          : `${budget.category_name} ficou sem teto em ${monthName}.`,
+      );
     } catch (err) {
       notifyPlanningError("Não foi possível remover", err);
     }
@@ -366,7 +379,7 @@ function BudgetItem({
             size="icon-sm"
             onClick={onEdit}
             disabled={readOnly}
-            aria-label={`Editar orçamento de ${budget.category_name}`}
+            aria-label={`Editar orçamento de ${budget.category_name}, teto ${formatMoney(budget.amount_limit)}${readOnly ? " (do parceiro)" : ""}`}
           >
             <Pencil aria-hidden />
           </Button>
@@ -381,7 +394,7 @@ function BudgetItem({
               variant="ghost"
               size="icon-sm"
               disabled={readOnly}
-              aria-label={`Remover orçamento de ${budget.category_name}`}
+              aria-label={`Remover orçamento de ${budget.category_name}, teto ${formatMoney(budget.amount_limit)}${readOnly ? " (do parceiro)" : ""}`}
               className="text-muted-foreground hover:bg-destructive-soft hover:text-destructive"
             >
               <Trash2 aria-hidden />
@@ -480,14 +493,22 @@ function BudgetEditor({
     }
   }, [state]);
 
+  // Meus orçamentos do mês. Chave por id E por nome: o usuário pode ter uma
+  // categoria própria com o mesmo nome de uma do sistema ("Alimentação") —
+  // o teto duplicado nunca somaria consumo e inflaria o "Orçado".
+  const myBudgets = useMemo(() => budgets.filter((b) => isMine(b.user_id)), [budgets, isMine]);
+  const findTaken = (id: string, name?: string) =>
+    myBudgets.find((b) => b.category_id === id || (name !== undefined && categoryKey(b.category_name) === categoryKey(name)));
+
   // Só categorias de gasto, próprias ou do sistema, que ainda não têm teto no mês.
   const available = useMemo(() => {
-    const taken = new Set(budgets.filter((b) => isMine(b.user_id)).map((b) => b.category_id));
+    const takenIds = new Set(myBudgets.map((b) => b.category_id));
+    const takenNames = new Set(myBudgets.map((b) => categoryKey(b.category_name)));
     return categories
       .filter((c) => c.category_type === "expense")
-      .filter((c) => (editing ? c.id === editing.category_id : !taken.has(c.id)))
+      .filter((c) => (editing ? c.id === editing.category_id : !takenIds.has(c.id) && !takenNames.has(categoryKey(c.name))))
       .sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
-  }, [categories, budgets, editing, isMine]);
+  }, [categories, myBudgets, editing]);
 
   const stats = useMemo(() => {
     if (!categoryId) return null;
@@ -503,13 +524,17 @@ function BudgetEditor({
     const nextErrors: typeof errors = {};
     if (!categoryId) nextErrors.category = "Escolha a categoria do orçamento.";
     if (!amount || amount <= 0) nextErrors.amount = "Informe um teto maior que zero.";
-    setErrors(nextErrors);
-    if (nextErrors.category) {
-      categoryRef.current?.focus();
-      return;
+    if (!editing && categoryId) {
+      const name = categories.find((c) => c.id === categoryId)?.name;
+      const existing = findTaken(categoryId, name);
+      if (existing) nextErrors.category = `${existing.category_name} já tem teto neste mês. Edite o orçamento existente.`;
     }
-    if (nextErrors.amount) {
-      amountRef.current?.focus();
+    setErrors(nextErrors);
+    const firstError = nextErrors.category ?? nextErrors.amount;
+    if (firstError) {
+      // Inline + toast: o erro inline sozinho passava despercebido.
+      toast({ title: editing ? "Não foi possível salvar" : "Não foi possível criar", description: firstError, variant: "destructive" });
+      (nextErrors.category ? categoryRef : amountRef).current?.focus();
       return;
     }
 
@@ -547,6 +572,8 @@ function BudgetEditor({
               <Select
                 value={categoryId}
                 onValueChange={(value) => {
+                  // Radix Select às vezes emite "" (select nativo oculto) — não limpa o erro por isso.
+                  if (!value) return;
                   setCategoryId(value);
                   setErrors((prev) => ({ ...prev, category: undefined }));
                 }}
@@ -578,7 +605,7 @@ function BudgetEditor({
                 </SelectContent>
               </Select>
               {errors.category && (
-                <p id="budget-category-error" className="text-xs text-destructive">
+                <p id="budget-category-error" className="text-xs text-destructive" role="alert">
                   {errors.category}
                 </p>
               )}
@@ -602,7 +629,7 @@ function BudgetEditor({
                 aria-describedby={errors.amount ? "budget-amount-error" : "budget-amount-help"}
               />
               {errors.amount ? (
-                <p id="budget-amount-error" className="text-xs text-destructive">
+                <p id="budget-amount-error" className="text-xs text-destructive" role="alert">
                   {errors.amount}
                 </p>
               ) : stats ? (

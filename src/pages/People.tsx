@@ -65,7 +65,10 @@ function PeopleContent() {
     if (!name.trim()) next.name = "Dê um nome à pessoa.";
     if (pixValue && !isValidPixKey(pixValue)) next.pix = "Chave PIX inválida. Use e-mail, CPF, CNPJ, celular com DDI ou chave aleatória.";
     setErrors(next);
-    if (next.name || next.pix) return;
+    if (next.name || next.pix) {
+      document.getElementById(next.name ? "name" : "pix")?.focus();
+      return;
+    }
     toast({ title: "Salvando…" });
     try {
       if (editingId) {
@@ -161,7 +164,7 @@ function PeopleContent() {
               aria-describedby={errors.name ? "name-error" : undefined}
             />
             {errors.name && (
-              <p id="name-error" className="text-xs text-destructive">
+              <p id="name-error" className="text-xs text-destructive" role="alert">
                 {errors.name}
               </p>
             )}
@@ -180,7 +183,7 @@ function PeopleContent() {
               aria-describedby={errors.pix ? "pix-error" : "pix-hint"}
             />
             {errors.pix ? (
-              <p id="pix-error" className="text-xs text-destructive">
+              <p id="pix-error" className="text-xs text-destructive" role="alert">
                 {errors.pix}
               </p>
             ) : (

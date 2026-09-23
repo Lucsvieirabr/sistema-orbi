@@ -1,4 +1,5 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
+import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -236,17 +237,19 @@ export function useMarkDebtAsPaid() {
 
 // Hook para obter estatísticas de dívidas (calcula baseado em transações pendentes e com person_id)
 export function useDebtStats() {
+  // Escopo do espaço ativo: Meu = [eu]; Nosso = [eu, parceiro] (RLS garante o resto).
+  const viewMode = useViewMode();
   return useQuery({
-    queryKey: ["debt-stats"],
+    queryKey: ["debt-stats", viewMode],
     queryFn: async () => {
-      const { data: { user } } = await getCachedAuthUser();
-      if (!user) throw new Error("Usuário não autenticado");
+      const userIds = await getScopeUserIds();
+      if (userIds.length === 0) throw new Error("Usuário não autenticado");
 
       // Buscar todas as transações pendentes (PENDING)
       const { data: pendingTransactions, error: pendingError } = await supabase
         .from("transactions")
         .select("value, type, status, person_id")
-        .eq("user_id", user.id)
+        .in("user_id", userIds)
         .eq("status", "PENDING");
 
       if (pendingError) throw pendingError;

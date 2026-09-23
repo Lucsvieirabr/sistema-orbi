@@ -11,6 +11,10 @@ export function kindIcon(kind: ProjectKind): string {
 
 export function reportSentence(name: string, report: ProjectReport): { lead: string; tone: "positive" | "negative" | "neutral" } {
   const cost = formatMoney(report.cost);
+  // Arquivado antes de gastar: "abaixo do orçamento" seria vitória falsa.
+  if (report.cost <= 0) {
+    return { lead: `${name} foi arquivado sem gastos.`, tone: "neutral" };
+  }
   if (report.budget <= 0 || report.variancePct === null) {
     return { lead: `${name} custou ${cost}.`, tone: "neutral" };
   }

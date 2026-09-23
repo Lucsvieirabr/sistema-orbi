@@ -32,6 +32,9 @@ export interface SelectWithAddButtonProps {
   disabled?: boolean;
   /** id do trigger, para associar um <Label htmlFor>. */
   id?: string;
+  /** Erro de validação: borda vermelha e descrição do erro no trigger. */
+  "aria-invalid"?: boolean;
+  "aria-describedby"?: string;
 }
 
 const ADD_LABELS: Record<SelectWithAddButtonProps["entityType"], string> = {
@@ -47,11 +50,16 @@ const EntityForms = {
     const [type, setType] = React.useState("Corrente");
     const [initialBalance, setInitialBalance] = React.useState(0);
     const [color, setColor] = React.useState("#4f46e5");
+    const [nameError, setNameError] = React.useState<string | undefined>();
     const { createAccount } = useAccounts();
     const queryClient = useQueryClient();
 
     const onSubmit = async () => {
-      if (!name.trim()) return;
+      if (!name.trim()) {
+        setNameError("Dê um nome à conta.");
+        document.getElementById("quick-account-name")?.focus();
+        return;
+      }
       const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newAccount = await createAccount({ name, type, initial_balance: initialBalance, color });
@@ -77,13 +85,28 @@ const EntityForms = {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="quick-account-name">Nome</Label>
+            <Input
+              id="quick-account-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              placeholder="Conta corrente"
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? "quick-account-name-error" : undefined}
+            />
+            {nameError && (
+              <p id="quick-account-name-error" className="text-xs text-destructive" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
           <div className="space-y-2">
-            <Label htmlFor="account_type">Tipo</Label>
+            <Label htmlFor="quick-account-type">Tipo</Label>
             <Select value={type} onValueChange={setType}>
-              <SelectTrigger id="account_type">
+              <SelectTrigger id="quick-account-type">
                 <SelectValue placeholder="Tipo" />
               </SelectTrigger>
               <SelectContent>
@@ -95,9 +118,9 @@ const EntityForms = {
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="initial_balance">Saldo Inicial</Label>
+            <Label htmlFor="quick-account-balance">Saldo inicial</Label>
             <NumericInput
-              id="initial_balance"
+              id="quick-account-balance"
               currency
               value={initialBalance}
               onChange={setInitialBalance}
@@ -105,7 +128,7 @@ const EntityForms = {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="color">Cor</Label>
+            <Label>Cor</Label>
             <ColorPicker value={color} onChange={setColor} />
           </div>
         </div>
@@ -120,11 +143,16 @@ const EntityForms = {
     const [name, setName] = React.useState("");
     const [categoryType, setCategoryType] = React.useState<"income" | "expense">("expense");
     const [icon, setIcon] = React.useState("");
+    const [nameError, setNameError] = React.useState<string | undefined>();
     const { createCategory } = useCategories();
     const queryClient = useQueryClient();
 
     const onSubmit = async () => {
-      if (!name.trim()) return;
+      if (!name.trim()) {
+        setNameError("Dê um nome à categoria.");
+        document.getElementById("quick-category-name")?.focus();
+        return;
+      }
       const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newCategory = await createCategory({ name, category_type: categoryType, icon });
@@ -148,14 +176,29 @@ const EntityForms = {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} />
+            <Label htmlFor="quick-category-name">Nome</Label>
+            <Input
+              id="quick-category-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              placeholder="Mercado"
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? "quick-category-name-error" : undefined}
+            />
+            {nameError && (
+              <p id="quick-category-name-error" className="text-xs text-destructive" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
-              <Label htmlFor="categoryType">Tipo</Label>
+              <Label htmlFor="quick-category-type">Tipo</Label>
               <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
-                <SelectTrigger id="categoryType">
+                <SelectTrigger id="quick-category-type">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -165,7 +208,7 @@ const EntityForms = {
               </Select>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="icon">Ícone (opcional)</Label>
+              <Label>Ícone (opcional)</Label>
               <IconSelector
                 value={icon}
                 onChange={setIcon}
@@ -222,11 +265,16 @@ const EntityForms = {
 
   people: ({ open, onOpenChange, onSuccess }: { open: boolean; onOpenChange: (open: boolean) => void; onSuccess: (id: string) => void }) => {
     const [name, setName] = React.useState("");
+    const [nameError, setNameError] = React.useState<string | undefined>();
     const { createPerson } = usePeople();
     const queryClient = useQueryClient();
 
     const onSubmit = async () => {
-      if (!name.trim()) return;
+      if (!name.trim()) {
+        setNameError("Dê um nome à pessoa.");
+        document.getElementById("quick-person-name")?.focus();
+        return;
+      }
       const t = toast({ title: "Salvando…", duration: 2000 });
       try {
         const newPerson = await createPerson({ name });
@@ -248,8 +296,23 @@ const EntityForms = {
         </DialogHeader>
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="name">Nome da Pessoa</Label>
-            <Input id="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex: Filho João, Esposa Maria" />
+            <Label htmlFor="quick-person-name">Nome da pessoa</Label>
+            <Input
+              id="quick-person-name"
+              value={name}
+              onChange={(e) => {
+                setName(e.target.value);
+                setNameError(undefined);
+              }}
+              placeholder="Ex: Filho João, Esposa Maria"
+              aria-invalid={Boolean(nameError)}
+              aria-describedby={nameError ? "quick-person-name-error" : undefined}
+            />
+            {nameError && (
+              <p id="quick-person-name-error" className="text-xs text-destructive" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
         </div>
         <DialogFooter>
@@ -268,6 +331,8 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
   children,
   disabled,
   id,
+  "aria-invalid": ariaInvalid,
+  "aria-describedby": ariaDescribedBy,
 }) => {
   const [dialogOpen, setDialogOpen] = React.useState(false);
   const [refreshTrigger, setRefreshTrigger] = React.useState(0);
@@ -356,7 +421,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
         title: (
           <div className="flex items-center gap-2">
             <Lock className="h-4 w-4" />
-            <span>Limite Atingido</span>
+            <span>Limite atingido</span>
           </div>
         ) as any,
         description: (
@@ -369,7 +434,7 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
               className="w-full"
             >
               <Sparkles className="mr-2 h-4 w-4" />
-              Ver Planos e Fazer Upgrade
+              Ver planos e fazer upgrade
             </Button>
           </div>
         ) as any,
@@ -428,7 +493,9 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
             aria-expanded={open}
             aria-haspopup="listbox"
             aria-controls={listboxId}
-            className="w-full justify-between pr-12 border border-input"
+            aria-invalid={ariaInvalid || undefined}
+            aria-describedby={ariaDescribedBy}
+            className="w-full justify-between border border-input pr-12 aria-[invalid=true]:border-destructive"
             disabled={disabled}
           >
             <span className="truncate">
@@ -439,9 +506,10 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
         </PopoverTrigger>
         <PopoverContent className="w-full p-0" align="start" role="presentation">
           <div className="border-b p-2">
-            <Input 
-              placeholder="Buscar..." 
-              className="h-8"
+            <Input
+              placeholder="Buscar…"
+              aria-label="Buscar na lista"
+              className="h-11 md:h-8"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
@@ -486,12 +554,13 @@ export const SelectWithAddButton: React.FC<SelectWithAddButtonProps> = ({
       {/* Botão de adicionar */}
       <button
         type="button"
-        className="absolute right-2 top-1/2 -translate-y-1/2 h-6 w-6 flex items-center justify-center rounded-sm hover:bg-muted cursor-pointer z-10"
+        // Alvo de toque de 44px no mobile (mesma altura do trigger h-11); md: volta à densidade de mouse.
+        className="absolute right-0 top-1/2 z-10 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-lg text-muted-foreground transition-colors duration-200 ease-swift hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-45 md:right-1 md:h-8 md:w-8 md:rounded-md"
         onClick={handleAddClick}
         disabled={disabled}
         aria-label={ADD_LABELS[entityType]}
       >
-        <Plus className="h-3 w-3" aria-hidden />
+        <Plus className="h-4 w-4 md:h-3.5 md:w-3.5" aria-hidden />
       </button>
 
       {/* Dialog separado */}

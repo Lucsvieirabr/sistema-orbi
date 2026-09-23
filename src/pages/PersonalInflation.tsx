@@ -39,6 +39,8 @@ import { EmptyState, PageBody, PageHeader, SectionHeader } from "@/components/ui
 import { Skeleton, Spinner } from "@/components/ui/skeleton";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
+  MIN_ESSENTIAL_MONTHLY,
+  MIN_PAIRED_MERCHANTS,
   usePersonalInflation,
   type InflationBasis,
   type InflationCategory,
@@ -124,8 +126,10 @@ export default function PersonalInflation() {
         <div className="space-y-5 md:space-y-7">
           <EmptyState
             icon={ShoppingBasket}
-            title="Ainda falta histórico para comparar"
-            description={`O índice compara a média de ${formatMonthLong(inflation.windowStart)} a ${formatMonthLong(inflation.referenceMonth)} com pelo menos o trimestre anterior. Importe extratos antigos de mercado, farmácia, combustível e assinaturas para liberar a comparação.`}
+            title={inflation.insufficientBase ? "Ainda não dá para afirmar variação de preços" : "Ainda falta histórico para comparar"}
+            description={inflation.insufficientBase
+              ? `Para comparar preços o Orbi precisa de pelo menos ${MIN_PAIRED_MERCHANTS} estabelecimentos com compras nos dois períodos e ${formatMoney(MIN_ESSENTIAL_MONTHLY)}/mês de gasto essencial. Hoje: ${plural(inflation.matchedMerchants, "estabelecimento pareado", "estabelecimentos pareados")} e ${formatMoney(inflation.essentialMonthly)}/mês. Importe extratos antigos de mercado, farmácia, combustível e assinaturas para liberar a comparação.`
+              : `O índice compara a média de ${formatMonthLong(inflation.windowStart)} a ${formatMonthLong(inflation.referenceMonth)} com pelo menos o trimestre anterior. Importe extratos antigos de mercado, farmácia, combustível e assinaturas para liberar a comparação.`}
             action={
               <Button asChild>
                 <Link to="/sistema/statement">Importar extratos</Link>
@@ -178,6 +182,7 @@ function InflationReport({
     [inflation.categories, basis],
   );
   const silent = inflation.categories.filter((category) => category.idx[basis] === null);
+  const lockedLabels = BASIS_OPTIONS.filter((option) => !available.includes(option.value)).map((option) => option.label);
 
   return (
     <>
@@ -206,18 +211,32 @@ function InflationReport({
                 aria-label="Base de comparação"
                 className="rounded-xl border border-border-subtle bg-surface-sunken p-1"
               >
-                {BASIS_OPTIONS.map((option) => (
-                  <ToggleGroupItem
-                    key={option.value}
-                    value={String(option.value)}
-                    disabled={!available.includes(option.value)}
-                    className="h-10 rounded-lg border border-transparent px-3 text-xs data-[state=on]:border-border data-[state=on]:bg-card md:h-8"
-                  >
-                    {option.label}
-                  </ToggleGroupItem>
-                ))}
+                {BASIS_OPTIONS.map((option) => {
+                  const locked = !available.includes(option.value);
+                  return (
+                    <ToggleGroupItem
+                      key={option.value}
+                      value={String(option.value)}
+                      disabled={locked}
+                      title={locked ? `Ainda não há histórico suficiente para comparar ${option.label}.` : undefined}
+                      aria-describedby={locked ? "inflation-basis-locked" : undefined}
+                      className="h-10 rounded-lg border border-transparent px-3 text-xs data-[state=on]:border-border data-[state=on]:bg-card md:h-8"
+                    >
+                      {option.label}
+                    </ToggleGroupItem>
+                  );
+                })}
               </ToggleGroup>
             </div>
+            {lockedLabels.length > 0 && (
+              <p id="inflation-basis-locked" className="mt-2 text-xs text-muted-foreground text-pretty">
+                {lockedLabels.join(" e ")} {lockedLabels.length > 1 ? "liberam" : "libera"} quando houver compras suficientes
+                para comparar o período com o anterior.{" "}
+                <Link to="/sistema/statement" className="font-medium text-foreground underline underline-offset-4">
+                  Importar extratos antigos
+                </Link>
+              </p>
+            )}
 
             <p
               id="inflation-headline"

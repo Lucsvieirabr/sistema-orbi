@@ -337,13 +337,25 @@ function GoalCard({
                 </Link>
               </Button>
             ) : (
-              <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onMove}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={onMove}
+                aria-label={`Ver histórico da meta ${goal.name}`}
+              >
                 Ver histórico
               </Button>
             )
           ) : (
             <>
-              <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={onMove}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full sm:w-auto"
+                onClick={onMove}
+                aria-label={`${readOnly ? "Ver histórico" : "Aporte ou resgate"} da meta ${goal.name}`}
+              >
                 {readOnly ? "Ver histórico" : "Aporte ou resgate"}
               </Button>
               {canExecute && !readOnly && goal.saved_value > 0 && (

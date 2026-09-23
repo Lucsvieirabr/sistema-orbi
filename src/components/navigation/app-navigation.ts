@@ -69,7 +69,7 @@ export const APP_NAVIGATION_GROUPS: AppNavigationGroup[] = [
       { title: "Categorias", icon: List, path: "/sistema/categories" },
       { title: "Pessoas", icon: Users, path: "/sistema/people" },
       { title: "Notas", icon: StickyNote, path: "/sistema/notes" },
-      { title: "IA Classificador", icon: Brain, path: "/sistema/my-ai" },
+      { title: "Classificação automática", icon: Brain, path: "/sistema/my-ai" },
     ],
   },
 ];
