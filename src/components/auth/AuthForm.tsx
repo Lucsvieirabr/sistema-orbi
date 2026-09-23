@@ -32,6 +32,13 @@ import {
   type RegisterValues,
 } from "@/lib/validation/auth-forms";
 
+/** Data/hora do build em horário de Brasília (ex.: 23/09/2026, 08:03). */
+const BUILD_DATE_LABEL = new Intl.DateTimeFormat("pt-BR", {
+  dateStyle: "short",
+  timeStyle: "short",
+  timeZone: "America/Sao_Paulo",
+}).format(new Date(__BUILD_TIME__));
+
 /** Item do segmented control: o fundo ativo é do thumb, não do item. */
 const segmentTrigger =
   "data-[state=active]:border-transparent data-[state=active]:bg-transparent data-[state=active]:shadow-none";
@@ -377,6 +384,16 @@ export function AuthForm() {
         </CardContent>
           </Card>
         </main>
+
+        {/* Mobile: no fluxo, abaixo do card (não sobrepõe o formulário longo de
+            cadastro). md+: fixo no canto inferior direito da viewport, espelhando
+            o toggle de tema no canto superior. */}
+        <footer className="shrink-0 pb-3 text-right text-[0.6875rem] tabular-nums text-muted-foreground md:absolute md:bottom-4 md:right-8 md:pb-0">
+          <span className="sr-only">Versão do sistema: </span>
+          <span translate="no">{__BUILD_COMMIT__}</span>
+          <span aria-hidden="true"> · </span>
+          <time dateTime={__BUILD_TIME__}>{BUILD_DATE_LABEL}</time>
+        </footer>
       </div>
     </div>
   );
