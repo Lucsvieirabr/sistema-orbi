@@ -35,7 +35,10 @@ export function useCategories() {
       .or(`is_system.eq.true,user_id.eq.${userId}`);
     
     if (error) throw error;
-    return data ?? [];
+    // Ordem alfabetica pt-BR (acento/caixa ignorados) para todas as telas.
+    return (data ?? []).sort((a, b) =>
+      a.name.localeCompare(b.name, "pt-BR", { sensitivity: "base" }),
+    );
   };
 
   const { data, isLoading, error } = useQuery({

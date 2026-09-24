@@ -324,6 +324,7 @@ export default function CardStatements() {
       <PageBody>
         <EmptyState
           icon={AlertTriangle}
+          titleAs="h1"
           title="Cartão não encontrado"
           description="O cartão que você tentou abrir não existe mais ou não está disponível nesta conta."
           action={

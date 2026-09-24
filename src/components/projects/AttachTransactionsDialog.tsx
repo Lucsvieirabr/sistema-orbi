@@ -83,8 +83,10 @@ export function AttachTransactionsDialog({
     try {
       await onAttach([...selected]);
       notifyPlanningSuccess(
-        "Lançamentos vinculados",
-        `${plural(selected.size, "lançamento entrou", "lançamentos entraram")} em “${projectName}” e saíram do DRE do mês.`,
+        selected.size === 1 ? "Lançamento vinculado" : "Lançamentos vinculados",
+        selected.size === 1
+          ? `1 lançamento entrou em “${projectName}” e saiu do DRE do mês.`
+          : `${plural(selected.size, "lançamento entrou", "lançamentos entraram")} em “${projectName}” e saíram do DRE do mês.`,
       );
       onClose();
     } catch (err) {

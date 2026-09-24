@@ -188,7 +188,7 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, us
       const errorMessage = error instanceof Error ? error.message : 'Erro ao processar arquivo.';
       setErrors([errorMessage]);
       toast({
-        title: "Erro",
+        title: "Não foi possível ler o arquivo",
         description: errorMessage,
         variant: "destructive"
       });
@@ -395,8 +395,8 @@ export function ExtratoUploader({ open, onOpenChange, onTransactionsImported, us
           <Alert>
             <AlertCircle className="h-4 w-4" />
             <AlertDescription>
-              <strong>Inteligência Artificial Personalizada:</strong>
-              Você pode treinar a IA do seu jeito corrigindo classificações - criando basicamente sua própria IA personalizada.
+              <strong>Inteligência Artificial Personalizada:</strong>{" "}
+              Você pode treinar a IA do seu jeito corrigindo classificações — criando sua própria IA personalizada.
             </AlertDescription>
           </Alert>
 

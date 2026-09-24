@@ -71,7 +71,7 @@ export const PasswordField = forwardRef<HTMLInputElement, PasswordFieldProps>(fu
       </div>
       {hint && <div id={hintId}>{hint}</div>}
       {error && (
-        <p id={errorId} className="text-xs text-destructive">
+        <p id={errorId} className="text-xs text-destructive" role="alert">
           {error}
         </p>
       )}

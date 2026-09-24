@@ -50,8 +50,13 @@ export function PasswordSettings() {
   const confirmError =
     confirm.length === 0 ? "Repita a nova senha." : confirm !== password ? "As senhas não coincidem." : null;
 
-  const showPasswordError = (touched.password || submitted) && !evaluation.isValid;
-  const showConfirmError = (touched.confirm || submitted) && confirmError !== null;
+  // Mostra o erro assim que há algo para julgar: após o blur, ao começar a
+  // confirmação ou quando a confirmação já tem o tamanho da senha.
+  const showPasswordError =
+    password.length > 0 && (touched.password || confirm.length > 0 || submitted) && !evaluation.isValid;
+  const showConfirmError =
+    confirm.length > 0 && (touched.confirm || confirm.length >= password.length || submitted) && confirmError !== null;
+  const canSubmit = evaluation.isValid && confirmError === null;
   const confirmMatches = confirm.length > 0 && confirm === password;
 
   const reset = () => {
@@ -131,7 +136,7 @@ export function PasswordSettings() {
             maxLength={128}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
-            onBlur={() => password && setTouched((t) => ({ ...t, password: true }))}
+            onBlur={() => setTouched((t) => ({ ...t, password: true }))}
             disabled={isSaving}
             error={showPasswordError ? evaluation.error : null}
             hint={<PasswordStrengthHint evaluation={evaluation} />}
@@ -146,7 +151,7 @@ export function PasswordSettings() {
             maxLength={128}
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
-            onBlur={() => confirm && setTouched((t) => ({ ...t, confirm: true }))}
+            onBlur={() => setTouched((t) => ({ ...t, confirm: true }))}
             disabled={isSaving}
             error={showConfirmError ? confirmError : null}
             hint={<PasswordMatchHint matches={confirmMatches} />}
@@ -154,7 +159,7 @@ export function PasswordSettings() {
         </CardContent>
 
         <CardFooter>
-          <Button type="submit" disabled={isSaving} className="sm:min-w-[9.5rem]">
+          <Button type="submit" disabled={isSaving || !canSubmit} className="sm:min-w-[9.5rem]">
             {isSaving && <Loader2 className="animate-spin" aria-hidden />}
             {isSaving ? "Alterando…" : "Alterar senha"}
           </Button>

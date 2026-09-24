@@ -59,8 +59,7 @@ export function CompositionDialog({
   const handleAddItem = () => {
     if (!currentItem.description?.trim()) {
       toast({
-        title: "Erro",
-        description: "A descrição é obrigatória",
+        title: "A descrição é obrigatória",
         variant: "destructive" as any,
       });
       return;
@@ -68,8 +67,7 @@ export function CompositionDialog({
 
     if (!currentItem.value || currentItem.value <= 0) {
       toast({
-        title: "Erro",
-        description: "O valor deve ser maior que zero",
+        title: "O valor deve ser maior que zero",
         variant: "destructive" as any,
       });
       return;
@@ -90,8 +88,7 @@ export function CompositionDialog({
   const handleSave = () => {
     if (items.length === 0) {
       toast({
-        title: "Erro",
-        description: "Adicione pelo menos um item à composição",
+        title: "Adicione pelo menos um item à composição",
         variant: "destructive" as any,
       });
       return;

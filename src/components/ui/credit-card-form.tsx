@@ -106,8 +106,8 @@ export const CreditCardForm: React.FC<CreditCardFormProps> = ({
       onSuccess?.(createdId);
     } catch (e: any) {
       t.update({
-        title: "Erro",
-        description: e.message || "Não foi possível salvar",
+        title: "Não foi possível salvar",
+        description: e?.message,
         duration: 3000,
         variant: "destructive" as any,
       });

@@ -88,7 +88,7 @@ export function ProjectEditor({
     setErrors(next);
     if (next.name) return nameRef.current?.focus();
     if (next.budget) return budgetRef.current?.focus();
-    if (next.dates) return;
+    if (next.dates) return document.getElementById("project-end")?.focus();
 
     const input: ProjectInput = {
       name: name.trim(),
@@ -147,7 +147,7 @@ export function ProjectEditor({
                 aria-describedby={errors.name ? "project-name-error" : undefined}
               />
               {errors.name && (
-                <p id="project-name-error" className="text-xs text-destructive">
+                <p id="project-name-error" className="text-xs text-destructive" role="alert">
                   {errors.name}
                 </p>
               )}
@@ -192,7 +192,7 @@ export function ProjectEditor({
                 aria-describedby={errors.budget ? "project-budget-error" : floor > 0 ? "project-budget-hint" : undefined}
               />
               {errors.budget ? (
-                <p id="project-budget-error" className="text-xs text-destructive">
+                <p id="project-budget-error" className="text-xs text-destructive" role="alert">
                   {errors.budget}
                 </p>
               ) : (
@@ -236,9 +236,15 @@ export function ProjectEditor({
                 />
               </div>
             </div>
-            <p id="project-dates-hint" className={errors.dates ? "-mt-3 text-xs text-destructive" : "-mt-3 text-xs text-muted-foreground"}>
-              {errors.dates ?? "No dia seguinte ao fim, o projeto é arquivado e o relatório final fica pronto."}
-            </p>
+            {errors.dates ? (
+              <p id="project-dates-hint" className="-mt-3 text-xs text-destructive" role="alert">
+                {errors.dates}
+              </p>
+            ) : (
+              <p id="project-dates-hint" className="-mt-3 text-xs text-muted-foreground">
+                No dia seguinte ao fim, o projeto é arquivado e o relatório final fica pronto.
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="project-description">

@@ -27,7 +27,7 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
 
   const { people, isLoading: peopleLoading } = usePeople();
-  const { transactions, indicators, isLoading: transactionsLoading, error } = usePersonTransactions(personId || "", selectedMonth, selectedYear);
+  const { transactions, ledgerDebts, indicators, isLoading: transactionsLoading, error } = usePersonTransactions(personId || "", selectedMonth, selectedYear);
   const { updateTransactionStatus } = useUpdateTransactionStatus();
 
   const person = useMemo(() => {
@@ -306,14 +306,49 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {transactions.length === 0 ? (
+          {ledgerDebts.length > 0 && (
+            <div className="space-y-3 mb-3">
+              {ledgerDebts.map((debt) => (
+                <div
+                  key={debt.ledgerId}
+                  className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    {debt.amount > 0
+                      ? <TrendingUp className="h-4 w-4 text-success" />
+                      : <TrendingDown className="h-4 w-4 text-destructive" />}
+                    <div>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="font-medium">{debt.ledgerName}</span>
+                        <Badge className={cn("text-xs", getStatusColor('PENDING'))}>Pendente</Badge>
+                        <Badge variant="outline" className="text-xs">Evento</Badge>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {debt.amount > 0
+                          ? `${person.name} deve ${formatCurrency(debt.amount)} para você`
+                          : `Você deve ${formatCurrency(-debt.amount)} para ${person.name}`}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => navigate(`/sistema/ledgers?evento=${debt.ledgerId}`)}
+                  >
+                    Ver evento
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+          {transactions.length === 0 && ledgerDebts.length === 0 ? (
             <EmptyState
               icon={FileText}
               title="Nenhum acerto com esta pessoa"
               description="Quando você registrar um rateio envolvendo esta pessoa, ele aparece aqui."
               className="border-0"
             />
-          ) : (
+          ) : transactions.length === 0 ? null : (
             <div className="space-y-3">
               {transactions.map((transaction) => (
                 <div

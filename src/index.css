@@ -239,15 +239,6 @@
     }
   }
 
-  /* Campo com fonte < 16px faz o iOS dar zoom ao focar. */
-  @media (max-width: 767px) {
-    input,
-    select,
-    textarea {
-      font-size: 16px;
-    }
-  }
-
   /* Hierarquia tipografica: display com tracking negativo proporcional ao
      tamanho — quanto maior o texto, mais fechado. */
   h1, h2, h3, h4 {
@@ -379,5 +370,15 @@
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* Campo com fonte < 16px faz o iOS dar zoom ao focar. Fora de @layer e com
+   :not() para vencer utilitarios (`text-base` = 15px, `text-sm`) no mobile. */
+@media (max-width: 767.98px) {
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+  select:not([multiple]),
+  textarea:not([data-no-ios-zoom-fix]) {
+    font-size: 16px;
   }
 }

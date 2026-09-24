@@ -118,7 +118,7 @@ function CategoriesContent() {
       }
       toast({ title: "Categoria salva" });
     } catch (e) {
-      toast({ title: "Erro", description: "Não foi possível salvar", variant: "destructive" });
+      toast({ title: "Não foi possível salvar", variant: "destructive" });
       return;
     }
     setOpen(false);
@@ -176,8 +176,8 @@ function CategoriesContent() {
       queryClient.invalidateQueries({ queryKey: ["monthly-transactions"] });
     } catch (error: any) {
       toast({ 
-        title: "Erro", 
-        description: error?.message || "Não foi possível excluir a categoria", 
+        title: "Não foi possível excluir a categoria",
+        description: error?.message,
         variant: "destructive" 
       });
     }

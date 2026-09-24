@@ -73,8 +73,7 @@ export function useInstallments() {
     },
     onSuccess: (seriesId) => {
       toast({
-        title: "Sucesso",
-        description: "Série de parcelas criada com sucesso",
+        title: "Série de parcelas criada",
         duration: 3000
       });
       
@@ -84,8 +83,8 @@ export function useInstallments() {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a série de parcelas",
+        title: "Não foi possível criar a série de parcelas",
+        description: error?.message,
         variant: "destructive"
       });
     }
@@ -115,8 +114,7 @@ export function useInstallments() {
     },
     onSuccess: (updatedCount) => {
       toast({
-        title: "Sucesso",
-        description: `${updatedCount} parcelas atualizadas`,
+        title: `${updatedCount} parcelas atualizadas`,
         duration: 3000
       });
       
@@ -126,8 +124,8 @@ export function useInstallments() {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível atualizar a série de parcelas",
+        title: "Não foi possível atualizar a série de parcelas",
+        description: error?.message,
         variant: "destructive"
       });
     }
@@ -149,8 +147,7 @@ export function useInstallments() {
     },
     onSuccess: (deletedCount) => {
       toast({
-        title: "Sucesso",
-        description: `${deletedCount} parcelas removidas`,
+        title: `${deletedCount} parcelas removidas`,
         duration: 3000
       });
       
@@ -160,8 +157,8 @@ export function useInstallments() {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível deletar a série de parcelas",
+        title: "Não foi possível deletar a série de parcelas",
+        description: error?.message,
         variant: "destructive"
       });
     }

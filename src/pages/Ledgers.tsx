@@ -315,7 +315,7 @@ function LedgerEditor({
     if (pixValue && !isValidPixKey(pixValue)) next.pix = "Chave PIX inválida. Use e-mail, CPF, CNPJ, celular com DDI ou chave aleatória.";
     setErrors(next);
     if (next.name) return nameRef.current?.focus();
-    if (next.dates) return;
+    if (next.dates) return document.getElementById("ledger-end")?.focus();
     if (next.pix) return document.getElementById("ledger-pix")?.focus();
 
     const input: LedgerInput = {
@@ -374,7 +374,7 @@ function LedgerEditor({
                 aria-describedby={errors.name ? "ledger-name-error" : undefined}
               />
               {errors.name && (
-                <p id="ledger-name-error" className="text-xs text-destructive">
+                <p id="ledger-name-error" className="text-xs text-destructive" role="alert">
                   {errors.name}
                 </p>
               )}
@@ -385,7 +385,17 @@ function LedgerEditor({
                 <Label htmlFor="ledger-start">
                   Início <span className="font-normal text-muted-foreground">(opcional)</span>
                 </Label>
-                <Input id="ledger-start" type="date" min="2000-01-01" max="2100-12-31" value={startDate} onChange={(event) => setStartDate(event.target.value)} />
+                <Input
+                  id="ledger-start"
+                  type="date"
+                  min="2000-01-01"
+                  max="2100-12-31"
+                  value={startDate}
+                  onChange={(event) => {
+                    setStartDate(event.target.value);
+                    setErrors((prev) => ({ ...prev, dates: undefined }));
+                  }}
+                />
               </div>
               <div className="space-y-2">
                 <Label htmlFor="ledger-end">
@@ -402,10 +412,15 @@ function LedgerEditor({
                     setErrors((prev) => ({ ...prev, dates: undefined }));
                   }}
                   aria-invalid={Boolean(errors.dates)}
+                  aria-describedby={errors.dates ? "ledger-dates-error" : undefined}
                 />
               </div>
             </div>
-            {errors.dates && <p className="-mt-3 text-xs text-destructive">{errors.dates}</p>}
+            {errors.dates && (
+              <p id="ledger-dates-error" className="-mt-3 text-xs text-destructive" role="alert">
+                {errors.dates}
+              </p>
+            )}
 
             <div className="space-y-2">
               <Label htmlFor="ledger-description">

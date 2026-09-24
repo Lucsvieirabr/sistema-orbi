@@ -596,6 +596,7 @@ function AllocationDialog({
   const [date, setDate] = useState(getCurrentDateString());
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [lastSaved, setLastSaved] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const amountRef = useRef<HTMLInputElement>(null);
   const { data: history, isLoading: historyLoading } = useGoalAllocations(goal?.id ?? null);
@@ -607,6 +608,7 @@ function AllocationDialog({
     setDate(getCurrentDateString());
     setNote("");
     setError(null);
+    setLastSaved(null);
   }, [goal?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Aporte que passa do alvo não é bloqueado (sobra é dinheiro guardado), mas avisa antes.
@@ -637,7 +639,9 @@ function AllocationDialog({
         allocatedOn: date || getCurrentDateString(),
         note,
       });
-      notifyPlanningSuccess(kind === "deposit" ? "Aporte registrado" : "Resgate registrado", goal.name);
+      const savedTitle = kind === "deposit" ? "Aporte registrado" : "Resgate registrado";
+      notifyPlanningSuccess(savedTitle, `${formatMoney(amount)} em “${goal.name}”.`);
+      setLastSaved(`${savedTitle}: ${formatMoney(amount)}.`);
       setAmount(null);
       setNote("");
       setError(null);
@@ -721,6 +725,7 @@ function AllocationDialog({
                       onChange={(value) => {
                         setAmount(value);
                         setError(null);
+                        setLastSaved(null);
                       }}
                       placeholder="R$ 0,00"
                       aria-invalid={Boolean(error)}
@@ -756,6 +761,12 @@ function AllocationDialog({
                 {error && (
                   <p id="allocation-error" role="alert" className="text-xs text-destructive">
                     {error}
+                  </p>
+                )}
+
+                {!error && lastSaved && overshoot <= 0 && (
+                  <p role="status" className="rounded-lg bg-success-soft px-3 py-2 text-xs text-success">
+                    {lastSaved}
                   </p>
                 )}
 

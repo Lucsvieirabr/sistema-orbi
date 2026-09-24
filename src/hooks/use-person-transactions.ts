@@ -3,7 +3,7 @@ import { useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
-import { toDateKey } from "@/lib/utils";
+import { fromDateKey, toDateKey } from "@/lib/utils";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
@@ -12,8 +12,17 @@ type Transaction = Tables<"transactions"> & {
   people?: { name: string };
 };
 
+/** Acerto em aberto de um evento de Rateio (ledger) entre o titular e esta pessoa. */
+export interface PersonLedgerDebt {
+  ledgerId: string;
+  ledgerName: string;
+  /** > 0 = a pessoa deve ao titular (a receber); < 0 = o titular deve à pessoa (a pagar). */
+  amount: number;
+}
+
 interface PersonTransactionsData {
   transactions: Transaction[];
+  ledgerDebts: PersonLedgerDebt[];
   indicators: {
     totalAReceber: number;
     totalAPagar: number;
@@ -56,6 +65,53 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
     return data ?? [];
   };
 
+  // Eventos de Rateio não geram `transactions.person_id`: a dívida vem das
+  // transferências de `orbi_ledger_summary` entre o titular ('owner') e a pessoa.
+  // Só eventos abertos do próprio titular — liquidado = acerto quitado.
+  const fetchLedgerDebts = async (): Promise<PersonLedgerDebt[]> => {
+    if (!personId) return [];
+    const { data: { user } } = await getCachedAuthUser();
+    if (!user) throw new Error("Usuário não autenticado");
+
+    const { data, error } = await supabase
+      .from("ledger_participants")
+      .select("ledger_id, ledgers!inner(id, name, status, user_id)")
+      .eq("person_id", personId)
+      .eq("ledgers.user_id", user.id)
+      .eq("ledgers.status", "open");
+    if (error) throw error;
+
+    const ledgers = (data ?? []).map((row: any) => row.ledgers).filter(Boolean);
+    const results = await Promise.allSettled(
+      ledgers.map((ledger: any) => supabase.rpc("orbi_ledger_summary", { p_ledger_id: ledger.id })),
+    );
+
+    const debts: PersonLedgerDebt[] = [];
+    results.forEach((result, index) => {
+      // Sem a feature (plano Free) a RPC recusa: o evento só não entra no extrato.
+      if (result.status !== "fulfilled" || result.value.error) return;
+      const transfers: any[] = (result.value.data as any)?.transfers ?? [];
+      const amount = transfers.reduce((sum, t) => {
+        if (t.from_key === personId && t.to_key === "owner") return sum + Number(t.amount || 0);
+        if (t.from_key === "owner" && t.to_key === personId) return sum - Number(t.amount || 0);
+        return sum;
+      }, 0);
+      const rounded = Math.round(amount * 100) / 100;
+      if (Math.abs(rounded) >= 0.01) {
+        debts.push({ ledgerId: ledgers[index].id, ledgerName: ledgers[index].name, amount: rounded });
+      }
+    });
+    return debts;
+  };
+
+  const ledgerQuery = useQuery({
+    queryKey: ["person-transactions", personId, "ledgers"],
+    queryFn: fetchLedgerDebts,
+    enabled: !!personId,
+    staleTime: 0,
+    refetchOnMount: 'always',
+  });
+
   const query = useQuery({
     queryKey: ["person-transactions", personId, month, year],
     queryFn: fetchPersonTransactions,
@@ -72,7 +128,7 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
     // Apply period filter if month and year are provided
     if (month !== undefined && year !== undefined) {
       transactions = transactions.filter(t => {
-        const transactionDate = new Date(t.date);
+        const transactionDate = fromDateKey(t.date);
         return transactionDate.getMonth() === month && transactionDate.getFullYear() === year;
       });
     }
@@ -93,16 +149,22 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
       .filter(t => t.type === 'expense' && t.status === 'PAID')
       .reduce((sum, t) => sum + t.value, 0);
 
-    const saldoLiquido = totalAReceber - totalAPagar;
+    // Acertos de eventos em aberto não têm mês: são pendências vigentes e
+    // entram em qualquer período até o evento ser liquidado.
+    const ledgerDebts = ledgerQuery.data ?? [];
+    const ledgerAReceber = ledgerDebts.filter(d => d.amount > 0).reduce((sum, d) => sum + d.amount, 0);
+    const ledgerAPagar = ledgerDebts.filter(d => d.amount < 0).reduce((sum, d) => sum - d.amount, 0);
+
+    const saldoLiquido = (totalAReceber + ledgerAReceber) - (totalAPagar + ledgerAPagar);
 
     return {
-      totalAReceber,
-      totalAPagar,
+      totalAReceber: totalAReceber + ledgerAReceber,
+      totalAPagar: totalAPagar + ledgerAPagar,
       saldoLiquido,
       totalRecebido,
       totalPago,
     };
-  }, [query.data, month, year]);
+  }, [query.data, ledgerQuery.data, month, year]);
 
   // Filter transactions for display based on period
   const filteredTransactions = useMemo(() => {
@@ -110,7 +172,7 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
 
     if (month !== undefined && year !== undefined) {
       transactions = transactions.filter(t => {
-        const transactionDate = new Date(t.date);
+        const transactionDate = fromDateKey(t.date);
         return transactionDate.getMonth() === month && transactionDate.getFullYear() === year;
       });
     }
@@ -120,9 +182,10 @@ export function usePersonTransactions(personId: string, month?: number, year?: n
 
   return {
     transactions: filteredTransactions,
+    ledgerDebts: ledgerQuery.data ?? [],
     indicators,
-    isLoading: query.isLoading,
-    error: query.error,
+    isLoading: query.isLoading || ledgerQuery.isLoading,
+    error: query.error ?? ledgerQuery.error,
     refetch: query.refetch,
   };
 }

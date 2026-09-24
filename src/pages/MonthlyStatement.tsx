@@ -130,7 +130,7 @@ const FieldError = ({ id, message }: { id: string; message?: string }) =>
     </p>
   ) : null;
 
-type TxField = "description" | "value" | "date" | "endDate" | "fromAccount" | "toAccount" | "account" | "creditCard" | "category";
+type TxField = "description" | "value" | "date" | "endDate" | "fromAccount" | "toAccount" | "account" | "creditCard" | "category" | "installments";
 
 /** Plano Casal: só grava o pagador quando escolhido (NULL = quem lança). */
 const payerField = (payload: { paid_by_user_id?: string | null }) =>
@@ -631,8 +631,7 @@ function MonthlyStatementContent() {
       }
     } catch (error: any) {
       toast({
-        title: "Erro",
-        description: "Não foi possível carregar os dados da transação",
+        title: "Não foi possível carregar os dados da transação",
         variant: "destructive",
       });
     }
@@ -750,8 +749,7 @@ function MonthlyStatementContent() {
   const generateInstallmentsAutomatically = (): Installment[] => {
     if (!value || !installments || installments <= 0) {
       toast({
-        title: "Erro",
-        description: "Valor e número de parcelas são obrigatórios",
+        title: "Valor e número de parcelas são obrigatórios",
         variant: "destructive",
       });
       return [];
@@ -797,8 +795,7 @@ function MonthlyStatementContent() {
   const showInstallmentFormHandler = () => {
     if (!value || !installments || installments <= 0) {
       toast({
-        title: "Erro",
-        description: "Valor e número de parcelas são obrigatórios",
+        title: "Valor e número de parcelas são obrigatórios",
         variant: "destructive",
       });
       return;
@@ -810,8 +807,7 @@ function MonthlyStatementContent() {
   const handleSaveInstallments = () => {
     if (installmentData.installments.length === 0) {
       toast({
-        title: "Erro",
-        description: "Nenhuma parcela foi gerada",
+        title: "Nenhuma parcela foi gerada",
         variant: "destructive",
       });
       return;
@@ -821,8 +817,7 @@ function MonthlyStatementContent() {
     setShowInstallmentForm(false);
 
     toast({
-      title: "Sucesso",
-      description: "Parcelas configuradas com sucesso",
+      title: "Parcelas configuradas",
       duration: 2000,
     });
   };
@@ -831,8 +826,7 @@ function MonthlyStatementContent() {
   const handleSaveEditedInstallments = async () => {
     if (!editingId || !seriesTransactions.length) {
       toast({
-        title: "Erro",
-        description: "Nenhuma série de parcelas para atualizar",
+        title: "Nenhuma série de parcelas para atualizar",
         variant: "destructive",
       });
       return;
@@ -860,8 +854,7 @@ function MonthlyStatementContent() {
       setOpen(false);
     } catch (error) {
       toast({
-        title: "Erro",
-        description: "Não foi possível salvar as alterações das parcelas",
+        title: "Não foi possível salvar as alterações das parcelas",
         variant: "destructive",
       });
     }
@@ -910,8 +903,7 @@ function MonthlyStatementContent() {
           });
           if (soloError) throw soloError;
           toast({
-            title: "Sucesso",
-            description: "Gasto salvo sem compensação",
+            title: "Gasto salvo sem compensação",
             duration: 2000,
           });
           return;
@@ -1051,8 +1043,7 @@ function MonthlyStatementContent() {
         }
 
         toast({
-          title: "Sucesso",
-          description: `Rateio criado: gasto bruto + dívida pendente`,
+          title: "Rateio criado",
           duration: 2000,
         });
       } else if (payload.isLoan && payload.person_id) {
@@ -1112,8 +1103,7 @@ function MonthlyStatementContent() {
         if (incomeError) throw incomeError;
 
         toast({
-          title: "Sucesso",
-          description: "Empréstimo criado: gasto + conta a receber",
+          title: "Empréstimo registrado",
           duration: 2000,
         });
       }
@@ -1182,14 +1172,15 @@ function MonthlyStatementContent() {
         ] as const) {
           if (id && !optionalUuid.safeParse(id).success) return `${label} inválida`;
         }
-        if (installments != null && (!Number.isInteger(installments) || installments < 1 || installments > 480)) {
-          return "Número de parcelas inválido (1 a 480)";
-        }
         return null;
       })();
 
+      if (installments != null && (!Number.isInteger(installments) || installments < 1 || installments > 480)) {
+        return fail("installments", "Use de 1 a 480 parcelas.");
+      }
+
       if (inputCheck) {
-        toast({ title: "Erro", description: inputCheck, variant: "destructive" });
+        toast({ title: inputCheck, variant: "destructive" });
         setIsSubmitting(false);
         return;
       }
@@ -1202,6 +1193,11 @@ function MonthlyStatementContent() {
         if (fromAccountId === toAccountId) return fail("toAccount", "Escolha uma conta diferente da de origem.");
       }
 
+      // Gasto no cartão sem cartão vira órfão: fora de fatura e sem debitar conta.
+      if (type === "expense" && paymentMethod === "credit" && !creditCardId) {
+        return fail("creditCard", "Escolha o cartão.");
+      }
+
       if (type === "fixed") {
         // Validar método de pagamento para transações fixas
         if (paymentMethod === "debit" && !accountId) return fail("account", "Escolha a conta.");
@@ -1210,8 +1206,7 @@ function MonthlyStatementContent() {
         // Validar que ganho fixo não pode ter cartão de crédito
         if (fixedType === "income" && paymentMethod === "credit") {
           toast({
-            title: "Erro",
-            description: "Transações fixas de ganho não podem usar cartão de crédito",
+            title: "Transações fixas de ganho não podem usar cartão de crédito",
             variant: "destructive",
           });
           return;
@@ -1437,8 +1432,7 @@ function MonthlyStatementContent() {
             }
 
             toast({
-              title: "Sucesso",
-              description: "Transferência registrada",
+              title: "Transferência registrada",
               duration: 2000,
             });
           } else if (isLoan || (type === "expense" && isRateio)) {
@@ -1475,8 +1469,7 @@ function MonthlyStatementContent() {
 
             if (error) throw error;
             toast({
-              title: "Sucesso",
-              description: "Transação criada",
+              title: "Transação criada",
               duration: 2000,
             });
           }
@@ -1495,12 +1488,12 @@ function MonthlyStatementContent() {
       // CHECK constraint do banco: nunca mostrar a mensagem crua do Postgres.
       const rawCheck = e?.code === "23514" && /violates check constraint/i.test(e?.message ?? "");
       toast({
-        title: "Erro",
+        title: "Não foi possível salvar",
         description: rawCheck
           ? /date_order/i.test(e.message)
             ? "A data final não pode ser antes da data de início."
             : "Algum campo está fora do permitido. Revise os dados e tente de novo."
-          : e.message || "Não foi possível salvar",
+          : e?.message || "Tente novamente em instantes.",
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -1552,8 +1545,7 @@ function MonthlyStatementContent() {
         ([key, originalValue]) => {
           if (key === "type" && newData.type !== originalValue) {
             toast({
-              title: "Erro",
-              description: "Tipo de transação não pode ser alterado",
+              title: "Tipo de transação não pode ser alterado",
               variant: "destructive" as any,
             });
             return true;
@@ -1563,8 +1555,7 @@ function MonthlyStatementContent() {
             newData.payment_method !== originalValue
           ) {
             toast({
-              title: "Erro",
-              description: "Método de pagamento não pode ser alterado",
+              title: "Método de pagamento não pode ser alterado",
               variant: "destructive" as any,
             });
             return true;
@@ -1574,8 +1565,7 @@ function MonthlyStatementContent() {
             newData.credit_card_id !== originalValue
           ) {
             toast({
-              title: "Erro",
-              description: "Cartão de crédito não pode ser alterado",
+              title: "Cartão de crédito não pode ser alterado",
               variant: "destructive" as any,
             });
             return true;
@@ -1660,14 +1650,13 @@ function MonthlyStatementContent() {
       if (!updatedRows?.length) throw new Error(SHARED_EDIT_DENIED_MESSAGE);
 
       toast({
-        title: "Sucesso",
-        description: "Transação atualizada com segurança",
+        title: "Transação atualizada",
         duration: 2000,
       });
     } catch (error: any) {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível atualizar",
+        title: "Não foi possível atualizar",
+        description: error?.message,
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -1727,14 +1716,13 @@ function MonthlyStatementContent() {
       });
 
       toast({
-        title: "Sucesso",
-        description: `Série de parcelas atualizada com sucesso`,
+        title: "Série de parcelas atualizada",
         duration: 2000,
       });
     } catch (error: any) {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível atualizar a série",
+        title: "Não foi possível atualizar a série",
+        description: error?.message,
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -1789,14 +1777,13 @@ function MonthlyStatementContent() {
       if (error) throw error;
 
       toast({
-        title: "Sucesso",
-        description: `${payload.installments} parcelas criadas`,
+        title: `${payload.installments} parcelas criadas`,
         duration: 2000,
       });
     } catch (error: any) {
       toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar as parcelas",
+        title: "Não foi possível criar as parcelas",
+        description: error?.message,
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -1928,9 +1915,8 @@ function MonthlyStatementContent() {
       if (updateSeriesError) throw updateSeriesError;
 
       toast({
-        title: "Sucesso",
-        description:
-          "Transação fixa criada com sistema inteligente de renovação automática",
+        title:
+          "Transação fixa criada",
         duration: 2000,
       });
     } catch (error: any) {
@@ -2257,74 +2243,63 @@ function MonthlyStatementContent() {
     setShowMonthSelector(false);
   };
 
-  const markAsPaid = async (transactionId: string, transactionType: string) => {
-    const toastInstance = toast({
-      title: "Atualizando...",
-      description: "Aguarde",
-      duration: 2000,
-    });
+  /**
+   * Liquidar/reabrir: um único toast ("Atualizando…" → resultado) para as duas
+   * ações. `select("id")` distingue 0 linhas (sem permissão) de sucesso.
+   */
+  const setTransactionStatus = async (
+    transactionId: string,
+    status: "PAID" | "PENDING",
+    successTitle: string,
+  ) => {
+    const toastInstance = toast({ title: "Atualizando…", duration: 2000 });
     try {
-      const { error } = await supabase
+      const { data: updated, error } = await supabase
         .from("transactions")
         .update({
-          status: "PAID",
-          liquidation_date: new Date().toISOString(),
+          status,
+          liquidation_date: status === "PAID" ? new Date().toISOString() : null,
         })
-        .eq("id", transactionId);
+        .eq("id", transactionId)
+        .select("id");
 
       if (error) throw error;
+      if (!updated?.length) throw new Error(SHARED_EDIT_DENIED_MESSAGE);
 
-      toast({
-        title: "Sucesso",
-        description:
-          transactionType === "income"
-            ? "Transação marcada como recebida"
-            : "Transação marcada como paga",
-        duration: 2000,
-      });
+      toastInstance.update({ id: toastInstance.id, title: successTitle, duration: 2500 });
       refetch();
     } catch (e: any) {
-      toast({
-        title: "Erro",
-        description: e.message || "Não foi possível atualizar",
-        duration: 3000,
-        variant: "destructive" as any,
+      toastInstance.update({
+        id: toastInstance.id,
+        title: "Não foi possível atualizar",
+        description: e?.message || "Tente novamente em instantes.",
+        duration: 4000,
+        variant: "destructive",
       });
     }
   };
 
-  const markAsPending = async (transactionId: string) => {
-    const toastInstance = toast({
-      title: "Atualizando...",
-      description: "Aguarde",
-      duration: 2000,
-    });
-    try {
-      const { error } = await supabase
-        .from("transactions")
-        .update({
-          status: "PENDING",
-          liquidation_date: null,
-        })
-        .eq("id", transactionId);
-
-      if (error) throw error;
-
+  const markAsPaid = (transactionId: string, transactionType: string) => {
+    // Gasto no cartão sem cartão (órfão legado): não há fatura nem conta para baixar.
+    const target = transactions.find((t) => t.id === transactionId);
+    if (target?.type === "expense" && target.payment_method === "credit" && !target.credit_card_id) {
       toast({
-        title: "Sucesso",
-        description: "Status alterado para pendente",
-        duration: 2000,
+        title: "Escolha o cartão",
+        description: "Edite o lançamento e escolha o cartão antes de marcar como pago.",
+        variant: "destructive",
+        duration: 4000,
       });
-      refetch();
-    } catch (e: any) {
-      toast({
-        title: "Erro",
-        description: e.message || "Não foi possível atualizar",
-        duration: 3000,
-        variant: "destructive" as any,
-      });
+      return;
     }
+    return setTransactionStatus(
+      transactionId,
+      "PAID",
+      transactionType === "income" ? "Transação marcada como recebida" : "Transação marcada como paga",
+    );
   };
+
+  const markAsPending = (transactionId: string) =>
+    setTransactionStatus(transactionId, "PENDING", "Transação reaberta");
 
   const viewComposition = (compositionDetailsJson: string) => {
     try {
@@ -2341,8 +2316,8 @@ function MonthlyStatementContent() {
       }
     } catch (e: any) {
       toast({
-        title: "Erro",
-        description: e.message || "Não foi possível carregar a composição",
+        title: "Não foi possível carregar a composição",
+        description: e?.message,
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -2367,8 +2342,7 @@ function MonthlyStatementContent() {
       if (error) throw error;
 
       toast({
-        title: "Sucesso",
-        description: "Transação excluída",
+        title: "Transação excluída",
         duration: 2000,
       });
       refetch();
@@ -2442,8 +2416,7 @@ function MonthlyStatementContent() {
         if (seriesError) throw seriesError;
 
         toast({
-          title: "Sucesso",
-          description: "Transação fixa excluída. Histórico mantido.",
+          title: "Transação fixa excluída. Histórico mantido.",
           duration: 2000,
         });
       } else {
@@ -2467,8 +2440,7 @@ function MonthlyStatementContent() {
         if (seriesError) throw seriesError;
 
         toast({
-          title: "Sucesso",
-          description: "Série de transações excluída",
+          title: "Série de transações excluída",
           duration: 2000,
         });
       }
@@ -2754,17 +2726,17 @@ function MonthlyStatementContent() {
           <span className="flex items-start justify-between gap-4 px-4 pb-4 pt-4 md:px-5 md:pb-5 md:pt-5">
             <span className="min-w-0">
               <span className="label-eyebrow block">A pagar</span>
-              <span className="figure-lg mt-1 flex items-baseline gap-2 tabular text-destructive">
+              <span className="figure-lg mt-1 block tabular text-destructive">
                 {pendingExpenseTransactions.length}
+              </span>
+              <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                {pendingExpenseTransactions.length === 1 ? "conta pendente" : "contas pendentes"}
                 {overdueExpenseTransactions.length > 0 && (
                   <Badge variant="destructive-solid">
-                    <AlertTriangle className="h-3 w-3" />
+                    <AlertTriangle aria-hidden className="h-3 w-3" />
                     {overdueExpenseTransactions.length} em atraso
                   </Badge>
                 )}
-              </span>
-              <span className="mt-0.5 block text-xs text-muted-foreground">
-                {pendingExpenseTransactions.length === 1 ? "conta pendente" : "contas pendentes"}
               </span>
             </span>
             <span className="shrink-0 text-right">
@@ -3898,10 +3870,12 @@ function MonthlyStatementContent() {
                     id="tx-cartao-de-credito-22"
                     entityType="creditCards"
                     value={creditCardId || "none"}
-                    onValueChange={(value) =>
-                      setCreditCardId(value === "none" ? null : value)
-                    }
+                    onValueChange={(value) => {
+                      setCreditCardId(value === "none" ? null : value);
+                      clearFieldError("creditCard");
+                    }}
                     placeholder="Selecione"
+                    {...fieldA11y("creditCard")}
                   >
                     <SelectItem value="none">Nenhum</SelectItem>
                     {creditCards.map((card) => (
@@ -3910,6 +3884,7 @@ function MonthlyStatementContent() {
                       </SelectItem>
                     ))}
                   </SelectWithAddButton>
+                  <FieldError id="tx-error-creditCard" message={formErrors.creditCard} />
                 </div>
 
                 <div className="space-y-1">
@@ -3917,12 +3892,17 @@ function MonthlyStatementContent() {
                   <NumericInput
                     id="tx-parcelas-23"
                     value={installments}
-                    onChange={(value) => setInstallments(value)}
+                    onChange={(value) => {
+                      setInstallments(value);
+                      clearFieldError("installments");
+                    }}
                     placeholder="Ex: 12"
                     min={2}
                     integer={true}
                     currency={false}
+                    {...fieldA11y("installments")}
                   />
+                  <FieldError id="tx-error-installments" message={formErrors.installments} />
                 </div>
               </div>
             )}

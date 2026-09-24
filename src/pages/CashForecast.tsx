@@ -32,6 +32,7 @@ import {
   describePlanningError,
   formatDateMedium,
   formatDayMonth,
+  formatDayMonthOrYear,
   formatMoney,
   formatSignedMoney,
   plural,
@@ -203,7 +204,7 @@ export default function CashForecast() {
                     : "Sem gastos variáveis nos últimos 90 dias.",
               },
               {
-                label: `Saldo em ${formatDayMonth(projection.end.date)}`,
+                label: `Saldo em ${formatDayMonthOrYear(projection.end.date)}`,
                 value: formatMoney(projection.end.balance),
                 tone: endTone(projection),
                 hint: hasScenario
@@ -293,7 +294,7 @@ function RuptureBanner({
   const { rupture, lowest } = projection;
 
   if (rupture) {
-    const shortfall = Math.abs(Math.min(lowest.balance, rupture.balance));
+    const shortfall = Math.abs(rupture.balance); // déficit NA ruptura, não o fundo do horizonte
     const inDays =
       rupture.day === 0 ? "hoje" : rupture.day === 1 ? "amanhã" : `em ${plural(rupture.day, "dia", "dias")}`;
     return (
@@ -306,7 +307,7 @@ function RuptureBanner({
           <p>
             Faltarão <strong className="font-semibold tabular">{formatMoney(shortfall)}</strong> para cobrir os
             compromissos previstos ({inDays}
-            {lowest.date !== rupture.date ? `; o ponto mais baixo é ${formatDayMonth(lowest.date)}` : ""}).
+            {lowest.date !== rupture.date ? `; o ponto mais baixo é ${formatDayMonthOrYear(lowest.date)}, com ${formatMoney(lowest.balance)}` : ""}).
             {simulating && projection.baselineRupture === null && " Sem os eventos simulados, o caixa não rompe."}
           </p>
         </AlertDescription>
@@ -727,7 +728,7 @@ function SimulationCard({
                         {ghost.direction === "income" ? "+" : "−"}
                         {formatMoney(ghost.total)}
                         {ghost.installments > 1 ? ` em ${ghost.installments}x de ${formatMoney(each)}` : " à vista"} ·{" "}
-                        {formatDayMonth(ghost.firstDate)}
+                        {formatDayMonthOrYear(ghost.firstDate)}
                       </span>
                     </label>
                     <Button
@@ -797,7 +798,7 @@ function UpcomingCard({
             {upcoming.slice(0, 7).map((event, index) => (
               <li key={`${event.date}-${event.description}-${index}`} className="flex items-center gap-3 py-2.5 first:pt-0">
                 <span className="w-11 shrink-0 text-xs font-medium tabular text-muted-foreground">
-                  {formatDayMonth(event.date)}
+                  {formatDayMonthOrYear(event.date)}
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm text-foreground" title={event.description}>
@@ -820,7 +821,7 @@ function UpcomingCard({
         )}
         {upcoming.length > 7 && (
           <p className="mt-3 border-t border-border-subtle pt-3 text-xs text-muted-foreground">
-            E mais {plural(upcoming.length - 7, "compromisso", "compromissos")} até {formatDayMonth(addDays(forecast.asOf, horizon))}.
+            E mais {plural(upcoming.length - 7, "compromisso", "compromissos")} até {formatDayMonthOrYear(addDays(forecast.asOf, horizon))}.
           </p>
         )}
       </CardContent>
@@ -899,7 +900,7 @@ function ProjectsDrainCard({ forecast }: { forecast: CashForecastData }) {
                 <span className="shrink-0 text-sm tabular text-foreground">{formatMoney(project.remaining)}</span>
               </div>
               <p className="mt-0.5 text-xs tabular text-muted-foreground">
-                Até {formatDayMonth(project.endDate)} · {formatMoney(project.consumed)} de {formatMoney(project.budget)} já lançados
+                Até {formatDayMonthOrYear(project.endDate)} · {formatMoney(project.consumed)} de {formatMoney(project.budget)} já lançados
               </p>
             </li>
           ))}

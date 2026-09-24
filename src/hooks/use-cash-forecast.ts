@@ -86,7 +86,7 @@ function normalize(raw: any, horizon: number): CashForecastData {
   };
 }
 
-export function useCashForecast(horizon: ForecastHorizon) {
+export function useCashForecast(horizon: ForecastHorizon, options: { enabled?: boolean } = {}) {
   const viewMode = useViewMode();
   const scope = viewMode === "couple" ? "couple" : "personal";
 
@@ -102,6 +102,7 @@ export function useCashForecast(horizon: ForecastHorizon) {
     },
     staleTime: 60 * 1000,
     placeholderData: (previous) => previous,
+    enabled: options.enabled ?? true,
   });
 
   return {

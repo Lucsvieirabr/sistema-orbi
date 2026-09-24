@@ -127,6 +127,8 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
   title: React.ReactNode;
   description?: React.ReactNode;
   action?: React.ReactNode;
+  /** Nível do título. Use "h1" quando o estado vazio ocupa a página inteira (sem PageHeader). */
+  titleAs?: "p" | "h1" | "h2" | "h3";
 }
 
 /**
@@ -134,7 +136,7 @@ export interface EmptyStateProps extends React.HTMLAttributes<HTMLDivElement> {
  * frase. Sem círculo gigante de fundo cinza.
  */
 export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
-  ({ icon: Icon, title, description, action, className, ...props }, ref) => (
+  ({ icon: Icon, title, description, action, titleAs: Title = "p", className, ...props }, ref) => (
     <div
       ref={ref}
       className={cn(
@@ -148,7 +150,7 @@ export const EmptyState = React.forwardRef<HTMLDivElement, EmptyStateProps>(
           <Icon className="h-4 w-4 text-muted-foreground" aria-hidden />
         </span>
       )}
-      <p className="font-display text-base font-semibold tracking-[-0.015em] text-foreground text-balance">{title}</p>
+      <Title className="font-display text-base font-semibold tracking-[-0.015em] text-foreground text-balance">{title}</Title>
       {description && (
         <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-pretty text-muted-foreground">{description}</p>
       )}

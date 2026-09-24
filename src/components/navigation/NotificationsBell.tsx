@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Bell, Flag, TrendingUp } from "lucide-react";
+import { AlertTriangle, Bell, Flag, TrendingDown, TrendingUp } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useLiveAlerts } from "@/hooks/use-live-alerts";
 import { useNotifications, type UserNotification } from "@/hooks/use-notifications";
 import { cn } from "@/lib/utils";
 
@@ -20,7 +21,9 @@ function timeAgo(value: string): string {
 }
 
 export function NotificationsBell() {
-  const { notifications, unread, markRead, markAllRead } = useNotifications();
+  const { notifications, unread: unreadStored, markRead, markAllRead } = useNotifications();
+  const liveAlerts = useLiveAlerts();
+  const unread = unreadStored + liveAlerts.length;
   const [open, setOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -52,16 +55,39 @@ export function NotificationsBell() {
       <PopoverContent align="end" sideOffset={6} className="w-[min(22rem,calc(100vw-1.5rem))] p-0">
         <div className="flex items-center justify-between gap-3 border-b border-border-subtle px-4 py-3">
           <p className="text-sm font-semibold text-foreground">Avisos</p>
-          {unread > 0 && (
+          {unreadStored > 0 && (
             <Button variant="ghost" size="sm" className="h-8 px-2 text-xs" onClick={() => markAllRead().catch(() => undefined)}>
               Marcar tudo como lido
             </Button>
           )}
         </div>
-        {notifications.length === 0 ? (
+        {notifications.length === 0 && liveAlerts.length === 0 ? (
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">Nenhum aviso por aqui.</p>
         ) : (
           <ul className="max-h-[min(24rem,70dvh)] divide-y divide-border-subtle overflow-y-auto overscroll-contain">
+            {liveAlerts.map((alert) => {
+              const Icon = alert.kind === "overdue" ? AlertTriangle : TrendingDown;
+              return (
+                <li key={alert.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate(alert.actionPath);
+                    }}
+                    className="flex w-full items-start gap-3 px-4 py-3 text-left transition-colors duration-200 ease-swift hover:bg-surface-sunken/70 focus-visible:bg-surface-sunken focus-visible:outline-none"
+                  >
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-md border border-border-subtle bg-surface-sunken">
+                      <Icon className="h-3.5 w-3.5 text-destructive" aria-hidden />
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-foreground">{alert.title}</span>
+                      <span className="mt-0.5 line-clamp-3 block text-xs leading-relaxed text-muted-foreground">{alert.body}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
             {notifications.map((item) => {
               const Icon = item.kind === "project_archived" ? Flag : TrendingUp;
               return (

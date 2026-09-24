@@ -317,7 +317,7 @@ export function ProjectDetail({ projectId, onDeleted }: { projectId: string; onD
                 {project.budget > project.fundedFromGoal && ` · ${formatMoney(project.budget - project.fundedFromGoal)} somados à parte`}
               </span>
             ) : (
-              "Definido por você ao criar o projeto."
+              "Definido por você — ajuste quando quiser em Editar."
             ),
           },
           {

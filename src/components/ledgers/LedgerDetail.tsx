@@ -154,6 +154,7 @@ export function LedgerDetail({
   const { ledger, participants, entries, transactions, summary } = data;
   const readOnly = !isMine(ledger.user_id);
   const settled = summary.status === "settled";
+  const isEmptyLedger = (transactions?.length ?? 0) === 0 && (entries?.length ?? 0) === 0;
   const owner = summary.participants.find((row) => row.key === "owner");
   const period =
     ledger.start_date && ledger.end_date
@@ -274,7 +275,11 @@ export function LedgerDetail({
                   confirmText="Liquidar lote"
                   onConfirm={handleSettle}
                 >
-                  <Button disabled={settling} className="flex-1 sm:flex-none">
+                  <Button
+                    disabled={settling || isEmptyLedger}
+                    title={isEmptyLedger ? "Vincule ao menos um lançamento para liquidar." : undefined}
+                    className="flex-1 sm:flex-none"
+                  >
                     <CheckCheck aria-hidden />
                     {settling ? "Liquidando…" : "Liquidar lote"}
                   </Button>

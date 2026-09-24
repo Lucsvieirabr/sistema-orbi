@@ -55,6 +55,14 @@ export const formatMonthShort = (key: string) => monthShort.format(toDate(key));
 export const formatMonthAbbr = (key: string) => monthAbbr.format(toDate(key)).replace(".", "");
 /** "10/09" */
 export const formatDayMonth = (key: string) => dayMonth.format(toDate(key));
+const dayMonthYearNumeric = new Intl.DateTimeFormat("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+/** "10/09" no mês corrente; "10/09/2027" fora dele (sem o ano, 24/09/2027 parece hoje). */
+export const formatDayMonthOrYear = (key: string) => {
+  const date = toDate(key);
+  const now = new Date();
+  const sameMonth = date.getFullYear() === now.getFullYear() && date.getMonth() === now.getMonth();
+  return (sameMonth ? dayMonth : dayMonthYearNumeric).format(date);
+};
 /** "31 de mar. de 2027" */
 export const formatDateMedium = (key: string) => dayMonthYear.format(toDate(key));
 

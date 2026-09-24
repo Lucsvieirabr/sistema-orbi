@@ -73,7 +73,7 @@ const EntityForms = {
         queryClient.invalidateQueries({ queryKey: ["balances"] });
         onSuccess(newAccount.id);
       } catch (e) {
-        t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+        t.update({ title: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
     };
 
@@ -164,7 +164,7 @@ const EntityForms = {
         queryClient.invalidateQueries({ queryKey: ["categories"] });
         onSuccess(newCategory.id);
       } catch (e) {
-        t.update({ title: "Erro", description: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+        t.update({ title: "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
       }
     };
 
@@ -284,7 +284,7 @@ const EntityForms = {
         queryClient.invalidateQueries({ queryKey: ["people"] });
         onSuccess(newPerson.id);
       } catch (e: any) {
-        t.update({ title: "Erro", description: e.message || "Não foi possível salvar", duration: 3000, variant: "destructive" as any });
+        t.update({ title: "Não foi possível salvar", description: e?.message, duration: 3000, variant: "destructive" as any });
       }
     };
 
