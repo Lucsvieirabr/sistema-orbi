@@ -255,8 +255,10 @@ export default {
         "caret-blink": "caret-blink 1.2s ease-out infinite",
         halo: "halo 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite",
         "orbit-ring": "orbit-ring 9s linear infinite",
-        "space-in-me": "space-in-me 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
-        "space-in-we": "space-in-we 0.32s cubic-bezier(0.16, 1, 0.3, 1) both",
+        // `backwards`, nunca `both`: animação de transform/filter retida no fim
+        // vira containing block e prende os FABs `fixed` no fim do conteúdo.
+        "space-in-me": "space-in-me 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards",
+        "space-in-we": "space-in-we 0.32s cubic-bezier(0.16, 1, 0.3, 1) backwards",
       },
       transitionTimingFunction: {
         swift: "cubic-bezier(0.22, 1, 0.36, 1)",

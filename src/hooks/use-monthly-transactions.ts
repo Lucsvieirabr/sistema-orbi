@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import type { Tables } from "@/integrations/supabase/types";
 import { isTransactionInBillingPeriod, toDateKey } from "@/lib/utils";
 import { getScopeUserIds, useViewMode } from "@/hooks/use-view-mode";
+import { transferLegIds } from "@/lib/transfers";
 
 type Transaction = Tables<"transactions"> & {
   accounts?: { name: string };
@@ -180,8 +181,10 @@ export function useMonthlyTransactions(year: number, month: number): MonthlyTran
 
   // Calculate indicators based on transactions only
   const indicators = useMemo((): MonthlyIndicators => {
-    const transactions = query.data ?? [];
-
+    // Transferência entre contas não é ganho nem gasto.
+    const all = query.data ?? [];
+    const transferIds = transferLegIds(all);
+    const transactions = all.filter(t => !transferIds.has(t.id));
 
     // Ganhos recebidos: apenas transações de income com status PAID que NÃO são reembolsos
     // Reembolsos são identificados pela descrição que contém "Parte" ou "A receber"

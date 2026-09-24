@@ -11,6 +11,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useFamilyGroup, type FamilyAuthor } from "@/hooks/use-family-group";
 import { setViewMode, useViewMode, type ViewMode } from "@/hooks/use-view-mode";
 
+const SPACE_INDEPENDENT_KEYS = new Set(["family-group", "subscription-status", "auth"]);
+
 export interface SpaceState {
   /** Preferência gravada (pode ser "couple" mesmo sem vínculo). */
   mode: ViewMode;
@@ -35,7 +37,11 @@ export function useSpace(): SpaceState {
       setViewMode(next);
       // As query-keys de dados financeiros já carregam o viewMode; o resto
       // (RPCs com p_scope, contadores) é relido só se estiver montado.
-      void queryClient.invalidateQueries({ refetchType: "active" });
+      // Vínculo, plano e usuário não dependem do espaço: ficam fora.
+      void queryClient.invalidateQueries({
+        refetchType: "active",
+        predicate: (query) => !SPACE_INDEPENDENT_KEYS.has(query.queryKey[0] as string),
+      });
     },
     [mode, queryClient],
   );

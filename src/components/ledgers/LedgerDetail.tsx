@@ -204,7 +204,7 @@ export function LedgerDetail({
         eyebrow={
           <Link
             to={backHref}
-            className="inline-flex items-center gap-1 rounded-sm transition-colors duration-200 ease-swift hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-my-3.5 inline-flex min-h-11 items-center gap-1 rounded-sm pr-2 transition-colors duration-200 ease-swift hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft className="h-3 w-3" aria-hidden />
             Acertos de viagem

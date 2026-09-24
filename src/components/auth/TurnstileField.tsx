@@ -90,7 +90,9 @@ export const TurnstileField = forwardRef<TurnstileHandle, TurnstileFieldProps>(f
             language: "pt-br",
             size: "flexible",
             appearance: "interaction-only",
-            retry: "auto",
+            // Sem retry automático: em falha o widget recriava o iframe em laço; o
+            // "Tentar de novo" abaixo é o caminho (1 widget por tela).
+            retry: "never",
             "refresh-expired": "auto",
             callback: (token) => {
               onTokenRef.current(token);

@@ -36,6 +36,11 @@ export function isOwnRow(rowUserId: string | null | undefined, currentUserId: st
 }
 
 let claimInFlight: Promise<void> | null = null;
+/**
+ * Claim já feito nesta aba (usuário + confirmação de e-mail): 1 RPC por sessão,
+ * não por render/rota. Confirmar o e-mail muda a chave e libera novo claim.
+ */
+let claimedKey: string | null = null;
 
 /**
  * Vincula convites pendentes do Plano Casal ao usuário logado
@@ -50,7 +55,13 @@ export function claimFamilyInvites(): Promise<void> {
 
   claimInFlight = (async () => {
     try {
-      await supabase.rpc("orbi_claim_family_invites");
+      // Sessão local (sem rede): o cache do usuário pode estar atrasado logo após o login.
+      const { data: { session } } = await supabase.auth.getSession();
+      const user = session?.user;
+      const key = user ? `${user.id}:${user.email_confirmed_at ?? ""}` : null;
+      if (!key || key === claimedKey) return;
+      const { error } = await supabase.rpc("orbi_claim_family_invites");
+      if (!error) claimedKey = key;
     } catch {
       /* best-effort: o servidor decide o acesso */
     } finally {

@@ -1,6 +1,6 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useState, useMemo, useEffect } from "react";
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,6 +86,7 @@ function installmentLabel(transaction: { installment_number?: number | null; ser
 export default function CardStatements() {
   const { cardId } = useParams<{ cardId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const queryClient = useQueryClient();
   const { creditCards } = useCreditCards();
 
@@ -388,15 +389,21 @@ export default function CardStatements() {
             <p className="mt-1.5 text-xs tabular text-muted-foreground">
               {totals.count} {totals.count === 1 ? "lançamento" : "lançamentos"}
             </p>
-            <Button
-              onClick={handlePayStatement}
-              disabled={payingStatement || !totals.hasPending}
-              variant={totals.hasPending ? "default" : "outline"}
-              className="mt-4 w-full"
+            <ConfirmationDialog
+              title="Marcar fatura como paga?"
+              description={`Todos os lançamentos pendentes desta fatura (${formatCurrency(totals.totalExpenses)}) passam para pago.`}
+              confirmText="Marcar como paga"
+              onConfirm={handlePayStatement}
             >
-              <CheckCircle className="h-4 w-4" />
-              {payingStatement ? "Marcando como paga…" : totals.hasPending ? "Marcar fatura como paga" : "Fatura sem pendências"}
-            </Button>
+              <Button
+                disabled={payingStatement || !totals.hasPending}
+                variant={totals.hasPending ? "default" : "outline"}
+                className="mt-4 w-full"
+              >
+                <CheckCircle className="h-4 w-4" />
+                {payingStatement ? "Marcando como paga…" : totals.hasPending ? "Marcar fatura como paga" : "Fatura sem pendências"}
+              </Button>
+            </ConfirmationDialog>
           </CardContent>
         </Card>
 
@@ -414,7 +421,8 @@ export default function CardStatements() {
                     size="sm"
                     onClick={() => setCategoryViewMode("list")}
                     aria-pressed={categoryViewMode === "list"}
-                    className={cn("h-8", categoryViewMode === "list" && "bg-card text-foreground shadow-sm")}
+                    aria-label="Lista"
+                    className={cn("h-11 min-w-11 sm:h-8 sm:min-w-0", categoryViewMode === "list" && "bg-card text-foreground shadow-sm")}
                   >
                     <ListIcon className="h-4 w-4" />
                     <span className="hidden sm:inline">Lista</span>
@@ -424,7 +432,8 @@ export default function CardStatements() {
                     size="sm"
                     onClick={() => setCategoryViewMode("chart")}
                     aria-pressed={categoryViewMode === "chart"}
-                    className={cn("h-8", categoryViewMode === "chart" && "bg-card text-foreground shadow-sm")}
+                    aria-label="Gráfico"
+                    className={cn("h-11 min-w-11 sm:h-8 sm:min-w-0", categoryViewMode === "chart" && "bg-card text-foreground shadow-sm")}
                   >
                     <BarChart3 className="h-4 w-4" />
                     <span className="hidden sm:inline">Gráfico</span>
@@ -576,7 +585,7 @@ export default function CardStatements() {
                       size="icon-sm"
                       variant="ghost"
                       aria-label={`Editar ${transaction.description}`}
-                      onClick={() => navigate("/sistema/statement?edit=" + transaction.id)}
+                      onClick={() => navigate(`/sistema/statement?edit=${transaction.id}&voltar=${encodeURIComponent(location.pathname + location.search)}`)}
                     >
                       <Edit className="h-4 w-4" />
                     </Button>
@@ -665,7 +674,7 @@ export default function CardStatements() {
                             size="icon-sm"
                             variant="ghost"
                             aria-label={`Editar ${transaction.description}`}
-                            onClick={() => navigate("/sistema/statement?edit=" + transaction.id)}
+                            onClick={() => navigate(`/sistema/statement?edit=${transaction.id}&voltar=${encodeURIComponent(location.pathname + location.search)}`)}
                           >
                             <Edit className="h-4 w-4" />
                           </Button>

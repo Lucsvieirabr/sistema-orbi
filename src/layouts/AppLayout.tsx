@@ -1,4 +1,5 @@
-import { Outlet, useNavigate, useSearchParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useSearchParams } from "react-router-dom";
+import { Info } from "lucide-react";
 import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
@@ -9,6 +10,16 @@ import { useEffect, useState } from "react";
 import { useIsCompact } from "@/hooks/use-mobile";
 import { useSpace } from "@/hooks/use-space";
 import { cn } from "@/lib/utils";
+
+/** Módulos que não leem o espaço (sem `p_scope`/viewMode): conteúdo igual em Meu e Nosso. */
+const SPACE_AGNOSTIC_ROUTES = [
+  "/sistema/ledgers",
+  "/sistema/inflation",
+  "/sistema/categories",
+  "/sistema/people",
+  "/sistema/notes",
+  "/sistema/my-ai",
+];
 
 interface AppLayoutProps {
   onLogout: () => void;
@@ -48,7 +59,10 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   // Chave pela PREFERÊNCIA (síncrona, localStorage): o palco não remonta
   // quando o vínculo do Casal termina de carregar, só quando o usuário troca.
-  const { mode } = useSpace();
+  const { mode, isWeSpace } = useSpace();
+  const { pathname } = useLocation();
+  const spaceAgnostic =
+    isWeSpace && SPACE_AGNOSTIC_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`));
 
   useEffect(() => {
     if (searchParams.get("payment") !== "success") return;
@@ -115,6 +129,12 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
                 mode === "couple" ? "motion-safe:animate-space-in-we" : "motion-safe:animate-space-in-me",
               )}
             >
+              {spaceAgnostic && (
+                <p className="mb-4 flex items-center gap-2 text-xs text-muted-foreground">
+                  <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Este módulo não muda com o espaço: o conteúdo é o mesmo em Meu e Nosso espaço.
+                </p>
+              )}
               <Outlet />
             </div>
 

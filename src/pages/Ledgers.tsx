@@ -26,6 +26,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useLedger, useLedgers, type Ledger, type LedgerInput } from "@/hooks/use-ledgers";
 import { cn, isUuid } from "@/lib/utils";
+import { isValidPixKey, normalizePixKey } from "@/lib/pix";
 
 /**
  * Rateios e acertos (Pro/Casal). Gate de plano na rota (PremiumRoute).
@@ -281,7 +282,7 @@ function LedgerEditor({
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [pixKey, setPixKey] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; dates?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; dates?: string; pix?: string }>({});
   const [saving, setSaving] = useState(false);
   const nameRef = useRef<HTMLInputElement>(null);
 
@@ -310,9 +311,12 @@ function LedgerEditor({
     const next: typeof errors = {};
     if (!name.trim()) next.name = "Dê um nome ao evento.";
     if (startDate && endDate && endDate < startDate) next.dates = "O fim precisa ser igual ou depois do início.";
+    const pixValue = pixKey.trim();
+    if (pixValue && !isValidPixKey(pixValue)) next.pix = "Chave PIX inválida. Use e-mail, CPF, CNPJ, celular com DDI ou chave aleatória.";
     setErrors(next);
     if (next.name) return nameRef.current?.focus();
     if (next.dates) return;
+    if (next.pix) return document.getElementById("ledger-pix")?.focus();
 
     const input: LedgerInput = {
       name: name.trim(),
@@ -320,7 +324,7 @@ function LedgerEditor({
       startDate: startDate || null,
       endDate: endDate || null,
       ownerWeight: editing?.ownerWeight ?? 1,
-      pixKey: pixKey.trim() || null,
+      pixKey: pixValue ? normalizePixKey(pixValue).key : null,
       pixName: editing?.pixName ?? null,
     };
 
@@ -428,8 +432,18 @@ function LedgerEditor({
                 autoComplete="off"
                 spellCheck={false}
                 placeholder="+5511999998888, e-mail ou CPF"
-                onChange={(event) => setPixKey(event.target.value)}
+                onChange={(event) => {
+                  setPixKey(event.target.value);
+                  setErrors((prev) => ({ ...prev, pix: undefined }));
+                }}
+                aria-invalid={Boolean(errors.pix)}
+                aria-describedby={errors.pix ? "ledger-pix-error" : undefined}
               />
+              {errors.pix && (
+                <p id="ledger-pix-error" className="text-xs text-destructive" role="alert">
+                  {errors.pix}
+                </p>
+              )}
             </div>
           </div>
 

@@ -152,6 +152,10 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
     );
   }
 
+  // Saldo zerado (ao centavo) não é "a receber" nem "a pagar".
+  const saldoZerado = Math.abs(indicators.saldoLiquido) < 0.005;
+  const saldoTone = saldoZerado ? 'text-muted-foreground' : indicators.saldoLiquido > 0 ? 'text-success' : 'text-destructive';
+
   return (
     <div className="container mx-auto p-4 space-y-6">
       <h1 className="sr-only">{person.name}: lançamentos e saldo com esta pessoa</h1>
@@ -280,14 +284,14 @@ export default function PersonDetail({ personId: propPersonId }: PersonDetailPro
             <CardTitle className="text-xs font-medium text-muted-foreground">
               Saldo Líquido
             </CardTitle>
-            <DollarSign className={`h-3.5 w-3.5 ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`} />
+            <DollarSign className={`h-3.5 w-3.5 ${saldoTone}`} />
           </CardHeader>
           <CardContent className="pb-3">
-            <div className={`text-xl font-semibold ${indicators.saldoLiquido >= 0 ? 'text-success' : 'text-destructive'}`}>
+            <div className={`text-xl font-semibold ${saldoTone}`}>
               {formatCurrency(indicators.saldoLiquido)}
             </div>
             <p className="text-[10px] text-muted-foreground mt-0.5">
-              {indicators.saldoLiquido >= 0 ? 'A receber' : 'A pagar'}
+              {saldoZerado ? 'Quitado' : indicators.saldoLiquido > 0 ? 'A receber' : 'A pagar'}
             </p>
           </CardContent>
         </Card>

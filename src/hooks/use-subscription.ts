@@ -78,7 +78,8 @@ export function useSubscriptionStatus() {
 
       return (data as unknown as SubscriptionStatusPayload) ?? EMPTY;
     },
-    staleTime: 60 * 1000,
+    // Pagamento, cancelamento e login invalidam esta key explicitamente.
+    staleTime: 5 * 60 * 1000,
     retry: (failureCount, error) => failureCount < 1 && !isClientError(error),
   });
 }

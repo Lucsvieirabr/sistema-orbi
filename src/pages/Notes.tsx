@@ -43,7 +43,7 @@ import {
   Info,
   AlertCircle,
 } from "lucide-react";
-import { format, isPast, isToday } from "date-fns";
+import { format, isPast, isToday, startOfToday } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -250,7 +250,14 @@ export default function Notes() {
               </Button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0" align="start">
-              <Calendar mode="single" selected={newNoteDueDate} onSelect={setNewNoteDueDate} initialFocus />
+              <Calendar
+                mode="single"
+                selected={newNoteDueDate}
+                onSelect={setNewNoteDueDate}
+                disabled={{ before: startOfToday() }}
+                showOutsideDays={false}
+                initialFocus
+              />
             </PopoverContent>
           </Popover>
 
@@ -357,6 +364,16 @@ export default function Notes() {
                         <Textarea
                           value={editContent}
                           onChange={(e) => setEditContent(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                              e.preventDefault();
+                              handleSaveEdit(note.id);
+                            } else if (e.key === "Escape") {
+                              e.preventDefault();
+                              handleCancelEdit();
+                            }
+                          }}
+                          aria-label="Editar nota (Enter salva, Shift+Enter quebra linha, Esc cancela)"
                           className="min-h-[110px] w-full"
                           autoFocus
                         />

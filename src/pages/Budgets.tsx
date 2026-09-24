@@ -40,7 +40,6 @@ import { OwnerMark } from "@/components/family/OwnerMark";
 import { useNotifications } from "@/hooks/use-notifications";
 import { toAlert } from "@/hooks/use-personal-inflation";
 import { cn } from "@/lib/utils";
-import { toast } from "@/hooks/use-toast";
 
 /**
  * Orçamentos — teto de gasto por categoria, por mês (Pro/Casal).
@@ -82,6 +81,8 @@ export default function Budgets() {
     setCopying(true);
     try {
       const created = await copyPreviousMonth();
+      // Garante a lista nova na tela mesmo se a invalidação do hook não pegar esta query.
+      if (created > 0) await refetch();
       notifyPlanningSuccess(
         created > 0 ? `${plural(created, "orçamento copiado", "orçamentos copiados")}` : "Nada novo para copiar",
         created > 0 ? `Os tetos do mês anterior agora valem para ${monthName}.` : "Todas as categorias já têm teto neste mês.",
@@ -532,8 +533,6 @@ function BudgetEditor({
     setErrors(nextErrors);
     const firstError = nextErrors.category ?? nextErrors.amount;
     if (firstError) {
-      // Inline + toast: o erro inline sozinho passava despercebido.
-      toast({ title: editing ? "Não foi possível salvar" : "Não foi possível criar", description: firstError, variant: "destructive" });
       (nextErrors.category ? categoryRef : amountRef).current?.focus();
       return;
     }

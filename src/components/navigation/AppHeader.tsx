@@ -87,7 +87,7 @@ export function AppHeader({
           variant="ghost"
           size="icon"
           onClick={onLogout}
-          className="gap-2 lg:h-9 lg:w-auto lg:rounded-md lg:px-3 lg:text-[0.8125rem]"
+          className="shrink-0 gap-2 lg:h-9 lg:w-auto lg:rounded-md lg:px-3 lg:text-[0.8125rem]"
         >
           <LogOut className="h-4 w-4" aria-hidden />
           <span className="sr-only lg:not-sr-only">Sair</span>

@@ -85,7 +85,16 @@ function AccountsContent() {
       document.getElementById("name")?.focus();
       return;
     }
-    const payload = { name, type, initial_balance: initialBalance, color };
+    const normalized = name.trim().toLocaleLowerCase("pt-BR");
+    const duplicate = accountsWithBalance?.some(
+      (a) => a.id !== editingId && isMine(a.user_id) && a.name.trim().toLocaleLowerCase("pt-BR") === normalized,
+    );
+    if (duplicate) {
+      setNameError("Você já tem uma conta com esse nome.");
+      document.getElementById("name")?.focus();
+      return;
+    }
+    const payload = { name: name.trim(), type, initial_balance: initialBalance, color };
     const t = toast({ title: "Salvando…", duration: 2000 });
     try {
       if (editingId) {

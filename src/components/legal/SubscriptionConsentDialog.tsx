@@ -197,7 +197,7 @@ export function SubscriptionConsentDialog({
           }
         />
 
-        <DialogFooter>
+        <DialogFooter className="max-sm:-mx-5 max-sm:-mb-5 max-sm:px-5 max-sm:pb-5">
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isProcessing}>
             Cancelar
           </Button>

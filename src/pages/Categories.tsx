@@ -97,12 +97,24 @@ function CategoriesContent() {
       document.getElementById("name")?.focus();
       return;
     }
+    const normalized = name.trim().toLocaleLowerCase("pt-BR");
+    const duplicate = categories?.some(
+      (c) =>
+        c.id !== editingId &&
+        (c.category_type === "income") === (categoryType === "income") &&
+        c.name.trim().toLocaleLowerCase("pt-BR") === normalized,
+    );
+    if (duplicate) {
+      setNameError(`Já existe uma categoria de ${categoryType === "income" ? "ganho" : "gasto"} com esse nome.`);
+      document.getElementById("name")?.focus();
+      return;
+    }
     toast({ title: "Salvando…" });
     try {
       if (editingId) {
-        await updateCategory(editingId, { name, category_type: categoryType, icon });
+        await updateCategory(editingId, { name: name.trim(), category_type: categoryType, icon });
       } else {
-        await createCategory({ name, category_type: categoryType, icon });
+        await createCategory({ name: name.trim(), category_type: categoryType, icon });
       }
       toast({ title: "Categoria salva" });
     } catch (e) {
@@ -223,7 +235,7 @@ function CategoriesContent() {
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
             <div className="space-y-2">
               <Label htmlFor="categoryType">Tipo</Label>
-              <Select value={categoryType} onValueChange={(value: "income" | "expense") => setCategoryType(value)}>
+              <Select value={categoryType} onValueChange={(value: "income" | "expense") => { setCategoryType(value); setNameError(undefined); }}>
                 <SelectTrigger id="categoryType">
                   <SelectValue />
                 </SelectTrigger>

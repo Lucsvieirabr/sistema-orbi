@@ -68,6 +68,8 @@ const DialogFooter = ({ className, ...props }: React.HTMLAttributes<HTMLDivEleme
     className={cn(
       "flex flex-col-reverse gap-2 sm:flex-row sm:justify-end sm:gap-0 sm:space-x-2",
       "[&>button]:w-full sm:[&>button]:w-auto",
+      // Mobile: o conteúdo rola dentro do modal; as ações ficam grudadas no rodapé.
+      "max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-4 max-sm:-mb-4 max-sm:border-t max-sm:bg-background max-sm:px-4 max-sm:pb-4 max-sm:pt-3",
       className,
     )}
     {...props}

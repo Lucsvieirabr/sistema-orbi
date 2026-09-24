@@ -87,7 +87,8 @@ export function ViewModeToggle({ className }: { className?: string }) {
               <CoupleGlyph me={me} partner={partner} active={active} />
             )}
             <span className="hidden sm:inline">{option.label}</span>
-            <span className="sm:hidden">{option.short}</span>
+            {/* < 390px só o ícone: com o texto o header estourava e cortava o "Sair". */}
+            <span className="hidden min-[390px]:inline sm:hidden">{option.short}</span>
           </button>
         );
       })}

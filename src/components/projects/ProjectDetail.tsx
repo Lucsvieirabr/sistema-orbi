@@ -193,7 +193,7 @@ export function ProjectDetail({ projectId, onDeleted }: { projectId: string; onD
         eyebrow={
           <Link
             to="/sistema/projects"
-            className="inline-flex items-center gap-1 rounded-sm transition-colors duration-200 ease-swift hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="-my-3.5 inline-flex min-h-11 items-center gap-1 rounded-sm pr-2 transition-colors duration-200 ease-swift hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <ArrowLeft className="h-3 w-3" aria-hidden />
             Projetos de vida
@@ -493,7 +493,8 @@ function MiniDreCard({ overview }: { overview: ProjectOverview }) {
         />
       </CardHeader>
       <CardContent>
-        <table className="w-full text-sm">
+        <div className="scroll-x -mx-1 px-1">
+        <table className="w-full min-w-[18rem] text-sm">
           <caption className="sr-only">Demonstrativo do projeto {project.name}</caption>
           <tbody>
             {lines.map((line) => (
@@ -525,6 +526,7 @@ function MiniDreCard({ overview }: { overview: ProjectOverview }) {
             ))}
           </tbody>
         </table>
+        </div>
 
         {secondary.length > 0 && (
           <dl className="mt-4 space-y-1.5 border-t border-border-subtle pt-3 text-xs">
@@ -791,7 +793,7 @@ function TransactionsCard({
                 Vincular do extrato
               </Button>
               <Button variant="outline" asChild>
-                <Link to="/sistema/statement?new=1">
+                <Link to={`/sistema/statement?new=1&tipo=gasto&projeto=${overview.project.id}`}>
                   <Plus aria-hidden />
                   Lançar gasto novo
                 </Link>

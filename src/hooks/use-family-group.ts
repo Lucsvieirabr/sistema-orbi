@@ -7,7 +7,7 @@ import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { isOwnRow } from "@/lib/family-access";
+import { claimFamilyInvites, isOwnRow } from "@/lib/family-access";
 import { initialsOf, isAvatarPath } from "@/lib/avatar";
 import { SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
 import { QUOTA_QUERY_KEY } from "@/hooks/use-quota";
@@ -90,7 +90,7 @@ export function useFamilyGroup() {
     if (!user) return EMPTY;
 
     // Vincula convites pendentes endereçados ao e-mail deste usuário.
-    await db.rpc("orbi_claim_family_invites");
+    await claimFamilyInvites();
 
     const { data: groupId, error: rpcError } = await db.rpc("orbi_my_family_group_id");
     if (rpcError) throw rpcError;
@@ -140,6 +140,9 @@ export function useFamilyGroup() {
   const query = useQuery({
     queryKey: FAMILY_GROUP_QUERY_KEY,
     queryFn: fetchFamilyGroup,
+    // Vínculo muda raramente e o canal realtime abaixo invalida na hora:
+    // sem isto cada modal/rota que monta o hook refazia as RPCs de família.
+    staleTime: 5 * 60 * 1000,
   });
 
   useEffect(() => {

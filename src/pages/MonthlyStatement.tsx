@@ -367,21 +367,42 @@ function MonthlyStatementContent() {
     [editingId]
   );
 
+  const returnToRef = useRef<string | null>(null);
+  const wasOpenRef = useRef(false);
+  useEffect(() => {
+    if (wasOpenRef.current && !open && returnToRef.current) {
+      const to = returnToRef.current;
+      returnToRef.current = null;
+      navigate(to);
+    }
+    wasOpenRef.current = open;
+  }, [open, navigate]);
+
   useEffect(() => {
     if (search.get("new") === "1") {
+      // Atalhos de outras telas: ?tipo=gasto&projeto=<uuid> (ex.: Projeto → "Lançar gasto novo")
+      if (search.get("tipo") === "gasto") setType("expense");
+      const projectParam = search.get("projeto");
+      if (projectParam && optionalUuid.safeParse(projectParam).success) setProjectId(projectParam);
       setOpen(true);
       setSearch((prev) => {
         prev.delete("new");
+        prev.delete("tipo");
+        prev.delete("projeto");
         return prev;
       });
     }
 
     const editParam = search.get("edit");
     if (editParam) {
+      // ?voltar=/sistema/... : ao fechar o modal, volta para a tela de origem (ex.: fatura).
+      const back = search.get("voltar");
+      returnToRef.current = back?.startsWith("/sistema/") ? back : null;
       setEditingId(editParam);
       setOpen(true);
       setSearch((prev) => {
         prev.delete("edit");
+        prev.delete("voltar");
         return prev;
       });
     }
@@ -1149,6 +1170,7 @@ function MonthlyStatementContent() {
       if (!value || value <= 0) return fail("value", "Informe um valor maior que zero.");
       if (!moneySchema.safeParse(value).success) return fail("value", "Valor fora da faixa permitida.");
       if (isFixed && endDate && !isoDateSchema.safeParse(endDate).success) return fail("endDate", "Escolha uma data final válida.");
+      if (isFixed && endDate && endDate < date) return fail("endDate", "A data final não pode ser antes da data de início.");
 
       const inputCheck = (() => {
         if (!transactionStatusSchema.safeParse(status).success) return "Status inválido";
@@ -1470,9 +1492,15 @@ function MonthlyStatementContent() {
       });
       queryClient.invalidateQueries({ queryKey: ["balances"] });
     } catch (e: any) {
+      // CHECK constraint do banco: nunca mostrar a mensagem crua do Postgres.
+      const rawCheck = e?.code === "23514" && /violates check constraint/i.test(e?.message ?? "");
       toast({
         title: "Erro",
-        description: e.message || "Não foi possível salvar",
+        description: rawCheck
+          ? /date_order/i.test(e.message)
+            ? "A data final não pode ser antes da data de início."
+            : "Algum campo está fora do permitido. Revise os dados e tente de novo."
+          : e.message || "Não foi possível salvar",
         duration: 3000,
         variant: "destructive" as any,
       });
@@ -1906,12 +1934,8 @@ function MonthlyStatementContent() {
         duration: 2000,
       });
     } catch (error: any) {
-      toast({
-        title: "Erro",
-        description: error.message || "Não foi possível criar a transação fixa",
-        duration: 3000,
-        variant: "destructive" as any,
-      });
+      // Propaga para o submit: modal fica aberto e o erro é traduzido lá.
+      throw error;
     }
   };
 
@@ -2181,7 +2205,7 @@ function MonthlyStatementContent() {
         filtered = transactions.filter((t) => t.type === "expense");
         break;
       case "fixed":
-        filtered = transactions.filter((t) => t.type === "fixed");
+        filtered = transactions.filter((t) => t.is_fixed);
         break;
       case "pending":
         filtered = transactions.filter((t) => t.status === "PENDING");
@@ -2764,7 +2788,7 @@ function MonthlyStatementContent() {
           className="border-b border-border-subtle pb-2"
           actions={
             <span className="text-xs tabular text-muted-foreground">
-              {transactionsCount} {transactionsCount === 1 ? "lançamento" : "lançamentos"}
+              {filteredTransactions.length} {filteredTransactions.length === 1 ? "lançamento" : "lançamentos"}
             </span>
           }
         />
@@ -3358,6 +3382,7 @@ function MonthlyStatementContent() {
                     value={fromAccountId}
                     onValueChange={(v) => {
                       setFromAccountId(v);
+                      if (v === toAccountId) setToAccountId(undefined);
                       clearFieldError("fromAccount");
                     }}
                     placeholder="Origem"
@@ -3384,11 +3409,13 @@ function MonthlyStatementContent() {
                     placeholder="Destino"
                     {...fieldA11y("toAccount")}
                   >
-                    {accountsWithBalance.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {a.name}
-                      </SelectItem>
-                    ))}
+                    {accountsWithBalance
+                      .filter((a) => a.id !== fromAccountId)
+                      .map((a) => (
+                        <SelectItem key={a.id} value={a.id}>
+                          {a.name}
+                        </SelectItem>
+                      ))}
                   </SelectWithAddButton>
                   <FieldError id="tx-error-toAccount" message={formErrors.toAccount} />
                 </div>

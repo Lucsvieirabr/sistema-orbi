@@ -27,6 +27,7 @@ import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { supabase } from "@/integrations/supabase/client";
 import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip } from "recharts";
 import { formatDateForDisplay, cn, toDateKey } from "@/lib/utils";
+import { transferLegIds } from "@/lib/transfers";
 import { useChartPalette } from "@/lib/chart-colors";
 import { SubscriptionChart } from "./SubscriptionChart";
 import { InflationAlertCard } from "@/components/inflation/InflationAlertCard";
@@ -130,7 +131,10 @@ export function Dashboard({ onLogout }: DashboardProps) {
 
   const categoryExpenses = useMemo(() => {
     const expensesByCategory: Record<string, number> = {};
-    const paidExpenses = transactions.filter((t) => t.type === "expense" && t.status === "PAID");
+    const transferIds = transferLegIds(transactions);
+    const paidExpenses = transactions.filter(
+      (t) => t.type === "expense" && t.status === "PAID" && !transferIds.has(t.id),
+    );
 
     paidExpenses.forEach((transaction) => {
       const categoryName = transaction.categories?.name || "Sem categoria";

@@ -44,7 +44,7 @@ export function LegalDialog({ document: doc, open, onOpenChange }: LegalDialogPr
           </div>
         </ScrollArea>
 
-        <DialogFooter className="shrink-0 border-t border-border-subtle px-5 py-3 md:px-6">
+        <DialogFooter className="shrink-0 border-t border-border-subtle px-5 py-3 max-sm:static max-sm:m-0 max-sm:px-5 max-sm:py-3 md:px-6">
           <Button variant="outline" size="sm" asChild>
             <a href={doc.path} target="_blank" rel="noopener noreferrer">
               <ExternalLink className="mr-2 h-4 w-4" />
