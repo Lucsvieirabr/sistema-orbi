@@ -3,6 +3,7 @@ import { Camera, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { UserAvatar } from "@/components/ui/user-avatar";
+import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useToast } from "@/hooks/use-toast";
 import { AvatarFileError, useProfile } from "@/hooks/use-profile";
 import { AVATAR_ACCEPT } from "@/lib/avatar";
@@ -16,6 +17,7 @@ import { cn } from "@/lib/utils";
 export function AvatarUploader({ name }: { name?: string | null }) {
   const { toast } = useToast();
   const { profile, changeAvatar, removeAvatar } = useProfile();
+  const { isLinked } = useFamilyGroup();
   const inputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [busy, setBusy] = useState<"upload" | "remove" | null>(null);
@@ -33,7 +35,11 @@ export function AvatarUploader({ name }: { name?: string | null }) {
     setBusy("upload");
     try {
       await changeAvatar(file);
-      toast({ title: "Foto atualizada", description: "Seu parceiro já vê a nova foto no Nosso espaço." });
+      // Sem parceiro vinculado (ex.: onboarding), a frase sobre o Nosso espaço não se aplica.
+      toast({
+        title: "Foto atualizada",
+        description: isLinked ? "Seu parceiro já vê a nova foto no Nosso espaço." : undefined,
+      });
     } catch (error) {
       toast({
         title: "Não foi possível trocar a foto",
