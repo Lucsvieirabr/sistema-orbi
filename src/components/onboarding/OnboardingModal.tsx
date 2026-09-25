@@ -7,7 +7,10 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
+  CreditCard,
+  FileUp,
   Loader2,
+  Repeat,
   Telescope,
   Users,
   type LucideIcon,
@@ -32,25 +35,28 @@ import { diagnoseLimitError } from "@/lib/limits";
 import { cn, formatCurrencyBRL, roundCurrency } from "@/lib/utils";
 
 /**
- * Primeiro acesso — três passos, montado uma vez no `AppLayout`.
+ * Primeiro acesso — quatro passos, montado uma vez no `AppLayout`.
  *
- *   0  Boas-vindas     o que o Orbi organiza + perfil (foto e apelido)
- *   1  Primeira conta  nome, tipo e saldo de hoje (INSERT real em `accounts`)
- *   2  Diferenciais    Nosso espaço (Casal) e Motor preditivo
+ *   0  Boas-vindas     o que o Orbi organiza
+ *   1  Perfil          foto (`AvatarUploader`) e nome de exibição (`useProfile`)
+ *   2  Primeira conta  nome, tipo e saldo de hoje (INSERT real em `accounts`)
+ *   3  Diferenciais    Nosso espaço (Casal) e Motor preditivo
  *
- * A faixa de órbita no topo é o fio da jornada: a pessoa é o centro (foto ou
- * iniciais, ao vivo enquanto digita) e cada passo acende um satélite (a conta
- * criada ganha a cor dela; o passo 3 acende parceiro e previsão).
+ * A faixa de órbita no topo é o fio da jornada: no perfil a pessoa ocupa o
+ * centro (foto ou iniciais, ao vivo enquanto digita) e cada passo seguinte
+ * acende um satélite (a conta ganha a cor dela; o último acende parceiro e
+ * previsão).
  *
  * Movimento: CSS puro (`framer-motion` é bloqueado pela política de pacotes).
  * Só transform/opacity/fill; troca de passo reaproveita as entradas laterais
  * do seletor de espaço (avançar ←, voltar →). `motion-safe` em tudo que se move.
  *
- * Saída: "Pular", Esc, "Ir para o painel" ou um dos atalhos do passo 3 gravam
+ * Saída: "Pular", Esc, "Ir para o painel" ou um dos atalhos do último passo gravam
  * `onboarding_completed = true` — a introdução não volta. Clique fora não fecha.
  */
 
-const STEP_COUNT = 3;
+const STEP = { welcome: 0, profile: 1, account: 2, extras: 3 } as const;
+const STEP_COUNT = 4;
 
 /** Cor por tipo: tons médios que leem nos dois temas e viram a faixa da conta em Contas. */
 const ACCOUNT_TYPES = [
@@ -154,7 +160,7 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
   // empurraria o layout.
   useEffect(() => {
     const finePointer = window.matchMedia("(pointer: fine)").matches;
-    if (step === 1 && finePointer && nameRef.current) nameRef.current.focus();
+    if (step === STEP.account && finePointer && nameRef.current) nameRef.current.focus();
     else headingRef.current?.focus();
   }, [step]);
 
@@ -163,13 +169,13 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
     setStep(to);
   };
 
-  const greetName = displayName.trim() || firstWord(profile?.fullName);
+  const greetName = firstWord(profile?.displayName || profile?.fullName);
   const centerName = displayName.trim() || profile?.fullName || "";
 
   /** Salva o apelido só se mudou; em branco = volta ao 1º nome do cadastro. */
   const handleProfile = async (event: FormEvent) => {
     event.preventDefault();
-    if (displayName.trim() === (profile?.displayName ?? "")) return go(1);
+    if (displayName.trim() === (profile?.displayName ?? "")) return go(STEP.account);
 
     const parsed = displayNameSchema.safeParse(displayName);
     if (!parsed.success) {
@@ -181,7 +187,7 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
     setSavingProfile(true);
     try {
       await updateDisplayName(displayName);
-      go(1);
+      go(STEP.account);
     } catch {
       toast({
         title: "Não foi possível salvar o nome",
@@ -195,7 +201,7 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
-    if (created) return go(2);
+    if (created) return go(STEP.extras);
 
     const trimmed = name.trim();
     if (!trimmed) {
@@ -249,11 +255,17 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
       {/* Faixa da órbita: progresso + saída. */}
       <div className="relative h-28 shrink-0 overflow-hidden border-b border-border-subtle bg-surface-sunken sm:h-40">
         <OrbitScene step={step} accountColor={accountColor} accountLit={Boolean(created) || name.trim() !== ""} />
-        {/* Você, no centro: mesma escala do SVG (altura da faixa), por isso em %. */}
+        {/* Você, no centro: entra no passo do perfil. Mesma escala do SVG
+            (altura da faixa), por isso em %. */}
         <UserAvatar
           name={centerName}
           avatarPath={profile?.avatarPath}
-          className="absolute left-1/2 top-1/2 h-[21%] w-auto aspect-square -translate-x-1/2 -translate-y-1/2 text-[0.5625rem] ring-2 ring-surface-sunken sm:text-xs"
+          className={cn(
+            "absolute left-1/2 top-1/2 h-[21%] w-auto aspect-square -translate-x-1/2 -translate-y-1/2",
+            "text-[0.5625rem] ring-2 ring-surface-sunken sm:text-xs",
+            "transition-[opacity,transform] duration-500 ease-entrance",
+            step >= STEP.profile ? "scale-100 opacity-100" : "scale-75 opacity-0",
+          )}
         />
 
         <div className="absolute left-4 top-4 flex items-center gap-2.5 sm:left-5">
@@ -297,20 +309,31 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
             direction === "back" && "motion-safe:animate-space-in-me",
           )}
         >
-          {step === 0 && (
+          {step === STEP.welcome && (
             <>
               <StepHeader
                 headingRef={headingRef}
                 eyebrow={greetName ? `Olá, ${greetName}` : "Boas-vindas ao Orbi"}
                 title="Seu dinheiro inteiro, em uma só órbita"
-                description="Contas, cartões e planos girando em torno de você, com o saldo de hoje e o de amanhã. Comece pelo centro: sua foto e o nome que aparece no Orbi."
+                description="Contas, cartões e planos no mesmo painel, com o saldo de hoje e o de amanhã. Em menos de um minuto, o seu deixa de estar vazio."
               />
-              <form
-                id="onboarding-profile"
-                noValidate
-                onSubmit={handleProfile}
-                className="mt-6 space-y-5 border-t border-border-subtle pt-5"
-              >
+              <ul className="mt-6 space-y-3.5 border-t border-border-subtle pt-5">
+                <Highlight icon={Repeat}>Extrato do mês com parcelas, recorrências e rateios no lugar certo</Highlight>
+                <Highlight icon={CreditCard}>Fatura do cartão pelo ciclo real de fechamento, não pelo calendário</Highlight>
+                <Highlight icon={FileUp}>Extrato em PDF, OFX ou CSV importado e categorizado para você</Highlight>
+              </ul>
+            </>
+          )}
+
+          {step === STEP.profile && (
+            <>
+              <StepHeader
+                headingRef={headingRef}
+                eyebrow="Seu perfil"
+                title="Como você aparece no Orbi"
+                description="Sua foto e seu nome ficam no centro do painel e identificam seus lançamentos para quem dividir o Orbi com você."
+              />
+              <form id="onboarding-profile" noValidate onSubmit={handleProfile} className="mt-6 space-y-6">
                 <AvatarUploader name={centerName} />
                 <div className="space-y-2">
                   <Label htmlFor="onboarding-display-name">Nome de exibição</Label>
@@ -343,7 +366,7 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
             </>
           )}
 
-          {step === 1 && (
+          {step === STEP.account && (
             <>
               <StepHeader
                 headingRef={headingRef}
@@ -436,28 +459,40 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
             </>
           )}
 
-          {step === 2 && <DifferentialsStep headingRef={headingRef} onFinish={onFinish} />}
+          {step === STEP.extras && <DifferentialsStep headingRef={headingRef} onFinish={onFinish} />}
         </div>
       </div>
 
       <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-5 py-4 sm:justify-end sm:px-6 [&>*]:flex-1 sm:[&>*]:flex-none">
-        {step === 0 && (
-          <Button type="submit" form="onboarding-profile" disabled={savingProfile}>
-            {savingProfile && <Loader2 className="animate-spin" aria-hidden />}
-            Continuar
-            {!savingProfile && <ArrowRight aria-hidden />}
+        {step === STEP.welcome && (
+          <Button onClick={() => go(STEP.profile)}>
+            Começar
+            <ArrowRight aria-hidden />
           </Button>
         )}
 
-        {step === 1 &&
+        {step === STEP.profile && (
+          <>
+            <Button variant="ghost" onClick={() => go(STEP.account)} disabled={savingProfile}>
+              Fazer depois
+            </Button>
+            <Button type="submit" form="onboarding-profile" disabled={savingProfile}>
+              {savingProfile && <Loader2 className="animate-spin" aria-hidden />}
+              Continuar
+              {!savingProfile && <ArrowRight aria-hidden />}
+            </Button>
+          </>
+        )}
+
+        {step === STEP.account &&
           (created ? (
-            <Button onClick={() => go(2)}>
+            <Button onClick={() => go(STEP.extras)}>
               Continuar
               <ArrowRight aria-hidden />
             </Button>
           ) : (
             <>
-              <Button variant="ghost" onClick={() => go(2)} disabled={saving}>
+              <Button variant="ghost" onClick={() => go(STEP.extras)} disabled={saving}>
                 Criar depois
               </Button>
               <Button type="submit" form="onboarding-account" disabled={saving}>
@@ -467,9 +502,9 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
             </>
           ))}
 
-        {step === 2 && (
+        {step === STEP.extras && (
           <>
-            <Button variant="ghost" onClick={() => go(1)}>
+            <Button variant="ghost" onClick={() => go(STEP.account)}>
               <ArrowLeft aria-hidden />
               Voltar
             </Button>
@@ -504,6 +539,15 @@ function StepHeader({
       </DialogTitle>
       <DialogDescription className="mt-2 leading-relaxed text-pretty">{description}</DialogDescription>
     </header>
+  );
+}
+
+function Highlight({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
+  return (
+    <li className="flex items-start gap-3 text-sm text-foreground">
+      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
+      <span className="text-pretty">{children}</span>
+    </li>
   );
 }
 
@@ -610,7 +654,7 @@ function pointOn(radius: number, degrees: number) {
 }
 
 function OrbitScene({ step, accountColor, accountLit }: { step: number; accountColor: string; accountLit: boolean }) {
-  const onDifferentials = step >= 2;
+  const onDifferentials = step >= STEP.extras;
 
   return (
     <svg
@@ -623,7 +667,7 @@ function OrbitScene({ step, accountColor, accountLit }: { step: number; accountC
       {/* Anel interno: a conta. */}
       <g className="motion-safe:animate-orbit-ring" style={{ ...SPIN_ORIGIN, animationDuration: "70s" }}>
         <circle cx={CENTER.x} cy={CENTER.y} r={30} className="fill-none stroke-border" strokeWidth={1} />
-        <Satellite {...pointOn(30, -40)} lit={step >= 1 && accountLit} color={accountColor} />
+        <Satellite {...pointOn(30, -40)} lit={step >= STEP.account && accountLit} color={accountColor} />
       </g>
 
       {/* Anel médio, tracejado e em sentido contrário: o parceiro. */}
@@ -643,16 +687,26 @@ function OrbitScene({ step, accountColor, accountLit }: { step: number; accountC
         <circle {...pointOn(74, 250)} r={1.5} className="fill-muted-foreground/40" />
       </g>
 
-      {/* Halo do centro — o avatar (HTML) assenta por cima. */}
-      <circle cx={CENTER.x} cy={CENTER.y} r={19} className="fill-primary/10" />
-      <circle
-        cx={CENTER.x}
-        cy={CENTER.y}
-        r={19}
-        className="fill-none stroke-primary/40 motion-safe:animate-halo"
-        strokeWidth={1}
+      {/* Centro: ponto nas boas-vindas; a partir do perfil o halo cresce para
+          abraçar o avatar (HTML por cima, que cobre o ponto). */}
+      <g
         style={SELF_ORIGIN}
-      />
+        className={cn(
+          "transition-transform duration-500 ease-entrance",
+          step >= STEP.profile ? "scale-100" : "scale-[0.68]",
+        )}
+      >
+        <circle cx={CENTER.x} cy={CENTER.y} r={19} className="fill-primary/10" />
+        <circle
+          cx={CENTER.x}
+          cy={CENTER.y}
+          r={19}
+          className="fill-none stroke-primary/40 motion-safe:animate-halo"
+          strokeWidth={1}
+          style={SELF_ORIGIN}
+        />
+      </g>
+      <circle cx={CENTER.x} cy={CENTER.y} r={5.5} className="fill-primary" />
     </svg>
   );
 }
