@@ -199,6 +199,23 @@ export function useFamilyGroup() {
     await queryClient.invalidateQueries({ queryKey: ["family-group"] });
   };
 
+  /**
+   * Parceiro sai do Plano Casal: apaga o próprio vínculo. O dono deixa de ver
+   * os dados dele e o plano herdado acaba na hora. Não invalida cache: quem
+   * chama recarrega a página ao fim da cena de saída (invalidar antes faria o
+   * guard de assinatura trocar de rota no meio da animação).
+   */
+  const leaveGroup = async () => {
+    const { data: { user } } = await getCachedAuthUser();
+    if (!user) throw new Error("Sessão expirada. Entre novamente.");
+    const { error } = await db
+      .from("family_group_members")
+      .delete()
+      .eq("user_id", user.id)
+      .eq("status", "active");
+    if (error) throw error;
+  };
+
   const state = query.data ?? EMPTY;
 
   /** true se a linha (conta, cartão, transação) pertence ao usuário logado */
@@ -224,5 +241,6 @@ export function useFamilyGroup() {
     createGroup,
     invitePartner,
     removePartner,
+    leaveGroup,
   };
 }

@@ -1,5 +1,6 @@
 /* ==========================================================================
-   ÓRBITA DO CASAL — tela de aceite do convite (/invite/accept)
+   ÓRBITA DO CASAL — aceite do convite (/invite/accept) e saída do Plano
+   Casal (Configurações, `.orbit-scene--rupture`)
    --------------------------------------------------------------------------
    CSS puro (framer-motion é bloqueado pela política de pacotes). Só animam
    transform, translate, scale, opacity e filter — compositor, zero reflow.
@@ -325,5 +326,72 @@
     scale: 1;
     opacity: 1;
     filter: none;
+  }
+}
+
+/* --- Ruptura: saída do Plano Casal ----------------------------------------
+   Avesso do aceite. Os dois já começam em órbita (sem chegada). A órbita
+   segura por um instante e a gravidade cede: cada um escapa pelo raio, em
+   sentidos opostos, com um desvio na direção do giro (estilingue). A curva
+   é de aceleração — fuga ganha velocidade, não freia — enquanto o corpo
+   encolhe e some. O anel segue girando, então a saída desenha uma espiral.
+   Rastro e núcleo apagam junto; as trilhas vazias ficam.
+   Linha do tempo (~2 s): 0–0,45 s órbita · 0,45–1,75 s fuga · depois, vazio.
+   Com prefers-reduced-motion (index.css) vai direto ao estado final. */
+
+.orbit-scene--rupture {
+  --rupture-at: 0.45s;
+  --escape-curve: cubic-bezier(0.55, 0, 0.9, 0.4);
+}
+
+.orbit-scene--rupture .orbit-track {
+  animation: none;
+}
+
+.orbit-scene--rupture .orbit-track--outer {
+  animation: orbit-spin 150s linear infinite reverse;
+}
+
+.orbit-scene--rupture .orbit-core {
+  animation: orbit-dim 0.9s var(--ease-entrance) calc(var(--rupture-at) + 0.25s) both;
+}
+
+.orbit-scene--rupture .orbit-trail {
+  animation: orbit-fade 0.5s ease-out var(--rupture-at) reverse both;
+}
+
+.orbit-scene--rupture .orbit-body {
+  animation: orbit-escape 1.3s var(--escape-curve) var(--rupture-at) both;
+}
+
+/* Você sai pela esquerda subindo; o parceiro, pela direita descendo — o
+   sentido em que cada um já se movia no anel (horário). */
+.orbit-scene--rupture .orbit-body--self {
+  --escape-to: -58vw -16vh;
+}
+
+.orbit-scene--rupture .orbit-body--partner {
+  --escape-to: 58vw 16vh;
+}
+
+@keyframes orbit-escape {
+  from {
+    translate: 0 0;
+    scale: 1;
+    opacity: 1;
+    filter: none;
+  }
+  to {
+    translate: var(--escape-to);
+    scale: 0.3;
+    opacity: 0;
+    filter: blur(6px);
+  }
+}
+
+@keyframes orbit-dim {
+  to {
+    opacity: 0.4;
+    scale: 0.92;
   }
 }

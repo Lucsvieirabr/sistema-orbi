@@ -79,7 +79,11 @@ test('family invite: pending until explicit accept, token bound to the invited a
         ('${STRANGER}', '{"familia_compartilhada": false}', '{}');
       INSERT INTO family_groups(owner_id) VALUES ('${OWNER}'), ('${OWNER2}'), ('${STRANGER}');
     `);
-    for (const file of ['20260925180000_family_invite_opt_in.sql', '20260925200000_invite_preview_avatar.sql']) {
+    for (const file of [
+      '20260925180000_family_invite_opt_in.sql',
+      '20260925200000_invite_preview_avatar.sql',
+      '20260925220000_family_member_leave.sql',
+    ]) {
       await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
     }
     const ownerAvatar = `${OWNER}/0123456789abcdef0123456789abcdef.webp`;
@@ -159,6 +163,19 @@ test('family invite: pending until explicit accept, token bound to the invited a
     const other = await rpc('orbi_family_invite_issue', 'ana@orbi.test');
     await as(PARTNER);
     assert.equal((await rpc('orbi_family_invite_accept', other.token)).status, 'already_linked');
+
+    // Client picks neither id nor created_at of a group (would reorder "oldest group").
+    await assert.rejects(
+      db.query(`INSERT INTO family_groups(owner_id, created_at) VALUES ('${PARTNER}', '2000-01-01')`),
+      { code: '42501' },
+    );
+
+    // Partner can leave on their own; the link is gone and they are free to accept another invite.
+    await db.query(`DELETE FROM family_group_members WHERE user_id = '${PARTNER}' AND status = 'active'`);
+    await db.exec('RESET ROLE');
+    assert.equal((await db.query(`SELECT count(*)::int AS n FROM family_group_members WHERE user_id = '${PARTNER}'`)).rows[0].n, 0);
+    await as(PARTNER);
+    assert.equal((await rpc('orbi_family_invite_preview', other.token)).status, 'ready');
 
     // Unconfirmed e-mail, expiry, rotation and owner downgrade.
     await db.exec(`RESET ROLE; DELETE FROM family_group_members WHERE email = 'ana@orbi.test' AND user_id IS NULL`);
