@@ -36,12 +36,14 @@ type Problem =
 interface InviteResult {
   status: "ready" | "accepted" | Exclude<Problem, "network">;
   inviter_name?: string | null;
+  /** Só no `ready`: foto de quem convidou (bucket libera enquanto o convite está pendente). */
+  inviter_avatar_path?: string | null;
   invited_email?: string | null;
 }
 
 type Phase =
   | { kind: "checking" }
-  | { kind: "review"; inviter: string | null }
+  | { kind: "review"; inviter: string | null; inviterAvatar: string | null }
   | { kind: "syncing" }
   | { kind: "united"; me: OrbitPerson; partner: OrbitPerson }
   | { kind: "problem"; problem: Problem; inviter?: string | null; invitedEmail?: string | null };
@@ -169,7 +171,9 @@ export default function InviteAccept({ stage }: { stage: SessionStage }) {
         if (error) throw error;
         if (!active) return;
         const result = data as unknown as InviteResult;
-        if (result.status === "ready") setPhase({ kind: "review", inviter: result.inviter_name ?? null });
+        if (result.status === "ready") {
+          setPhase({ kind: "review", inviter: result.inviter_name ?? null, inviterAvatar: result.inviter_avatar_path ?? null });
+        }
         else if (result.status === "accepted") await unite(result.inviter_name ?? null);
         else fail(result);
       } catch {
@@ -189,7 +193,7 @@ export default function InviteAccept({ stage }: { stage: SessionStage }) {
 
   const accept = async () => {
     if (phase.kind !== "review" || !token) return;
-    const { inviter } = phase;
+    const { inviter, inviterAvatar } = phase;
     setPhase({ kind: "syncing" });
 
     try {
@@ -202,7 +206,7 @@ export default function InviteAccept({ stage }: { stage: SessionStage }) {
       if (result.status === "accepted") await unite(result.inviter_name ?? inviter);
       else fail(result);
     } catch {
-      setPhase({ kind: "review", inviter });
+      setPhase({ kind: "review", inviter, inviterAvatar });
       toast({
         title: "Não foi possível aceitar agora",
         description: "Verifique sua conexão e tente de novo.",
@@ -262,7 +266,13 @@ export default function InviteAccept({ stage }: { stage: SessionStage }) {
       </div>
     </Centered>
   ) : phase.kind === "review" ? (
-    <ReviewView inviter={phase.inviter} headingRef={headingRef} onAccept={() => void accept()} onDecline={decline} />
+    <ReviewView
+      inviter={phase.inviter}
+      inviterAvatar={phase.inviterAvatar}
+      headingRef={headingRef}
+      onAccept={() => void accept()}
+      onDecline={decline}
+    />
   ) : phase.kind === "united" ? (
     <UnitedView me={phase.me} partner={phase.partner} headingRef={headingRef} onContinue={openDashboard} />
   ) : (
@@ -311,11 +321,13 @@ type HeadingRef = React.RefObject<HTMLHeadingElement>;
 
 function ReviewView({
   inviter,
+  inviterAvatar,
   headingRef,
   onAccept,
   onDecline,
 }: {
   inviter: string | null;
+  inviterAvatar: string | null;
   headingRef: HeadingRef;
   onAccept: () => void;
   onDecline: () => void;
@@ -329,7 +341,7 @@ function ReviewView({
         <span className="absolute inset-3 rounded-full bg-chart-6/10 blur-xl" />
         <span className="absolute left-1/2 top-0 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-[0_0_10px_2px_hsl(var(--primary)/0.7)]" />
         <span className="relative rounded-full border border-foreground/15 bg-foreground/[0.06] p-[3px] shadow-[0_0_28px_-2px_hsl(var(--chart-6)/0.5)]">
-          <UserAvatar name={inviter} tone="partner" className="h-20 w-20 text-xl" />
+          <UserAvatar name={inviter} avatarPath={inviterAvatar} tone="partner" className="h-20 w-20 text-xl" />
         </span>
       </div>
 
