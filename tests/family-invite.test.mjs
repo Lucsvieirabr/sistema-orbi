@@ -22,7 +22,7 @@ test('family invite: pending until explicit accept, token bound to the invited a
       CREATE FUNCTION auth.uid() RETURNS uuid LANGUAGE sql STABLE AS
         $$ SELECT nullif(current_setting('request.user_id', true), '')::uuid $$;
       CREATE TABLE auth.users(id uuid PRIMARY KEY, email text, email_confirmed_at timestamptz, raw_user_meta_data jsonb DEFAULT '{}');
-      CREATE TABLE user_profiles(user_id uuid, display_name text, full_name text);
+      CREATE TABLE user_profiles(user_id uuid, display_name text, full_name text, avatar_path text);
       CREATE TABLE audit_logs(id uuid PRIMARY KEY DEFAULT gen_random_uuid(), user_id uuid, action text NOT NULL,
         entity_type text NOT NULL, entity_id uuid, metadata jsonb, new_data jsonb);
       CREATE TABLE plans(user_id uuid PRIMARY KEY, features jsonb, limits jsonb);
@@ -63,6 +63,8 @@ test('family invite: pending until explicit accept, token bound to the invited a
       CREATE TRIGGER trg_check_family_members_limit BEFORE INSERT ON family_group_members
         FOR EACH ROW EXECUTE FUNCTION check_family_members_limit();
       CREATE FUNCTION orbi_claim_family_invites() RETURNS void LANGUAGE sql AS $$ SELECT $$;
+      CREATE FUNCTION orbi_family_user_ids() RETURNS uuid[] LANGUAGE sql STABLE AS $$ SELECT ARRAY[auth.uid()] $$;
+      GRANT EXECUTE ON FUNCTION orbi_family_user_ids() TO authenticated;
 
       INSERT INTO auth.users(id, email, email_confirmed_at, raw_user_meta_data) VALUES
         ('${OWNER}', 'owner@orbi.test', now(), '{"full_name":"Lucas Vieira"}'),
@@ -70,14 +72,18 @@ test('family invite: pending until explicit accept, token bound to the invited a
         ('${STRANGER}', 'intruso@orbi.test', now(), '{}'),
         ('${OWNER2}', 'bia@orbi.test', now(), '{}'),
         ('${UNCONFIRMED}', 'novo@orbi.test', NULL, '{}');
-      INSERT INTO user_profiles VALUES ('${OWNER}', 'Lucas', 'Lucas Vieira');
+      INSERT INTO user_profiles VALUES ('${OWNER}', 'Lucas', 'Lucas Vieira', '${OWNER}/0123456789abcdef0123456789abcdef.webp');
       INSERT INTO plans VALUES
         ('${OWNER}', '{"familia_compartilhada": true}', '{"max_membros_familia": 1}'),
         ('${OWNER2}', '{"familia_compartilhada": true}', '{"max_membros_familia": 1}'),
         ('${STRANGER}', '{"familia_compartilhada": false}', '{}');
       INSERT INTO family_groups(owner_id) VALUES ('${OWNER}'), ('${OWNER2}'), ('${STRANGER}');
     `);
-    await db.exec(await readFile(new URL('../supabase/migrations/20260925180000_family_invite_opt_in.sql', import.meta.url), 'utf8'));
+    for (const file of ['20260925180000_family_invite_opt_in.sql', '20260925200000_invite_preview_avatar.sql']) {
+      await db.exec(await readFile(new URL(`../supabase/migrations/${file}`, import.meta.url), 'utf8'));
+    }
+    const ownerAvatar = `${OWNER}/0123456789abcdef0123456789abcdef.webp`;
+    const canRead = async (path) => (await db.query('SELECT public.orbi_can_read_avatar($1) AS ok', [path])).rows[0].ok;
 
     const as = (uid) => db.exec(`RESET ROLE; SET ROLE authenticated; SET request.user_id = '${uid}'`);
     const rpc = async (fn, arg) => (await db.query(`SELECT public.${fn}($1) AS r`, [arg])).rows[0].r;
@@ -112,6 +118,12 @@ test('family invite: pending until explicit accept, token bound to the invited a
     await as(STRANGER);
     await assert.rejects(rpc('orbi_family_invite_issue', 'ana@orbi.test'), { code: 'P0005' });
 
+    // Pending invite opens the inviter's photo only to the invited account.
+    assert.equal(await canRead(ownerAvatar), false);
+    await as(PARTNER);
+    assert.equal(await canRead(ownerAvatar), true);
+    await as(STRANGER);
+
     // Someone else holding the link: masked e-mail, no inviter name, no link.
     const preview = await rpc('orbi_family_invite_preview', issued.token);
     assert.deepEqual(preview, { status: 'email_mismatch', invited_email: 'a•••@orbi.test' });
@@ -127,6 +139,7 @@ test('family invite: pending until explicit accept, token bound to the invited a
     const ready = await rpc('orbi_family_invite_preview', issued.token);
     assert.equal(ready.status, 'ready');
     assert.equal(ready.inviter_name, 'Lucas');
+    assert.equal(ready.inviter_avatar_path, ownerAvatar);
     assert.equal(ready.member_id, undefined);
     assert.equal(ready.owner_id, undefined);
     assert.equal((await rpc('orbi_family_invite_accept', issued.token)).status, 'accepted');
@@ -157,6 +170,7 @@ test('family invite: pending until explicit accept, token bound to the invited a
     await db.exec(`UPDATE family_group_members SET invite_expires_at = now() - interval '1 minute' WHERE email = 'novo@orbi.test'`);
     await as(UNCONFIRMED);
     assert.equal((await rpc('orbi_family_invite_preview', first.token)).status, 'expired');
+    assert.equal(await canRead(`${OWNER2}/0123456789abcdef0123456789abcdef.webp`), false);
     await as(OWNER2);
     const second = await rpc('orbi_family_invite_issue', 'novo@orbi.test');
     assert.notEqual(second.token, first.token);
