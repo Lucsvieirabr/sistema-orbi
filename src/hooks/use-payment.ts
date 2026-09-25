@@ -44,7 +44,8 @@ export interface SyncSubscriptionResponse {
   status: SubscriptionStatusPayload;
 }
 
-async function invoke<T>(fn: string, body?: unknown): Promise<T> {
+/** Chama uma Edge Function com a sessão atual; erro vira `Error` com a mensagem pública da função. */
+export async function invoke<T>(fn: string, body?: unknown): Promise<T> {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) throw new Error('Você precisa estar autenticado');
 

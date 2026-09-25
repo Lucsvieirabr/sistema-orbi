@@ -35,43 +35,6 @@ export function isOwnRow(rowUserId: string | null | undefined, currentUserId: st
   return rowUserId === currentUserId;
 }
 
-let claimInFlight: Promise<void> | null = null;
-/**
- * Claim já feito nesta aba (usuário + confirmação de e-mail): 1 RPC por sessão,
- * não por render/rota. Confirmar o e-mail muda a chave e libera novo claim.
- */
-let claimedKey: string | null = null;
-
-/**
- * Vincula convites pendentes do Plano Casal ao usuário logado
- * (RPC `orbi_claim_family_invites`, idempotente, só com e-mail confirmado).
- *
- * Roda ANTES de ler o status da assinatura: o convidado herda o plano do dono,
- * e sem o vínculo o primeiro acesso dele cairia em `no_plan` → /pricing.
- * Falha aqui nunca bloqueia o fluxo — o status segue como está no servidor.
- */
-export function claimFamilyInvites(): Promise<void> {
-  if (claimInFlight) return claimInFlight;
-
-  claimInFlight = (async () => {
-    try {
-      // Sessão local (sem rede): o cache do usuário pode estar atrasado logo após o login.
-      const { data: { session } } = await supabase.auth.getSession();
-      const user = session?.user;
-      const key = user ? `${user.id}:${user.email_confirmed_at ?? ""}` : null;
-      if (!key || key === claimedKey) return;
-      const { error } = await supabase.rpc("orbi_claim_family_invites");
-      if (!error) claimedKey = key;
-    } catch {
-      /* best-effort: o servidor decide o acesso */
-    } finally {
-      claimInFlight = null;
-    }
-  })();
-
-  return claimInFlight;
-}
-
 /**
  * Lança erro se a transação não for do usuário logado (usado antes de EXCLUIR).
  * `maybeSingle` + RLS: sem filtro de user_id no client — linha invisível vira

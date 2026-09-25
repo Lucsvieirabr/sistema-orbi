@@ -54,6 +54,8 @@ import ForgotPassword from "@/pages/auth/ForgotPassword";
 import ResetPassword from "@/pages/auth/ResetPassword";
 import MfaChallenge from "@/pages/auth/MfaChallenge";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
+import InviteAccept from "@/pages/InviteAccept";
+import { INVITE_ACCEPT_PATH } from "@/lib/family-invite";
 import { stageFromSession, type SessionStage } from "@/lib/auth/assurance";
 import { bootSession } from "@/lib/auth/session";
 import { AUTH_ROUTES, loginPath, mfaChallengePath, safeInternalPath } from "@/lib/auth/redirect";
@@ -146,6 +148,9 @@ function LoginRoute({ stage }: { stage: SessionStage }) {
  * - C9: Link de recuperação → /redefinir-senha (pública, independe de sessão)
  * - C10: Link de confirmação do cadastro → /verificar-email (pública, com ou
  *        sem sessão: a própria tela troca o código e segue para os planos)
+ * - C11: Link do convite do Plano Casal → /invite/accept (pública). Sem sessão,
+ *        o token fica guardado e o pós-login (resolvePostAuthRoute) volta para
+ *        o convite antes de planos/cobrança.
  */
 const App = () => {
   // `mfa_required` = senha certa, código pendente. Conta como NÃO autenticado
@@ -216,6 +221,10 @@ const App = () => {
                   logo depois do signUp E o destino do link do e-mail, que pode
                   chegar com sessão (mesmo navegador) ou sem (celular). */}
               <Route path={AUTH_ROUTES.verifyEmail} element={<VerifyEmail />} />
+
+              {/* Convite do Plano Casal — link do e-mail. Abre com ou sem sessão:
+                  sem sessão, a tela guarda o token e manda para login/cadastro. */}
+              <Route path={INVITE_ACCEPT_PATH} element={<InviteAccept stage={stage} />} />
 
               {/* Segunda etapa do login (TOTP). Sem sessão volta ao login; já em
                   aal2 a própria tela segue para o destino. */}

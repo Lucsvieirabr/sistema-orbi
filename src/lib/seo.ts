@@ -191,6 +191,7 @@ const PRIVATE_TITLES: Array<[RegExp, string]> = [
   [/^\/redefinir-senha/, "Nova senha"],
   [/^\/login\/verificacao/, "Verificação em duas etapas"],
   [/^\/verificar-email/, "Confirme seu e-mail"],
+  [/^\/invite/, "Convite do Plano Casal"],
 ];
 
 /** Fluxos de conta (recuperação, confirmação de e-mail, código TOTP) ficam fora do índice. */
@@ -202,6 +203,7 @@ const PRIVATE_PREFIXES = [
   "/redefinir-senha",
   "/login/verificacao",
   "/verificar-email",
+  "/invite",
 ];
 
 export function resolveRouteSeo(pathname: string): SeoConfig {

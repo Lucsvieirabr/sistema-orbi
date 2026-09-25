@@ -2,7 +2,6 @@ import { getCachedAuthUser } from "@/hooks/use-current-user";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { isClientError } from "@/lib/query-client";
-import { claimFamilyInvites } from "@/lib/family-access";
 
 export type SubscriptionAccess = "allowed" | "blocked" | "pending_payment" | "no_plan" | "unauthenticated";
 export type SubscriptionStatus =
@@ -68,10 +67,6 @@ export function useSubscriptionStatus() {
     queryFn: async () => {
       const { data: { user } } = await getCachedAuthUser();
       if (!user) return { access: "unauthenticated", has_subscription: false };
-
-      // Convidado do Plano Casal: vincula antes de ler o status para herdar o
-      // plano do dono em vez de cair em `no_plan`.
-      await claimFamilyInvites();
 
       const { data, error } = await supabase.rpc("get_my_subscription_status");
       if (error) throw error;

@@ -227,6 +227,11 @@ export default {
           "0%, 100%": { opacity: "0.45", transform: "scale(1)" },
           "60%": { opacity: "0", transform: "scale(1.4)" },
         },
+        /* Convite pendente: um anel sai do ponto e some — "aguardando o outro lado". */
+        beacon: {
+          "0%": { opacity: "0.55", transform: "scale(1)" },
+          "70%, 100%": { opacity: "0", transform: "scale(2.8)" },
+        },
         /* Orbita lenta do arco de 1px: o gesto da marca em estado de espera. */
         "orbit-ring": {
           from: { transform: "rotate(0deg)" },
@@ -254,6 +259,7 @@ export default {
         "hint-float": "hint-float 3.4s cubic-bezier(0.45, 0, 0.55, 1) infinite",
         "caret-blink": "caret-blink 1.2s ease-out infinite",
         halo: "halo 2.8s cubic-bezier(0.22, 1, 0.36, 1) infinite",
+        beacon: "beacon 2.2s cubic-bezier(0.22, 1, 0.36, 1) infinite",
         "orbit-ring": "orbit-ring 9s linear infinite",
         // `backwards`, nunca `both`: animação de transform/filter retida no fim
         // vira containing block e prende os FABs `fixed` no fim do conteúdo.

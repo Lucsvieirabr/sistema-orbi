@@ -307,24 +307,39 @@ export type Database = {
       }
       family_group_members: {
         Row: {
+          accepted_at: string | null
           created_at: string
           email: string
           family_group_id: string
           id: string
+          invite_expires_at: string | null
+          invite_sent_at: string | null
+          invite_token_hash: string | null
+          status: string
           user_id: string | null
         }
         Insert: {
+          accepted_at?: string | null
           created_at?: string
           email: string
           family_group_id: string
           id?: string
+          invite_expires_at?: string | null
+          invite_sent_at?: string | null
+          invite_token_hash?: string | null
+          status?: string
           user_id?: string | null
         }
         Update: {
+          accepted_at?: string | null
           created_at?: string
           email?: string
           family_group_id?: string
           id?: string
+          invite_expires_at?: string | null
+          invite_sent_at?: string | null
+          invite_token_hash?: string | null
+          status?: string
           user_id?: string | null
         }
         Relationships: [
@@ -1838,7 +1853,6 @@ export type Database = {
         Args: { p_horizon_days?: number; p_scope?: string }
         Returns: Json
       }
-      orbi_claim_family_invites: { Args: never; Returns: undefined }
       orbi_daily_burn_rate: {
         Args: { p_days?: number; p_scope?: string }
         Returns: Json
@@ -1847,6 +1861,10 @@ export type Database = {
         Args: { p_commands: string[]; p_tables: string[] }
         Returns: undefined
       }
+      orbi_family_directory: { Args: never; Returns: Json }
+      orbi_family_invite_accept: { Args: { p_token: string }; Returns: Json }
+      orbi_family_invite_issue: { Args: { p_email: string }; Returns: Json }
+      orbi_family_invite_preview: { Args: { p_token: string }; Returns: Json }
       orbi_family_user_ids: { Args: never; Returns: string[] }
       orbi_goal_execute: {
         Args: {

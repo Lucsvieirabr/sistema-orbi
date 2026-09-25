@@ -1,22 +1,33 @@
 import { getCachedAuthUser } from "@/hooks/use-current-user";
 /**
- * Plano Casal — fluxo cru:
- *   criar grupo -> adicionar e-mail do parceiro -> parceiro abre o app e é vinculado.
- * Sem e-mail transacional, sem token, sem página de aceite.
+ * Plano Casal — convite com aceite explícito:
+ *   criar grupo -> convidar e-mail (Edge Function `family-invite`: convite
+ *   pendente + e-mail com link) -> parceiro aceita em /invite/accept.
+ * Nada é compartilhado enquanto o convite está pendente.
  */
 import { useCallback, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { claimFamilyInvites, isOwnRow } from "@/lib/family-access";
+import { isOwnRow } from "@/lib/family-access";
 import { initialsOf, isAvatarPath } from "@/lib/avatar";
 import { SUBSCRIPTION_QUERY_KEY } from "@/hooks/use-subscription";
 import { QUOTA_QUERY_KEY } from "@/hooks/use-quota";
+import { invoke } from "@/hooks/use-payment";
 
 export interface FamilyMember {
   id: string;
   email: string;
   user_id: string | null;
+  /** pending = convite aguardando aceite; active = parceiro vinculado. */
+  status: "pending" | "active";
+  /** Validade do link atual (null: vínculo ativo ou convite antigo nunca enviado). */
+  invite_expires_at: string | null;
+  invite_sent_at: string | null;
   created_at: string;
+}
+
+interface InviteResponse {
+  email_sent: boolean;
 }
 
 /** Pessoa do grupo visível no modo Casal (RPC `orbi_family_directory`). */
@@ -60,7 +71,7 @@ const EMPTY: FamilyGroupState = {
   directory: [],
 };
 
-const FAMILY_GROUP_QUERY_KEY = ["family-group"] as const;
+export const FAMILY_GROUP_QUERY_KEY = ["family-group"] as const;
 
 interface DirectoryRow {
   user_id: string;
@@ -69,7 +80,7 @@ interface DirectoryRow {
   avatar_path?: string | null;
 }
 
-function toAuthor(row: DirectoryRow): FamilyAuthor {
+export function toAuthor(row: DirectoryRow): FamilyAuthor {
   const realName = row.name?.trim() || "";
   const name = realName || (row.is_self ? "Você" : "Parceiro(a)");
   return {
@@ -88,9 +99,6 @@ export function useFamilyGroup() {
   const fetchFamilyGroup = async (): Promise<FamilyGroupState> => {
     const { data: { user } } = await getCachedAuthUser();
     if (!user) return EMPTY;
-
-    // Vincula convites pendentes endereçados ao e-mail deste usuário.
-    await claimFamilyInvites();
 
     const { data: groupId, error: rpcError } = await db.rpc("orbi_my_family_group_id");
     if (rpcError) throw rpcError;
@@ -114,7 +122,7 @@ export function useFamilyGroup() {
 
     const { data: members, error: membersError } = await db
       .from("family_group_members")
-      .select("id, email, user_id, created_at")
+      .select("id, email, user_id, status, invite_expires_at, invite_sent_at, created_at")
       .eq("family_group_id", groupId);
     if (membersError) throw membersError;
 
@@ -171,14 +179,18 @@ export function useFamilyGroup() {
     return data;
   };
 
-  const addPartner = async (email: string) => {
-    const state = query.data;
-    if (!state?.groupId) throw new Error("Crie o Plano Casal primeiro.");
-    const { error } = await db
-      .from("family_group_members")
-      .insert({ family_group_id: state.groupId, email: email.trim().toLowerCase() });
-    if (error) throw error;
-    await queryClient.invalidateQueries({ queryKey: ["family-group"] });
+  /**
+   * Convida (ou reenvia para) um e-mail. Reenviar troca o link: o anterior
+   * para de funcionar. `false` = convite salvo, mas o e-mail não saiu.
+   */
+  const invitePartner = async (email: string): Promise<boolean> => {
+    if (!query.data?.groupId) throw new Error("Crie o Plano Casal primeiro.");
+    try {
+      const { email_sent } = await invoke<InviteResponse>("family-invite", { email: email.trim().toLowerCase() });
+      return email_sent;
+    } finally {
+      await queryClient.invalidateQueries({ queryKey: FAMILY_GROUP_QUERY_KEY });
+    }
   };
 
   const removePartner = async (memberId: string) => {
@@ -210,7 +222,7 @@ export function useFamilyGroup() {
     isLoading: query.isLoading,
     error: query.error,
     createGroup,
-    addPartner,
+    invitePartner,
     removePartner,
   };
 }
