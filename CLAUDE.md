@@ -190,7 +190,7 @@ src/
  │   ├─ planning/            LedgerStrip + UsageBar (faixa de leitura e barra de consumo), MonthSwitcher (+ useMonthParam), planning-utils (datas/moeda/erros), notify
  │   ├─ guards/              FeatureGuard, LimitGuard, FeaturePageGuard, SubscriptionGuard, PremiumRoute (+ PremiumPreview) — controle de acesso declarativo
  │   ├─ extrato-uploader/    pipeline de importação CSV/PDF/OFX/imagem + classificação
- │   ├─ onboarding/          OnboardingModal (montado no AppLayout, 3 passos: boas-vindas → 1ª conta via `insertAccount` → Casal/Motor preditivo). Gatilho `use-onboarding`: `user_profiles.onboarding_completed ≠ true` E 0 contas próprias; Pular/Esc/concluir gravam `true` (backfill `20260925120000`)
+ │   ├─ onboarding/          OnboardingModal (montado no AppLayout, 3 passos: boas-vindas + perfil (foto via `AvatarUploader`, apelido via `useProfile().updateDisplayName`; avatar no centro da órbita) → 1ª conta via `insertAccount` → Casal/Motor preditivo). Gatilho `use-onboarding`: `user_profiles.onboarding_completed ≠ true` E 0 contas próprias; Pular/Esc/concluir gravam `true` (backfill `20260925120000`)
  │   ├─ dashboard/, people/, payment/, auth/, navigation/, bugs/
  ├─ hooks/                  1 hook por domínio, prefixo `use-` kebab-case; React Query p/ leitura, funções `async` diretas p/ mutação (padrão inconsistente entre hooks — alguns usam `useMutation`, outros try/catch manual)
  ├─ integrations/supabase/  client.ts (singleton) + types.ts (schema gerado, NÃO editar à mão)

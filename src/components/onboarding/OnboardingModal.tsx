@@ -7,26 +7,25 @@ import {
   ArrowRight,
   Check,
   ChevronRight,
-  CreditCard,
-  FileUp,
   Loader2,
-  Repeat,
   Telescope,
   Users,
   type LucideIcon,
 } from "lucide-react";
 
+import { AvatarUploader } from "@/components/settings/AvatarUploader";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogDescription, DialogOverlay, DialogPortal, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { NumericInput } from "@/components/ui/numeric-input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { insertAccount } from "@/hooks/use-accounts";
 import { useFamilyGroup } from "@/hooks/use-family-group";
 import { useFeature } from "@/hooks/use-feature";
 import { useOnboarding } from "@/hooks/use-onboarding";
-import { useProfile } from "@/hooks/use-profile";
+import { displayNameSchema, useProfile } from "@/hooks/use-profile";
 import { QUOTA_QUERY_KEY } from "@/hooks/use-quota";
 import { useToast } from "@/hooks/use-toast";
 import { diagnoseLimitError } from "@/lib/limits";
@@ -35,12 +34,13 @@ import { cn, formatCurrencyBRL, roundCurrency } from "@/lib/utils";
 /**
  * Primeiro acesso — três passos, montado uma vez no `AppLayout`.
  *
- *   0  Boas-vindas     o que o Orbi organiza
+ *   0  Boas-vindas     o que o Orbi organiza + perfil (foto e apelido)
  *   1  Primeira conta  nome, tipo e saldo de hoje (INSERT real em `accounts`)
  *   2  Diferenciais    Nosso espaço (Casal) e Motor preditivo
  *
- * A faixa de órbita no topo é o fio da jornada: cada passo acende um satélite
- * (a conta criada ganha a cor dela; o passo 3 acende parceiro e previsão).
+ * A faixa de órbita no topo é o fio da jornada: a pessoa é o centro (foto ou
+ * iniciais, ao vivo enquanto digita) e cada passo acende um satélite (a conta
+ * criada ganha a cor dela; o passo 3 acende parceiro e previsão).
  *
  * Movimento: CSS puro (`framer-motion` é bloqueado pela política de pacotes).
  * Só transform/opacity/fill; troca de passo reaproveita as entradas laterais
@@ -60,6 +60,8 @@ const ACCOUNT_TYPES = [
 ] as const;
 
 type AccountTypeValue = (typeof ACCOUNT_TYPES)[number]["value"];
+
+const firstWord = (value?: string | null) => (value ?? "").trim().split(/\s+/)[0] ?? "";
 
 const colorOf = (type: AccountTypeValue) => ACCOUNT_TYPES.find((option) => option.value === type)?.color ?? ACCOUNT_TYPES[0].color;
 
@@ -118,7 +120,7 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
-  const { profile } = useProfile();
+  const { profile, updateDisplayName } = useProfile();
 
   const [step, setStep] = useState(0);
   const [direction, setDirection] = useState<"next" | "back" | null>(null);
@@ -130,8 +132,22 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
   const [saving, setSaving] = useState(false);
   const [created, setCreated] = useState<CreatedAccount | null>(null);
 
+  const [displayName, setDisplayName] = useState("");
+  const [displayNameError, setDisplayNameError] = useState<string>();
+  const [savingProfile, setSavingProfile] = useState(false);
+
   const headingRef = useRef<HTMLHeadingElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
+  const displayNameRef = useRef<HTMLInputElement>(null);
+  const prefilled = useRef(false);
+
+  // Apelido nasce com o que já existe (apelido salvo ou 1º nome do cadastro),
+  // uma vez só: refetch do perfil (ex.: depois da foto) não apaga o que foi digitado.
+  useEffect(() => {
+    if (prefilled.current || !profile) return;
+    prefilled.current = true;
+    setDisplayName(profile.displayName ?? firstWord(profile.fullName));
+  }, [profile]);
 
   // A cada passo o foco vai para o título (leitor de tela anuncia o passo).
   // No formulário, com mouse, direto no nome — no celular o teclado abrindo
@@ -147,7 +163,35 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
     setStep(to);
   };
 
-  const firstName = (profile?.displayName || profile?.fullName || "").trim().split(/\s+/)[0];
+  const greetName = displayName.trim() || firstWord(profile?.fullName);
+  const centerName = displayName.trim() || profile?.fullName || "";
+
+  /** Salva o apelido só se mudou; em branco = volta ao 1º nome do cadastro. */
+  const handleProfile = async (event: FormEvent) => {
+    event.preventDefault();
+    if (displayName.trim() === (profile?.displayName ?? "")) return go(1);
+
+    const parsed = displayNameSchema.safeParse(displayName);
+    if (!parsed.success) {
+      setDisplayNameError(parsed.error.issues[0]?.message ?? "Nome inválido");
+      displayNameRef.current?.focus();
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      await updateDisplayName(displayName);
+      go(1);
+    } catch {
+      toast({
+        title: "Não foi possível salvar o nome",
+        description: "Tente de novo ou continue sem ele.",
+        variant: "destructive",
+      });
+    } finally {
+      setSavingProfile(false);
+    }
+  };
 
   const handleCreate = async (event: FormEvent) => {
     event.preventDefault();
@@ -205,6 +249,12 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
       {/* Faixa da órbita: progresso + saída. */}
       <div className="relative h-28 shrink-0 overflow-hidden border-b border-border-subtle bg-surface-sunken sm:h-40">
         <OrbitScene step={step} accountColor={accountColor} accountLit={Boolean(created) || name.trim() !== ""} />
+        {/* Você, no centro: mesma escala do SVG (altura da faixa), por isso em %. */}
+        <UserAvatar
+          name={centerName}
+          avatarPath={profile?.avatarPath}
+          className="absolute left-1/2 top-1/2 h-[21%] w-auto aspect-square -translate-x-1/2 -translate-y-1/2 text-[0.5625rem] ring-2 ring-surface-sunken sm:text-xs"
+        />
 
         <div className="absolute left-4 top-4 flex items-center gap-2.5 sm:left-5">
           <ol className="flex items-center gap-1" aria-hidden>
@@ -251,15 +301,45 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
             <>
               <StepHeader
                 headingRef={headingRef}
-                eyebrow={firstName ? `Olá, ${firstName}` : "Boas-vindas ao Orbi"}
+                eyebrow={greetName ? `Olá, ${greetName}` : "Boas-vindas ao Orbi"}
                 title="Seu dinheiro inteiro, em uma só órbita"
-                description="Contas, cartões e planos no mesmo painel, com o saldo de hoje e o de amanhã. Em menos de um minuto, o seu deixa de estar vazio."
+                description="Contas, cartões e planos girando em torno de você, com o saldo de hoje e o de amanhã. Comece pelo centro: sua foto e o nome que aparece no Orbi."
               />
-              <ul className="mt-6 space-y-3.5 border-t border-border-subtle pt-5">
-                <Highlight icon={Repeat}>Extrato do mês com parcelas, recorrências e rateios no lugar certo</Highlight>
-                <Highlight icon={CreditCard}>Fatura do cartão pelo ciclo real de fechamento, não pelo calendário</Highlight>
-                <Highlight icon={FileUp}>Extrato em PDF, OFX ou CSV importado e categorizado para você</Highlight>
-              </ul>
+              <form
+                id="onboarding-profile"
+                noValidate
+                onSubmit={handleProfile}
+                className="mt-6 space-y-5 border-t border-border-subtle pt-5"
+              >
+                <AvatarUploader name={centerName} />
+                <div className="space-y-2">
+                  <Label htmlFor="onboarding-display-name">Nome de exibição</Label>
+                  <Input
+                    ref={displayNameRef}
+                    id="onboarding-display-name"
+                    name="display-name"
+                    value={displayName}
+                    onChange={(event) => {
+                      setDisplayName(event.target.value);
+                      setDisplayNameError(undefined);
+                    }}
+                    placeholder={firstWord(profile?.fullName) || "Como você quer aparecer"}
+                    maxLength={40}
+                    autoComplete="nickname"
+                    spellCheck={false}
+                    disabled={savingProfile}
+                    aria-invalid={Boolean(displayNameError)}
+                    aria-describedby="onboarding-display-name-hint"
+                  />
+                  <p
+                    id="onboarding-display-name-hint"
+                    className={cn("text-xs", displayNameError ? "text-destructive" : "text-muted-foreground")}
+                    role={displayNameError ? "alert" : undefined}
+                  >
+                    {displayNameError ?? "Apelido de até 40 caracteres. Em branco, usamos seu primeiro nome."}
+                  </p>
+                </div>
+              </form>
             </>
           )}
 
@@ -362,9 +442,10 @@ function OnboardingFlow({ onFinish }: { onFinish: () => Promise<void> }) {
 
       <div className="flex shrink-0 items-center gap-2 border-t border-border-subtle px-5 py-4 sm:justify-end sm:px-6 [&>*]:flex-1 sm:[&>*]:flex-none">
         {step === 0 && (
-          <Button onClick={() => go(1)}>
-            Começar
-            <ArrowRight aria-hidden />
+          <Button type="submit" form="onboarding-profile" disabled={savingProfile}>
+            {savingProfile && <Loader2 className="animate-spin" aria-hidden />}
+            Continuar
+            {!savingProfile && <ArrowRight aria-hidden />}
           </Button>
         )}
 
@@ -423,15 +504,6 @@ function StepHeader({
       </DialogTitle>
       <DialogDescription className="mt-2 leading-relaxed text-pretty">{description}</DialogDescription>
     </header>
-  );
-}
-
-function Highlight({ icon: Icon, children }: { icon: LucideIcon; children: ReactNode }) {
-  return (
-    <li className="flex items-start gap-3 text-sm text-foreground">
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" aria-hidden />
-      <span className="text-pretty">{children}</span>
-    </li>
   );
 }
 
@@ -571,17 +643,16 @@ function OrbitScene({ step, accountColor, accountLit }: { step: number; accountC
         <circle {...pointOn(74, 250)} r={1.5} className="fill-muted-foreground/40" />
       </g>
 
-      {/* Você, no centro. */}
-      <circle cx={CENTER.x} cy={CENTER.y} r={13} className="fill-primary/10" />
+      {/* Halo do centro — o avatar (HTML) assenta por cima. */}
+      <circle cx={CENTER.x} cy={CENTER.y} r={19} className="fill-primary/10" />
       <circle
         cx={CENTER.x}
         cy={CENTER.y}
-        r={13}
+        r={19}
         className="fill-none stroke-primary/40 motion-safe:animate-halo"
         strokeWidth={1}
         style={SELF_ORIGIN}
       />
-      <circle cx={CENTER.x} cy={CENTER.y} r={5.5} className="fill-primary" />
     </svg>
   );
 }
