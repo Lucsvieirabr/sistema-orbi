@@ -201,7 +201,9 @@ export function useFamilyGroup() {
 
   /**
    * Parceiro sai do Plano Casal: apaga o próprio vínculo. O dono deixa de ver
-   * os dados dele e o plano herdado acaba na hora — tudo em cache é relido.
+   * os dados dele e o plano herdado acaba na hora. Não invalida cache: quem
+   * chama recarrega a página ao fim da cena de saída (invalidar antes faria o
+   * guard de assinatura trocar de rota no meio da animação).
    */
   const leaveGroup = async () => {
     const { data: { user } } = await getCachedAuthUser();
@@ -212,7 +214,6 @@ export function useFamilyGroup() {
       .eq("user_id", user.id)
       .eq("status", "active");
     if (error) throw error;
-    await queryClient.invalidateQueries();
   };
 
   const state = query.data ?? EMPTY;

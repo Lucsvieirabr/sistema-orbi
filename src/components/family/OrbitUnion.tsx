@@ -28,10 +28,21 @@ export function EclipseLoader() {
  * O momento do aceite do Plano Casal: os dois chegam de lados opostos, são
  * capturados pela mesma órbita em torno do logo e seguem girando juntos,
  * cada um com o próprio rastro de luz. Estilos em `orbit.css`.
+ *
+ * `variant="rupture"` é o avesso (saída do Plano Casal): a cena já começa em
+ * órbita, a gravidade cede e cada um escapa para um lado, encolhendo até sumir.
  */
-export function OrbitUnion({ me, partner }: { me: OrbitPerson; partner: OrbitPerson }) {
+export function OrbitUnion({
+  me,
+  partner,
+  variant = "union",
+}: {
+  me: OrbitPerson;
+  partner: OrbitPerson;
+  variant?: "union" | "rupture";
+}) {
   return (
-    <div className="orbit-scene" aria-hidden>
+    <div className={variant === "rupture" ? "orbit-scene orbit-scene--rupture" : "orbit-scene"} aria-hidden>
       <span className="orbit-track orbit-track--outer" />
       <span className="orbit-track" />
 

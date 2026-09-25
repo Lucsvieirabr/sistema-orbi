@@ -1,4 +1,5 @@
 import { useId, useState, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 import { Loader2, LogOut, RotateCw, Send, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,6 +10,7 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useFeature } from "@/hooks/use-feature";
 import { useFamilyGroup, type FamilyMember } from "@/hooks/use-family-group";
+import { OrbitUnion, type OrbitPerson } from "@/components/family/OrbitUnion";
 import { cn } from "@/lib/utils";
 
 const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
@@ -67,6 +69,30 @@ function InviteChip({ state }: { state: InviteState }) {
       </span>
       Pendente
     </span>
+  );
+}
+
+/** Duração da cena de saída (orbit.css: a fuga termina em ~1,75 s). */
+const LEAVE_SCENE_MS = 2000;
+
+/**
+ * Saída do Plano Casal: a órbita do aceite ao contrário, por cima de tudo.
+ * Portal no <body>: o palco do AppLayout anima com transform e prenderia o
+ * `fixed` dentro dele. Mesmo palco escuro da tela de aceite.
+ */
+function LeavingScene({ me, partner }: { me: OrbitPerson; partner: OrbitPerson }) {
+  return createPortal(
+    <div
+      role="status"
+      aria-live="polite"
+      className="dark orbit-stage fixed inset-0 z-[100] flex flex-col items-center justify-center gap-14 overflow-hidden px-4 text-foreground animate-fade-in sm:gap-16"
+    >
+      <OrbitUnion me={me} partner={partner} variant="rupture" />
+      <p className="font-display text-sm tracking-[-0.01em] text-muted-foreground animate-rise [animation-delay:250ms]">
+        Separando órbitas…
+      </p>
+    </div>,
+    document.body,
   );
 }
 
@@ -164,20 +190,35 @@ export function FamilyGroupSettings() {
       }
     });
 
-  const handleLeave = () =>
-    run("leave", async () => {
-      try {
-        await leaveGroup();
-        toast({ title: "Você saiu do Plano Casal", description: "Seus dados deixaram de ser compartilhados." });
-      } catch (e) {
-        fail(e, "Não foi possível sair do Plano Casal.");
-      }
-    });
+  /**
+   * Desvínculo e cena correm juntos; a página só recarrega quando os dois
+   * terminam, e volta limpa no espaço pessoal. Falha encerra a cena na hora.
+   */
+  const handleLeave = async () => {
+    if (busy) return;
+    setBusy("leave");
+    const scene = new Promise((resolve) => window.setTimeout(resolve, LEAVE_SCENE_MS));
+    try {
+      await leaveGroup();
+      await scene;
+      window.location.reload();
+    } catch (e) {
+      setBusy(null);
+      fail(e, "Não foi possível sair do Plano Casal.");
+    }
+  };
 
+  const self = directory.find((person) => person.isSelf) ?? null;
   const partner = directory.find((person) => !person.isSelf) ?? null;
 
   return (
     <Card>
+      {busy === "leave" && (
+        <LeavingScene
+          me={{ name: self?.name ?? "Você", avatarPath: self?.avatarPath ?? null }}
+          partner={{ name: partner?.name ?? "Parceiro(a)", avatarPath: partner?.avatarPath ?? null }}
+        />
+      )}
       <CardHeader>
         <CardTitle>Plano Casal</CardTitle>
         <CardDescription>
