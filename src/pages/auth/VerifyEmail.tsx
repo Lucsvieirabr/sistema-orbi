@@ -15,6 +15,7 @@ import { useTurnstile } from "@/hooks/use-turnstile";
 import { supabase } from "@/integrations/supabase/client";
 import { describeAuthError } from "@/lib/auth/auth-errors";
 import { AUTH_ROUTES, loginPath } from "@/lib/auth/redirect";
+import { pendingInvitePath } from "@/lib/family-invite";
 import { callbackAlreadyConfirmedEmail } from "@/services/auth/email-confirmation-link";
 import {
   awaitConfirmedSession,
@@ -56,6 +57,8 @@ export default function VerifyEmail() {
   const [hasAuthenticatedSession, setHasAuthenticatedSession] = useState(false);
   const [invalidReason, setInvalidReason] = useState("Este link de confirmação não vale mais.");
   const [isLeaving, setIsLeaving] = useState(false);
+  // Veio de um convite do Plano Casal: o próximo passo é o convite, não os planos.
+  const [hasInvite] = useState(() => pendingInvitePath() !== null);
   const handledRef = useRef(false);
 
   /** E-mail em voo: state da navegação → sessionStorage → vazio (tela genérica). */
@@ -233,7 +236,9 @@ export default function VerifyEmail() {
         title="E-mail confirmado"
         description={
           hasAuthenticatedSession
-            ? "Sua conta está ativa. Agora é só escolher o plano que combina com você."
+            ? hasInvite
+              ? "Sua conta está ativa. Agora é só abrir o convite do Plano Casal."
+              : "Sua conta está ativa. Agora é só escolher o plano que combina com você."
             : "Sua conta está ativa. Entre com seu e-mail e senha para continuar."
         }
       >
@@ -246,7 +251,7 @@ export default function VerifyEmail() {
             disabled={isLeaving}
           >
             {isLeaving && <Loader2 className="animate-spin" aria-hidden />}
-            {isLeaving ? "Abrindo…" : hasAuthenticatedSession ? "Escolher meu plano" : "Entrar na minha conta"}
+            {isLeaving ? "Abrindo…" : hasAuthenticatedSession ? (hasInvite ? "Ver meu convite" : "Escolher meu plano") : "Entrar na minha conta"}
           </Button>
         </div>
       </AuthShell>

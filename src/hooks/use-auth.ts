@@ -10,7 +10,7 @@ import { assuranceFromSession } from "@/lib/auth/assurance";
 import { AUTH_ROUTES, mfaChallengePath, readNextParam, safeInternalPath } from "@/lib/auth/redirect";
 import { confirmationRedirectUrl, forgetPendingEmail, rememberPendingEmail } from "@/services/auth/email-confirmation";
 import { useCurrentUser } from "@/hooks/use-current-user";
-import { claimFamilyInvites } from "@/lib/family-access";
+import { pendingInvitePath } from "@/lib/family-invite";
 
 /**
  * Resolve a rota de destino a partir do status validado no backend.
@@ -21,12 +21,12 @@ import { claimFamilyInvites } from "@/lib/family-access";
  * regularização: cobrança pendente sempre ganha de qualquer destino guardado.
  */
 export async function resolvePostAuthRoute(preferred?: string | null): Promise<string> {
-  await syncSubscriptionStatus();
+  // Convite do Plano Casal aberto antes do login/cadastro: a decisão vem antes
+  // de planos e cobrança — aceitar dá ao convidado o plano de quem convidou.
+  const invite = pendingInvitePath();
+  if (invite) return invite;
 
-  // Parceiro do Plano Casal herda o plano do dono. O vínculo do convite
-  // precisa existir ANTES da leitura do status, senão o primeiro login do
-  // convidado cai em `no_plan` e é ejetado para /pricing.
-  await claimFamilyInvites();
+  await syncSubscriptionStatus();
 
   // Falha transitória da RPC não pode rebaixar uma conta ativa para /pricing.
   // Uma retentativa e, persistindo o erro, o usuário segue para /sistema —
