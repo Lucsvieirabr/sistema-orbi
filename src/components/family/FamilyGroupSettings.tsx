@@ -1,7 +1,8 @@
 import { useId, useState, type FormEvent } from "react";
-import { Loader2, RotateCw, Send, Trash2 } from "lucide-react";
+import { Loader2, LogOut, RotateCw, Send, Trash2 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -78,7 +79,7 @@ export function FamilyGroupSettings() {
   const { toast } = useToast();
   const fieldId = useId();
   const { hasFeature, isLoading: featureLoading } = useFeature("familia_compartilhada");
-  const { groupId, isOwner, members, directory, isLoading, createGroup, invitePartner, removePartner } =
+  const { groupId, isOwner, members, directory, isLoading, createGroup, invitePartner, removePartner, leaveGroup } =
     useFamilyGroup();
 
   const [email, setEmail] = useState("");
@@ -163,6 +164,16 @@ export function FamilyGroupSettings() {
       }
     });
 
+  const handleLeave = () =>
+    run("leave", async () => {
+      try {
+        await leaveGroup();
+        toast({ title: "Você saiu do Plano Casal", description: "Seus dados deixaram de ser compartilhados." });
+      } catch (e) {
+        fail(e, "Não foi possível sair do Plano Casal.");
+      }
+    });
+
   const partner = directory.find((person) => !person.isSelf) ?? null;
 
   return (
@@ -174,7 +185,26 @@ export function FamilyGroupSettings() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        {!hasFeature ? (
+        {groupId && !isOwner ? (
+          <div className="space-y-3">
+            <p className="text-sm text-muted-foreground">
+              Você faz parte de um Plano Casal. Alterne entre <strong>Meu espaço</strong> e{" "}
+              <strong>Nosso espaço</strong> no topo da tela.
+            </p>
+            <ConfirmationDialog
+              title="Sair do Plano Casal?"
+              description="A outra pessoa deixa de ver suas contas, cartões e lançamentos, e você perde o acesso ao plano dela. Para voltar, será preciso um novo convite."
+              confirmText="Sair do Plano Casal"
+              variant="destructive"
+              onConfirm={() => void handleLeave()}
+            >
+              <Button variant="outline" size="sm" disabled={busy !== null}>
+                {busy === "leave" ? <Loader2 className="animate-spin" aria-hidden /> : <LogOut aria-hidden />}
+                Sair do Plano Casal
+              </Button>
+            </ConfirmationDialog>
+          </div>
+        ) : !hasFeature ? (
           <p className="text-sm text-muted-foreground">
             Disponível no Plano Casal. Faça upgrade para compartilhar suas finanças com outra pessoa.
           </p>
@@ -183,11 +213,6 @@ export function FamilyGroupSettings() {
             {busy === "create" && <Loader2 className="animate-spin" aria-hidden />}
             Criar Plano Casal
           </Button>
-        ) : !isOwner ? (
-          <p className="text-sm text-muted-foreground">
-            Você faz parte de um Plano Casal. Alterne entre <strong>Meu espaço</strong> e{" "}
-            <strong>Nosso espaço</strong> no topo da tela.
-          </p>
         ) : (
           <div className="space-y-4">
             {members.length === 0 && (
