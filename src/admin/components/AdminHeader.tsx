@@ -6,38 +6,12 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 const pageTitles: Record<string, { title: string; description: string }> = {
-  "/admin/dashboard": {
-    title: "Dashboard",
-    description: "Visão geral do sistema e métricas principais"
-  },
-  "/admin/users": {
-    title: "Gerenciar Usuários",
-    description: "Visualize e gerencie todos os usuários do sistema"
-  },
-  "/admin/subscriptions": {
-    title: "Assinaturas",
-    description: "Gerencie assinaturas e períodos de trial"
-  },
-  "/admin/plans": {
-    title: "Planos",
-    description: "Configure planos, preços e features"
-  },
-  "/admin/payments": {
-    title: "Pagamentos",
-    description: "Histórico de pagamentos e cobranças"
-  },
-  "/admin/analytics": {
-    title: "Analytics",
-    description: "Métricas de negócio e análises avançadas"
-  },
-  "/admin/admins": {
-    title: "Administradores",
-    description: "Gerencie permissões de administradores"
-  },
-  "/admin/settings": {
-    title: "Configurações",
-    description: "Configurações gerais do sistema"
-  },
+  "/admin/dashboard": { title: "Painel", description: "Receita, base e retenção" },
+  "/admin/users": { title: "Usuários", description: "Suporte, plano e bloqueio temporário" },
+  "/admin/subscriptions": { title: "Assinaturas", description: "Auditoria de status e períodos" },
+  "/admin/plans": { title: "Planos", description: "Preço, recursos e limites" },
+  "/admin/admins": { title: "Administradores", description: "Quem acessa o painel" },
+  "/admin/bug-reports": { title: "Defeitos & sugestões", description: "Relatos enviados pelos usuários" },
 };
 
 interface AdminHeaderProps {

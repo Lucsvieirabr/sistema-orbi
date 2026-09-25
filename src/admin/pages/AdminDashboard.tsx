@@ -1,299 +1,285 @@
-import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Activity, RefreshCw } from "lucide-react";
+import { Area, AreaChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Users, CreditCard, DollarSign, TrendingUp, UserPlus, Activity, PieChart, List, BarChart3 } from "lucide-react";
+import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { PageHeader, SectionHeader } from "@/components/ui/page";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/ui/stat-card";
-import { PageHeader, SectionHeader } from "@/components/ui/page";
 import { cn } from "@/lib/utils";
-import { PieChart as RechartsPieChart, Cell, ResponsiveContainer, Pie, Tooltip, Legend } from "recharts";
+import {
+  Delta,
+  STATUS_META,
+  STATUS_ORDER,
+  formatBRL,
+  formatDate,
+  formatInt,
+  formatPct,
+  formatRelative,
+} from "@/admin/lib/admin-ui";
 
-interface DashboardMetrics {
-  total_users: number;
-  active_subscriptions: number;
-  trial_users: number;
-  mrr: number;
-  new_users_this_month: number;
-  total_transactions_today: number;
+interface Pair { now: number; prev: number }
+
+// Classes estáticas: o Tailwind não enxerga `bg-chart-${n}` montado em runtime.
+const CHART_BG = ["bg-chart-1", "bg-chart-2", "bg-chart-3", "bg-chart-4", "bg-chart-5", "bg-chart-6"];
+
+export interface DashboardMetrics {
+  generated_at: string;
+  mrr: Pair;
+  paying: Pair;
+  churn: { churned: number; base: number; rate: number };
+  users: { now: number; prev: number; new_30d: number; new_prev: number };
+  active: Pair;
+  status: Partial<Record<string, number>>;
+  at_risk: number;
+  blocked: number;
+  plans: { slug: string; name: string; users: number; mrr: number }[];
+  signups: { week: string; count: number }[];
 }
 
 export default function AdminDashboard() {
-  const [planViewMode, setPlanViewMode] = useState<'list' | 'chart'>('list');
-
-  const { data: metrics, isLoading } = useQuery<DashboardMetrics>({
-    queryKey: ['admin-dashboard-metrics'],
+  const { data: m, isLoading, isFetching, refetch } = useQuery<DashboardMetrics>({
+    queryKey: ["admin-dashboard-metrics"],
     queryFn: async () => {
-      // Buscar métricas do banco
-      const [
-        usersResult,
-        subscriptionsResult,
-        paymentsResult
-      ] = await Promise.all([
-        supabase.from('user_profiles').select('id', { count: 'exact', head: true }),
-        supabase.from('user_subscriptions').select('*'),
-        supabase.from('payment_history').select('amount, created_at').gte('created_at', new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-      ]);
-
-      const totalUsers = usersResult.count || 0;
-      const subscriptions = subscriptionsResult.data || [];
-      
-      const activeSubscriptions = subscriptions.filter(s => s.status === 'active').length;
-      const trialUsers = subscriptions.filter(s => s.status === 'trial').length;
-      
-      // Calcular MRR (Monthly Recurring Revenue)
-      const payments = paymentsResult.data || [];
-      const mrr = payments
-        .filter(p => p.created_at >= new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString())
-        .reduce((sum, p) => sum + Number(p.amount), 0);
-
-      // Novos usuários este mês
-      const firstDayOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
-      const newUsersThisMonth = subscriptions.filter(s => 
-        new Date(s.created_at) >= firstDayOfMonth
-      ).length;
-
-      return {
-        total_users: totalUsers,
-        active_subscriptions: activeSubscriptions,
-        trial_users: trialUsers,
-        mrr: mrr,
-        new_users_this_month: newUsersThisMonth,
-        total_transactions_today: 0, // Pode ser implementado depois
-      };
-    },
-    refetchInterval: 30000, // Atualiza a cada 30 segundos
-  });
-
-  // Buscar distribuição de planos
-  const { data: planDistribution } = useQuery({
-    queryKey: ['admin-plan-distribution'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('user_subscriptions')
-        .select('plan_id, subscription_plans(name)')
-        .in('status', ['trial', 'active', 'past_due']);
-
+      const { data, error } = await supabase.rpc("admin_dashboard_metrics");
       if (error) throw error;
-
-      // Agrupar por plano
-      const distribution: Record<string, number> = {};
-      data?.forEach((sub: any) => {
-        const planName = sub.subscription_plans?.name || 'Sem Plano';
-        distribution[planName] = (distribution[planName] || 0) + 1;
-      });
-
-      return Object.entries(distribution)
-        .map(([plan, count]) => ({ plan, count }))
-        .sort((a, b) => b.count - a.count);
+      return data as unknown as DashboardMetrics;
     },
-    refetchInterval: 30000,
+    refetchInterval: 60_000,
   });
 
-  const planDistributionData = useMemo(() => {
-    return planDistribution || [];
-  }, [planDistribution]);
-
-  const metricCards = [
-    {
-      title: "Total de Usuários",
-      value: metrics?.total_users || 0,
-      icon: Users,
-      description: "Usuários cadastrados",
-      color: "text-primary",
-    },
-    {
-      title: "Assinaturas Ativas",
-      value: metrics?.active_subscriptions || 0,
-      icon: CreditCard,
-      description: "Assinaturas pagas",
-      color: "text-success",
-    },
-    {
-      title: "Usuários em Trial",
-      value: metrics?.trial_users || 0,
-      icon: UserPlus,
-      description: "Período de teste",
-      color: "text-warning",
-    },
-    {
-      title: "MRR",
-      value: `R$ ${(metrics?.mrr || 0).toFixed(2)}`,
-      icon: DollarSign,
-      description: "Receita recorrente mensal",
-      color: "text-success",
-    },
-    {
-      title: "Novos Usuários",
-      value: metrics?.new_users_this_month || 0,
-      icon: TrendingUp,
-      description: "Este mês",
-      color: "text-chart-6",
-    },
-    {
-      title: "Transações Hoje",
-      value: metrics?.total_transactions_today || 0,
-      icon: Activity,
-      description: "Atividade do sistema",
-      color: "text-warning",
-    },
-  ];
-
-  if (isLoading) {
-    return (
-      <div className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
-          <Card key={i}>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <Skeleton className="h-4 w-32" />
-              <Skeleton className="h-4 w-4 rounded" />
-            </CardHeader>
-            <CardContent>
-              <Skeleton className="h-8 w-24 mb-2" />
-              <Skeleton className="h-3 w-40" />
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  }
+  const totalPlanUsers = m?.plans.reduce((s, p) => s + p.users, 0) ?? 0;
+  const arpu = m && m.paying.now > 0 ? m.mrr.now / m.paying.now : 0;
 
   return (
-    <div className="min-w-0 space-y-5 md:space-y-7">
+    <div className="min-w-0 space-y-6 md:space-y-8">
       <PageHeader
         eyebrow="Administração"
         icon={Activity}
         title="Painel"
-        description="Como o Orbi está indo: contas, assinaturas e receita, no estado atual."
+        description="Receita, base e retenção do Orbi numa janela móvel de 30 dias."
+        actions={
+          <div className="flex items-center gap-3">
+            {m && (
+              <span className="hidden text-xs text-muted-foreground sm:inline">
+                Atualizado {formatRelative(m.generated_at)}
+              </span>
+            )}
+            <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="press">
+              <RefreshCw className={cn("h-4 w-4", isFetching && "motion-safe:animate-spin")} aria-hidden />
+              Atualizar
+            </Button>
+          </div>
+        }
       />
 
-      {/* Métricas principais — ledger tiles do design system, não cards soltos. */}
-      <section aria-label="Métricas" className="grid gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-        {metricCards.map((card) => (
-          <StatCard
-            key={card.title}
-            label={card.title}
-            value={<span className="tabular">{card.value}</span>}
-            hint={card.description}
-            icon={card.icon}
-          />
-        ))}
+      {/* KPIs — as quatro perguntas de um SaaS: quanto entra, quem paga, quem sai, quem usa. */}
+      <section aria-label="Indicadores principais" className="grid grid-cols-1 gap-3 xs:grid-cols-2 md:gap-4 xl:grid-cols-4">
+        <StatCard
+          label="MRR"
+          tone="accent"
+          loading={isLoading}
+          value={formatBRL(m?.mrr.now)}
+          hint={m && (
+            <span className="flex flex-wrap items-center gap-2">
+              <Delta now={m.mrr.now} prev={m.mrr.prev} />
+              <span>ARPU {formatBRL(arpu)}</span>
+            </span>
+          )}
+          className="animate-rise"
+        />
+        <StatCard
+          label="Assinantes pagantes"
+          loading={isLoading}
+          value={formatInt(m?.paying.now)}
+          hint={m && (
+            <span className="flex flex-wrap items-center gap-2">
+              <Delta now={m.paying.now} prev={m.paying.prev} />
+              <span>vs. 30 dias atrás</span>
+            </span>
+          )}
+          className="animate-rise [animation-delay:45ms]"
+        />
+        <StatCard
+          label="Churn (30 dias)"
+          tone={m && m.churn.rate > 0.05 ? "negative" : "neutral"}
+          loading={isLoading}
+          value={formatPct(m?.churn.rate)}
+          hint={m && (
+            <span>
+              {m.churn.base > 0
+                ? `${formatInt(m.churn.churned)} de ${formatInt(m.churn.base)} pagantes de 30 dias atrás saíram`
+                : "Sem base pagante há 30 dias para comparar"}
+            </span>
+          )}
+          className="animate-rise [animation-delay:90ms]"
+        />
+        <StatCard
+          label="Usuários ativos (30 dias)"
+          loading={isLoading}
+          value={formatInt(m?.active.now)}
+          hint={m && (
+            <span className="flex flex-wrap items-center gap-2">
+              <Delta now={m.active.now} prev={m.active.prev} />
+              <span>
+                {m.users.now > 0 ? `${formatPct(m.active.now / m.users.now)} da base` : "lançaram algo no período"}
+              </span>
+            </span>
+          )}
+          className="animate-rise [animation-delay:135ms]"
+        />
       </section>
 
-      {/* Distribuição de Planos */}
-      <Card>
-        <CardHeader className="gap-0 space-y-0">
-          <SectionHeader
-            eyebrow="Composição"
-            title="Distribuição de planos"
-            actions={
-            <div className="flex items-center gap-1 rounded-lg border border-border bg-surface-sunken p-1">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPlanViewMode('list')}
-                aria-pressed={planViewMode === 'list'}
-                className={cn("h-8", planViewMode === 'list' && "bg-card text-foreground shadow-sm")}
-              >
-                <List className="h-4 w-4" />
-                <span className="hidden sm:inline">Lista</span>
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPlanViewMode('chart')}
-                aria-pressed={planViewMode === 'chart'}
-                className={cn("h-8", planViewMode === 'chart' && "bg-card text-foreground shadow-sm")}
-              >
-                <BarChart3 className="h-4 w-4" />
-                <span className="hidden sm:inline">Gráfico</span>
-              </Button>
-            </div>
-            }
-          />
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <Skeleton key={i} className="h-8 w-full" />
-              ))}
-            </div>
-          ) : planViewMode === 'list' ? (
-            planDistributionData.length > 0 ? (
-              <div className="space-y-3">
-                {planDistributionData.map((item, index) => {
-                  const total = planDistributionData.reduce((sum, p) => sum + p.count, 0);
-                  const percentage = total > 0 ? (item.count / total) * 100 : 0;
-                  const colorClass = `bg-chart-${(index % 6) + 1}`;
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5 lg:gap-6">
+        {/* Crescimento */}
+        <Card className="min-w-0 lg:col-span-3">
+          <CardHeader className="space-y-0 pb-2">
+            <SectionHeader
+              eyebrow="Crescimento"
+              title="Novos cadastros por semana"
+              description={
+                m ? (
+                  <span className="inline-flex flex-wrap items-center gap-2">
+                    <span className="tabular">{formatInt(m.users.new_30d)} nos últimos 30 dias</span>
+                    <Delta now={m.users.new_30d} prev={m.users.new_prev} />
+                  </span>
+                ) : undefined
+              }
+              actions={
+                m ? (
+                  <div className="text-right">
+                    <p className="label-eyebrow">Base total</p>
+                    <p className="figure-md tabular">{formatInt(m.users.now)}</p>
+                  </div>
+                ) : undefined
+              }
+            />
+          </CardHeader>
+          <CardContent>
+            {isLoading || !m ? (
+              <Skeleton className="h-56 w-full" />
+            ) : (
+              <div className="h-56 w-full md:h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={m.signups} margin={{ top: 8, right: 4, left: -24, bottom: 0 }}>
+                    <CartesianGrid vertical={false} stroke="hsl(var(--border-subtle))" />
+                    <XAxis
+                      dataKey="week"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      minTickGap={24}
+                      tickFormatter={(v) => formatDate(v, "dd MMM")}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <YAxis
+                      allowDecimals={false}
+                      tickLine={false}
+                      axisLine={false}
+                      width={48}
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                    />
+                    <Tooltip
+                      cursor={{ stroke: "hsl(var(--ring))", strokeWidth: 1, strokeDasharray: "3 3" }}
+                      contentStyle={{
+                        background: "hsl(var(--popover))",
+                        border: "1px solid hsl(var(--border))",
+                        borderRadius: 10,
+                        fontSize: 12,
+                        color: "hsl(var(--popover-foreground))",
+                      }}
+                      labelFormatter={(v) => `Semana de ${formatDate(String(v), "dd 'de' MMM")}`}
+                      formatter={(v: number) => [formatInt(v), "Cadastros"]}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="count"
+                      stroke="hsl(var(--chart-1))"
+                      strokeWidth={2}
+                      fill="hsl(var(--chart-1))"
+                      fillOpacity={0.08}
+                      activeDot={{ r: 4, strokeWidth: 0, fill: "hsl(var(--chart-1))" }}
+                      animationDuration={600}
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
 
-                  return (
-                    <div key={item.plan} className="grid gap-1.5">
-                      <div>
-                        <div className="flex items-baseline justify-between gap-3">
-                          <span className="min-w-0 truncate text-sm font-medium text-foreground">
-                            {item.plan}
-                          </span>
-                          <span className="shrink-0 text-xs tabular text-muted-foreground">
-                            {item.count} {item.count === 1 ? 'usuário' : 'usuários'}
-                          </span>
-                        </div>
-                        <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
-                          <div
-                            className={cn("h-1 rounded-full transition-[width] duration-500 ease-swift", colorClass)}
-                            style={{ width: `${percentage}%` }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
+        {/* Composição */}
+        <Card className="min-w-0 lg:col-span-2">
+          <CardHeader className="space-y-0 pb-2">
+            <SectionHeader eyebrow="Composição" title="Base por plano" description="Assinatura vigente de cada conta." />
+          </CardHeader>
+          <CardContent>
+            {isLoading || !m ? (
+              <div className="space-y-4">
+                {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-10 w-full" />)}
               </div>
             ) : (
-              <p className="py-12 text-center text-sm text-muted-foreground">
-                Nenhuma assinatura ativa ainda. A distribuição aparece assim que a primeira for confirmada.
-              </p>
-            )
-          ) : planDistributionData.length > 0 ? (
-            <div className="h-[300px] w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={planDistributionData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={62}
-                    outerRadius={100}
-                    paddingAngle={1}
-                    dataKey="count"
-                    nameKey="plan"
-                  >
-                    {planDistributionData.map((entry, index) => {
-                      const colors = [
-                        '#3b82f6', '#10b981', '#f59e0b',
-                        '#ef4444', '#8b5cf6', '#ec4899'
-                      ];
-                      return <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />;
-                    })}
-                  </Pie>
-                  <Tooltip
-                    formatter={(value: number) => [value, 'Usuários']}
-                    labelFormatter={(label) => `Plano: ${label}`}
-                  />
-                  <Legend />
-                </RechartsPieChart>
-              </ResponsiveContainer>
+              <ul className="space-y-4">
+                {m.plans.map((p, i) => {
+                  const share = totalPlanUsers > 0 ? p.users / totalPlanUsers : 0;
+                  return (
+                    <li key={p.slug} className="group">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className={cn("min-w-0 truncate text-sm font-medium", p.slug === "none" ? "text-muted-foreground" : "text-foreground")}>
+                          {p.name}
+                        </span>
+                        <span className="shrink-0 text-xs tabular text-muted-foreground">
+                          <span className="font-medium text-foreground">{formatInt(p.users)}</span>
+                          {" · "}
+                          {formatPct(share)}
+                        </span>
+                      </div>
+                      <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-surface-sunken">
+                        <div
+                          className={cn("h-full rounded-full transition-[width] duration-700 ease-swift", CHART_BG[i % CHART_BG.length])}
+                          style={{ width: `${Math.max(share * 100, p.users > 0 ? 2 : 0)}%` }}
+                        />
+                      </div>
+                      <p className="mt-1 text-2xs tabular text-muted-foreground">
+                        {p.mrr > 0 ? `${formatBRL(p.mrr)} de MRR` : "Sem receita recorrente"}
+                      </p>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Saúde das assinaturas */}
+      <section aria-label="Saúde das assinaturas" className="surface p-4 md:p-6">
+        <SectionHeader eyebrow="Saúde" title="Assinaturas vigentes por status" />
+        {isLoading || !m ? (
+          <Skeleton className="mt-4 h-14 w-full" />
+        ) : (
+          <dl className="mt-4 grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-8">
+            {STATUS_ORDER.map((s) => (
+              <div key={s} className="min-w-0">
+                <dt className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s].dot)} />
+                  {STATUS_META[s].label}
+                </dt>
+                <dd className="figure-md mt-1 tabular">{formatInt(m.status[s] ?? 0)}</dd>
+              </div>
+            ))}
+            <div className="min-w-0 lg:border-l lg:border-border-subtle lg:pl-6">
+              <dt className="text-xs text-muted-foreground">Em risco</dt>
+              <dd className={cn("figure-md mt-1 tabular", m.at_risk > 0 && "text-warning")}>{formatInt(m.at_risk)}</dd>
             </div>
-          ) : (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              Nenhuma assinatura ativa ainda.
-            </p>
-          )}
-        </CardContent>
-      </Card>
+            <div className="min-w-0">
+              <dt className="text-xs text-muted-foreground">Bloqueados</dt>
+              <dd className={cn("figure-md mt-1 tabular", m.blocked > 0 && "text-destructive")}>{formatInt(m.blocked)}</dd>
+            </div>
+          </dl>
+        )}
+      </section>
     </div>
   );
 }
-
-

@@ -29,7 +29,7 @@ Multi-tenant por linha: toda tabela de domínio tem `user_id -> auth.users.id`, 
 ```
 auth.users (Supabase Auth)
  ├─ user_profiles (1:1)         perfil estendido
- ├─ admin_users (1:0/1)         role: admin|super_admin — gate de /admin
+ ├─ admin_users (1:0/1)         role: só `admin` (CHECK) — gate de /admin; ativo = acesso total (migration `20260925000000`)
  ├─ user_subscriptions (1:N, normalmente 1 ativa) -> subscription_plans (N:1)
  │     status: pending|trial|active|past_due|canceled|expired
  │     billing_cycle: monthly|annual
@@ -270,7 +270,8 @@ catch → gateFailure(req, error, 'nome-da-funcao', envelope)
 - **Projeção obrigatória**: resposta de Edge Function monta objeto explícito. `user_subscriptions` → `toPublicSubscription()`; cobrança → `toPublicPayment()` (URL validada). Nunca devolver: `asaas_customer_id`, `asaas_subscription_id`, `metadata`, `payload` de webhook, `process_error`, `encrypted_password`, `raw_app_meta_data`, tokens, `user_id` de terceiros, stack/SQL/mensagem de gateway 5xx.
 - **Erros**: lançar `HttpError(status, mensagemPublica, { code, internal })` (`_shared/errors.ts`). `gateFailure` expõe mensagem só se status < 500; 5xx → mensagem genérica + log com `internal`. Erro não-`HttpError` (PostgrestError, Error cru, erro de lib) = 500 genérico SEMPRE. `AsaasError`: 400/422 do gateway → 422 com descrição sanitizada; demais → 502 genérico.
 - **Select**: `select('*')` proibido em dado exposto a `anon` e em linha que vai para resposta; listar colunas. `subscription_plans` para `anon` tem GRANT por coluna (sem `asaas_plan_id`/`metadata`) — select de vitrine usa a lista de `use-subscription.ts`.
-- **RPC**: retorno `jsonb`/`TABLE` com só os campos da tela; RPC admin começa com `IF NOT public.is_admin()/is_super_admin() THEN RAISE ... ERRCODE '42501'`.
+- **RPC**: retorno `jsonb`/`TABLE` com só os campos da tela; RPC admin começa com `IF NOT public.is_admin() THEN RAISE ... ERRCODE '42501'` (`is_super_admin` não existe mais).
+- **Painel admin (LGPD)**: nenhuma RPC/policy de admin exclui conta, assinatura, plano, relato ou administrador. Ações permitidas: desativar admin (`admin_toggle_admin`, nunca o próprio nem o último), bloqueio temporário (`admin_set_user_block` → `auth.users.banned_until` + derruba sessões), troca de plano pelo suporte (`admin_activate_plan_for_user`), ocultar plano (`is_active=false`). Toda ação grava `audit_logs`. `user_subscriptions.plan_id` é `ON DELETE RESTRICT`. Leituras usam a assinatura VIGENTE (`orbi_admin_current_subscriptions()`: ativa/trial/atraso > pendente > encerrada, depois a mais recente) e `COALESCE(current_period_end, next_due_date)` como fim do período. Métricas: `admin_dashboard_metrics()` (MRR = mensal ou anual÷12 de quem paga; churn 30d = pagantes de 30 dias atrás que não pagam hoje; ativos = usuários com lançamento criado em 30 dias).
 - Logs (`console.*`): sem token, senha, CPF/CNPJ, e-mail completo ou body cru.
 
 ### 7. Banco (RLS é a autoridade final)

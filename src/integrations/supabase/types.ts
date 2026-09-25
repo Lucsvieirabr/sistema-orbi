@@ -1653,10 +1653,6 @@ export type Database = {
         Args: { p_plan_id: string; p_user_id: string }
         Returns: undefined
       }
-      admin_cancel_subscription: {
-        Args: { p_subscription_id: string }
-        Returns: undefined
-      }
       admin_create_admin_user: {
         Args: { p_email: string; p_full_name: string; p_password: string }
         Returns: Json
@@ -1668,66 +1664,61 @@ export type Database = {
           user_id: string
         }[]
       }
-      admin_delete_admin: { Args: { p_user_id: string }; Returns: undefined }
-      admin_get_user_details: {
-        Args: { p_user_id: string }
-        Returns: {
-          avatar_url: string
-          created_at: string
-          current_period_end: string
-          email: string
-          full_name: string
-          id: string
-          onboarding_completed: boolean
-          plan_name: string
-          plan_slug: string
-          subscription_status: string
-          updated_at: string
-          user_id: string
-        }[]
-      }
+      admin_dashboard_metrics: { Args: never; Returns: Json }
+      admin_get_user_details: { Args: { p_user_id: string }; Returns: Json }
       admin_list_admins: {
         Args: never
         Returns: {
           created_at: string
           email: string
           full_name: string
-          id: string
           is_active: boolean
-          permissions: Json
-          role: string
+          last_sign_in_at: string
           user_id: string
         }[]
       }
       admin_list_subscriptions: {
         Args: never
         Returns: {
+          amount: number
           billing_cycle: string
+          cancel_at_period_end: boolean
           created_at: string
-          current_period_end: string
           current_period_start: string
           email: string
           full_name: string
           id: string
+          is_current: boolean
+          last_payment_at: string
+          period_end: string
           plan_name: string
           plan_slug: string
           status: string
+          updated_at: string
           user_id: string
         }[]
       }
       admin_list_users: {
         Args: never
         Returns: {
+          billing_cycle: string
+          blocked_until: string
+          cancel_at_period_end: boolean
           created_at: string
-          current_period_end: string
           email: string
           full_name: string
-          onboarding_completed: boolean
+          is_admin: boolean
+          last_sign_in_at: string
+          period_end: string
           plan_name: string
           plan_slug: string
           subscription_status: string
           user_id: string
         }[]
+      }
+      admin_set_user_block: {
+        Args: { p_reason?: string; p_until: string; p_user_id: string }
+        Returns: undefined
       }
       admin_toggle_admin: {
         Args: { p_is_active: boolean; p_user_id: string }
@@ -1832,7 +1823,6 @@ export type Database = {
         }[]
       }
       is_admin: { Args: never; Returns: boolean }
-      is_super_admin: { Args: never; Returns: boolean }
       orbi_active_plan_features: { Args: { p_user_id: string }; Returns: Json }
       orbi_active_plan_limits: { Args: { p_user_id: string }; Returns: Json }
       orbi_budget_copy_previous: { Args: { p_month: string }; Returns: number }

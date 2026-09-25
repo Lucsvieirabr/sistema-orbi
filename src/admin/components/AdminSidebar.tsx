@@ -26,7 +26,7 @@ interface SidebarItem {
 }
 
 const menuItems: SidebarItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
+  { title: "Painel", icon: LayoutDashboard, path: "/admin/dashboard" },
   { title: "Usuários", icon: Users, path: "/admin/users" },
   { title: "Assinaturas", icon: CreditCard, path: "/admin/subscriptions" },
   { title: "Planos", icon: Receipt, path: "/admin/plans" },

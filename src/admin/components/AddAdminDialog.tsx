@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { rpcErrorMessage } from "@/admin/lib/admin-ui";
 import { parseOrThrow, sanitizeSingleLine } from "@/lib/validation/schemas";
 import { z } from "zod";
 
@@ -51,13 +52,16 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
         });
 
       if (error) throw error;
-      return data;
+      return data as { user_id: string; created: boolean };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['admin-list'] });
+      queryClient.invalidateQueries({ queryKey: ['admin-users-list'] });
       toast({
-        title: "Administrador criado",
-        description: `${fullName} foi adicionado como super admin com sucesso.`,
+        title: result?.created ? "Administrador criado" : "Conta promovida a admin",
+        description: result?.created
+          ? `${fullName} já pode entrar no painel.`
+          : "O e-mail já tinha conta no Orbi; ela ganhou acesso ao painel e a senha atual foi mantida.",
       });
       
       // Limpar formulário
@@ -68,8 +72,9 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao criar administrador",
-        description: error.message,
+        title: "Não foi possível adicionar",
+        // Sem `code` = erro da validação local (parseOrThrow), mensagem já é nossa.
+        description: error?.code ? rpcErrorMessage(error) : error?.message,
         variant: "destructive",
       });
     },
@@ -84,15 +89,15 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Adicionar Administrador</DialogTitle>
+          <DialogTitle>Adicionar administrador</DialogTitle>
           <DialogDescription>
-            Criar novo super administrador no sistema
+            Acesso total ao painel. Se o e-mail já tiver conta no Orbi, ela é promovida e a senha abaixo é ignorada.
           </DialogDescription>
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="fullName">Nome Completo *</Label>
+            <Label htmlFor="fullName">Nome completo</Label>
             <Input
               id="fullName"
               type="text"
@@ -105,7 +110,7 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">Email *</Label>
+            <Label htmlFor="email">E-mail</Label>
             <Input
               id="email"
               type="email"
@@ -118,7 +123,7 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="password">Senha *</Label>
+            <Label htmlFor="password">Senha inicial</Label>
             <Input
               id="password"
               type="password"
@@ -152,11 +157,11 @@ export function AddAdminDialog({ open, onOpenChange }: AddAdminDialogProps) {
             >
               {createAdminMutation.isPending ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Criando...
+                  <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  Salvando…
                 </>
               ) : (
-                'Criar Admin'
+                'Adicionar'
               )}
             </Button>
           </div>

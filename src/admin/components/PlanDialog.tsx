@@ -21,6 +21,9 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { featureRegistry } from "@/lib/features/orbi-features";
 import { Badge } from "@/components/ui/badge";
 import { Info, LayoutDashboard, Receipt, Landmark, FolderTree, CreditCard, Users, Bot, Package } from 'lucide-react';
+import { NumericInput } from "@/components/ui/numeric-input";
+import { LimitField } from "@/admin/components/LimitField";
+import { rpcErrorMessage } from "@/admin/lib/admin-ui";
 import type { LucideIcon } from 'lucide-react';
 
 interface PlanDialogProps {
@@ -45,16 +48,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
     }));
   }, []);
 
-  const AVAILABLE_LIMITS = useMemo(() => {
-    return featureRegistry.getAllLimits().map(l => ({
-      key: l.key,
-      label: l.label,
-      description: l.description,
-      category: l.category,
-      defaultValue: l.defaultValue,
-      unit: l.unit,
-    }));
-  }, []);
+  const AVAILABLE_LIMITS = useMemo(() => featureRegistry.getAllLimits(), []);
 
   // Agrupar features por recurso/entidade (CRUD)
   const featuresByResource = useMemo(() => {
@@ -132,31 +126,11 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
     return Object.fromEntries(sortedResources);
   }, [AVAILABLE_FEATURES]);
 
-  // Agrupar limites por categoria
-  const limitsByCategory = useMemo(() => {
-    const grouped: Record<string, typeof AVAILABLE_LIMITS> = {};
-    AVAILABLE_LIMITS.forEach(limit => {
-      if (!grouped[limit.category]) {
-        grouped[limit.category] = [];
-      }
-      grouped[limit.category].push(limit);
-    });
-    return grouped;
-  }, [AVAILABLE_LIMITS]);
-
-  // Labels para as categorias de limites
-  const categoryLabels: Record<string, string> = {
-    accounts: "Contas Financeiras",
-    transactions: "Transações",
-    cards: "Cartões de Crédito",
-    people: "Pessoas e Contatos",
-    storage: "Armazenamento",
-    ai: "Inteligência Artificial",
-    automation: "Automação",
-    reports: "Relatórios",
-    integration: "Integrações",
-    support: "Suporte"
-  };
+  // Limites em dois blocos que dizem algo verdadeiro: volume de cadastro × conta/dados.
+  const limitGroups = useMemo(() => [
+    { title: "Cadastros e volume", items: AVAILABLE_LIMITS.filter(l => l.category !== 'core') },
+    { title: "Conta e dados", items: AVAILABLE_LIMITS.filter(l => l.category === 'core') },
+  ].filter(g => g.items.length > 0), [AVAILABLE_LIMITS]);
 
   // Função para ativar/desativar todas as features de um recurso
   const toggleResourceFeatures = (mainFeature: typeof AVAILABLE_FEATURES[0] | undefined, crudFeatures: typeof AVAILABLE_FEATURES, enable: boolean) => {
@@ -248,11 +222,16 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
   // Mutation para criar/atualizar plano
   const savePlanMutation = useMutation({
     mutationFn: async () => {
+      const name = formData.name.trim();
+      const slug = formData.slug.trim();
+      if (name.length < 1 || name.length > 60) throw new Error("Nome deve ter de 1 a 60 caracteres.");
+      if (!/^[a-z0-9-]{2,40}$/.test(slug)) throw new Error("Slug: 2 a 40 caracteres, só letras minúsculas, números e hífen.");
+      if (formData.price_monthly < 0 || formData.price_yearly < 0) throw new Error("Preço não pode ser negativo.");
       // Whitelist explícita: só envia colunas que existem em subscription_plans.
       // Evita PGRST204 ("Could not find the '<col>' column ... in the schema cache").
       const planData = {
-        name: formData.name,
-        slug: formData.slug,
+        name,
+        slug,
         description: formData.description || null,
         price_monthly: Number(formData.price_monthly) || 0,
         price_yearly: Number(formData.price_yearly) || 0,
@@ -293,8 +272,8 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
     },
     onError: (error: any) => {
       toast({
-        title: "Erro ao salvar plano",
-        description: error.message,
+        title: "Não foi possível salvar o plano",
+        description: error?.code ? rpcErrorMessage(error) : error?.message,
         variant: "destructive",
       });
     },
@@ -307,11 +286,11 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[90vh]">
+      <DialogContent className="max-h-[92vh] max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{plan ? 'Editar Plano' : 'Novo Plano'}</DialogTitle>
+          <DialogTitle>{plan ? `Editar ${plan.name}` : 'Novo plano'}</DialogTitle>
           <DialogDescription>
-            Configure os detalhes, features e limites do plano
+            Mudanças de preço valem para novas assinaturas. Recursos e limites valem para todos no plano, na hora.
           </DialogDescription>
         </DialogHeader>
 
@@ -319,13 +298,13 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
           <Tabs defaultValue="details" className="w-full">
             <TabsList className="grid w-full grid-cols-3 gap-1">
               <TabsTrigger value="details">Detalhes</TabsTrigger>
-              <TabsTrigger value="features">Features</TabsTrigger>
+              <TabsTrigger value="features">Recursos</TabsTrigger>
               <TabsTrigger value="limits">Limites</TabsTrigger>
             </TabsList>
 
             {/* ABA: Detalhes */}
             <TabsContent value="details" className="space-y-4">
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[min(56vh,32rem)] pr-4">
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                     <div className="space-y-2">
@@ -365,26 +344,25 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="price_monthly">Preço Mensal (R$)</Label>
-                      <Input
+                      <NumericInput
                         id="price_monthly"
-                        type="number"
-                        step="0.01"
-                        min="0"
                         value={formData.price_monthly}
-                        onChange={(e) => setFormData({ ...formData, price_monthly: parseFloat(e.target.value) || 0 })}
+                        onChange={(v) => setFormData({ ...formData, price_monthly: v ?? 0 })}
                       />
                     </div>
 
                     <div className="space-y-2">
                       <Label htmlFor="price_yearly">Preço Anual (R$)</Label>
-                      <Input
+                      <NumericInput
                         id="price_yearly"
-                        type="number"
-                        step="0.01"
-                        min="0"
                         value={formData.price_yearly}
-                        onChange={(e) => setFormData({ ...formData, price_yearly: parseFloat(e.target.value) || 0 })}
+                        onChange={(v) => setFormData({ ...formData, price_yearly: v ?? 0 })}
                       />
+                      {formData.price_monthly > 0 && formData.price_yearly > 0 && (
+                        <p className="text-xs tabular text-muted-foreground">
+                          {Math.round((1 - formData.price_yearly / (formData.price_monthly * 12)) * 100)}% de desconto sobre 12× o mensal
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -422,7 +400,7 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
 
             {/* ABA: Features */}
             <TabsContent value="features" className="space-y-4">
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[min(56vh,32rem)] pr-4">
                 <div className="space-y-4">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
                     <Info className="h-4 w-4" />
@@ -514,51 +492,27 @@ export function PlanDialog({ open, onOpenChange, plan }: PlanDialogProps) {
 
             {/* ABA: Limites */}
             <TabsContent value="limits" className="space-y-4">
-              <ScrollArea className="h-[400px] pr-4">
+              <ScrollArea className="h-[min(56vh,32rem)] pr-4">
                 <div className="space-y-6">
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground bg-muted/50 p-3 rounded-lg">
-                    <Info className="h-4 w-4" />
-                    <span>Use <strong>-1</strong> para definir como ilimitado</span>
-                  </div>
-                  
-                  {Object.entries(limitsByCategory).map(([category, categoryLimits]) => (
-                    <div key={category} className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold">
-                          {categoryLabels[category] || category}
-                        </h3>
-                        <Badge variant="outline" className="text-xs">
-                          {categoryLimits.length}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-3 pl-4 border-l-2 border-muted">
-                        {categoryLimits.map((limit) => (
-                          <div key={limit.key} className="space-y-2 p-3 rounded-lg border hover:bg-muted/30 transition-colors">
-                            <div className="flex items-center justify-between">
-                              <Label htmlFor={`limit-${limit.key}`} className="font-medium">
-                                {limit.label}
-                                {limit.unit && (
-                                  <span className="text-xs text-muted-foreground ml-2">({limit.unit})</span>
-                                )}
-                              </Label>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                              {limit.description}
-                            </p>
-                            <Input
-                              id={`limit-${limit.key}`}
-                              type="number"
-                              value={limits[limit.key] ?? limit.defaultValue}
-                              onChange={(e) => 
-                                setLimits({ ...limits, [limit.key]: parseInt(e.target.value) || 0 })
-                              }
-                              placeholder={`Padrão: ${limit.defaultValue}`}
-                            />
-                          </div>
+                  <p className="flex items-start gap-2 rounded-lg bg-surface-sunken p-3 text-sm text-muted-foreground">
+                    <Info className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+                    <span>O banco aplica estes tetos a cada novo cadastro. Reduzir um limite não apaga nada — só impede criar além dele.</span>
+                  </p>
+
+                  {limitGroups.map((group) => (
+                    <section key={group.title} className="space-y-2.5">
+                      <h3 className="label-eyebrow">{group.title}</h3>
+                      <div className="space-y-2">
+                        {group.items.map((limit) => (
+                          <LimitField
+                            key={limit.key}
+                            limit={limit}
+                            value={limits[limit.key]}
+                            onChange={(v) => setLimits((prev) => ({ ...prev, [limit.key]: v }))}
+                          />
                         ))}
                       </div>
-                    </div>
+                    </section>
                   ))}
                 </div>
               </ScrollArea>

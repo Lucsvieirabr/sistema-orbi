@@ -1,108 +1,121 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { CreditCard, Search, ShieldCheck } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { EmptyState, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { Search, Edit, Trash2, LayoutGrid, List, CreditCard } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
-import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import {
+  RecordCard,
+  RecordCardHead,
+  RecordCardList,
+  RecordField,
+  RecordFields,
+  TableView,
+} from "@/components/ui/record-card";
+import { cn } from "@/lib/utils";
+import {
+  STATUS_META,
+  STATUS_ORDER,
+  StatusBadge,
+  cycleLabel,
+  daysUntil,
+  formatBRL,
+  formatDate,
+  formatInt,
+  type SubscriptionStatus,
+} from "@/admin/lib/admin-ui";
 
-interface SubscriptionData {
+export interface AdminSubscriptionRow {
   id: string;
   user_id: string;
   email: string | null;
   full_name: string | null;
   plan_name: string | null;
   plan_slug: string | null;
-  status: string;
+  status: SubscriptionStatus;
   billing_cycle: string;
-  current_period_start: string;
-  current_period_end: string;
+  amount: number | null;
+  current_period_start: string | null;
+  period_end: string | null;
+  cancel_at_period_end: boolean;
+  last_payment_at: string | null;
+  is_current: boolean;
   created_at: string;
+  updated_at: string | null;
+}
+
+type StatusFilter = "all" | SubscriptionStatus;
+
+/** "Termina em" com contexto: renova, encerra no fim do ciclo ou já venceu. */
+function PeriodEnd({ row }: { row: AdminSubscriptionRow }) {
+  const days = daysUntil(row.period_end);
+  const live = row.status === "active" || row.status === "trial" || row.status === "past_due";
+  let note: string | null = null;
+  let tone = "text-muted-foreground";
+
+  if (days !== null && live) {
+    if (days < 0) { note = `venceu há ${Math.abs(days)} d`; tone = "text-destructive"; }
+    else if (row.cancel_at_period_end) { note = `encerra em ${days} d`; tone = "text-warning"; }
+    else note = days === 0 ? "renova hoje" : `renova em ${days} d`;
+  }
+
+  return (
+    <div className="min-w-0">
+      <div className="tabular text-sm text-foreground">{formatDate(row.period_end)}</div>
+      {note && <div className={cn("text-2xs tabular", tone)}>{note}</div>}
+    </div>
+  );
 }
 
 export default function SubscriptionManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [view, setView] = useState<"list" | "cards">("list");
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [search, setSearch] = useState("");
+  const [status, setStatus] = useState<StatusFilter>("all");
+  const [plan, setPlan] = useState<string>("all");
+  const [onlyCurrent, setOnlyCurrent] = useState(true);
 
-  useEffect(() => {
-    const v = (localStorage.getItem("admin-subscriptions:view") as "list" | "cards") || "list";
-    setView(v);
-  }, []);
-
-  const onChangeView = (val: string) => {
-    const v = (val as "list" | "cards") || "list";
-    setView(v);
-    localStorage.setItem("admin-subscriptions:view", v);
-  };
-
-  // Buscar lista de assinaturas
-  const { data: subscriptions, isLoading } = useQuery<SubscriptionData[]>({
-    queryKey: ['admin-subscriptions'],
+  const { data: rows = [], isLoading } = useQuery<AdminSubscriptionRow[]>({
+    queryKey: ["admin-subscriptions"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_list_subscriptions');
-      
-      if (error) {
-        console.error('Error fetching subscriptions:', error);
-        throw error;
-      }
-
-      return data as SubscriptionData[];
-    },
-    refetchInterval: 30000,
-  });
-
-  // Mutation para cancelar assinatura
-  const cancelSubscriptionMutation = useMutation({
-    mutationFn: async (subscriptionId: string) => {
-      const { error } = await supabase
-        .rpc('admin_cancel_subscription', { p_subscription_id: subscriptionId });
-
+      const { data, error } = await supabase.rpc("admin_list_subscriptions");
       if (error) throw error;
+      return (data ?? []) as AdminSubscriptionRow[];
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-subscriptions'] });
-      toast({
-        title: "Assinatura cancelada",
-        description: "A assinatura foi cancelada com sucesso.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao cancelar assinatura",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    refetchInterval: 60_000,
   });
 
-  const getStatusBadge = (status: string) => {
-    const variants: Record<string, { variant: any; label: string; color: string }> = {
-      trial: { variant: 'secondary', label: 'Trial', color: 'text-primary' },
-      active: { variant: 'default', label: 'Ativo', color: 'text-success' },
-      past_due: { variant: 'destructive', label: 'Atrasado', color: 'text-destructive' },
-      canceled: { variant: 'outline', label: 'Cancelado', color: 'text-muted-foreground' },
-      expired: { variant: 'destructive', label: 'Expirado', color: 'text-destructive' },
-    };
+  const scoped = useMemo(() => rows.filter((r) => !onlyCurrent || r.is_current), [rows, onlyCurrent]);
 
-    const config = variants[status] || { variant: 'outline', label: status, color: 'text-muted-foreground' };
-    return { ...config };
-  };
+  const plans = useMemo(() => {
+    const map = new Map<string, string>();
+    rows.forEach((r) => r.plan_slug && map.set(r.plan_slug, r.plan_name ?? r.plan_slug));
+    return [...map.entries()];
+  }, [rows]);
 
-  const filteredSubscriptions = subscriptions?.filter((sub) =>
-    sub.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.full_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    sub.plan_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: 0 };
+    scoped.forEach((r) => {
+      if (plan !== "all" && r.plan_slug !== plan) return;
+      c.all += 1;
+      c[r.status] = (c[r.status] ?? 0) + 1;
+    });
+    return c;
+  }, [scoped, plan]);
+
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return scoped.filter((r) =>
+      (status === "all" || r.status === status) &&
+      (plan === "all" || r.plan_slug === plan) &&
+      (!q || r.email?.toLowerCase().includes(q) || r.full_name?.toLowerCase().includes(q)),
+    );
+  }, [scoped, status, plan, search]);
+
+  const chips: StatusFilter[] = ["all", ...STATUS_ORDER.filter((s) => (counts[s] ?? 0) > 0 || s === status)];
 
   return (
     <div className="min-w-0 space-y-5 md:space-y-7">
@@ -110,225 +123,152 @@ export default function SubscriptionManagement() {
         eyebrow="Administração"
         icon={CreditCard}
         title="Assinaturas"
-        description={`${subscriptions?.length || 0} assinaturas registradas, ativas e encerradas.`}
-      />
+        description="Registro de auditoria, somente leitura. Cancelamentos e reembolsos acontecem no Asaas ou pelo próprio cliente."
+      >
+        <p className="mt-3 inline-flex items-center gap-1.5 text-xs text-muted-foreground">
+          <ShieldCheck className="h-3.5 w-3.5" aria-hidden />
+          Nenhuma assinatura é alterada ou excluída por esta tela (LGPD).
+        </p>
+      </PageHeader>
 
       <PageToolbar>
-        <div className="relative w-full sm:w-64">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
-            placeholder="Buscar assinatura"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nome ou e-mail"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
             aria-label="Buscar assinaturas"
           />
         </div>
+        <Select value={plan} onValueChange={setPlan}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Filtrar por plano">
+            <SelectValue placeholder="Plano" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os planos</SelectItem>
+            {plans.map(([slug, name]) => (
+              <SelectItem key={slug} value={slug}>{name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <ToolbarSpacer />
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={onChangeView}
-          aria-label="Visualização"
-          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
-        >
-          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
-            <List className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
-            <LayoutGrid className="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
+        <div className="flex items-center gap-2">
+          <Switch id="only-current" checked={onlyCurrent} onCheckedChange={setOnlyCurrent} />
+          <Label htmlFor="only-current" className="cursor-pointer text-sm text-muted-foreground">
+            Só a vigente de cada conta
+          </Label>
+        </div>
       </PageToolbar>
 
-      {/* Subscriptions Grid/List */}
+      {/* Filtro por status: trilho afundado com contagem. */}
+      <div
+        role="radiogroup"
+        aria-label="Filtrar por status"
+        className="scroll-x -mx-4 flex gap-1 overflow-x-auto px-4 pb-1 sm:mx-0 sm:w-fit sm:flex-wrap sm:rounded-xl sm:border sm:border-border-subtle sm:bg-surface-sunken sm:p-1"
+      >
+        {chips.map((s) => {
+          const on = status === s;
+          return (
+            <button
+              key={s}
+              type="button"
+              role="radio"
+              aria-checked={on}
+              onClick={() => setStatus(s)}
+              className={cn(
+                "press inline-flex h-10 shrink-0 items-center gap-2 rounded-lg border px-3 text-sm transition-colors duration-200 ease-swift md:h-8",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                on ? "border-border bg-card text-foreground shadow-sm" : "border-transparent text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {s !== "all" && <span aria-hidden className={cn("h-1.5 w-1.5 rounded-full", STATUS_META[s].dot)} />}
+              {s === "all" ? "Todas" : STATUS_META[s].label}
+              <span className="tabular text-xs text-muted-foreground">{formatInt(counts[s] ?? 0)}</span>
+            </button>
+          );
+        })}
+      </div>
+
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-24 w-full"} />
-          ))}
+        <div className="space-y-2">
+          {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} className="h-14 w-full" />)}
         </div>
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={CreditCard}
+          title="Nenhuma assinatura neste recorte"
+          description={search ? `Nada corresponde a “${search}”.` : "Ajuste os filtros de status ou plano."}
+        />
       ) : (
         <>
-          {view === "cards" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-              {filteredSubscriptions && filteredSubscriptions.length === 0 ? (
-                <div className="col-span-full">
-                  <EmptyState
-                      icon={CreditCard}
-                      title={searchTerm ? "Nenhuma assinatura encontrada" : "Nenhuma assinatura"}
-                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há assinaturas no sistema"}
-                    />
-                </div>
-              ) : (
-                filteredSubscriptions?.map((sub) => {
-                  const statusConfig = getStatusBadge(sub.status);
-                  return (
-                    <Card key={sub.id} className="group">
-                      <CardHeader className="pb-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <h3 className="font-semibold text-lg truncate" title={sub.email || ''}>
-                              {sub.full_name || sub.email || 'Usuário sem nome'}
-                            </h3>
-                            <p className="text-sm text-muted-foreground truncate" title={sub.email || ''}>
-                              {sub.email}
-                            </p>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <div className="space-y-3">
-                          {/* Plano */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Plano:</span>
-                            {sub.plan_name ? (
-                              <Badge variant="outline">{sub.plan_name}</Badge>
-                            ) : (
-                              <span className="text-sm text-muted-foreground">-</span>
-                            )}
-                          </div>
+          <RecordCardList>
+            {filtered.map((r) => (
+              <RecordCard
+                key={r.id}
+                accent={r.status === "active" ? "positive" : r.status === "past_due" ? "warning" : r.status === "expired" ? "negative" : "neutral"}
+              >
+                <RecordCardHead
+                  title={r.full_name || r.email || "Sem nome"}
+                  meta={r.email}
+                  value={r.amount != null ? formatBRL(r.amount) : "—"}
+                  valueMeta={cycleLabel(r.billing_cycle)}
+                />
+                <RecordFields>
+                  <RecordField label="Plano">{r.plan_name ?? "—"}</RecordField>
+                  <RecordField label="Status"><StatusBadge status={r.status} /></RecordField>
+                  <RecordField label="Termina em"><PeriodEnd row={r} /></RecordField>
+                  <RecordField label="Último pagamento">{formatDate(r.last_payment_at)}</RecordField>
+                </RecordFields>
+              </RecordCard>
+            ))}
+          </RecordCardList>
 
-                          {/* Status */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Status:</span>
-                            <Badge variant={statusConfig.variant as any}>
-                              {statusConfig.label}
-                            </Badge>
-                          </div>
-
-                          {/* Ciclo de Faturamento */}
-                          <div className="flex items-center justify-between">
-                            <span className="text-sm text-muted-foreground">Ciclo:</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {sub.billing_cycle === 'monthly' ? 'Mensal' : 'Anual'}
-                            </Badge>
-                          </div>
-
-                          {/* Período */}
-                          <div className="pt-2 border-t text-xs text-muted-foreground">
-                            <div>Início: {(() => {
-                              try {
-                                return format(new Date(sub.current_period_start + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR });
-                              } catch {
-                                return '-';
-                              }
-                            })()}</div>
-                            <div>Fim: {(() => {
-                              try {
-                                return format(new Date(sub.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR });
-                              } catch {
-                                return '-';
-                              }
-                            })()}</div>
-                          </div>
-
-                          {/* Ações */}
-                          {sub.status !== 'canceled' && (
-                            <div className="flex gap-2 pt-2">
-                              <ConfirmationDialog
-                                title="Cancelar Assinatura"
-                                description={`Tem certeza que deseja cancelar a assinatura de "${sub.full_name || sub.email}"?`}
-                                confirmText="Cancelar"
-                                onConfirm={() => cancelSubscriptionMutation.mutate(sub.id)}
-                                variant="destructive"
-                              >
-                                <Button variant="destructive" size="sm" className="flex-1 h-8">
-                                  <Trash2 className="h-3 w-3 mr-1" />
-                                  Cancelar
-                                </Button>
-                              </ConfirmationDialog>
-                            </div>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })
-              )}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                {filteredSubscriptions && filteredSubscriptions.length === 0 ? (
-                  <EmptyState
-                      icon={CreditCard}
-                      title={searchTerm ? "Nenhuma assinatura encontrada" : "Nenhuma assinatura"}
-                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há assinaturas no sistema"}
-                      className="border-0"
-                    />
-                ) : (
-                  <div className="divide-y divide-border">
-                    {filteredSubscriptions?.map((sub) => {
-                      const statusConfig = getStatusBadge(sub.status);
-                      return (
-                        <div
-                          key={sub.id}
-                          className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center lg:p-6"
-                        >
-                          <div className="flex items-center gap-4 flex-1 min-w-0">
-                            <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken">
-                              <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            </span>
-                            <div className="flex-1 min-w-0">
-                              <div className="font-semibold truncate" title={sub.full_name || sub.email || ''}>
-                                {sub.full_name || sub.email || 'Usuário sem nome'}
-                              </div>
-                              <div className="text-sm text-muted-foreground truncate" title={sub.email || ''}>
-                                {sub.email}
-                              </div>
-                              <div className="flex items-center gap-2 mt-1">
-                                {sub.plan_name && (
-                                  <Badge variant="outline" className="text-xs">
-                                    {sub.plan_name}
-                                  </Badge>
-                                )}
-                                <Badge variant={statusConfig.variant as any} className="text-xs">
-                                  {statusConfig.label}
-                                </Badge>
-                                <Badge variant="secondary" className="text-xs">
-                                  {sub.billing_cycle === 'monthly' ? 'Mensal' : 'Anual'}
-                                </Badge>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-3 flex-shrink-0">
-                            <div className="text-right mr-4">
-                              <div className="text-sm text-muted-foreground">
-                                Até: {(() => {
-                                  try {
-                                    return format(new Date(sub.current_period_end + 'T00:00:00'), 'dd/MM/yyyy', { locale: ptBR });
-                                  } catch {
-                                    return '-';
-                                  }
-                                })()}
-                              </div>
-                            </div>
-                            {sub.status !== 'canceled' && (
-                              <ConfirmationDialog
-                                title="Cancelar Assinatura"
-                                description={`Tem certeza que deseja cancelar a assinatura de "${sub.full_name || sub.email}"?`}
-                                confirmText="Cancelar"
-                                onConfirm={() => cancelSubscriptionMutation.mutate(sub.id)}
-                                variant="destructive"
-                              >
-                                <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </ConfirmationDialog>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          )}
+          <TableView className="overflow-hidden bg-card">
+            <Table>
+              <TableHeader>
+                <TableRow className="hover:bg-transparent">
+                  <TableHead>Cliente</TableHead>
+                  <TableHead>Plano</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Início</TableHead>
+                  <TableHead>Termina em</TableHead>
+                  <TableHead>Últ. pagamento</TableHead>
+                  <TableHead className="text-right">Registro</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((r) => (
+                  <TableRow key={r.id} className={cn("transition-colors duration-150 ease-swift", !r.is_current && "text-muted-foreground")}>
+                    <TableCell className="max-w-[16rem]">
+                      <div className="truncate font-medium text-foreground">{r.full_name || r.email || "Sem nome"}</div>
+                      <div className="truncate text-xs text-muted-foreground">{r.email}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">{r.plan_name ?? "—"}</div>
+                      <div className="text-2xs text-muted-foreground">{cycleLabel(r.billing_cycle)}</div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex flex-col items-start gap-1">
+                        <StatusBadge status={r.status} />
+                        {!r.is_current && <span className="text-2xs text-muted-foreground">histórico</span>}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right tabular">{r.amount != null ? formatBRL(r.amount) : "—"}</TableCell>
+                    <TableCell className="tabular text-sm">{formatDate(r.current_period_start)}</TableCell>
+                    <TableCell><PeriodEnd row={r} /></TableCell>
+                    <TableCell className="tabular text-sm">{formatDate(r.last_payment_at)}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="tabular text-sm">{formatDate(r.created_at)}</div>
+                      <div className="text-2xs text-muted-foreground">atualizada {formatDate(r.updated_at, "dd/MM")}</div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableView>
         </>
       )}
     </div>

@@ -1,120 +1,66 @@
-import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMemo, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Plus, Search, Shield } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { EmptyState, PageHeader, PageToolbar, ToolbarSpacer } from "@/components/ui/page";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { Search, Plus, Edit, Trash2, Crown, Shield, LayoutGrid, List } from "lucide-react";
+import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { EmptyState, PageHeader, PageToolbar } from "@/components/ui/page";
 import { ConfirmationDialog } from "@/components/ui/confirmation-dialog";
 import { AddAdminDialog } from "@/admin/components/AddAdminDialog";
-import { format } from "date-fns";
-import { ptBR } from "date-fns/locale";
+import { useAdminAuth } from "@/hooks/use-admin-auth";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
+import { formatDate, formatInt, formatRelative, rpcErrorMessage } from "@/admin/lib/admin-ui";
 
-interface AdminUserData {
-  id: string;
+interface AdminRow {
   user_id: string;
   email: string | null;
   full_name: string | null;
-  role: 'admin' | 'super_admin';
-  permissions: Record<string, boolean>;
   is_active: boolean;
   created_at: string;
+  last_sign_in_at: string | null;
+}
+
+function initials(name: string) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase()).join("") || "?";
 }
 
 export default function AdminManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [view, setView] = useState<"list" | "cards">("list");
-  const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [search, setSearch] = useState("");
+  const [addOpen, setAddOpen] = useState(false);
+  const { adminUser } = useAdminAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  useEffect(() => {
-    const v = (localStorage.getItem("admin-admins:view") as "list" | "cards") || "list";
-    setView(v);
-  }, []);
-
-  const onChangeView = (val: string) => {
-    const v = (val as "list" | "cards") || "list";
-    setView(v);
-    localStorage.setItem("admin-admins:view", v);
-  };
-
-  // Buscar lista de administradores
-  const { data: admins, isLoading } = useQuery<AdminUserData[]>({
-    queryKey: ['admin-list'],
+  const { data: admins = [], isLoading, error } = useQuery<AdminRow[]>({
+    queryKey: ["admin-list"],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc('admin_list_admins');
-      
-      if (error) {
-        console.error('Error fetching admins:', error);
-        throw error;
-      }
-
-      return data as AdminUserData[];
+      const { data, error } = await supabase.rpc("admin_list_admins");
+      if (error) throw error;
+      return (data ?? []) as AdminRow[];
     },
-    refetchInterval: 30000,
   });
 
-  // Mutation para deletar admin
-  const deleteAdminMutation = useMutation({
-    mutationFn: async (userId: string) => {
-      const { error } = await supabase
-        .rpc('admin_delete_admin', { p_user_id: userId });
-
+  const toggle = useMutation({
+    mutationFn: async ({ userId, active }: { userId: string; active: boolean }) => {
+      const { error } = await supabase.rpc("admin_toggle_admin", { p_user_id: userId, p_is_active: active });
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-list'] });
-      toast({
-        title: "Administrador removido",
-        description: "O administrador foi removido com sucesso.",
-      });
+    onSuccess: (_, { active }) => {
+      queryClient.invalidateQueries({ queryKey: ["admin-list"] });
+      toast({ title: active ? "Acesso reativado" : "Acesso desativado" });
     },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao remover admin",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
+    onError: (e) => toast({ title: "Não foi possível alterar o acesso", description: rpcErrorMessage(e), variant: "destructive" }),
   });
 
-  // Mutation para ativar/desativar admin
-  const toggleAdminMutation = useMutation({
-    mutationFn: async ({ userId, isActive }: { userId: string; isActive: boolean }) => {
-      const { error } = await supabase
-        .rpc('admin_toggle_admin', { 
-          p_user_id: userId,
-          p_is_active: !isActive
-        });
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return admins.filter((a) => !q || a.email?.toLowerCase().includes(q) || a.full_name?.toLowerCase().includes(q));
+  }, [admins, search]);
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['admin-list'] });
-      toast({
-        title: "Status atualizado",
-        description: "O status do administrador foi atualizado com sucesso.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Erro ao atualizar",
-        description: error.message,
-        variant: "destructive",
-      });
-    },
-  });
-
-  const filteredAdmins = admins?.filter((admin) =>
-    admin.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    admin.full_name?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const activeCount = admins.filter((a) => a.is_active).length;
 
   return (
     <div className="min-w-0 space-y-5 md:space-y-7">
@@ -122,228 +68,121 @@ export default function AdminManagement() {
         eyebrow="Administração"
         icon={Shield}
         title="Administradores"
-        description={`${admins?.length || 0} pessoas com acesso ao painel.`}
+        description={`${formatInt(activeCount)} com acesso ativo. Um só papel: todo admin tem acesso total ao painel.`}
         actions={
-          <Button onClick={() => setAddDialogOpen(true)} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4" />
+          <Button onClick={() => setAddOpen(true)} className="press w-full sm:w-auto">
+            <Plus className="h-4 w-4" aria-hidden />
             Adicionar admin
           </Button>
         }
       />
 
       <PageToolbar>
-        <div className="relative w-full sm:w-64">
-          <Search
-            className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
-            aria-hidden
-          />
+        <div className="relative w-full sm:w-72">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" aria-hidden />
           <Input
-            placeholder="Buscar por e-mail ou nome"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            placeholder="Buscar por nome ou e-mail"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
             className="pl-9"
             aria-label="Buscar administradores"
           />
         </div>
-        <ToolbarSpacer />
-        <ToggleGroup
-          type="single"
-          value={view}
-          onValueChange={onChangeView}
-          aria-label="Visualização"
-          className="hidden rounded-lg border border-border bg-surface-sunken p-1 sm:flex"
-        >
-          <ToggleGroupItem value="list" aria-label="Lista" size="sm">
-            <List className="h-4 w-4" />
-          </ToggleGroupItem>
-          <ToggleGroupItem value="cards" aria-label="Cartões" size="sm">
-            <LayoutGrid className="h-4 w-4" />
-          </ToggleGroupItem>
-        </ToggleGroup>
       </PageToolbar>
 
-      {/* Admins Grid/List */}
       {isLoading ? (
-        <div className={view === "cards" ? "grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6" : "space-y-3"}>
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Skeleton key={i} className={view === "cards" ? "h-48 w-full" : "h-24 w-full"} />
-          ))}
+        <div className="space-y-2">
+          {Array.from({ length: 3 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)}
         </div>
+      ) : error ? (
+        <EmptyState icon={Shield} title="Não foi possível carregar" description={rpcErrorMessage(error)} />
+      ) : filtered.length === 0 ? (
+        <EmptyState
+          icon={Shield}
+          title="Nenhum administrador encontrado"
+          description={search ? `Nada corresponde a “${search}”.` : "Adicione a primeira pessoa com acesso ao painel."}
+        />
       ) : (
-        <>
-          {view === "cards" ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6">
-              {filteredAdmins && filteredAdmins.length === 0 ? (
-                <div className="col-span-full">
-                  <EmptyState
-                      icon={Shield}
-                      title={searchTerm ? "Nenhum admin encontrado" : "Nenhum administrador"}
-                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há administradores no sistema"}
-                    />
-                </div>
-              ) : (
-                filteredAdmins?.map((admin) => (
-                  <Card key={admin.user_id} className="group transition-all duration-200">
-                    <CardHeader className="pb-3">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            {admin.role === 'super_admin' && (
-                              <Crown className="h-4 w-4 text-warning" />
-                            )}
-                            <h3 className="font-semibold text-lg truncate" title={admin.email || ''}>
-                              {admin.full_name || admin.email || 'Admin sem nome'}
-                            </h3>
-                          </div>
-                          <p className="text-sm text-muted-foreground truncate" title={admin.email || ''}>
-                            {admin.email}
-                          </p>
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        {/* Função */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Função:</span>
-                          <Badge variant={admin.role === 'super_admin' ? 'default' : 'secondary'}>
-                            {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                          </Badge>
-                        </div>
-
-                        {/* Status */}
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-muted-foreground">Status:</span>
-                          {admin.is_active ? (
-                            <Badge variant="default" className="bg-success">Ativo</Badge>
-                          ) : (
-                            <Badge variant="destructive">Inativo</Badge>
-                          )}
-                        </div>
-
-                        {/* Data de criação */}
-                        <div className="pt-2 border-t text-xs text-muted-foreground">
-                          Criado em: {format(new Date(admin.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                        </div>
-
-                        {/* Ações */}
-                        <div className="flex gap-2 pt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 h-8"
-                            onClick={() => toggleAdminMutation.mutate({ userId: admin.user_id, isActive: admin.is_active })}
-                          >
-                            {admin.is_active ? 'Desativar' : 'Ativar'}
-                          </Button>
-                          <ConfirmationDialog
-                            title="Remover Admin"
-                            description={`Tem certeza que deseja remover o admin "${admin.full_name || admin.email}"?`}
-                            confirmText="Remover"
-                            onConfirm={() => deleteAdminMutation.mutate(admin.user_id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="flex-1 h-8">
-                              <Trash2 className="h-3 w-3 mr-1" />
-                              Remover
-                            </Button>
-                          </ConfirmationDialog>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))
-              )}
-            </div>
-          ) : (
-            <Card>
-              <CardContent className="p-0">
-                {filteredAdmins && filteredAdmins.length === 0 ? (
-                  <EmptyState
-                      icon={Shield}
-                      title={searchTerm ? "Nenhum admin encontrado" : "Nenhum administrador"}
-                      description={searchTerm ? `Nada corresponde a “${searchTerm}”.` : "Ainda não há administradores no sistema"}
-                      className="border-0"
-                    />
-                ) : (
-                  <div className="divide-y divide-border">
-                    {filteredAdmins?.map((admin) => (
-                      <div
-                        key={admin.user_id}
-                        className="flex flex-col justify-between gap-3 p-4 transition-colors hover:bg-muted/30 sm:flex-row sm:items-center lg:p-6"
-                      >
-                        <div className="flex items-center gap-4 flex-1 min-w-0">
-                          <span aria-hidden className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken">
-                            {admin.role === 'super_admin' ? (
-                              <Crown className="h-4 w-4 text-warning" />
-                            ) : (
-                              <Shield className="h-4 w-4 text-muted-foreground" />
-                            )}
-                          </span>
-                          <div className="flex-1 min-w-0">
-                            <div className="font-semibold truncate" title={admin.full_name || admin.email || ''}>
-                              {admin.full_name || admin.email || 'Admin sem nome'}
-                            </div>
-                            <div className="text-sm text-muted-foreground truncate" title={admin.email || ''}>
-                              {admin.email}
-                            </div>
-                            <div className="flex items-center gap-2 mt-1">
-                              <Badge variant={admin.role === 'super_admin' ? 'default' : 'secondary'} className="text-xs">
-                                {admin.role === 'super_admin' ? 'Super Admin' : 'Admin'}
-                              </Badge>
-                              {admin.is_active ? (
-                                <Badge variant="default" className="bg-success text-xs">
-                                  Ativo
-                                </Badge>
-                              ) : (
-                                <Badge variant="destructive" className="text-xs">
-                                  Inativo
-                                </Badge>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="flex items-center gap-3 flex-shrink-0">
-                          <div className="text-right mr-4">
-                            <div className="text-sm text-muted-foreground">
-                              {format(new Date(admin.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                            </div>
-                          </div>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => toggleAdminMutation.mutate({ userId: admin.user_id, isActive: admin.is_active })}
-                            className="h-8"
-                          >
-                            {admin.is_active ? 'Desativar' : 'Ativar'}
-                          </Button>
-                          <ConfirmationDialog
-                            title="Remover Admin"
-                            description={`Tem certeza que deseja remover o admin "${admin.full_name || admin.email}"?`}
-                            confirmText="Remover"
-                            onConfirm={() => deleteAdminMutation.mutate(admin.user_id)}
-                            variant="destructive"
-                          >
-                            <Button variant="destructive" size="sm" className="h-8 w-8 p-0">
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
-                          </ConfirmationDialog>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        <ul className="surface divide-y divide-border-subtle overflow-hidden">
+          {filtered.map((a) => {
+            const name = a.full_name || a.email || "Sem nome";
+            const isSelf = a.user_id === adminUser?.user_id;
+            return (
+              <li
+                key={a.user_id}
+                className={cn(
+                  "flex flex-col gap-3 p-4 transition-colors duration-200 ease-swift hover:bg-surface-sunken/60 sm:flex-row sm:items-center lg:px-6",
+                  !a.is_active && "text-muted-foreground",
                 )}
-              </CardContent>
-            </Card>
-          )}
-        </>
+              >
+                <div className="flex min-w-0 flex-1 items-center gap-3">
+                  <span
+                    aria-hidden
+                    className={cn(
+                      "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border-subtle bg-surface-sunken font-display text-xs font-semibold",
+                      a.is_active ? "text-foreground" : "text-muted-foreground",
+                    )}
+                  >
+                    {initials(name)}
+                  </span>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className={cn("truncate font-medium", a.is_active && "text-foreground")}>{name}</span>
+                      {isSelf && <Badge variant="secondary">Você</Badge>}
+                      {!a.is_active && <Badge variant="outline">Inativo</Badge>}
+                    </div>
+                    <p className="truncate text-xs text-muted-foreground">{a.email}</p>
+                  </div>
+                </div>
+
+                <dl className="grid grid-cols-2 gap-x-6 text-xs sm:flex sm:items-center">
+                  <div>
+                    <dt className="text-muted-foreground">Desde</dt>
+                    <dd className="tabular text-foreground">{formatDate(a.created_at)}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-muted-foreground">Último acesso</dt>
+                    <dd className="text-foreground">{formatRelative(a.last_sign_in_at)}</dd>
+                  </div>
+                </dl>
+
+                <div className="flex justify-end sm:w-32">
+                  {a.is_active ? (
+                    <ConfirmationDialog
+                      title={`Desativar o acesso de ${name}?`}
+                      description="A pessoa perde o acesso ao painel na hora. A conta dela no Orbi continua intacta e o acesso pode ser reativado."
+                      confirmText="Desativar"
+                      variant="destructive"
+                      onConfirm={() => toggle.mutate({ userId: a.user_id, active: false })}
+                    >
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={isSelf || toggle.isPending}
+                        title={isSelf ? "Você não pode desativar o próprio acesso" : undefined}
+                        className="hover:bg-destructive-soft hover:text-destructive"
+                      >
+                        Desativar
+                      </Button>
+                    </ConfirmationDialog>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={toggle.isPending}
+                      onClick={() => toggle.mutate({ userId: a.user_id, active: true })}
+                    >
+                      Reativar
+                    </Button>
+                  )}
+                </div>
+              </li>
+            );
+          })}
+        </ul>
       )}
 
-      {/* Dialog para adicionar admin */}
-      <AddAdminDialog 
-        open={addDialogOpen}
-        onOpenChange={setAddDialogOpen}
-      />
+      <AddAdminDialog open={addOpen} onOpenChange={setAddOpen} />
     </div>
   );
 }

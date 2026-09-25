@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Search, LayoutDashboard, Users, CreditCard, Receipt, Settings, Shield, BarChart3, FileText } from "lucide-react";
+import { Search, LayoutDashboard, Users, CreditCard, Receipt, Shield, Bug } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -12,14 +12,12 @@ interface SearchItem {
 }
 
 const searchItems: SearchItem[] = [
-  { title: "Dashboard", icon: LayoutDashboard, path: "/admin/dashboard" },
+  { title: "Painel", icon: LayoutDashboard, path: "/admin/dashboard" },
   { title: "Usuários", icon: Users, path: "/admin/users" },
   { title: "Assinaturas", icon: CreditCard, path: "/admin/subscriptions" },
   { title: "Planos", icon: Receipt, path: "/admin/plans" },
-  { title: "Pagamentos", icon: FileText, path: "/admin/payments" },
-  { title: "Analytics", icon: BarChart3, path: "/admin/analytics" },
   { title: "Administradores", icon: Shield, path: "/admin/admins" },
-  { title: "Configurações", icon: Settings, path: "/admin/settings" },
+  { title: "Defeitos & sugestões", icon: Bug, path: "/admin/bug-reports" },
 ];
 
 export function AdminSearchPopover() {
