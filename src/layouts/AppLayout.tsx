@@ -5,6 +5,7 @@ import { AppSidebar } from "@/components/navigation/AppSidebar";
 import { AppHeader } from "@/components/navigation/AppHeader";
 import { BottomNav } from "@/components/navigation/BottomNav";
 import { MfaSecurityReminder } from "@/components/auth/MfaSecurityReminder";
+import { OnboardingModal } from "@/components/onboarding/OnboardingModal";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useIsCompact } from "@/hooks/use-mobile";
@@ -146,6 +147,9 @@ export default function AppLayout({ onLogout }: AppLayoutProps) {
         </div>
 
         <BottomNav onMenuClick={() => setMobileMenuOpen(true)} menuOpen={mobileMenuOpen} />
+
+        {/* Primeiro acesso: aparece sobre qualquer tela do /sistema até ser concluído ou pulado. */}
+        <OnboardingModal />
       </SidebarInset>
     </SidebarProvider>
   );

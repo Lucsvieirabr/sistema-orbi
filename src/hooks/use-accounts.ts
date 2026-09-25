@@ -9,7 +9,29 @@ import { assertUuid } from "@/lib/utils";
 
 type Account = Tables<"accounts">;
 type BalanceRow = Database["public"]["Views"]["vw_account_current_balance"]["Row"];
-type ProjectedBalanceRow = Database["public"]["Views"]["vw_account_projected_balance"]["Row"]; 
+type ProjectedBalanceRow = Database["public"]["Views"]["vw_account_projected_balance"]["Row"];
+
+export type AccountInput = Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">;
+
+/**
+ * INSERT de conta fora do hook (onboarding): sem abrir um segundo canal
+ * realtime `accounts-changes`. O trigger `check_accounts_limit` é a autoridade.
+ */
+export async function insertAccount(values: AccountInput): Promise<Account> {
+  const { data: { user } } = await getCachedAuthUser();
+  if (!user) throw new Error("Usuario nao autenticado");
+  // SEGURANCA: valida/sanitiza antes de ir ao banco (whitelist de `type`,
+  // cor so em hex, nome sem caractere de controle). O banco repete via CHECK.
+  const safe = parseOrThrow(accountSchema, values);
+  const payload: TablesInsert<"accounts"> = { ...safe, user_id: user.id };
+  const { data, error } = await supabase
+    .from("accounts")
+    .insert(payload)
+    .select("id, user_id, name, type, initial_balance, color, created_at")
+    .single();
+  if (error) throw error;
+  return data as Account;
+}
 
 export function useAccounts() {
   const queryClient = useQueryClient();
@@ -78,17 +100,7 @@ export function useAccounts() {
     return accounts.map((a) => ({ ...a, projected_balance: projectedBalances.get(a.id) ?? a.initial_balance }));
   }, [accountsQuery.data, projectedBalancesQuery.data]);
 
-  const createAccount = async (values: Pick<TablesInsert<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
-    const { data: { user } } = await getCachedAuthUser();
-    if (!user) throw new Error("Usuario nao autenticado");
-    // SEGURANCA: valida/sanitiza antes de ir ao banco (whitelist de `type`,
-    // cor so em hex, nome sem caractere de controle). O banco repete via CHECK.
-    const safe = parseOrThrow(accountSchema, values);
-    const payload: TablesInsert<"accounts"> = { ...safe, user_id: user.id };
-    const { data, error } = await supabase.from("accounts").insert(payload).select().single();
-    if (error) throw error;
-    return data;
-  };
+  const createAccount = insertAccount;
 
   const updateAccount = async (id: string, values: Pick<TablesUpdate<"accounts">, "name" | "type" | "initial_balance" | "color">) => {
     const { data: { user } } = await getCachedAuthUser();
